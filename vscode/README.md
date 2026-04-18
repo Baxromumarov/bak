@@ -27,10 +27,16 @@ code --install-extension bak-*.vsix
 
 Set `bak.lspPath` to the full path of `bak-lsp`.
 
+Build it first with:
+
+```sh
+go build -o bin/bak-lsp ./lsp
+```
+
 Example:
 
 ```json
 {
-  "bak.lspPath": "/home/bakhromumarov/go/src/github.com/baxromumarov/bak/bin/bak-lsp"
+    "bak.lspPath": "/home/bakhromumarov/go/src/github.com/baxromumarov/bak/bin/bak-lsp"
 }
 ```

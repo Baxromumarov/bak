@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
 import * as path from "path";
 import {
   LanguageClient,
@@ -11,11 +12,25 @@ let outputChannel: vscode.OutputChannel | null = null;
 
 function resolveServerPath(): string {
   const config = vscode.workspace.getConfiguration("bak");
-  const configured = config.get<string>("lspPath");
-  if (configured && configured.trim() !== "") {
-    return configured;
+  const configured = config.get<string>("lspPath")?.trim();
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+
+  const candidates: string[] = [];
+  if (configured) {
+    candidates.push(path.isAbsolute(configured) ? configured : path.join(workspaceRoot, configured));
   }
-  return "bak-lsp";
+
+  candidates.push(path.join(workspaceRoot, "bin", "bak-lsp"));
+  candidates.push(path.join(workspaceRoot, "bak-lsp"));
+  candidates.push("bak-lsp");
+
+  for (const candidate of candidates) {
+    if (candidate === "bak-lsp" || fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0] ?? "bak-lsp";
 }
 
 export function activate(context: vscode.ExtensionContext) {

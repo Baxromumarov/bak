@@ -63,7 +63,7 @@
       "properties": {
         "bak.lspPath": {
           "type": "string",
-          "default": "bak-lsp",
+          "default": "bin/bak-lsp",
           "description": "Path to the bak language server executable"
         }
       }

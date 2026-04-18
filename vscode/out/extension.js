@@ -3,16 +3,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = require("vscode");
+const fs = require("fs");
+const path = require("path");
 const node_1 = require("vscode-languageclient/node");
 let client = null;
 let outputChannel = null;
 function resolveServerPath() {
     const config = vscode.workspace.getConfiguration("bak");
-    const configured = config.get("lspPath");
-    if (configured && configured.trim() !== "") {
-        return configured;
+    const configured = config.get("lspPath")?.trim();
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+    const candidates = [];
+    if (configured) {
+        candidates.push(path.isAbsolute(configured) ? configured : path.join(workspaceRoot, configured));
     }
-    return "bak-lsp";
+    candidates.push(path.join(workspaceRoot, "bin", "bak-lsp"));
+    candidates.push(path.join(workspaceRoot, "bak-lsp"));
+    candidates.push("bak-lsp");
+    for (const candidate of candidates) {
+        if (candidate === "bak-lsp" || fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+    return candidates[0] ?? "bak-lsp";
 }
 function activate(context) {
     outputChannel = vscode.window.createOutputChannel("Bak Language Server");
