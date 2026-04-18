@@ -1,0 +1,32 @@
+package main
+
+import "src/std/thread/thread.bak" as thread
+
+struct Data {
+    id: int,
+    name: string,
+    values: Vec<int, _>
+}
+
+func worker(d: Data) -> (void) {
+    println("Worker", d.id, ":", d.name, "with", d.values.len(), "items")
+    mut var sum: int = 0
+    for v in d.values {
+        sum = sum + v
+    }
+    println("Worker", d.id, "sum:", sum)
+}
+
+func main() -> (void) {
+    var v1 = Vec.from([1, 2, 3])
+    var d1: Data = Data{id: 1, name: "Alpha", values: v1}
+    
+    var v2 = Vec.from([10, 20])
+    var d2: Data = Data{id: 2, name: "Beta", values: v2}
+
+    var t1 = thread.spawn(worker, d1)
+    var t2 = thread.spawn(worker, d2)
+
+    t1.join()
+    t2.join()
+}

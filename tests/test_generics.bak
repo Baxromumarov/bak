@@ -1,0 +1,99 @@
+// Test file for Generics support
+package main
+
+// Generic struct: Pair<T, U>
+struct Pair<T, U> {
+    first: T
+    second: U
+}
+
+// Generic function: identity
+func identity<T>(value: T) -> (T) {
+    return value
+}
+
+// Generic function: swap pair values
+func swapPair<A, B>(p: &Pair) -> (Pair) {
+    return Pair{first: p.second, second: p.first}
+}
+
+// Generic function: makePair
+func makePair<X, Y>(a: X, b: Y) -> (Pair) {
+    return Pair{first: a, second: b}
+}
+
+// Already working: Vec<T> and Result<T, E>
+func main() -> (void) {
+    println("=== Testing Generics ===")
+    
+    // Test generic struct instantiation
+    println("\n1. Generic Struct Pair<T, U>:")
+    var intPair: Pair<int, int> = Pair{first: 1, second: 2}
+    println("  intPair:", intPair)
+    println("  first:", intPair.first)
+    println("  second:", intPair.second)
+    
+    var mixedPair: Pair<string, int> = Pair{first: "hello", second: 42}
+    println("  mixedPair:", mixedPair)
+    println("  first:", mixedPair.first)
+    println("  second:", mixedPair.second)
+    
+    // Test generic function
+    println("\n2. Generic Function identity<T>:")
+    var intResult: int = identity(42)
+    println("  identity(42):", intResult)
+    
+    var strResult: string = identity("hello")
+    println("  identity('hello'):", strResult)
+    
+    var boolResult: bool = identity(true)
+    println("  identity(true):", boolResult)
+    
+    // Test makePair
+    println("\n3. Generic makePair<X, Y>:")
+    var created: Pair<string, int> = makePair("name", 100)
+    println("  makePair('name', 100):", created)
+    
+    // Test swapPair
+    println("\n4. Generic swapPair<A, B>:")
+    var original: Pair<string, int> = Pair{first: "key", second: 999}
+    println("  original first:", original.first)
+    var swapped: Pair<int, string> = swapPair(&original)
+    println("  swapped:", swapped)
+    
+    // Nested generic types
+    println("\n5. Nested Generics:")
+    var nestedPair: Pair<Pair<int, int>, string> = Pair{first: Pair{first: 1, second: 2}, second: "outer"}
+    println("  nested:", nestedPair)
+    println("  inner first:", nestedPair.first.first)
+
+    println("\n6. Borrowed generic field access:")
+    var borrowedPair: &Pair<int, int> = &intPair
+    println("  borrowed first:", borrowedPair.first)
+
+    println("\n7. Boxed generic field access:")
+    var boxedPair: Pair<int, int> box = box Pair{first: 7, second: 8}
+    var boxedValue: Pair<int, int> = unbox(boxedPair)
+    println("  boxed first:", boxedValue.first)
+    
+    // Vec<T> - already works
+    println("\n8. Built-in Vec<T>:")
+    var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
+    println("  Vec<int>:", numbers)
+    
+    // Result<T, E> - already works  
+    println("\n9. Built-in Result<T, E>:")
+    var okResult: Result<int, string> = Ok(42)
+    var errResult: Result<int, string> = Err("something went wrong")
+    println("  Ok(42):", okResult)
+    println("  Err('...'):", errResult)
+    
+    // Option<T> - already works
+    println("\n10. Built-in Option<T>:")
+    var someVal: Option<int> = Some(100)
+    var noneVal: Option<int> = None
+    println("  Some(100):", someVal)
+    println("  None:", noneVal)
+    
+    println("\n=== Generics tests complete ===")
+}

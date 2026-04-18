@@ -1,0 +1,25 @@
+package main
+
+import "src/std/fmt/fmt.bak" as fmt
+
+func main() -> (void) {
+    // StringBuilder
+    mut var sb: fmt.StringBuilder = fmt.new_builder()
+    sb.write("Hello")
+    sb.write(", ")
+    sb.write("World!")
+    println(sb.build())
+
+    // Format with placeholders
+    println(fmt.format1("Hello, {}!", "Bak"))
+    println(fmt.format2("{} + {} = awesome", "Bak", "coding"))
+    println(fmt.sprintf_int("The answer is {}", 42))
+    println(fmt.sprintf_2int("{} + {} = ?", 10, 20))
+
+    // Repeat and pad
+    println(fmt.repeat("ab", 3))
+    println(fmt.pad_left("42", 6, "0"))
+    println(fmt.pad_right("hi", 6, "."))
+
+    return void
+}

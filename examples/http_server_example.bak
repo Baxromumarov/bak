@@ -1,0 +1,18 @@
+package main
+
+import "std/http" as http
+
+func handle_hello(req: http.Request) -> (http.Response) {
+    mut var who: string = "world"
+    switch req.query("name") {
+        case Some(v) { who = v }
+        case None {}
+    }
+    return http.text(200, "Hello, " + who + "!")
+}
+
+func main() -> (void) {
+    mut var router = http.new_router()
+    router.get("/hello", handle_hello)
+    var _ = http.listen_and_serve(":8080", router)
+}

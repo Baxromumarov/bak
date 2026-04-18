@@ -1,0 +1,32 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func consume(_d: Data) -> (void) {
+    println("consumed")
+}
+
+func inspect(_d: &Data) -> (void) {
+    println("inspecting")
+}
+
+func modify(_d: &mut Data) -> (void) {
+    println("modifying")
+}
+
+func main() -> (void) {
+    var d: Data = Data{id: 1}
+
+    inspect(&d)
+    inspect(&d)
+
+    // Multiple immut ok
+    mut var m: Data = Data{id: 2}
+
+    modify(&mut m)
+    inspect(&m)
+    // After mut borrow is cleared
+    consume(d)
+} // d is now moved

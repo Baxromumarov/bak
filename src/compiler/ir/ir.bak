@@ -1,0 +1,144 @@
+package ir
+
+pub type ValueID = int
+pub type BlockID = int
+pub type FunctionID = int
+
+pub struct Type {
+    kind: TypeKind
+    name: string
+    elem: Option<Box<Type>>
+}
+
+pub enum TypeKind {
+    Void
+    Bool
+    Int
+    Float64
+    Char
+    String
+    Ptr
+    Borrow
+    BorrowMut
+    Struct
+    Enum
+    Tuple
+    Vec
+}
+
+pub struct Program {
+    modules: Vec<Module, _>
+}
+
+pub struct Module {
+    name: string
+    functions: Vec<Function, _>
+}
+
+pub struct Function {
+    name: string
+    params: Vec<Type, _>
+    ret: Type
+    blocks: Vec<Block, _>
+}
+
+pub struct Block {
+    id: BlockID
+    params: Vec<Type, _>
+    instrs: Vec<Instr, _>
+    term: Terminator
+}
+
+pub struct Instr {
+    op: OpCode
+    ty: Type
+    args: Vec<Operand, _>
+    extras: Option<Box<Operand>>
+}
+
+pub struct Terminator {
+    op: TermOp
+    args: Vec<Operand, _>
+    targets: Vec<BlockID, _>
+}
+
+pub enum OpCode {
+    Const
+    Param
+    Add
+    Sub
+    Mul
+    Div
+    Mod
+    Eq
+    Neq
+    Lt
+    Lte
+    Gt
+    Gte
+    And
+    Or
+    Not
+    Neg
+    Move
+    Copy
+    Borrow
+    BorrowMut
+    EndBorrow
+    Drop
+    Alloca
+    Load
+    Store
+    StructNew
+    StructGet
+    StructSet
+    EnumNew
+    EnumIs
+    EnumPayload
+    VecNew
+    VecGet
+    VecSet
+    VecPush
+    VecPop
+    TupleNew
+    Call
+    CallIndirect
+    Builtin
+}
+
+pub enum TermOp {
+    Ret
+    RetVoid
+    Br
+    CondBr
+    Switch
+    Panic
+}
+
+pub struct Operand {
+    kind: OperandKind
+    value: ValueID
+    imm: Immediate
+}
+
+pub enum OperandKind {
+    Value
+    Immediate
+}
+
+pub struct Immediate {
+    kind: ImmKind
+    i64: int
+    f64: float64
+    b: bool
+    s: string
+}
+
+pub enum ImmKind {
+    Int
+    Float
+    Bool
+    String
+    Char
+    Nil
+}

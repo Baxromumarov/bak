@@ -1,0 +1,50 @@
+// Library with various type definitions
+package typelib
+
+// Public struct
+pub struct Point {
+    X: int
+    Y: int
+}
+
+// Public type alias (interchangeable with int)
+pub alias Integer = int
+
+// Public type alias for a struct
+pub type Coordinate = Point
+
+// Public enum
+pub enum Color {
+    Red,
+    Green,
+    Blue
+}
+
+// Public type definition (distinct type, requires explicit construction)
+pub type UserId = int
+
+// Public constant
+pub const MAX_USERS: int = 100
+
+// Public function that returns an aliased type (alias is interchangeable)
+pub func makeInteger(x: int) -> (Integer) {
+    return x
+}
+
+// Public function that returns a type declaration (needs explicit conversion)
+pub func makeUserId(id: int) -> (UserId) {
+    return UserId(id)
+}
+
+// Public function that returns a struct
+pub func makePoint(x: int, y: int) -> (Point) {
+    return Point{X: x, Y: y}
+}
+
+// Public function that uses aliased parameter type
+pub func doubleInteger(x: Integer) -> (Integer) {
+    return x * 2
+}
+
+// Private type alias (should not be accessible)
+type PrivateType = int

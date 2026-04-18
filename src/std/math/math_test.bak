@@ -1,0 +1,418 @@
+package math
+
+import "src/std/math/math.bak" as m
+import "src/std/test/test.bak" as test
+import "src/std/strconv/strconv.bak" as strconv
+
+struct IntUnaryCase {
+    label: string
+    input: int
+    expected: int
+    f: func(int) -> (int)
+}
+
+struct IntBinaryCase {
+    label: string
+    a: int
+    b: int
+    expected: int
+    f: func(int, int) -> (int)
+}
+
+struct IntClampCase {
+    label: string
+    value: int
+    minVal: int
+    maxVal: int
+    expected: int
+    f: func(int, int, int) -> (int)
+}
+
+struct FloatUnaryCase {
+    label: string
+    input: float64
+    expected: float64
+    f: func(float64) -> (float64)
+}
+
+struct FloatBinaryCase {
+    label: string
+    a: float64
+    b: float64
+    expected: float64
+    f: func(float64, float64) -> (float64)
+}
+
+struct FloatClampCase {
+    label: string
+    value: float64
+    minVal: float64
+    maxVal: float64
+    expected: float64
+    f: func(float64, float64, float64) -> (float64)
+}
+
+func test_integer_helpers() -> (void) {
+    mut var t: test.T = test.new("test_integer_helpers")
+    var unary: Vec<IntUnaryCase, _> = Vec.from([
+        {
+            expected: 5,
+            f: m.absInt,
+            input: -5,
+            label: "absInt",
+        },
+        {
+            expected: -1,
+            f: m.signInt,
+            input: -5,
+            label: "signInt",
+        },
+        {
+            expected: 0,
+            f: m.signInt,
+            input: 0,
+            label: "signInt",
+        },
+        {
+            expected: 1,
+            f: m.signInt,
+            input: 3,
+            label: "signInt",
+        },
+    ])
+    for c in unary {
+        t.set_case(c.label + "(input=" + strconv.intToString(c.input) + ") expected=" + strconv.intToString(c.expected))
+        var fn: func(int) -> (int) = c.f
+        t.eq(fn(c.input), c.expected)
+    }
+    var binary: Vec<IntBinaryCase, _> = Vec.from([
+        {
+            a: 3,
+            b: 4,
+            expected: 3,
+            f: m.minInt,
+            label: "minInt",
+        },
+        {
+            a: 3,
+            b: 4,
+            expected: 4,
+            f: m.maxInt,
+            label: "maxInt",
+        },
+    ])
+    for c in binary {
+        t.set_case(c.label + "(a=" + strconv.intToString(c.a) + ", b=" + strconv.intToString(c.b) + ") expected=" + strconv.intToString(c.expected))
+        var fn: func(int, int) -> (int) = c.f
+        t.eq(fn(c.a, c.b), c.expected)
+    }
+    var clampCases: Vec<IntClampCase, _> = Vec.from([
+        {
+            expected: 5,
+            f: m.clampInt,
+            label: "clampInt",
+            maxVal: 5,
+            minVal: 0,
+            value: 10,
+        },
+        {
+            expected: 0,
+            f: m.clampInt,
+            label: "clampInt",
+            maxVal: 5,
+            minVal: 0,
+            value: -2,
+        },
+    ])
+    for c in clampCases {
+        t.set_case(c.label + "(value=" + strconv.intToString(c.value) + ", min=" + strconv.intToString(c.minVal) + ", max=" + strconv.intToString(c.maxVal) + ") expected=" + strconv.intToString(c.expected))
+        var fn: func(int, int, int) -> (int) = c.f
+        t.eq(fn(c.value, c.minVal, c.maxVal), c.expected)
+    }
+    t.finish()
+}
+
+func test_basic_float_ops() -> (void) {
+    mut var t: test.T = test.new("test_basic_float_ops")
+    var unary: Vec<FloatUnaryCase, _> = Vec.from([
+        {
+            expected: 3.5,
+            f: m.absFloat,
+            input: -3.5,
+            label: "absFloat",
+        },
+        {
+            expected: -1.0,
+            f: m.signFloat,
+            input: -0.1,
+            label: "signFloat",
+        },
+        {
+            expected: 0.0,
+            f: m.signFloat,
+            input: 0.0,
+            label: "signFloat",
+        },
+        {
+            expected: 1.0,
+            f: m.signFloat,
+            input: 2.0,
+            label: "signFloat",
+        },
+        {
+            expected: 3.0,
+            f: m.floor,
+            input: 3.7,
+            label: "floor",
+        },
+        {
+            expected: 4.0,
+            f: m.ceil,
+            input: 3.2,
+            label: "ceil",
+        },
+        {
+            expected: 4.0,
+            f: m.trunc,
+            input: 4.9,
+            label: "trunc",
+        },
+        {
+            expected: 2.0,
+            f: m.round,
+            input: 2.4,
+            label: "round",
+        },
+        {
+            expected: 3.0,
+            f: m.round,
+            input: 2.5,
+            label: "round",
+        },
+        {
+            expected: 0.0,
+            f: m.fract,
+            input: 3.0,
+            label: "fract",
+        },
+    ])
+    for c in unary {
+        t.set_case(c.label + "(input=" + strconv.formatFloat(c.input, 6) + ") expected=" + strconv.formatFloat(c.expected, 6))
+        var fn: func(float64) -> (float64) = c.f
+        t.eq_float(fn(c.input), c.expected)
+    }
+    var binary: Vec<FloatBinaryCase, _> = Vec.from([
+        {
+            a: 1.5,
+            b: 2.5,
+            expected: 1.5,
+            f: m.minFloat,
+            label: "minFloat",
+        },
+        {
+            a: 1.5,
+            b: 2.5,
+            expected: 2.5,
+            f: m.maxFloat,
+            label: "maxFloat",
+        },
+        {
+            a: 7.0,
+            b: 3.0,
+            expected: 1.0,
+            f: m.mod,
+            label: "mod",
+        },
+        {
+            a: 4.5,
+            b: 1.5,
+            expected: 0.0,
+            f: m.mod,
+            label: "mod",
+        },
+    ])
+    for c in binary {
+        t.set_case(c.label + "(a=" + strconv.formatFloat(c.a, 6) + ", b=" + strconv.formatFloat(c.b, 6) + ") expected=" + strconv.formatFloat(c.expected, 6))
+        var fn: func(float64, float64) -> (float64) = c.f
+        t.eq_float(fn(c.a, c.b), c.expected)
+    }
+    var clampCases: Vec<FloatClampCase, _> = Vec.from([
+        {
+            expected: 0.0,
+            f: m.clampFloat,
+            label: "clampFloat",
+            maxVal: 1.0,
+            minVal: 0.0,
+            value: -1.0,
+        },
+        {
+            expected: 1.0,
+            f: m.clampFloat,
+            label: "clampFloat",
+            maxVal: 1.0,
+            minVal: 0.0,
+            value: 1.5,
+        },
+    ])
+    for c in clampCases {
+        t.set_case(c.label + "(value=" + strconv.formatFloat(c.value, 6) + ", min=" + strconv.formatFloat(c.minVal, 6) + ", max=" + strconv.formatFloat(c.maxVal, 6) + ") expected=" + strconv.formatFloat(c.expected, 6))
+        var fn: func(float64, float64, float64) -> (float64) = c.f
+        t.eq_float(fn(c.value, c.minVal, c.maxVal), c.expected)
+    }
+    t.finish()
+}
+
+func test_advanced_math() -> (void) {
+    mut var t: test.T = test.new("test_advanced_math")
+    var unary: Vec<FloatUnaryCase, _> = Vec.from([
+        {
+            expected: 1.0,
+            f: m.exp,
+            input: 0.0,
+            label: "exp",
+        },
+        {
+            expected: 0.0,
+            f: m.ln,
+            input: 1.0,
+            label: "ln",
+        },
+        {
+            expected: 1.0,
+            f: m.exp2,
+            input: 0.0,
+            label: "exp2",
+        },
+        {
+            expected: 0.0,
+            f: m.log2,
+            input: 1.0,
+            label: "log2",
+        },
+        {
+            expected: 0.0,
+            f: m.log10,
+            input: 1.0,
+            label: "log10",
+        },
+        {
+            expected: 4.0,
+            f: m.sqrt,
+            input: 16.0,
+            label: "sqrt",
+        },
+        {
+            expected: 3.0,
+            f: m.cbrt,
+            input: 27.0,
+            label: "cbrt",
+        },
+        {
+            expected: 0.0,
+            f: m.sin,
+            input: 0.0,
+            label: "sin",
+        },
+        {
+            expected: 1.0,
+            f: m.cos,
+            input: 0.0,
+            label: "cos",
+        },
+        {
+            expected: 0.0,
+            f: m.tan,
+            input: 0.0,
+            label: "tan",
+        },
+        {
+            expected: 0.0,
+            f: m.asin,
+            input: 0.0,
+            label: "asin",
+        },
+        {
+            expected: 0.0,
+            f: m.acos,
+            input: 1.0,
+            label: "acos",
+        },
+        {
+            expected: 0.0,
+            f: m.atan,
+            input: 0.0,
+            label: "atan",
+        },
+        {
+            expected: 0.0,
+            f: m.deg2rad,
+            input: 0.0,
+            label: "deg2rad",
+        },
+        {
+            expected: 0.0,
+            f: m.rad2deg,
+            input: 0.0,
+            label: "rad2deg",
+        },
+        {
+            expected: 0.0,
+            f: m.sinh,
+            input: 0.0,
+            label: "sinh",
+        },
+        {
+            expected: 1.0,
+            f: m.cosh,
+            input: 0.0,
+            label: "cosh",
+        },
+        {
+            expected: 0.0,
+            f: m.tanh,
+            input: 0.0,
+            label: "tanh",
+        },
+    ])
+    for c in unary {
+        t.set_case(c.label + "(input=" + strconv.formatFloat(c.input, 6) + ") expected=" + strconv.formatFloat(c.expected, 6))
+        var fn: func(float64) -> (float64) = c.f
+        t.eq_float(fn(c.input), c.expected)
+    }
+    var binary: Vec<FloatBinaryCase, _> = Vec.from([
+        {
+            a: 2.0,
+            b: 3.0,
+            expected: 8.0,
+            f: m.pow,
+            label: "pow",
+        },
+        {
+            a: 2.0,
+            b: -1.0,
+            expected: 0.5,
+            f: m.pow,
+            label: "pow",
+        },
+        {
+            a: 3.0,
+            b: 4.0,
+            expected: 5.0,
+            f: m.hypot,
+            label: "hypot",
+        },
+        {
+            a: 0.0,
+            b: -1.0,
+            expected: 3.141592653589793,
+            f: m.atan2,
+            label: "atan2",
+        },
+    ])
+    for c in binary {
+        t.set_case(c.label + "(a=" + strconv.formatFloat(c.a, 6) + ", b=" + strconv.formatFloat(c.b, 6) + ") expected=" + strconv.formatFloat(c.expected, 6))
+        var fn: func(float64, float64) -> (float64) = c.f
+        t.eq_float(fn(c.a, c.b), c.expected)
+    }
+    t.finish()
+}

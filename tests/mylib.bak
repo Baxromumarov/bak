@@ -1,0 +1,69 @@
+// Library package with public and private items
+package mylib
+
+func main() -> (void) {
+    println("Testing mylib")
+    var result: int = add(10, 20)
+    println("add(10, 20) =", result)
+    println("Test passed!")
+}
+
+// Public function - accessible from other packages
+pub func add(a: int, b: int) -> (int) {
+    return a + b
+}
+
+// Private function - only accessible within this package
+func multiply(a: int, b: int) -> (int) {
+    return a * b
+}
+
+// Public struct with mixed visibility fields
+pub struct User {
+    pub name: string
+    pub age: int
+    password: string  // private field
+}
+
+// Private struct
+struct InternalCache {
+    data: string
+}
+
+// Public constant
+pub const VERSION: int = 1
+
+// Private constant  
+const MAGIC_NUMBER: int = 42
+
+// Public type
+pub type UserID = int
+
+// Private type
+type CacheKey = string
+
+// Public enum
+pub enum Status {
+    Active
+    Inactive
+    Pending
+}
+
+// Private enum
+enum InternalState {
+    Loading
+    Ready
+    Error
+}
+
+// Helper function using private items (should work within same package)
+func internalHelper() -> (int) {
+    var cache: InternalCache = InternalCache{data: "cached"}
+    var state: InternalState = Loading
+    return multiply(MAGIC_NUMBER, 2)
+}
+
+// Public function that uses internal items
+pub func publicWithInternal() -> (int) {
+    return internalHelper()
+}

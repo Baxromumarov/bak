@@ -1,0 +1,173 @@
+// Test file for core language features
+package main
+
+struct Point {
+    x: int
+    y: int
+}
+
+struct Counter {
+    value: int
+}
+
+impl Counter as c {
+    func get() -> (int) {
+        return c.value
+    }
+
+    mut func inc() -> (void) {
+        c.value = c.value + 1
+
+        return void
+    }
+}
+
+func sum(n: int) -> (int) {
+    if n == 0 {
+        return 0
+    }
+
+    return n + sum(n - 1)
+}
+
+func main() -> (void) {
+    println("=== Language Features ===")
+    println("")
+    println("1. Variables:")
+
+    var a: int = 1
+    var b: int
+    var c: int = 3
+    mut var d: int = 4
+
+    d = d + 1
+    println(
+        "  vars:",
+        a,
+        b,
+        c,
+        d,
+    )
+    println("")
+    println("2. Struct init:")
+
+    var p1: Point
+    var p2: Point = Point{}
+    var p3: Point = Point{x: 7}
+    var p4: Point = Point{x: 2, y: 3}
+
+    println(
+        "  p1:",
+        p1.x,
+        p1.y,
+    )
+    println(
+        "  p2:",
+        p2.x,
+        p2.y,
+    )
+    println(
+        "  p3:",
+        p3.x,
+        p3.y,
+    )
+    println(
+        "  p4:",
+        p4.x,
+        p4.y,
+    )
+    println("")
+    println("3. If/else:")
+
+    if a < d {
+        println("  if ok")
+    } else {
+        println("  if bad")
+    }
+
+    println("")
+    println("4. While loop:")
+
+    mut var i: int = 0
+    mut var total: int = 0
+
+    while i < 3 {
+        total = total + i
+        i = i + 1
+    }
+
+    println(
+        "  total:",
+        total,
+    )
+    println("")
+    println("5. For loop (ranges):")
+
+    mut var rSum: int = 0
+
+    for n in 1..5 {
+        rSum = rSum + n
+    }
+
+    println(
+        "  [1, 4]:",
+        rSum,
+    )
+
+    mut var exSum: int = 0
+
+    for n in 2..5 {
+        exSum = exSum + n
+    }
+
+    println(
+        "  (1, 4]:",
+        exSum,
+    )
+    println("")
+    println("6. For loop (vec):")
+
+    var nums: Vec<int, _> = Vec.from([1, 2, 3])
+    mut var vSum: int = 0
+
+    for n in nums {
+        vSum = vSum + n
+    }
+
+    println(
+        "  nums:",
+        vSum,
+    )
+    println("")
+    println("7. Functions:")
+    println(
+        "  sum(5):",
+        sum(5),
+    )
+    println("")
+    println("8. Impl methods:")
+
+    mut var counter: Counter = Counter{value: 0}
+
+    counter.inc()
+    counter.inc()
+    println(
+        "  counter:",
+        counter.get(),
+    )
+    println("")
+    println("9. Types:")
+
+    var f: float64 = float(3)
+    var s: string = string(123)
+
+    println(
+        "  types:",
+        f,
+        s,
+    )
+    println("
+=== Language features tests complete ===")
+
+    return void
+}

@@ -1,0 +1,9 @@
+package main
+
+func main() {
+    var x: int = 10
+    var f = func() {
+        println(x) // This should be a type error!
+    }
+    f()
+}

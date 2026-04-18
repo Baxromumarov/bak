@@ -1,0 +1,23 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func inspect(d: &Data) -> (void) {
+}
+
+func modify(d: &mut Data) -> (void) {
+}
+
+func conflict(a: &mut Data, b: &Data) -> (void) {
+}
+
+func main() -> (void) {
+    mut var d: Data = Data{id: 1}
+
+    conflict(
+        &mut d,
+        &d,
+    )
+} // Error: Borrow conflict (mut and immut)

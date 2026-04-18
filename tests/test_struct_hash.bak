@@ -1,0 +1,12 @@
+package main
+
+struct Point {
+    x: int
+    y: int
+}
+
+func main() -> (void) {
+    var p1: Point = Point{x: 1, y: 2}
+
+    println(string(p1))
+}

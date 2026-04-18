@@ -1,0 +1,14 @@
+// Test cyclic import detection - Package A imports B
+package pkg_a
+
+import (
+    "tests/test_import_cycle_b.bak"
+)
+
+pub func funcA() -> (int) {
+    return 1
+}
+
+func main() -> (void) {
+    println("Package A")
+}

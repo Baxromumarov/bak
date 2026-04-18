@@ -1,0 +1,10 @@
+package main
+
+// Test: unused local variables
+func main() -> (void) {
+    var _: int = 1 // should NOT warn
+    var x: int = 2 // should warn
+    var y: int = 3 // should warn
+    print("test")
+    return void
+}

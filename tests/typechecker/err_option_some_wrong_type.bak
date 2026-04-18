@@ -1,0 +1,15 @@
+// Test: Option Some with wrong inner type - should FAIL
+// Expected error: cannot return Option<int> from function expecting Option<string>
+package main
+
+func findName(id: int) -> (Option<string>) {
+    if id == 0 {
+        return None
+    }
+    // ERROR: 123 is int, but Option expects string
+    return Some(123)
+}
+
+func main() -> (void) {
+    return void
+}

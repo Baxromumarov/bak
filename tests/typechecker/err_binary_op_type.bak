@@ -1,0 +1,11 @@
+// Test: Binary operation type mismatch - should FAIL
+// Error: cannot add int and string
+package main
+
+func main() -> (void) {
+    var a: int = 10
+    var b: string = "hello"
+    // ERROR: cannot add int and string
+    var _c = a + b
+    return void
+}

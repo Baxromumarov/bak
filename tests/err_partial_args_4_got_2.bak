@@ -1,0 +1,12 @@
+package main
+
+func fourParams(a: int, b: float64, c: string, d: bool) -> (void) { 
+    println(a, b, c, d)
+    return void 
+}
+
+func main() -> (void) {
+    // ERROR: fourParams expects 4, got 2
+    fourParams(42, 3.14)
+    return void
+}

@@ -1,0 +1,32 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+struct Module {
+    Path:    string
+    Imports: Vec<Entry, _>
+}
+
+func main() -> (int) {
+    mut var entries: Vec<Entry, _> = Vec.new()
+
+    entries.push(Entry{Alias: "a", Path: "a.bak"})
+    entries.push(Entry{Alias: "b", Path: "b.bak"})
+    println("entries.len()=" + entries.len().toString())
+
+    mut var modules: Vec<Module, _> = Vec.new()
+    var m: Module = Module{Imports: entries, Path: "main.bak"}
+
+    println("m.Imports.len()=" + m.Imports.len().toString())
+    modules.push(m)
+    println("modules.len()=" + modules.len().toString())
+
+    var mod: Module = modules[0]
+
+    println("mod.Imports.len()=" + mod.Imports.len().toString())
+
+    return 0
+}

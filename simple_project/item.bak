@@ -1,0 +1,25 @@
+package item
+
+pub enum Category {
+    Electronics
+    Grocery
+    Furniture
+}
+
+// pub type Price = float64 // Testing strictness - currently failing alias assignment
+
+pub struct Product {
+    pub Name: string
+    pub ID: int
+    pub Rate: float64
+    pub Kind: Category
+}
+
+pub func New(name: string, id: int, rate: float64, kind: Category) -> (Product) {
+    return Product{
+        Name: name,
+        ID: id,
+        Rate: rate,
+        Kind: kind,
+    }
+}

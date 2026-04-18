@@ -1,0 +1,34 @@
+package main
+
+// =============================================================================
+// Test: Attempting to access PRIVATE types from a module
+// This file tests that private (non-pub) types cannot be accessed from outside
+// =============================================================================
+
+import "tests/typelib/typelib.bak" as types
+
+// Try to create alias for private struct - should fail at runtime
+// alias PrivateData = types.InternalData  // This SHOULD cause an error
+
+func main() -> (void) {
+    println("Testing private type access:")
+    
+    // Try to access private struct directly - should fail
+    // var data types.InternalData = types.InternalData{Secret: "secret", Value: 42}
+    
+    // This test file is designed to be modified to test various error cases
+    // Uncomment the lines above one at a time to verify errors
+    
+    println("NOTE: To test visibility errors, uncomment the alias or struct access lines")
+    println("Private types should not be accessible from outside their module")
+    
+    // For now, just verify public types work
+    var p: types.Point = types.Point{X: 1, Y: 2}
+    println("  Public types.Point works:", p)
+    
+    var max: int = types.MAX_POINTS
+    println("  Public types.MAX_POINTS works:", max)
+    
+    println("✓ Visibility test complete")
+    return void
+}

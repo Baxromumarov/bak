@@ -1,0 +1,37 @@
+// Test: Enum with pattern matching - should PASS
+package main
+
+enum Color {
+    Red
+    Green
+    Blue
+    RGB(int, int, int)
+}
+
+func colorName(c: Color) -> (string) {
+    switch c {
+        case Red {
+            return "Red"
+        }
+        case Green {
+            return "Green"
+        }
+        case Blue {
+            return "Blue"
+        }
+        case RGB(r, g, b) {
+            return "Custom RGB"
+        }
+    }
+    return "Unknown"
+}
+
+func main() -> (void) {
+    var red = Red
+    var custom = RGB(255, 128, 64)
+    
+    println("Color:", colorName(red))
+    println("Custom:", colorName(custom))
+    
+    return void
+}

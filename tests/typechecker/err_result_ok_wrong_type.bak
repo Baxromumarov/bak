@@ -1,0 +1,15 @@
+// Test: Result Ok with wrong inner type - should FAIL
+// Expected error: cannot return Result<int, _> from function expecting Result<float64, string>
+package main
+
+func divide(a: int, b: int) -> (Result<float64, string>) {
+    if b == 0 {
+        return Err("Division by zero")
+    }
+    // ERROR: a/b is int, but Result expects float64
+    return Ok(a / b)
+}
+
+func main() -> (void) {
+    return void
+}

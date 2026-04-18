@@ -1,0 +1,12 @@
+package main
+
+func main() -> (int) {
+    mut var v: Vec<int, _> = Vec.new()
+    v.push(2)
+    v.push(3)
+    var a: int = v.len()
+    var b: int = v[0] + v[1]
+    v.pop()
+    var c: int = v.len()
+    return a + b + c
+}

@@ -1,0 +1,372 @@
+package log
+
+import "src/std/time/time.bak" as time
+import "src/std/fs/fs.bak" as fs
+import "src/std/os/os.bak" as os
+
+pub const LEVEL_TRACE: int = 5
+pub const LEVEL_DEBUG: int = 10
+pub const LEVEL_INFO: int = 20
+pub const LEVEL_TEST: int = 30
+pub const LEVEL_WARN: int = 40
+pub const LEVEL_ERROR: int = 50
+const COLOR_RESET: string = "[0m"
+const COLOR_RED: string = "[31m"
+const COLOR_GREEN: string = "[32m"
+const COLOR_YELLOW: string = "[33m"
+const COLOR_BLUE: string = "[34m"
+const COLOR_MAGENTA: string = "[35m"
+const COLOR_CYAN: string = "[36m"
+const COLOR_GRAY: string = "[90m"
+pub struct Logger {
+    pub min_level: int
+    pub use_color: bool
+    pub show_time: bool
+    pub prefix: string
+    pub file_path: string
+    pub append_file: bool
+}
+
+// new creates a logger with INFO level and color on.
+pub func new() -> (Logger) {
+    return Logger{
+        append_file: true,
+        file_path: "",
+        min_level: LEVEL_INFO,
+        prefix: "",
+        show_time: true,
+        use_color: true,
+    }
+}
+// default_logger is the global logger used by package-level helpers.
+mut var default_logger: Logger = new()
+pub func set_level(level: int) -> (void) {
+    default_logger.min_level = level
+}
+
+pub func enable_color() -> (void) {
+    default_logger.use_color = true
+}
+
+pub func disable_color() -> (void) {
+    default_logger.use_color = false
+}
+
+pub func set_show_time(enabled: bool) -> (void) {
+    default_logger.show_time = enabled
+}
+
+pub func set_prefix(p: string) -> (void) {
+    default_logger.prefix = p
+}
+
+pub func set_file(path: string) -> (void) {
+    default_logger.file_path = path
+}
+
+pub func clear_file() -> (void) {
+    default_logger.file_path = ""
+}
+
+pub func set_append(enabled: bool) -> (void) {
+    default_logger.append_file = enabled
+}
+
+pub func trace(msg: string) -> (void) {
+    default_logger.log(LEVEL_TRACE, msg)
+}
+
+pub func debug(msg: string) -> (void) {
+    default_logger.log(LEVEL_DEBUG, msg)
+}
+
+pub func info(msg: string) -> (void) {
+    default_logger.log(LEVEL_INFO, msg)
+}
+
+pub func test(msg: string) -> (void) {
+    default_logger.log(LEVEL_TEST, msg)
+}
+
+pub func warn(msg: string) -> (void) {
+    default_logger.log(LEVEL_WARN, msg)
+}
+
+pub func error(msg: string) -> (void) {
+    default_logger.log(LEVEL_ERROR, msg)
+}
+
+pub func fatal(msg: string) -> (void) {
+    default_logger.log(LEVEL_ERROR, msg)
+    os.exit(1)
+}
+
+pub func trace_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_TRACE, msg, fields)
+}
+
+pub func debug_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_DEBUG, msg, fields)
+}
+
+pub func info_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_INFO, msg, fields)
+}
+
+pub func test_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_TEST, msg, fields)
+}
+
+pub func warn_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_WARN, msg, fields)
+}
+
+pub func error_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_ERROR, msg, fields)
+}
+
+pub func fatal_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.log_kv(LEVEL_ERROR, msg, fields)
+    os.exit(1)
+}
+
+pub struct Field {
+    pub key: string
+    pub value: string
+}
+
+pub func kv(key: string, value: string) -> (Field) {
+    return Field{key: key, value: value}
+}
+
+pub func kv_int(key: string, value: int) -> (Field) {
+    return Field{key: key, value: int_to_string(value)}
+}
+
+pub func kv_bool(key: string, value: bool) -> (Field) {
+    return Field{key: key, value: bool_to_string(value)}
+}
+
+pub func kv_float(key: string, value: float64) -> (Field) {
+    return Field{key: key, value: float_to_string(value)}
+}
+
+pub func with_prefix(prefix: string, level: int) -> (Logger) {
+    return Logger{
+        append_file: default_logger.append_file,
+        file_path: default_logger.file_path,
+        min_level: level,
+        prefix: prefix,
+        show_time: default_logger.show_time,
+        use_color: default_logger.use_color,
+    }
+}
+
+pub func module(name: string, level: int) -> (Logger) {
+    return with_prefix("[" + name + "]", level)
+}
+
+impl Logger as l {
+    pub mut func log(level: int, msg: string) -> (void) {
+        l.log_kv(level, msg, Vec.new())
+    }
+    pub mut func log_kv(level: int, msg: string, fields: Vec<Field, _>) -> (void) {
+        if level < l.min_level {
+            return void
+        }
+        var level_name: string = level_to_name(level)
+        var prefix: string = l.prefix
+        mut var time_part: string = ""
+        if l.show_time {
+            time_part = time.now().format(time.FormatDateTime) + " "
+        }
+        mut var line: string = time_part
+        if prefix.len() > 0 {
+            line = line + prefix + " "
+        }
+        mut var fields_part: string = format_fields(&fields)
+        if l.use_color {
+            line = line + level_to_color(level) + "[" + level_name + "]" + COLOR_RESET + " " + msg + fields_part
+        } else {
+            line = line + "[" + level_name + "] " + msg + fields_part
+        }
+        if l.file_path.len() > 0 {
+            if l.append_file {
+                var _ = fs.appendFile(l.file_path, line + "
+")
+            } else {
+                var _ = fs.writeFile(l.file_path, line + "
+")
+            }
+        } else {
+            __builtin_println(line)
+        }
+    }
+    pub mut func trace(msg: string) -> (void) {
+        l.log(LEVEL_TRACE, msg)
+    }
+    pub mut func debug(msg: string) -> (void) {
+        l.log(LEVEL_DEBUG, msg)
+    }
+    pub mut func info(msg: string) -> (void) {
+        l.log(LEVEL_INFO, msg)
+    }
+    pub mut func warn(msg: string) -> (void) {
+        l.log(LEVEL_WARN, msg)
+    }
+    pub mut func error(msg: string) -> (void) {
+        l.log(LEVEL_ERROR, msg)
+    }
+    pub mut func fatal(msg: string) -> (void) {
+        l.log(LEVEL_ERROR, msg)
+        os.exit(1)
+    }
+    pub mut func trace_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_TRACE, msg, fields)
+    }
+    pub mut func debug_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_DEBUG, msg, fields)
+    }
+    pub mut func info_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_INFO, msg, fields)
+    }
+    pub mut func warn_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_WARN, msg, fields)
+    }
+    pub mut func error_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_ERROR, msg, fields)
+    }
+    pub mut func fatal_kv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.log_kv(LEVEL_ERROR, msg, fields)
+        os.exit(1)
+    }
+}
+
+func level_to_name(level: int) -> (string) {
+    if level == LEVEL_TRACE {
+        return "TRACE"
+    }
+    if level == LEVEL_DEBUG {
+        return "DEBUG"
+    }
+    if level == LEVEL_INFO {
+        return "INFO"
+    }
+    if level == LEVEL_TEST {
+        return "TEST"
+    }
+    if level == LEVEL_WARN {
+        return "WARN"
+    }
+    if level == LEVEL_ERROR {
+        return "ERROR"
+    }
+    return "LOG"
+}
+
+func level_to_color(level: int) -> (string) {
+    if level == LEVEL_TRACE {
+        return COLOR_GRAY
+    }
+    if level == LEVEL_DEBUG {
+        return COLOR_CYAN
+    }
+    if level == LEVEL_INFO {
+        return COLOR_GREEN
+    }
+    if level == LEVEL_TEST {
+        return COLOR_MAGENTA
+    }
+    if level == LEVEL_WARN {
+        return COLOR_YELLOW
+    }
+    if level == LEVEL_ERROR {
+        return COLOR_RED
+    }
+    return COLOR_BLUE
+}
+
+func format_fields(fields: &Vec<Field, _>) -> (string) {
+    if fields.len() == 0 {
+        return ""
+    }
+    mut var out: string = " {"
+    mut var i: int = 0
+    while i < fields.len() {
+        if i > 0 {
+            out = out + ", "
+        }
+        out = out + (fields[i]).key + "=" + (fields[i]).value
+        i = i + 1
+    }
+    return out + "}"
+}
+// =============================================================================
+// HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)
+// =============================================================================
+const CH_0: int = 48
+const CH_MINUS: int = 45
+func int_to_string(n: int) -> (string) {
+    if n == 0 {
+        return "0"
+    }
+    mut var negative: bool = false
+    mut var num: int = n
+    if num < 0 {
+        negative = true
+        num = -num
+    }
+    mut var digits: Vec<char, _> = Vec.new()
+    while num > 0 {
+        var digit: int = num % 10
+        digits.push(char(CH_0 + digit))
+        num = num / 10
+    }
+    mut var result: string = ""
+    if negative {
+        result = "-"
+    }
+    mut var i: int = digits.len() - 1
+    while i >= 0 {
+        result = result + string(digits[i])
+        i = i - 1
+    }
+    return result
+}
+
+func bool_to_string(b: bool) -> (string) {
+    if b {
+        return "true"
+    }
+    return "false"
+}
+
+func float_to_string(f: float64) -> (string) {
+    if f != f {
+        return "NaN"
+    }
+    var prec: int = 6
+    mut var negative: bool = false
+    mut var value: float64 = f
+    if value < 0.0 {
+        negative = true
+        value = -value
+    }
+    var int_part: int = int(value)
+    mut var frac: float64 = value - float64(int_part)
+    mut var result: string = ""
+    if negative {
+        result = "-"
+    }
+    result = result + int_to_string(int_part)
+    result = result + "."
+    mut var i: int = 0
+    while i < prec {
+        frac = frac * 10.0
+        var digit: int = int(frac)
+        result = result + string(char(CH_0 + digit))
+        frac = frac - float64(digit)
+        i = i + 1
+    }
+    return result
+}

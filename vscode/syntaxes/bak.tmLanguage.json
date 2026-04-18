@@ -1,0 +1,289 @@
+{
+  "name": "Bak",
+  "scopeName": "source.bak",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#constants"
+    },
+    {
+      "include": "#method-calls"
+    },
+    {
+      "include": "#function-calls"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "declarations": {
+      "patterns": [
+        {
+          "name": "meta.declaration.package",
+          "match": "\\b(package)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "entity.name.namespace"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.import",
+          "match": "\\b(import)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.type",
+          "match": "\\b(struct|enum|type|alias)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "entity.name.type"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.impl",
+          "match": "\\b(impl)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "entity.name.type"
+            },
+            "3": {
+              "name": "keyword.control"
+            },
+            "4": {
+              "name": "variable.parameter"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.impl.simple",
+          "match": "\\b(impl)\\s+([A-Za-z_][A-Za-z0-9_]*)(?!\\s+as)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "entity.name.type"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.function",
+          "match": "\\b(pub\\s+)?(mut\\s+)?(func)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "keyword.control"
+            },
+            "3": {
+              "name": "keyword.control"
+            },
+            "4": {
+              "name": "entity.name.function"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.variable",
+          "match": "\\b(var|const)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "variable.other"
+            }
+          }
+        },
+        {
+          "name": "meta.declaration.variable.mut",
+          "match": "\\b(mut)\\s+(var)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control"
+            },
+            "2": {
+              "name": "keyword.control"
+            },
+            "3": {
+              "name": "variable.other"
+            }
+          }
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash",
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.block",
+          "begin": "/\\*",
+          "end": "\\*/"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.other.raw",
+          "begin": "`",
+          "end": "`",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end"
+            }
+          }
+        },
+        {
+          "name": "string.quoted.double",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape",
+              "match": "\\\\."
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.char",
+          "match": "'\\\\\\\\.'|'''|'[^'\\\\\\\\]'"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control",
+          "match": "\\b(return|if|else|while|for|in|switch|case|default|break|continue|defer|import|as|var|mut|const|unsafe|pub|struct|enum|impl|func|type|alias|package)\\b"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type",
+          "match": "\\b(int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|bool|string|char|void)\\b"
+        },
+        {
+          "name": "support.class",
+          "match": "\\b(Vec|Result|Option|Box)\\b"
+        },
+        {
+          "name": "entity.name.type",
+          "match": "\\b([A-Z][A-Za-z0-9_]*)\\b(?!\\s*\\()"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.language",
+          "match": "\\b(true|false|nil|none|None)\\b"
+        },
+        {
+          "name": "entity.name.function",
+          "match": "\\b(Ok|Err|Some)\\b(?=\\s*\\()"
+        }
+      ]
+    },
+    "method-calls": {
+      "patterns": [
+        {
+          "match": "\\.\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function"
+            }
+          }
+        }
+      ]
+    },
+    "function-calls": {
+      "patterns": [
+        {
+          "match": "\\b([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function"
+            }
+          }
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric",
+          "match": "\\b0[xX][0-9a-fA-F]+\\b"
+        },
+        {
+          "name": "constant.numeric",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric",
+          "match": "\\b0[oO][0-7]+\\b"
+        },
+        {
+          "name": "constant.numeric",
+          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.numeric",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other",
+          "match": "\\b[a-z_][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

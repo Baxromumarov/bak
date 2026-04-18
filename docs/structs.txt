@@ -1,0 +1,53 @@
+p1 is created
+
+# Struct Initialization in bak
+
+bak supports multiple forms of struct initialization, all with clear, unified rules and no hidden behavior.
+
+## Supported Forms
+
+**1. Declaration with default initialization:**
+```
+var p1 Point
+```
+Equivalent to:
+```
+var p1 Point = Point{}
+```
+All fields are default-initialized. No heap allocation unless fields require it.
+
+**2. Typed declaration with explicit initializer:**
+```
+var p1 Point = Point{x: 3, y: 4}
+```
+Type and initializer are both explicit. No inference.
+
+**3. Typed declaration with empty initializer:**
+```
+var p1 Point = Point{}
+```
+Explicit zero/default initialization.
+
+**4. Type inference with struct literal:**
+```
+var p1 = Point{x: 3, y: 4}
+```
+Allowed if the type is unambiguous. No implicit heap allocation or magic defaults.
+
+## Unified Rule
+- All forms above are equivalent in initialization semantics.
+- `var p T` is equivalent to `var p T = T{}`
+- `T{}` initializes all fields to their default values.
+- `T{ field: value }` initializes specified fields and default-initializes the rest.
+- Struct literals do not allocate on the heap unless explicitly wrapped in `box`.
+
+## What to Avoid
+- No form should behave differently in subtle ways.
+- No implicit heap allocation or skipped default initialization.
+- No partial initialization without explicit fields.
+
+## Rationale
+- Ergonomic and clear, matching Go, Rust, and Zig.
+- No ownership confusion: all forms produce a value, not a pointer. Heap allocation requires `box`.
+- Compiler simplicity: all forms lower to a single internal representation.
+- Self-hosting friendly: supports patterns needed for compiler development.

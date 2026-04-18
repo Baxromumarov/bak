@@ -1,0 +1,2 @@
+package main
+func main() -> (void) { var x: int = __builtin_string_ptr("hello") }

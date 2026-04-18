@@ -1,0 +1,39 @@
+// Test using imported types in local type definitions
+package main
+
+import "tests/typelib.bak"
+
+// Define local type alias using imported type
+type MyInteger = typelib.Integer
+
+// Define local struct using imported types
+struct Container {
+    Point: typelib.Point
+    Id: typelib.UserId
+    Count: typelib.Integer
+}
+
+func main() -> (void) {
+    println("=== Testing Nested Type Usage ===")
+    
+    // Use local alias based on imported type
+    var x: MyInteger = typelib.makeInteger(42)
+    println("MyInteger x:", x)
+    
+    // Use local struct with imported fields
+    var container: Container = Container{
+        Point: typelib.Point{X: 1, Y: 2},
+        Id: typelib.makeUserId(100),
+        Count: typelib.makeInteger(50)
+    }
+    println("Container Point:", container.Point.X, container.Point.Y)
+    println("Container Id:", container.Id)
+    println("Container Count:", container.Count)
+    
+    // Pass imported type through local alias
+    var doubled: typelib.Integer = typelib.doubleInteger(x)
+    println("doubleInteger via alias:", doubled)
+    
+    println("Nested type tests passed!")
+    return void
+}

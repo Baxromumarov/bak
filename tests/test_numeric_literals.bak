@@ -1,0 +1,43 @@
+// Test all supported numeric literal syntaxes in bak
+package main
+
+func main() -> (void) {
+    println("=== Numeric Literal Syntax Test ===")
+
+    // Decimal
+    var dec: int = 42
+    println("dec:", dec) // 42
+
+    // Binary
+    var bin: int = 0b101010
+    println("bin:", bin) // 42
+
+    // Octal
+    var oct: int = 0o52
+    println("oct:", oct) // 42
+
+    // Hexadecimal
+    var hex: int = 0x2A
+    println("hex:", hex) // 42
+
+    // Large values
+    var big_bin: uint32 = 0b1111111111111111
+    var big_oct: uint32 = 0o177777
+    var big_hex: uint32 = 0xFFFF
+    println("big_bin:", big_bin) // 65535
+    println("big_oct:", big_oct) // 65535
+    println("big_hex:", big_hex) // 65535
+
+    // Mixed usage in expressions
+    var sum: int = 0b1 + 0o1 + 0x1 + 1
+    println("sum:", sum) // 4
+
+    // Assign to different types
+    var u8: uint8 = 0xFF
+    var i16: int16 = 0o177777
+    println("u8:", u8) // 255
+    println("i16:", i16) // 65535
+
+    println("Numeric literal syntax test complete!")
+    return void
+}

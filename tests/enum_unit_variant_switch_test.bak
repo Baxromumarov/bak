@@ -1,0 +1,20 @@
+package main
+
+import "src/std/test/test.bak" as test
+
+enum Color {
+    Red
+    Green
+}
+
+func test_switch_unit_variant() -> (void) {
+    mut var t: test.T = test.new("switch_unit_variant")
+    var c: Color = Color.Red
+    mut var out: string = ""
+    switch c {
+        case Red { out = "red" }
+        case Green { out = "green" }
+    }
+    t.eq_string(out, "red")
+}
+

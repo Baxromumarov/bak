@@ -1,0 +1,37 @@
+package main
+
+import "src/compiler/native/elf.bak" as native
+import "src/std/strconv/strconv.bak" as strconv
+import "src/std/os/os.bak" as os
+
+func main() -> (void) {
+    var path: string = "/tmp/bakc_native_test"
+
+    var writeRes: Result<void, string> = native.WriteMinimalELF(path, 0)
+    if writeRes.is_err() {
+        println("write failed: " + writeRes.unwrap_err())
+        os.exit(1)
+    }
+
+    // Ensure executable bit
+    var chmodRes = __builtin_exec("chmod", ["+x", path])
+    if chmodRes.is_err() {
+        println("chmod failed: " + chmodRes.unwrap_err())
+        os.exit(1)
+    }
+
+    var runRes = __builtin_exec(path, [])
+    if runRes.is_err() {
+        println("exec failed: " + runRes.unwrap_err())
+        os.exit(1)
+    }
+
+    var result = runRes.unwrap()
+    if result.ExitCode != 0 {
+        println("unexpected exit code: " + strconv.intToString(result.ExitCode))
+        println("output: " + result.Output)
+        os.exit(1)
+    }
+
+    println("native emit test: OK")
+}

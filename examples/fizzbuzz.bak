@@ -1,0 +1,35 @@
+// A complete example: FizzBuzz in bak
+// Demonstrates the explicit nature of bak
+
+package main
+
+func fizzbuzz(n: int) -> (string) {
+    var divisibleBy3: bool = n % 3 == 0
+    var divisibleBy5: bool = n % 5 == 0
+    
+    if divisibleBy3 && divisibleBy5 {
+        return "FizzBuzz"
+    } else {
+        if divisibleBy3 {
+            return "Fizz"
+        } else {
+            if divisibleBy5 {
+                return "Buzz"
+            } else {
+                return string(n)
+            }
+        }
+    }
+}
+
+func main() -> (void) {
+    println("FizzBuzz from 1 to 20:")
+    println("======================")
+    
+    mut var i: int = 1
+    while i <= 20 {
+        var result: string = fizzbuzz(i)
+        println(i, "->", result)
+        i = i + 1
+    }
+}

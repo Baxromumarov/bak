@@ -1,0 +1,8 @@
+package main
+
+// expect: E0201 cannot assign to immutable variable 'x'
+func main() -> (void) {
+    var x: int = 1
+    x = 2
+    return void
+}

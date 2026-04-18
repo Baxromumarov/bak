@@ -1,0 +1,13 @@
+package main
+
+func main() -> (void) {
+    var a: string = "hello"
+
+    if a == "hello" {
+        println("ok")
+    } else {
+        println("WRONG")
+    }
+
+    return void
+}

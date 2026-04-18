@@ -1,0 +1,25 @@
+// Test importing without alias (uses default name from path)
+package main
+
+import "tests/mathlib.bak"
+
+func main() -> (void) {
+    println("Testing import without alias")
+    
+    // Use the module with its default name (derived from filename)
+    var sum: int = mathlib.add(10, 20)
+    println("mathlib.add(10, 20) =", sum)
+    
+    var diff: int = mathlib.sub(50, 30)
+    println("mathlib.sub(50, 30) =", diff)
+    
+    
+    var c: mathlib.Calculator = mathlib.Calculator{
+        A: 15,
+        B: 25,
+    }
+    
+    println("All tests passed!")
+
+    return void
+}

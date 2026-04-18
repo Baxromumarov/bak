@@ -1,0 +1,684 @@
+package native
+
+// Type size/alignment and struct layout helpers (Phase 1).
+import "src/compiler/ast/ast.bak" as ast
+
+const PTR_SIZE: int = 8
+const PTR_ALIGN: int = 8
+const INT_SIZE: int = 8
+const INT_ALIGN: int = 8
+const BOOL_SIZE: int = 8
+const BOOL_ALIGN: int = 8
+const CHAR_SIZE: int = 8
+const CHAR_ALIGN: int = 8
+const FLOAT64_SIZE: int = 8
+const FLOAT64_ALIGN: int = 8
+const STRING_SIZE: int = 8
+const STRING_ALIGN: int = 8
+const VEC_SIZE: int = 8
+const VEC_ALIGN: int = 8
+// Field kind classification for deep-copy
+pub const FIELD_KIND_PRIMITIVE: int = 0
+pub const FIELD_KIND_STRING: int = 1
+pub const FIELD_KIND_VEC: int = 2
+pub const FIELD_KIND_STRUCT: int = 3
+
+pub struct TypeLayout {
+    pub size:  int
+    pub align: int
+}
+
+pub struct FieldLayout {
+    pub name:       string
+    pub offset:     int
+    pub size:       int
+    pub align:      int
+    pub kind:       int
+    pub inner_type: string
+}
+
+// FIELD_KIND_* constant
+// For Vec: element type name; for struct: struct name
+pub struct StructLayout {
+    pub size:   int
+    pub align:  int
+    pub fields: Vec<FieldLayout, _>
+}
+
+pub func type_size(
+    t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (Result<int, string>) {
+    var res: Result<TypeLayout, string> = type_layout(
+        t,
+        structs,
+    )
+
+    switch res {
+        case Ok(tl) {
+            return Ok(tl.size)
+        }
+        case Err(msg) {
+            return Err(msg)
+        }
+    }
+}
+
+pub func type_align(
+    t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (Result<int, string>) {
+    var res: Result<TypeLayout, string> = type_layout(
+        t,
+        structs,
+    )
+
+    switch res {
+        case Ok(tl) {
+            return Ok(tl.align)
+        }
+        case Err(msg) {
+            return Err(msg)
+        }
+    }
+}
+
+pub func type_layout(
+    t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (Result<TypeLayout, string>) {
+    mut var visiting: Vec<string, _> = Vec.new()
+
+    return type_layout_inner(
+        t,
+        structs,
+        &mut visiting,
+    )
+}
+
+pub func struct_layout(
+    decl: &ast.StructDecl,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (Result<StructLayout, string>) {
+    mut var visiting: Vec<string, _> = Vec.new()
+
+    return struct_layout_inner(
+        decl,
+        structs,
+        &mut visiting,
+    )
+}
+
+func type_layout_inner(
+    t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    switch *t {
+        case ast.TypeExpression.Simple(st) {
+            return simple_layout(
+                &st.Name,
+                structs,
+                visiting,
+            )
+        }
+        case ast.TypeExpression.Generic(gt) {
+            return generic_layout(
+                &gt,
+                structs,
+                visiting,
+            )
+        }
+        case ast.TypeExpression.BorrowRef(_) {
+            return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+        }
+        case ast.TypeExpression.BoxRef(_) {
+            return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+        }
+        case ast.TypeExpression.BoxOptional(_) {
+            return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+        }
+        case ast.TypeExpression.TupleRef(tt) {
+            return tuple_layout(
+                &tt.Elements,
+                structs,
+                visiting,
+            )
+        }
+        case ast.TypeExpression.Function(_) {
+            return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+        }
+        case ast.TypeExpression.Size(_) {
+            return Ok(TypeLayout{align: INT_ALIGN, size: INT_SIZE})
+        }
+        case ast.TypeExpression.Void(_) {
+            return Ok(TypeLayout{align: 1, size: 0})
+        }
+        case ast.TypeExpression.Error(_) {
+            return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+        }
+    }
+}
+
+func simple_layout(
+    name: &string,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    if *name == "bool" {
+        return Ok(TypeLayout{align: BOOL_ALIGN, size: BOOL_SIZE})
+    }
+
+    if *name == "char" {
+        return Ok(TypeLayout{align: CHAR_ALIGN, size: CHAR_SIZE})
+    }
+
+    if *name == "float32" {
+        return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+    }
+
+    if *name == "float64" {
+        return Ok(TypeLayout{align: FLOAT64_ALIGN, size: FLOAT64_SIZE})
+    }
+
+    if *name == "string" {
+        return Ok(TypeLayout{align: STRING_ALIGN, size: STRING_SIZE})
+    }
+
+    if *name == "Vec" {
+        return Ok(TypeLayout{align: VEC_ALIGN, size: VEC_SIZE})
+    }
+
+    if *name == "Option" || *name == "Result" {
+        return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+    }
+
+    if *name == "void" {
+        return Ok(TypeLayout{align: 1, size: 0})
+    }
+
+    if *name == "int8" || *name == "uint8" {
+        return Ok(TypeLayout{align: INT_ALIGN, size: INT_SIZE})
+    }
+
+    if *name == "int16" || *name == "uint16" {
+        return Ok(TypeLayout{align: INT_ALIGN, size: INT_SIZE})
+    }
+
+    if *name == "int32" || *name == "uint32" {
+        return Ok(TypeLayout{align: INT_ALIGN, size: INT_SIZE})
+    }
+
+    if *name == "int64" || *name == "uint64" || *name == "int" || *name == "uint" || *name == "usize" || *name == "isize" {
+        return Ok(TypeLayout{align: INT_ALIGN, size: INT_SIZE})
+    }
+
+    if name.startsWith("ast.") {
+        switch find_struct(
+            structs,
+            name,
+        ) {
+            case Some(decl) {
+                if is_visiting(
+                    visiting,
+                    name,
+                ) {
+                    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+                }
+
+                visiting.push(*name)
+                var sRes: Result<StructLayout, string> = struct_layout_inner(
+                    &decl,
+                    structs,
+                    visiting,
+                )
+                visiting.remove(visiting.len() - 1)
+
+                switch sRes {
+                    case Err(msg) {
+                        return Err(msg)
+                    }
+                    case Ok(sl) {
+                        return Ok(
+                            TypeLayout{
+                                align: sl.align,
+                                size:  sl.size,
+                            },
+                        )
+                    }
+                }
+            }
+            case None {
+            }
+        }
+    }
+
+    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+}
+
+func generic_layout(
+    gt: &ast.GenericType,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    if gt.Name == "Vec" {
+        return Ok(TypeLayout{align: VEC_ALIGN, size: VEC_SIZE})
+    }
+
+    if gt.Name == "Option" {
+        return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+    }
+
+    if gt.Name == "Result" {
+        return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+    }
+
+    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+}
+
+func tuple_layout(
+    elems: &Vec<ast.TypeExpression, _>,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    var _elems: &Vec<ast.TypeExpression, _> = elems
+    var _structs: &Vec<ast.StructDecl, _> = structs
+    var _visiting: &mut Vec<string, _> = visiting
+
+    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+}
+
+func option_layout(
+    inner: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    var _inner: &ast.TypeExpression = inner
+    var _structs: &Vec<ast.StructDecl, _> = structs
+    var _visiting: &mut Vec<string, _> = visiting
+
+    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+}
+
+func result_layout(
+    ok_t: &ast.TypeExpression,
+    err_t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<TypeLayout, string>) {
+    var _ok: &ast.TypeExpression = ok_t
+    var _err: &ast.TypeExpression = err_t
+    var _structs: &Vec<ast.StructDecl, _> = structs
+    var _visiting: &mut Vec<string, _> = visiting
+
+    return Ok(TypeLayout{align: PTR_ALIGN, size: PTR_SIZE})
+}
+
+func struct_layout_inner(
+    decl: &ast.StructDecl,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<StructLayout, string>) {
+    var _structs: &Vec<ast.StructDecl, _> = structs
+    var _visiting: &mut Vec<string, _> = visiting
+
+    return layout_fields(
+        &decl.Fields,
+        _structs,
+        _visiting,
+    )
+}
+
+func type_name_kind(
+    t: &ast.TypeExpression,
+) -> (FieldLayout) {
+    switch *t {
+        case ast.TypeExpression.Simple(st) {
+            if st.Name == "string" {
+                return FieldLayout{
+                    align:      8,
+                    inner_type: "",
+                    kind:       FIELD_KIND_STRING,
+                    name:       "",
+                    offset:     0,
+                    size:       8,
+                }
+            }
+
+            return FieldLayout{
+                align:      8,
+                inner_type: "",
+                kind:       FIELD_KIND_PRIMITIVE,
+                name:       "",
+                offset:     0,
+                size:       8,
+            }
+        }
+        case ast.TypeExpression.Generic(gt) {
+            if gt.Name == "Vec" {
+                return FieldLayout{
+                    align:      8,
+                    inner_type: "",
+                    kind:       FIELD_KIND_VEC,
+                    name:       "",
+                    offset:     0,
+                    size:       8,
+                }
+            }
+
+            return FieldLayout{
+                align:      8,
+                inner_type: "",
+                kind:       FIELD_KIND_PRIMITIVE,
+                name:       "",
+                offset:     0,
+                size:       8,
+            }
+        }
+        default {
+            return FieldLayout{
+                align:      8,
+                inner_type: "",
+                kind:       FIELD_KIND_PRIMITIVE,
+                name:       "",
+                offset:     0,
+                size:       8,
+            }
+        }
+    }
+}
+
+func field_kind(
+    t: &ast.TypeExpression,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (FieldLayout) {
+    mut var out: FieldLayout = type_name_kind(t)
+
+    switch *t {
+        case ast.TypeExpression.Simple(st) {
+            if st.Name == "string" {
+                out.kind = FIELD_KIND_STRING
+                out.inner_type = "string"
+                return out
+            }
+
+            if st.Name == "Vec" {
+                out.kind = FIELD_KIND_VEC
+                out.inner_type = ""
+                return out
+            }
+
+            switch find_struct(
+                structs,
+                &st.Name,
+            ) {
+                case Some(_) {
+                    out.kind = FIELD_KIND_STRUCT
+                    out.inner_type = st.Name
+                    return out
+                }
+                case None {
+                }
+            }
+        }
+        case ast.TypeExpression.Generic(gt) {
+            if gt.Name == "Vec" {
+                out.kind = FIELD_KIND_VEC
+
+                if gt.TypeParams.len() > 0 {
+                    switch gt.TypeParams[0] {
+                        case ast.TypeExpression.Simple(innerSt) {
+                            out.inner_type = innerSt.Name
+                        }
+                        default {
+                            out.inner_type = ""
+                        }
+                    }
+                }
+
+                return out
+            }
+        }
+        default {
+        }
+    }
+
+    return out
+}
+
+func slot_align_for_kind(kind: int) -> (int) {
+    var _kind: int = kind
+
+    return 1
+}
+
+func slot_size_for_kind(kind: int) -> (int) {
+    var _kind: int = kind
+
+    return 1
+}
+
+func push_field_layout(
+    mut fieldsOut: &mut Vec<FieldLayout, _>,
+    fieldName: string,
+    fieldOffset: int,
+    fieldInfo: FieldLayout,
+) -> (void) {
+    fieldsOut.push(
+        FieldLayout{
+            align:      fieldInfo.align,
+            inner_type: fieldInfo.inner_type,
+            kind:       fieldInfo.kind,
+            name:       fieldName,
+            offset:     fieldOffset,
+            size:       fieldInfo.size,
+        },
+    )
+}
+
+func layout_fields(
+    fields: &Vec<ast.StructField, _>,
+    structs: &Vec<ast.StructDecl, _>,
+    mut visiting: &mut Vec<string, _>,
+) -> (Result<StructLayout, string>) {
+    var _visiting: &mut Vec<string, _> = visiting
+    mut var outFields: Vec<FieldLayout, _> = Vec.with_cap(fields.len())
+    mut var offset: int = 0
+    mut var maxAlign: int = 1
+    mut var i: int = 0
+
+    while i < fields.len() {
+        var f: ast.StructField = (*fields)[i]
+        mut var info: FieldLayout = field_kind(
+            &f.Type,
+            structs,
+        )
+        mut var fieldAlign: int = 8
+        mut var fieldSize: int = 8
+        var tlRes: Result<TypeLayout, string> = type_layout_inner(
+            &f.Type,
+            structs,
+            visiting,
+        )
+
+        switch tlRes {
+            case Err(msg) {
+                return Err(msg)
+            }
+            case Ok(tl) {
+                fieldAlign = tl.align
+                fieldSize = tl.size
+
+                if fieldAlign <= 0 {
+                    fieldAlign = 1
+                }
+
+                if fieldSize < 0 {
+                    fieldSize = 0
+                }
+            }
+        }
+
+        info.align = fieldAlign
+        info.size = fieldSize
+
+        if fieldAlign > maxAlign {
+            maxAlign = fieldAlign
+        }
+
+        offset = align_to(
+            offset,
+            fieldAlign,
+        )
+        push_field_layout(
+            &mut outFields,
+            f.Name.Value,
+            offset,
+            info,
+        )
+        offset = offset + fieldSize
+        i = i + 1
+    }
+
+    mut var totalSize: int = align_to(
+        offset,
+        maxAlign,
+    )
+
+    if totalSize == 0 {
+        totalSize = 8
+    }
+
+    return Ok(
+        StructLayout{
+            align:  maxAlign,
+            fields: outFields,
+            size:   totalSize,
+        },
+    )
+}
+
+pub struct EnumVariantLayout {
+    pub name:         string
+    pub tag:          int
+    pub fields:       Vec<FieldLayout, _>
+    pub payload_size: int
+}
+
+pub struct EnumLayout {
+    pub size:           int
+    pub align:          int
+    pub tag_size:       int
+    pub payload_offset: int
+    pub variants:       Vec<EnumVariantLayout, _>
+}
+
+pub func enum_layout(
+    decl: &ast.EnumDecl,
+    structs: &Vec<ast.StructDecl, _>,
+) -> (Result<EnumLayout, string>) {
+
+    return Ok(
+        EnumLayout{
+            align:          8,
+            payload_offset: 8,
+            size:           16,
+            tag_size:       8,
+            variants:       Vec.new(),
+        },
+    )
+}
+
+func align_to(value: int, align: int) -> (int) {
+    if align <= 1 {
+        return value
+    }
+
+    var rem: int = value % align
+
+    if rem == 0 {
+        return value
+    }
+
+    return value + (align - rem)
+}
+
+func find_struct(
+    structs: &Vec<ast.StructDecl, _>,
+    name: &string,
+) -> (Option<ast.StructDecl>) {
+    mut var i: int = 0
+
+    while i < structs.len() {
+        if (*name) == structs[i].Name.Value {
+            return Some(structs[i])
+        }
+
+        i = i + 1
+    }
+
+    var targetSuffix: string = struct_name_suffix(name)
+
+    if targetSuffix == "" {
+        return None
+    }
+
+    i = 0
+
+    while i < structs.len() {
+        var candidateSuffix: string = struct_name_suffix(&structs[i].Name.Value)
+
+        if candidateSuffix == targetSuffix {
+            return Some(structs[i])
+        }
+
+        i = i + 1
+    }
+
+    return None
+}
+
+func struct_name_suffix(name: &string) -> (string) {
+    mut var last_dot: int = -1
+    mut var i: int = 0
+
+    while i < name.len() {
+        if name[i] == '.' {
+            last_dot = i
+        }
+
+        i = i + 1
+    }
+
+    if last_dot >= 0 && last_dot + 1 < name.len() {
+        mut var out: string = ""
+        mut var j: int = last_dot + 1
+
+        while j < name.len() {
+            out = out + char(name[j]).toString()
+            j = j + 1
+        }
+
+        return out
+    }
+
+    mut var whole: string = ""
+    mut var k: int = 0
+
+    while k < name.len() {
+        whole = whole + char(name[k]).toString()
+        k = k + 1
+    }
+
+    return whole
+}
+
+func is_visiting(stack: &mut Vec<string, _>, name: &string) -> (bool) {
+    for s in *stack {
+        if s == *name {
+            return true
+        }
+    }
+
+    return false
+}

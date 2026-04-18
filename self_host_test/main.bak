@@ -1,0 +1,20 @@
+package main
+
+// Simple test program to exercise multi-return destructuring and variadic println
+
+pub func multi() -> (int, int) {
+    return 42, 7
+}
+
+pub func main() -> (int) {
+    var (a, b) = multi()
+    const Base: int = 10
+    var Offset: int = 5
+    unsafe {
+        var total = Base + Offset + a + b
+        if total == 64 {
+            return 0
+        }
+    }
+    return 1
+}

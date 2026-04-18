@@ -1,0 +1,93 @@
+package db
+
+// Connection represents a database connection handle
+pub struct Connection {
+    pub Handle: int
+}
+
+// QueryResult represents the result of a SQL query
+pub struct QueryResult {
+    pub Columns: Vec<string, _>
+    pub Rows: Vec<Vec<string, _>, _>
+}
+
+// Row represents a single result row with column names attached.
+pub struct Row {
+    Columns: Vec<string, _>
+    Values: Vec<string, _>
+}
+
+// rows builds a Row list with column names attached to each row.
+pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
+    mut var out: Vec<Row, _> = Vec.new()
+    for r in qr.Rows {
+        out.push(Row{Columns: qr.Columns, Values: r})
+    }
+    return out
+}
+
+func column_index(cols: &Vec<string, _>, name: &string) -> (Option<int>) {
+    mut var i: int = 0
+    while i < cols.len() {
+        if cols[i] == *name {
+            return Some(i)
+        }
+        i = i + 1
+    }
+    return None
+}
+
+impl Row as r {
+    pub func get(name: string) -> (Option<string>) {
+        var cols: Vec<string, _> = r.Columns
+        var idx_opt: Option<int> = column_index(&cols, &name)
+        switch idx_opt {
+            case Some(idx) {
+                if idx < 0 || idx >= r.Values.len() {
+                    return None
+                }
+                var v: string = r.Values[idx]
+                if v == "NULL" {
+                    return None
+                }
+                return Some(v)
+            }
+            case None { return None }
+        }
+    }
+
+    pub func get_index(idx: int) -> (Option<string>) {
+        if idx < 0 || idx >= r.Values.len() {
+            return None
+        }
+        var v: string = r.Values[idx]
+        if v == "NULL" {
+            return None
+        }
+        return Some(v)
+    }
+
+    pub func get_int(name: string) -> (Result<int, string>) {
+        switch r.get(name) {
+            case Some(v) { return v.parseInt() }
+            case None { return Err("column '" + name + "' is NULL or missing") }
+        }
+    }
+
+    pub func get_float(name: string) -> (Result<float64, string>) {
+        switch r.get(name) {
+            case Some(v) { return v.parseFloat() }
+            case None { return Err("column '" + name + "' is NULL or missing") }
+        }
+    }
+}
+
+
+impl Connection as c {
+    func config(max_open: int, max_idle: int, max_life_sec: int) -> (Result<bool, string>) {
+        if is_err(__builtin_db_config(c.Handle, max_open, max_idle, max_life_sec)) {
+            return Err("failed to configure db pool")
+        }
+        return Ok(true)
+    }
+}

@@ -1,0 +1,96 @@
+// Test file for os module
+package main
+
+func main() -> (void) {
+    println("=== Testing os module ===")
+    
+    // Test os.args
+    println("\n1. Command-line arguments:")
+    var args: Vec<string, _> = os.args()
+    println("Number of args:", args.len())
+    mut var i: int = 0
+    for arg in args {
+        println("  arg[", i, "]:", arg)
+        i = i + 1
+    }
+    
+    // Test os.cwd
+    println("\n2. Current working directory:")
+    var cwd: Result<string, string> = os.cwd()
+    switch cwd {
+        case Ok(path) {
+            println("CWD:", path)
+        }
+        case Err(e) {
+            println("Error:", e)
+        }
+    }
+    
+    // Test os.getenv
+    println("\n3. Environment variables:")
+    var home: Option<string> = os.getenv("HOME")
+    switch home {
+        case Some(path) {
+            println("HOME:", path)
+        }
+        case None {
+            println("HOME not set")
+        }
+    }
+    
+    var user: Option<string> = os.getenv("USER")
+    switch user {
+        case Some(name) {
+            println("USER:", name)
+        }
+        case None {
+            println("USER not set")
+        }
+    }
+    
+    // Test os.hasenv
+    println("\n4. Check environment variable existence:")
+    println("PATH exists:", os.hasenv("PATH"))
+    println("NONEXISTENT exists:", os.hasenv("NONEXISTENT_VAR_12345"))
+    
+    // Test os.executable
+    println("\n5. Executable path:")
+    var exe: Option<string> = os.executable()
+    switch exe {
+        case Some(path) {
+            println("Executable:", path)
+        }
+        case None {
+            println("Could not get executable path")
+        }
+    }
+    
+    // Test os.exec
+    println("\n6. Execute external command:")
+    var result: Result<ExecResult, string> = os.exec("echo", ["Hello from shell!"])
+    switch result {
+        case Ok(output) {
+            println("Command output:", output.output)
+            println("Exit code:", output.exitCode)
+        }
+        case Err(e) {
+            println("Error executing command:", e)
+        }
+    }
+    
+    // Test os.exec with ls
+    println("\n7. List current directory:")
+    var lsResult: Result<ExecResult, string> = os.exec("ls", ["-la", "examples"])
+    switch lsResult {
+        case Ok(output) {
+            println("Exit code:", output.exitCode)
+            println("Output:")
+            println(output.output)
+        }
+        case Err(e) {
+            println("Error:", e)
+        }
+    }
+    
+    println("\n=== os module tests complete ===")
+}

@@ -1,0 +1,26 @@
+package main
+
+func inc(x: &mut int) -> (void) {
+    *x = *x + 1
+
+    return void
+}
+
+func main() -> (int) {
+    mut var n: int = 41
+
+    inc(&mut n)
+
+    if n != 42 {
+        println(
+            "FAIL: expected 42, got",
+            n,
+        )
+
+        return 1
+    }
+
+    println("PASS: borrow int reference")
+
+    return 0
+}

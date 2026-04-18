@@ -1,0 +1,25 @@
+package main
+
+// consume takes ownership of v (move semantics)
+func consume(v: Vec<int,_>) -> (int) {
+    return v.len()
+}
+
+// borrow_func borrows v (no ownership transfer)
+func borrow_func(v: &Vec<int,_>) -> (int) {
+    return v.len()
+}
+
+func main() -> (void) {
+    mut var nums: Vec<int,_> = Vec.from([1, 2, 3])
+    
+    // First call - this should work (transfers ownership)
+    var a: int = consume(nums)
+    println("First consume:", a)
+    
+    // Second call - this should error: "use of moved value: nums"
+    var b: int = consume(nums)
+    println("Second consume:", b)
+    
+    return void
+}

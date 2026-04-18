@@ -1,0 +1,360 @@
+package main
+
+import "src/std/thread/thread.bak" as thread
+import "src/std/sync/sync.bak" as sync
+import "src/std/time/time.bak" as time
+import "std/http" as http
+import "src/std/strings/strings.bak" as strings
+import "src/std/encoding/json/json.bak" as json_lib
+import "src/std/bytes/types.bak" as bytes_types
+import "src/std/bytes/bytes.bak" as bytes_lib
+import "src/std/strconv/strconv.bak" as strconv
+
+struct Task {
+    ID: int
+    DurationSeconds: int
+    CreatedAt: int
+    StartedAt: int
+    Status: string
+}
+
+// unix timestamp
+// unix timestamp, 0 if not started
+// "pending", "running", "done"
+impl Task as t {
+    func to_json() -> (json_lib.Json) {
+        var now: int = time.now().unix()
+        mut var remaining: int = 0
+        if t.Status == "running" {
+            var elapsed: int = now - t.StartedAt
+            remaining = t.DurationSeconds - elapsed
+            if remaining < 0 {
+                remaining = 0
+            }
+        } else if t.Status == "pending" {
+            remaining = t.DurationSeconds
+        }
+        mut var entries: Vec<json_lib.JsonEntry, _> = Vec.new()
+        entries.push(json_lib.JsonEntry{key: "id", value: json_lib.Json.Int(t.ID)})
+        entries.push(json_lib.JsonEntry{key: "status", value: json_lib.Json.String(t.Status)})
+        entries.push(json_lib.JsonEntry{key: "duration", value: json_lib.Json.Int(t.DurationSeconds)})
+        entries.push(json_lib.JsonEntry{key: "remaining", value: json_lib.Json.Int(remaining)})
+        return json_lib.Json.Object(entries)
+    }
+}
+
+struct Store {
+    Tasks: Vec<Task>
+    Mu: sync.Mutex
+    NextID: int
+}
+// Global store
+mut var store: Store = Store{
+    Mu: sync.NewMutex(),
+    NextID: 1,
+    Tasks: Vec.new(),
+}
+func main() -> (void) {
+    println("Starting Worker Queue Server...")
+    // Start background worker
+    var _t: thread.Thread = thread.spawn(worker_loop, 1)
+    // Setup Router
+    mut var r: http.Router = http.new_router()
+    r.get("/tasks", handle_get_tasks)
+    r.post("/tasks", handle_create_task)
+    r.handle("GET", "/task", handle_get_task)
+    // Using /task?id=...
+    r.handle("DELETE", "/task", handle_delete_task)
+    r.handle("PUT", "/task", handle_update_task)
+    println("Listening on 0.0.0.0:8080...")
+    var res = http.listen_and_serve("0.0.0.0:8080", r)
+    if res.is_err() {
+        println("Server error: " + res.unwrap_err())
+    }
+}
+
+// Worker Thread
+func worker_loop(_id: int) -> (void) {
+    println("Worker started")
+    while true {
+        store.Mu.lock()
+        // Find a pending task
+        mut var foundIdx: int = -1
+        mut var i: int = 0
+        while i < store.Tasks.len() {
+            var task: Task = store.Tasks[i]
+            if task.Status == "pending" {
+                foundIdx = i
+                break
+            }
+            i = i + 1
+        }
+        if foundIdx != -1 {
+            // Start the task
+            // We have to mutate the task in the Vec. 
+            // Bak structs in Vec are values, so we need to update it back.
+            mut var task: Task = store.Tasks[foundIdx]
+            task.Status = "running"
+            task.StartedAt = time.now().unix()
+            store.Tasks[foundIdx] = task
+            var duration: int = task.DurationSeconds
+            var taskId: int = task.ID
+            store.Mu.unlock()
+            println("Worker processing Task " + taskId.toString() + " for " + duration.toString() + "s")
+            // Simulate work
+            thread.sleep(duration * 1000)
+            // Mark as done
+            store.Mu.lock()
+            // We need to find it again because index might have shifted if we support deletion?
+            // For simplicity assume index is stable OR find by ID.
+            // Let's find by ID to be safe.
+            mut var updateIdx: int = -1
+            mut var j: int = 0
+            while j < store.Tasks.len() {
+                if (store.Tasks[j]).ID == taskId {
+                    updateIdx = j
+                    break
+                }
+                j = j + 1
+            }
+            if updateIdx != -1 {
+                mut var t2: Task = store.Tasks[updateIdx]
+                t2.Status = "done"
+                store.Tasks[updateIdx] = t2
+                println("Task " + taskId.toString() + " completed")
+            }
+            store.Mu.unlock()
+        } else {
+            store.Mu.unlock()
+            thread.sleep(100)
+        }
+    }
+}
+
+// --- API Handlers ---
+func handle_get_tasks(_req: http.Request) -> (http.Response) {
+    store.Mu.lock()
+    var json_obj: json_lib.Json = _tasks_to_json(store.Tasks)
+    var json_str: string = json_lib.marshal(json_obj)
+    store.Mu.unlock()
+    return http.text(200, json_str)
+}
+
+func handle_create_task(req: http.Request) -> (http.Response) {
+    var b: bytes_types.Bytes = bytes_lib.from_vec(req.body)
+    if bytes_lib.length(&b) == 0 {
+        return http.text(400, "Missing body")
+    }
+    // Parse JSON body and extract "duration"
+    var bodyStr: string = bytes_lib.to_string(&b)
+    // Lightweight extraction of "duration" value from JSON body
+    var keyStr: string = "duration"
+    var keyIdx: int = strings.indexOf(&bodyStr, &keyStr)
+    if keyIdx == -1 {
+        return http.text(400, "Missing 'duration' field")
+    }
+    // substring from keyIdx to end
+    var tail: string = strings.substring(&bodyStr, keyIdx, strings.len(&bodyStr))
+    var colonStr: string = ":"
+    var colonIdx: int = strings.indexOf(&tail, &colonStr)
+    if colonIdx == -1 {
+        return http.text(400, "Invalid body: missing ':' after duration")
+    }
+    var rawVal: string = strings.substring(&tail, colonIdx + 1, strings.len(&tail))
+    var rawTrim: string = strings.trim(&rawVal)
+    // Extract leading number (or quoted number)
+    mut var numStr: string = ""
+    var quoteStr: string = ""
+    var emptyStr: string = ""
+    if rawTrim.len() > 0 && rawTrim[0] == '"' {
+        // quoted value
+        var endQ: int = strings.indexOf(&rawTrim, &quoteStr)
+        if endQ == 0 {
+            // find second quote
+            var innerTrim: string = strings.substring(&rawTrim, 1, strings.len(&rawTrim))
+            var second: int = strings.indexOf(&innerTrim, &quoteStr)
+            if second == -1 {
+                return http.text(400, "Invalid quoted duration")
+            }
+            numStr = strings.substring(&rawTrim, 1, second + 1)
+        } else {
+            // fallback: try to strip quotes
+            numStr = strings.trim(&rawTrim)
+            numStr = strings.replace(&numStr, &quoteStr, &emptyStr)
+        }
+    } else {
+        mut var i: int = 0
+        while i < rawTrim.len() {
+            var c: char = rawTrim[i]
+            if c >= '0' && c <= '9' || c == '-' {
+                numStr = numStr + string(c)
+            } else if c == '.' {
+                numStr = numStr + string(c)
+            } else {
+                break
+            }
+            i = i + 1
+        }
+    }
+    if numStr.len() == 0 {
+        return http.text(400, "Invalid duration")
+    }
+    var durRes: Result<int, string> = strconv.atoi(&numStr)
+    if durRes.is_err() {
+        return http.text(400, "Invalid duration")
+    }
+    var duration: int = durRes.unwrap()
+    store.Mu.lock()
+    var id: int = store.NextID
+    store.NextID = store.NextID + 1
+    var t: Task = Task{
+        CreatedAt: time.now().unix(),
+        DurationSeconds: duration,
+        ID: id,
+        StartedAt: 0,
+        Status: "pending",
+    }
+    store.Tasks.push(t)
+    store.Mu.unlock()
+    return http.text(201, id.toString())
+}
+
+func handle_get_task(req: http.Request) -> (http.Response) {
+    var idOpt = _get_query_param(req.path, "id")
+    if idOpt.is_none() {
+        return http.text(400, "Missing id param")
+    }
+    var idStr: string = idOpt.unwrap()
+    var idRes: Result<int, string> = strconv.atoi(&idStr)
+    if idRes.is_err() {
+        return http.text(400, "Invalid id")
+    }
+    var id: int = idRes.unwrap()
+    store.Mu.lock()
+    mut var foundIndex: int = -1
+    mut var i: int = 0
+    while i < store.Tasks.len() {
+        if (store.Tasks[i]).ID == id {
+            foundIndex = i
+            i = store.Tasks.len()
+        }
+        // break
+        i = i + 1
+    }
+    if foundIndex == -1 {
+        store.Mu.unlock()
+        return http.text(404, "Not found")
+    }
+    // Copy task to avoid borrow issues with store.Tasks
+    var t: Task = store.Tasks[foundIndex]
+    var json_obj: json_lib.Json = t.to_json()
+    store.Mu.unlock()
+    var json_str: string = json_lib.marshal(json_obj)
+    return http.text(200, json_str)
+}
+
+func handle_delete_task(req: http.Request) -> (http.Response) {
+    var idOpt = _get_query_param(req.path, "id")
+    if idOpt.is_none() {
+        return http.text(400, "Missing id param")
+    }
+    var idStr: string = idOpt.unwrap()
+    var idRes: Result<int, string> = strconv.atoi(&idStr)
+    if idRes.is_err() {
+        return http.text(400, "Invalid id")
+    }
+    var id: int = idRes.unwrap()
+    store.Mu.lock()
+    mut var idx: int = -1
+    mut var i: int = 0
+    while i < store.Tasks.len() {
+        if (store.Tasks[i]).ID == id {
+            idx = i
+            break
+        }
+        i = i + 1
+    }
+    if idx != -1 {
+        // Simple remove
+        store.Tasks.remove(idx)
+        store.Mu.unlock()
+        return http.text(200, "Deleted")
+    }
+    store.Mu.unlock()
+    return http.text(404, "Not found")
+}
+
+func handle_update_task(req: http.Request) -> (http.Response) {
+    var idOpt = _get_query_param(req.path, "id")
+    if idOpt.is_none() {
+        return http.text(400, "Missing id param")
+    }
+    var idStr: string = idOpt.unwrap()
+    var idRes: Result<int, string> = strconv.atoi(&idStr)
+    if idRes.is_err() {
+        return http.text(400, "Invalid id")
+    }
+    var id: int = idRes.unwrap()
+    store.Mu.lock()
+    mut var idx: int = -1
+    mut var i: int = 0
+    while i < store.Tasks.len() {
+        if (store.Tasks[i]).ID == id {
+            idx = i
+            break
+        }
+        i = i + 1
+    }
+    if idx != -1 {
+        // Re-queue logic: reset status to pending
+        mut var t: Task = store.Tasks[idx]
+        t.Status = "pending"
+        t.StartedAt = 0
+        store.Tasks[idx] = t
+        store.Mu.unlock()
+        return http.text(200, "Updated/Requeued")
+    }
+    store.Mu.unlock()
+    return http.text(404, "Not found")
+}
+
+// --- Helpers ---
+func _get_query_param(url: string, key: string) -> (Option<string>) {
+    // url: /task?id=123
+    var qStr: string = "?"
+    var qIdx: int = strings.indexOf(&url, &qStr)
+    if qIdx == -1 {
+        return None
+    }
+    var _query: string = strings.substring(&url, qIdx + 1, strings.len(&url))
+    // simplistic parser: key=value
+    // split by &
+    var _sep: string = "&"
+    var pairs: Vec<string, _> = strings.split(&_query, &_sep)
+    mut var i: int = 0
+    while i < pairs.len() {
+        var p: string = pairs[i]
+        var eqStr: string = "="
+        var eqIdx: int = strings.indexOf(&p, &eqStr)
+        if eqIdx != -1 {
+            var k: string = strings.substring(&p, 0, eqIdx)
+            if k == key {
+                var v: string = strings.substring(&p, eqIdx + 1, strings.len(&p))
+                return Some(v)
+            }
+        }
+        i = i + 1
+    }
+    return None
+}
+
+func _tasks_to_json(tasks: Vec<Task>) -> (json_lib.Json) {
+    mut var out: Vec<json_lib.Json, _> = Vec.new()
+    mut var i: int = 0
+    while i < tasks.len() {
+        var t: Task = tasks[i]
+        out.push(t.to_json())
+        i = i + 1
+    }
+    return json_lib.Json.Array(out)
+}

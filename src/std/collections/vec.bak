@@ -1,0 +1,235 @@
+package collections
+// Use __Array primitive as backing store.
+// __Array<T> is a slice-like primitive that holds the data.
+// We manage capacity and length manually in Vec.
+struct Vec<T> {
+    data: __Array<T>
+    length: int
+    capacity: int
+}
+
+impl Vec {
+    pub func new() -> (Vec<T>) {
+        // --- CONSTRUCTORS ---
+        // Create a dummy value of type T to appease __alloc_array signature.
+        // It will be nil/zero at runtime, but size 0 array ignores it.
+        var dummy: T
+        var arr = __vec_alloc(0, dummy)
+        return Vec{
+            data: arr,
+            length: 0,
+            capacity: 0,
+        }
+    }
+    pub func with_cap(cap: int) -> (Vec<T>) {
+        mut var effective_cap: int = cap
+        if effective_cap < 0 {
+            effective_cap = 0
+        }
+        var dummy: T
+        var arr = __vec_alloc(effective_cap, dummy)
+        return Vec{
+            data: arr,
+            length: 0,
+            capacity: effective_cap,
+        }
+    }
+    pub func from<N>(arr: Vec<T, N>) -> (Vec<T>) {
+        // arr is fixed array.
+        var len: int = arr.len()
+        mut var v: Vec<T> = Vec.with_cap(len)
+        // copy elements
+        mut var i: int = 0
+        while i < len {
+            __vec_set(v.data, i, arr.get(i).unwrap())
+            i = i + 1
+        }
+        v.length = len
+        return v
+    }
+}
+
+impl Vec as self {
+    pub mut func push(value: T) -> (void) {
+        // --- MUTATING METHODS ---
+        if self.length == self.capacity {
+            self.grow()
+        }
+        __vec_set(self.data, self.length, value)
+        self.length = self.length + 1
+        return
+    }
+    pub mut func pop() -> (Option<T>) {
+        if self.length == 0 {
+            return None
+        }
+        self.length = self.length - 1
+        var val: T = __vec_get(self.data, self.length)
+        // We leave the value in the array, but it's inaccessible via length.
+        // If we want to zero it for GC?
+        // var dummy: T; self.data.set(self.length, dummy);
+        return Some(val)
+    }
+    mut func grow() -> (void) {
+        mut var new_cap: int = self.capacity * 2
+        if new_cap == 0 {
+            new_cap = 4
+        }
+        // We need a dummy value for allocation.
+        // If `push` called grow, we could pass the value being pushed as hint, 
+        // but simple `grow()` takes no args.
+        // We use dummy local.
+        // var dummy: T
+        // Use VM primitive to grow the underlying buffer
+        var new_data = __vec_grow(self.data, new_cap)
+        self.data = new_data
+        self.capacity = new_cap
+        return
+    }
+    pub mut func remove(index: int) -> (Option<T>) {
+        if index < 0 || index >= self.length {
+            return None
+        }
+        var val: T = __vec_get(self.data, index)
+        // Shift down
+        mut var i: int = index
+        while i < self.length - 1 {
+            __vec_set(self.data, i, __vec_get(self.data, i + 1))
+            i = i + 1
+        }
+        self.length = self.length - 1
+        // Optional: clear last slot
+        return Some(val)
+    }
+    pub mut func clear() -> (void) {
+        self.length = 0
+        return
+    }
+    pub mut func reverse() -> (void) {
+        mut var i: int = 0
+        mut var j: int = self.length - 1
+        while i < j {
+            var tmp: T = __vec_get(self.data, i)
+            __vec_set(self.data, i, __vec_get(self.data, j))
+            __vec_set(self.data, j, tmp)
+            i = i + 1
+            j = j - 1
+        }
+    }
+    pub func len() -> (int) {
+        // --- ACCESSOR METHODS ---
+        return self.length
+    }
+    pub func cap() -> (int) {
+        return self.capacity
+    }
+    pub func is_empty() -> (bool) {
+        return self.length == 0
+    }
+    pub func first() -> (Option<T>) {
+        if self.length == 0 {
+            return None
+        }
+        var val: T = __vec_get(self.data, 0)
+        return Some(val)
+    }
+
+    pub func last() -> (Option<T>) {
+        if self.length == 0 {
+            return None
+        }
+        var val: T = __vec_get(self.data, self.length - 1)
+        return Some(val)
+    }
+
+    pub func get(index: int) -> (Option<T>) {
+        if index < 0 || index >= self.length {
+            return None
+        }
+        var val: T = __vec_get(self.data, index)
+        return Some(val)
+    }
+    pub func contains(value: T) -> (bool) {
+        mut var i: int = 0
+        while i < self.length {
+            if __vec_get(self.data, i) == value {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+    pub func join(separator: string) -> (string) {
+        mut var res: string = ""
+        mut var i: int = 0
+        while i < self.length {
+            if i > 0 {
+                res = res + separator
+            }
+            var val: T = __vec_get(self.data, i)
+            res = res + string(val)
+            i = i + 1
+        }
+        return res
+    }
+}
+
+// =============================================================================
+// Free functions for Vec<T> utilities
+// =============================================================================
+
+// index_of returns the index of the first element matching `value` using `eq`,
+// or -1 if not found.
+pub func index_of<T>(v: &Vec<T, _>, value: T, eq: func(&T, &T) -> (bool)) -> (int) {
+    mut var i: int = 0
+    while i < v.len() {
+        if eq(&v[i], &value) {
+            return i
+        }
+        i = i + 1
+    }
+    return -1
+}
+
+// sum returns the sum of all elements in an int Vec.
+pub func sum(v: &Vec<int, _>) -> (int) {
+    mut var total: int = 0
+    mut var i: int = 0
+    while i < v.len() {
+        total = total + v[i]
+        i = i + 1
+    }
+    return total
+}
+
+// max_by returns the maximum element using a comparator, or None if empty.
+pub func max_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
+    if v.len() == 0 {
+        return None
+    }
+    mut var best: T = v[0]
+    mut var i: int = 1
+    while i < v.len() {
+        if cmp(&v[i], &best) > 0 {
+            best = v[i]
+        }
+        i = i + 1
+    }
+    return Some(best)
+}
+
+// min_by returns the minimum element using a comparator, or None if empty.
+pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
+    if v.len() == 0 {
+        return None
+    }
+    mut var best: T = v[0]
+    mut var i: int = 1
+    while i < v.len() {
+        if cmp(&v[i], &best) < 0 {
+            best = v[i]
+        }
+        i = i + 1
+    }
+    return Some(best)
+}

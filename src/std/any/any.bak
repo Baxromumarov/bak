@@ -1,0 +1,178 @@
+// Package any provides a small, explicit escape hatch for dynamic values.
+// It is intentionally limited: use it only when static typing is not practical.
+package any
+
+import "src/std/strconv/strconv.bak" as strconv
+
+// AnyKind is an internal tag for the payload stored in Any.
+// It is not exported to keep Any opaque to users.
+enum AnyKind {
+    Int
+    String
+    Bool
+    Float
+    Box
+    Array
+}
+
+// Any stores a tagged payload for limited dynamic use cases.
+pub struct Any {
+    kind: AnyKind
+    int_val: int
+    float_val: float64
+    bool_val: bool
+    string_val: string
+    box_type: string
+    box_repr: string
+    array_val: Vec<Any, _>
+}
+
+// Constructors (explicit, no implicit conversions).
+pub func from_int(v: int) -> (Any) {
+    return Any{int_val: v, kind: AnyKind.Int}
+}
+
+pub func from_string(v: string) -> (Any) {
+    return Any{kind: AnyKind.String, string_val: v}
+}
+
+pub func from_bool(v: bool) -> (Any) {
+    return Any{bool_val: v, kind: AnyKind.Bool}
+}
+
+pub func from_float(v: float64) -> (Any) {
+    return Any{float_val: v, kind: AnyKind.Float}
+}
+
+// from_box records a boxed value's type name for debugging/inspection.
+// NOTE: v1 stores a debug representation only; typed extraction is a TODO.
+pub func from_box<T>(v: T box) -> (Any) {
+    return Any{
+        box_repr: "<box>",
+        box_type: typeof(*v),
+        kind: AnyKind.Box,
+    }
+}
+
+// from_array creates an Any from a Vec of Any values.
+pub func from_array(v: Vec<Any, _>) -> (Any) {
+    return Any{array_val: v, kind: AnyKind.Array}
+}
+
+impl Any as a {
+    pub func is_int() -> (bool) {
+        // Type checks.
+        return a.kind == AnyKind.Int
+    }
+    pub func is_string() -> (bool) {
+        return a.kind == AnyKind.String
+    }
+    pub func is_bool() -> (bool) {
+        return a.kind == AnyKind.Bool
+    }
+    pub func is_float() -> (bool) {
+        return a.kind == AnyKind.Float
+    }
+    pub func is_box() -> (bool) {
+        return a.kind == AnyKind.Box
+    }
+    pub func is_array() -> (bool) {
+        return a.kind == AnyKind.Array
+    }
+    pub func as_int() -> (Option<int>) {
+        // Safe extraction.
+        if a.kind == AnyKind.Int {
+            return Some(a.int_val)
+        }
+        return None
+    }
+    pub func as_string() -> (Option<string>) {
+        if a.kind == AnyKind.String {
+            return Some(a.string_val)
+        }
+        return None
+    }
+    pub func as_bool() -> (Option<bool>) {
+        if a.kind == AnyKind.Bool {
+            return Some(a.bool_val)
+        }
+        return None
+    }
+    pub func as_float() -> (Option<float64>) {
+        if a.kind == AnyKind.Float {
+            return Some(a.float_val)
+        }
+        return None
+    }
+    pub func as_box<T>() -> (Option<T box>) {
+        // as_box is reserved for future typed extraction of boxed values.
+        return None
+    }
+    pub func as_array() -> (Vec<Any, _>) {
+        if a.kind == AnyKind.Array {
+            return a.array_val
+        }
+        return Vec.new()
+    }
+    pub func type_name() -> (string) {
+        // Debug helpers.
+        if a.kind == AnyKind.Int {
+            return "int"
+        }
+        if a.kind == AnyKind.String {
+            return "string"
+        }
+        if a.kind == AnyKind.Bool {
+            return "bool"
+        }
+        if a.kind == AnyKind.Float {
+            return "float64"
+        }
+        if a.kind == AnyKind.Box {
+            if a.box_type == "" {
+                return "box"
+            }
+            return a.box_type
+        }
+        if a.kind == AnyKind.Array {
+            return "array"
+        }
+        return "unknown"
+    }
+    pub func to_string() -> (string) {
+        if a.kind == AnyKind.Int {
+            return strconv.intToString(a.int_val)
+        }
+        if a.kind == AnyKind.String {
+            return a.string_val
+        }
+        if a.kind == AnyKind.Bool {
+            if a.bool_val {
+                return "true"
+            }
+            return "false"
+        }
+        if a.kind == AnyKind.Float {
+            return strconv.ftoa(a.float_val)
+        }
+        if a.kind == AnyKind.Box {
+            if a.box_repr == "" {
+                return "<box>"
+            }
+            return a.box_repr
+        }
+        if a.kind == AnyKind.Array {
+            mut var out: string = "["
+            mut var i: int = 0
+            while i < a.array_val.len() {
+                if i > 0 {
+                    out = out + ", "
+                }
+                out = out + (a.array_val[i]).to_string()
+                i = i + 1
+            }
+            return out + "]"
+        }
+        return ""
+    }
+}

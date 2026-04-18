@@ -1,0 +1,555 @@
+package borm_test
+
+import "src/std/borm/borm.bak" as b
+import "src/std/db/postgres.bak" as postgres
+import "std/strconv/strconv.bak" as strconv
+import "std/test/test.bak" as test
+
+struct querySpy {
+    called: bool
+    sql:    string
+    params: Vec<string, _>
+}
+
+struct user {
+    id:   int
+    name: string
+}
+
+func emptyStringVec() -> (Vec<string, _>) {
+    mut var out: Vec<string, _> = Vec.new()
+
+    return out
+}
+
+mut var selectSpy: querySpy = querySpy{
+    called: false,
+    params: emptyStringVec(),
+    sql:    "",
+}
+mut var paramsSpy: querySpy = querySpy{
+    called: false,
+    params: emptyStringVec(),
+    sql:    "",
+}
+mut var execSpy: querySpy = querySpy{
+    called: false,
+    params: emptyStringVec(),
+    sql:    "",
+}
+mut var returningResult: postgres.QueryResult = postgres.empty_query_result()
+
+func captureSelect(
+    _conn: &postgres.Connection,
+    sql: string,
+) -> (Result<postgres.QueryResult, string>) {
+    selectSpy.called = true
+    selectSpy.sql = sql
+    selectSpy.params = emptyStringVec()
+
+    return Ok(b.empty_query_result())
+}
+
+func captureSelectParams(
+    _conn: &postgres.Connection,
+    sql: string,
+    params: Vec<string, _>,
+) -> (Result<postgres.QueryResult, string>) {
+    paramsSpy.called = true
+    paramsSpy.sql = sql
+    paramsSpy.params = params
+
+    return Ok(b.empty_query_result())
+}
+
+func captureExec(
+    _conn: &postgres.Connection,
+    sql: string,
+    params: Vec<string, _>,
+) -> (Result<bool, string>) {
+    execSpy.called = true
+    execSpy.sql = sql
+    execSpy.params = params
+
+    return Ok(true)
+}
+
+func captureReturning(
+    _conn: &postgres.Connection,
+    sql: string,
+    params: Vec<string, _>,
+) -> (Result<postgres.QueryResult, string>) {
+    paramsSpy.called = true
+    paramsSpy.sql = sql
+    paramsSpy.params = params
+
+    return Ok(returningResult)
+}
+
+func resetSpies() -> (void) {
+    selectSpy = querySpy{
+        called: false,
+        params: emptyStringVec(),
+        sql:    "",
+    }
+    paramsSpy = querySpy{
+        called: false,
+        params: emptyStringVec(),
+        sql:    "",
+    }
+    execSpy = querySpy{
+        called: false,
+        params: emptyStringVec(),
+        sql:    "",
+    }
+}
+
+func decode_user(row: &postgres.Row) -> (Result<user, string>) {
+    switch postgres.row_get(
+        row,
+        "id",
+    ) {
+        case Some(id_str) {
+            var id_res = strconv.parseInt(
+                &id_str,
+                10,
+            )
+
+            if id_res.is_err() {
+                return Err(id_res.unwrap_err())
+            }
+
+            switch postgres.row_get(
+                row,
+                "name",
+            ) {
+                case Some(name) {
+                    return Ok(user{id: id_res.unwrap(), name: name})
+                }
+                case None {
+                    return Err("missing name")
+                }
+            }
+        }
+        case None {
+            return Err("missing id")
+        }
+    }
+}
+
+func test_select_raw_defaults() -> (void) {
+    mut var t = test.new("borm.select_raw_defaults")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_query_hooks(
+        captureSelect,
+        captureSelectParams,
+    )
+    resetSpies()
+
+    var result = b.select_all().from("users").load(&conn)
+
+    b.reset_query_hooks()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(selectSpy.called)
+    t.eq(
+        selectSpy.sql,
+        "SELECT * FROM users",
+    )
+    t.is_false(paramsSpy.called)
+    t.finish()
+}
+
+func test_select_raw_with_where() -> (void) {
+    mut var t = test.new("borm.select_raw_where")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_query_hooks(
+        captureSelect,
+        captureSelectParams,
+    )
+    resetSpies()
+
+    mut var columns: Vec<b.ColumnSpec, _> = Vec.from(
+        [
+            b.col_int("id").spec(),
+            b.col_string("name").spec(),
+        ],
+    )
+    var result = b.select_raw(columns).from("users").where(b.col_int("id").eq(7)).load(&conn)
+
+    b.reset_query_hooks()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_false(selectSpy.called)
+    t.is_true(paramsSpy.called)
+    t.eq(
+        paramsSpy.sql,
+        "SELECT id, name FROM users WHERE id = $1",
+    )
+    t.eq(
+        paramsSpy.params.len(),
+        1,
+    )
+    t.eq(
+        paramsSpy.params[0],
+        "7",
+    )
+    t.finish()
+}
+
+func test_select_typed_mapper() -> (void) {
+    mut var t = test.new("borm.select_typed")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_query_hooks(
+        captureSelect,
+        captureSelectParams,
+    )
+    resetSpies()
+
+    mut var columns: Vec<b.ColumnSpec, _> = Vec.from(
+        [
+            b.col_int("id").spec(),
+            b.col_string("name").spec(),
+        ],
+    )
+
+    selectSpy.called = false
+
+    var result = b.select_raw(columns).from("users").load_map(
+        &conn,
+        decode_user,
+    )
+
+    b.reset_query_hooks()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(selectSpy.called)
+    t.eq(
+        selectSpy.sql,
+        "SELECT id, name FROM users",
+    )
+    t.finish()
+}
+
+func test_insert_builds_placeholders() -> (void) {
+    mut var t = test.new("borm.insert_placeholders")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    var result = b.insert("users").value(
+        "name",
+        "alice",
+    ).value(
+        "balance",
+        100,
+    ).exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(execSpy.called)
+    t.eq(
+        execSpy.sql,
+        "INSERT INTO users (name, balance) VALUES ($1, $2)",
+    )
+    t.eq(
+        execSpy.params.len(),
+        2,
+    )
+    t.eq(
+        execSpy.params[0],
+        "alice",
+    )
+    t.eq(
+        execSpy.params[1],
+        "100",
+    )
+    t.finish()
+}
+
+func test_batch_insert_rows() -> (void) {
+    mut var t = test.new("borm.batch_insert")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    mut var batch = b.insert("users")
+
+    batch = batch.row().value(
+        "name",
+        "bob",
+    ).value(
+        "balance",
+        50,
+    )
+    batch = batch.row().value(
+        "name",
+        "carol",
+    ).value(
+        "balance",
+        75,
+    )
+
+    var result = batch.exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(execSpy.called)
+    t.eq(
+        execSpy.sql,
+        "INSERT INTO users (name, balance) VALUES ($1, $2), ($3, $4)",
+    )
+    t.eq(
+        execSpy.params.len(),
+        4,
+    )
+    t.eq(
+        execSpy.params[0],
+        "bob",
+    )
+    t.eq(
+        execSpy.params[1],
+        "50",
+    )
+    t.eq(
+        execSpy.params[2],
+        "carol",
+    )
+    t.eq(
+        execSpy.params[3],
+        "75",
+    )
+    t.finish()
+}
+
+func test_update_with_where() -> (void) {
+    mut var t = test.new("borm.update_where")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    var result = b.update("users").set(
+        "balance",
+        120,
+    ).where(b.col("id").eq(1)).exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(execSpy.called)
+    t.eq(
+        execSpy.sql,
+        "UPDATE users SET balance = $1 WHERE id = $2",
+    )
+    t.eq(
+        execSpy.params.len(),
+        2,
+    )
+    t.eq(
+        execSpy.params[0],
+        "120",
+    )
+    t.eq(
+        execSpy.params[1],
+        "1",
+    )
+    t.finish()
+}
+
+func test_delete_requires_all() -> (void) {
+    mut var t = test.new("borm.delete_requires_all")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    var result = b.delete("users").exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+            t.fail("expected error without where or all")
+        }
+        case Err(_) {
+        }
+    }
+
+    t.is_false(execSpy.called)
+    t.finish()
+}
+
+func test_delete_with_where() -> (void) {
+    mut var t = test.new("borm.delete_where")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    var result = b.delete("users").where(b.col_string("name").eq("bob")).exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(execSpy.called)
+    t.eq(
+        execSpy.sql,
+        "DELETE FROM users WHERE name = $1",
+    )
+    t.eq(
+        execSpy.params.len(),
+        1,
+    )
+    t.eq(
+        execSpy.params[0],
+        "bob",
+    )
+    t.finish()
+}
+
+func test_delete_all() -> (void) {
+    mut var t = test.new("borm.delete_all")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+
+    b.set_exec_hook(captureExec)
+    resetSpies()
+
+    var result = b.delete("users").all().exec(&conn)
+
+    b.reset_exec_hook()
+
+    switch result {
+        case Ok(_) {
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(execSpy.called)
+    t.eq(
+        execSpy.sql,
+        "DELETE FROM users",
+    )
+    t.eq(
+        execSpy.params.len(),
+        0,
+    )
+    t.finish()
+}
+
+func test_insert_returning_int() -> (void) {
+    mut var t = test.new("borm.insert_returning")
+    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var cols: Vec<string, _> = Vec.from(["id"])
+    mut var rows: Vec<Vec<string, _>, _> = Vec.new()
+
+    rows.push(Vec.from(["42"]))
+    returningResult = postgres.query_result(
+        cols,
+        rows,
+    )
+    b.set_query_hooks(
+        captureSelect,
+        captureReturning,
+    )
+    resetSpies()
+
+    var result = b.insert("users").value(
+        "name",
+        "zoe",
+    ).value(
+        "balance",
+        10,
+    ).returning_int("id").exec(&conn)
+
+    b.reset_query_hooks()
+
+    switch result {
+        case Ok(id) {
+            t.eq(
+                id,
+                42,
+            )
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    t.is_true(paramsSpy.called)
+    t.eq(
+        paramsSpy.sql,
+        "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id",
+    )
+    t.eq(
+        paramsSpy.params.len(),
+        2,
+    )
+    t.eq(
+        paramsSpy.params[0],
+        "zoe",
+    )
+    t.eq(
+        paramsSpy.params[1],
+        "10",
+    )
+    t.finish()
+}

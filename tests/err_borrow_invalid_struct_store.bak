@@ -1,0 +1,12 @@
+package main
+
+struct Data { id: int }
+
+struct Ref {
+    d &Data // Error: Structs cannot store borrows (v1)
+}
+
+func main() -> (void) {
+    var d: Data = Data{id: 1}
+    var r: Ref = Ref{d: &d}
+}

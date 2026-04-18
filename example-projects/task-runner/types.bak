@@ -1,0 +1,144 @@
+package main
+
+// Task runner configuration types
+
+// TaskDef represents a task definition
+pub struct TaskDef {
+    name: string
+    description: string
+    commands: Vec<string, _>
+    deps: Vec<string, _>
+    working_dir: string
+    env_vars: Vec<EnvVar, _>
+    silent: bool
+}
+
+// EnvVar represents an environment variable
+pub struct EnvVar {
+    key: string
+    value: string
+}
+
+impl TaskDef as t {
+    pub func new(name: string) -> (TaskDef) {
+        return TaskDef{
+            name: name,
+            description: "",
+            commands: Vec.new(),
+            deps: Vec.new(),
+            working_dir: ".",
+            env_vars: Vec.new(),
+            silent: false
+        }
+    }
+    
+    pub mut func add_command(cmd: string) -> (void) {
+        t.commands.push(cmd)
+        return void
+    }
+    
+    pub mut func add_dep(dep: string) -> (void) {
+        t.deps.push(dep)
+        return void
+    }
+    
+    pub mut func add_env(key: string, value: string) -> (void) {
+        t.env_vars.push(EnvVar{key: key, value: value})
+        return void
+    }
+    
+    pub mut func set_description(desc: string) -> (void) {
+        t.description = desc
+        return void
+    }
+    
+    pub mut func set_working_dir(dir: string) -> (void) {
+        t.working_dir = dir
+        return void
+    }
+    
+    pub mut func set_silent(silent: bool) -> (void) {
+        t.silent = silent
+        return void
+    }
+}
+
+// Config holds the entire bakfile configuration
+pub struct Config {
+    tasks: Vec<TaskDef, _>
+    default_task: string
+    version: string
+}
+
+impl Config as c {
+    pub func new() -> (Config) {
+        return Config{
+            tasks: Vec.new(),
+            default_task: "default",
+            version: "1.0"
+        }
+    }
+    
+    pub mut func add_task(task: TaskDef) -> (void) {
+        c.tasks.push(task)
+        return void
+    }
+    
+    pub mut func set_default(name: string) -> (void) {
+        c.default_task = name
+        return void
+    }
+    
+    pub func get_task(name: string) -> (Option<TaskDef>) {
+        mut var i: int = 0
+        while i < c.tasks.len() {
+            if c.tasks[i].name == name {
+                return Some(c.tasks[i])
+            }
+            i = i + 1
+        }
+        return None
+    }
+    
+    pub func has_task(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < c.tasks.len() {
+            if c.tasks[i].name == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+}
+
+// ExecutionResult tracks the result of running a task
+pub struct ExecutionResult {
+    task_name: string
+    success: bool
+    duration_ms: int
+    output: string
+    error_msg: string
+}
+
+impl ExecutionResult as r {
+    pub func succeeded(name: string, duration: int, output: string) -> (ExecutionResult) {
+        return ExecutionResult{
+            task_name: name,
+            success: true,
+            duration_ms: duration,
+            output: output,
+            error_msg: ""
+        }
+    }
+    
+    pub func failed(name: string, duration: int, error: string) -> (ExecutionResult) {
+        return ExecutionResult{
+            task_name: name,
+            success: false,
+            duration_ms: duration,
+            output: "",
+            error_msg: error
+        }
+    }
+}

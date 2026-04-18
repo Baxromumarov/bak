@@ -1,0 +1,25 @@
+package mathlib
+pub const PI: int = 3
+
+pub struct Calc {
+    pub A: int
+    pub B: int
+}
+
+impl Calc as c {
+    pub mut func add() -> (int) {
+        return c.A + c.B
+    }
+
+    pub mut func sub() -> (int) {
+        return c.A - c.B
+    }
+}
+
+pub func add(a: int, b: int) -> (int) {
+    return a + b
+}
+
+pub func sub(a: int, b: int) -> (int) {
+    return a - b
+}

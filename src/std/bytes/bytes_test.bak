@@ -1,0 +1,46 @@
+package bytes_test
+
+import "src/std/test/test.bak" as test
+import "src/std/bytes/types.bak" as types
+import "src/std/bytes/bytes.bak" as bytes
+
+func test_from_string_and_len() -> (void) {
+    mut var t: test.T = test.new("test_from_string_and_len")
+    var bb: types.Bytes = bytes.from_string("hello")
+    t.eq(bytes.length(&bb), 5)
+    t.finish()
+}
+
+func test_get_first_byte() -> (void) {
+    mut var t: test.T = test.new("test_get_first_byte")
+    var bb: types.Bytes = bytes.from_string("hello")
+    switch bytes.get(&bb, 0) {
+        case Some(v) { t.eq(v, int('h')) }
+        case None { t.fail("expected Some for index 0") }
+    }
+    t.finish()
+}
+
+func test_view_and_view_len() -> (void) {
+    mut var t: test.T = test.new("test_view_and_view_len")
+    var bb: types.Bytes = bytes.from_string("hello")
+    var view_res: Result<types.BytesView, string> = bytes.view(&bb, 0, 2)
+    if view_res.is_ok() {
+        var v: types.BytesView = view_res.unwrap()
+        t.eq(bytes.view_length(&v), 2)
+    } else {
+        t.fail("view failed: " + view_res.unwrap_err())
+    }
+    t.finish()
+}
+
+func test_set_changes_source() -> (void) {
+    mut var t: test.T = test.new("test_set_changes_source")
+    mut var bb: types.Bytes = bytes.from_string("hello")
+    var set_res: Result<void, string> = bytes.set(&mut bb, 1, int('a'))
+    if set_res.is_err() {
+        t.fail("set failed: " + set_res.unwrap_err())
+    }
+    t.eq_string(bytes.to_string(&bb), "hallo")
+    t.finish()
+}

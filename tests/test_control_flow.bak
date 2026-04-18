@@ -1,0 +1,105 @@
+// Test file for control flow statements
+package main
+
+func main() -> (void) {
+    println("=== Testing Control Flow ===")
+    
+    // If-else
+    println("\n1. If-else:")
+    var x: int = 10
+    if x > 5 {
+        println("  x > 5: true")
+    } else {
+        println("  x > 5: false")
+    }
+    
+    if x > 20 {
+        println("  x > 20: true")
+    } else if x > 15 {
+        println("  x > 15: true")
+    } else {
+        println("  x <= 15: true")
+    }
+    
+    // While loop
+    println("\n2. While loop:")
+    mut var i: int = 0
+    print("  Counting: ")
+    while i < 5 {
+        print(i, " ")
+        i = i + 1
+    }
+    println()
+    
+    // For loop with inclusive range [1, 5]
+    println("\n3. For loop with range:")
+    print("  Range [1, 5]: ")
+    for n in [1, 5] {
+        print(n, " ")
+    }
+    println()
+    
+    // For loop with Vec
+    println("\n4. For loop with Vec:")
+    var fruits: Vec<string, 3> = Vec.from(["apple", "banana", "cherry"])
+    print("  Fruits: ")
+    for fruit in fruits {
+        print(fruit, " ")
+    }
+    println()
+    
+    // Break
+    println("\n5. Break:")
+    mut var j: int = 0
+    print("  Break at 3: ")
+    while j < 10 {
+        if j == 3 {
+            break
+        }
+        print(j, " ")
+        j = j + 1
+    }
+    println()
+    
+    // Continue
+    println("\n6. Continue:")
+    print("  Skip even numbers: ")
+    for n in [0, 10) {
+        if n % 2 == 0 {
+            continue
+        }
+        print(n, " ")
+    }
+    println()
+    
+    // Nested loops
+    println("\n7. Nested loops:")
+    println("  Multiplication table (3x3):")
+    for i in [1, 3] {
+        print("    ")
+        for j in [1, 3] {
+            print(i * j, " ")
+        }
+        println()
+    }
+    
+    // Switch
+    println("\n8. Switch:")
+    var day: int = 3
+    switch day {
+        case 1 {
+            println("  Monday")
+        }
+        case 2 {
+            println("  Tuesday")
+        }
+        case 3 {
+            println("  Wednesday")
+        }
+        default {
+            println("  Other day")
+        }
+    }
+    
+    println("\n=== Control flow tests complete ===")
+}

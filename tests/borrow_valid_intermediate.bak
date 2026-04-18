@@ -1,0 +1,40 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func modify(d: &mut Data) -> (void) {
+    d.id = d.id + 1
+
+    return void
+}
+
+func inspect(_d: &Data) -> (void) {
+    println("inspecting")
+}
+
+func main() -> (void) {
+    mut var d: Data = Data{id: 1}
+
+    if true {
+        modify(&mut d)
+    }
+
+    // borrow is cleared after the call (as per current typechecker impl for args)
+    inspect(&d)
+
+    // OK
+    // Test with local borrow variable
+    mut var d2: Data = Data{id: 10}
+
+    if true {
+        mut var p: &mut Data = &mut d2
+
+        modify(p)
+    }
+
+    // p is still alive here, so &d2 should be blocked
+    // inspect(&d2) // Should fail if p is active
+    inspect(&d2)
+} // OK after scope

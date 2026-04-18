@@ -1,0 +1,67 @@
+type Status = string
+alias Status = string
+# Type and Alias in bak
+
+bak provides two distinct mechanisms for type definitions: new types and type aliases.
+
+## 1. New Types
+
+**Syntax:**
+```
+type Status = string
+```
+
+- Defines a new, distinct type with the same underlying representation as the base type.
+- No implicit conversion to or from the base type.
+- Enforced at compile time; zero runtime overhead.
+- Requires explicit construction:
+	```
+	var s Status = Status("in-progress")
+	```
+- Useful for strong domain modeling (e.g., IDs, states, units).
+
+**Example:**
+```
+type UserID = int
+type OrderID = int
+func deleteUser(id UserID)
+func deleteOrder(id OrderID)
+// deleteUser(orderId)   // Compile-time error
+```
+
+## 2. Type Aliases
+
+**Syntax:**
+```
+alias Status = string
+```
+
+- Creates an alternate name for an existing type.
+- No new type is created; fully interchangeable with the base type.
+- No constructor; assignment is direct:
+	```
+	var s Status = "in-progress"
+	```
+- Intended for readability and API clarity.
+
+## Feature Comparison
+
+| Feature                | type (new type) | alias (type alias) |
+|------------------------|-----------------|--------------------|
+| Creates new type       | Yes             | No                 |
+| Implicit conversion    | No              | Yes                |
+| Callable constructor   | Yes             | No                 |
+| Runtime cost           | 0               | 0                  |
+| Safety                 | Strong          | Weak               |
+| Rust equivalent        | newtype         | type alias         |
+
+## Implementation Notes
+
+- New types have unique type identities and require explicit construction.
+- Type aliases are replaced by the base type during name resolution and do not have constructors.
+
+---
+**Summary:**
+
+- Use `type` for new, distinct types with strong safety.
+- Use `alias` for alternate names with no extra safety.

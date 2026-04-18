@@ -1,0 +1,23 @@
+// Test: Mutable borrow while borrowed - should FAIL  
+// Error: cannot borrow as mutable while already borrowed
+package main
+
+func takeRef(x: &int) -> (void) {
+    println(*x)
+    return void
+}
+
+func takeMutRef(x: &mut int) -> (void) {
+    *x = *x + 1
+    return void
+}
+
+func main() -> (void) {
+    mut var n: int = 10
+    var r1 = &n
+    // ERROR: cannot take mutable borrow while immutably borrowed
+    var r2 = &mut n
+    takeRef(r1)
+    takeMutRef(r2)
+    return void
+}

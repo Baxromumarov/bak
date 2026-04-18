@@ -1,0 +1,11 @@
+package types
+
+// Minimal Bytes abstraction: an owned, explicit byte buffer.
+// Backed by a `Vec<int, _>` where each element is a byte (0-255).
+pub struct Bytes {
+    pub data: Vec<int, _>
+}
+
+pub struct BytesView {
+    pub data: Vec<int, _>
+}

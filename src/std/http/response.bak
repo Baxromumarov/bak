@@ -1,0 +1,361 @@
+package http
+
+import "src/std/strings/strings.bak" as strings
+import "src/std/encoding/json/json.bak" as json
+
+pub struct Response {
+    pub status:  int
+    pub reason:  string
+    pub headers: Vec<Header, _>
+    pub body:    Vec<int, _>
+}
+
+// add_header appends a header to the response.
+pub func add_header(
+    resp: &mut Response,
+    name: string,
+    value: string,
+) -> (void) {
+    resp.headers.push(Header{name: name, value: value})
+}
+
+// set_header updates a header (case-insensitive) or adds it if missing.
+pub func set_header(
+    resp: &mut Response,
+    name: string,
+    value: string,
+) -> (void) {
+    mut var i: int = 0
+    while i < resp.headers.len() {
+        if eq_case_insensitive(&(resp.headers[i]).name, &name) {
+            resp.headers[i] = Header{name: (resp.headers[i]).name, value: value}
+            return void
+        }
+        i = i + 1
+    }
+    add_header(
+        resp,
+        name,
+        value,
+    )
+}
+
+pub func get_response_header(
+    resp: &Response,
+    name: string,
+) -> (Option<string>) {
+    return header_value(
+        &resp.headers,
+        name,
+    )
+}
+
+impl Response as r {
+    pub func body_string() -> (string) {
+        return strings.fromBytes(r.body)
+    }
+}
+
+// Helper to create a text response
+pub func text(status: int, body: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{
+        name:  "Content-Type",
+        value: "text/plain; charset=utf-8",
+    })
+    return Response{
+        body:    body.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Helper to create a JSON response
+pub func json(status: int, body: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: "application/json"})
+    return Response{
+        body:    body.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Helper to create an HTML response
+pub func html(status: int, body: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: "text/html; charset=utf-8"})
+    return Response{
+        body:    body.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Helper for 404 Not Found
+pub func not_found() -> (Response) {
+    return text(
+        404,
+        "404 Not Found",
+    )
+}
+
+// Helper for 500 Internal Server Error
+pub func error(message: string) -> (Response) {
+    return text(
+        500,
+        message,
+    )
+}
+
+// Helper for redirects
+pub func redirect(location: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Location", value: location})
+    return Response{
+        body:    Vec.new(),
+        headers: headers,
+        reason:  "Found",
+        status:  302,
+    }
+}
+
+// Helper to create a JSON response from a Json value (auto-marshals)
+pub func json_body(status: int, body: json.Json) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: "application/json"})
+    var encoded: string = json.marshal(body)
+    return Response{
+        body:    encoded.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Helper to create a pretty-printed JSON response from a Json value
+pub func json_pretty_body(status: int, body: json.Json) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: "application/json"})
+    var encoded: string = json.marshal_pretty(body, 2)
+    return Response{
+        body:    encoded.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Generic response builder with custom content type
+pub func respond(status: int, body: string, content_type: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: content_type})
+    return Response{
+        body:    body.bytes(),
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Raw byte response with custom content type
+pub func respond_bytes(status: int, body: Vec<int, _>, content_type: string) -> (Response) {
+    mut var headers: Vec<Header, _> = Vec.new()
+    headers.push(Header{name: "Content-Type", value: content_type})
+    return Response{
+        body:    body,
+        headers: headers,
+        reason:  status_reason(status),
+        status:  status,
+    }
+}
+
+// Get reason phrase for status code
+func status_reason(status: int) -> (string) {
+    if status == 200 {
+        return "OK"
+    }
+    if status == 201 {
+        return "Created"
+    }
+    if status == 204 {
+        return "No Content"
+    }
+    if status == 301 {
+        return "Moved Permanently"
+    }
+    if status == 302 {
+        return "Found"
+    }
+    if status == 304 {
+        return "Not Modified"
+    }
+    if status == 400 {
+        return "Bad Request"
+    }
+    if status == 401 {
+        return "Unauthorized"
+    }
+    if status == 403 {
+        return "Forbidden"
+    }
+    if status == 404 {
+        return "Not Found"
+    }
+    if status == 405 {
+        return "Method Not Allowed"
+    }
+    if status == 500 {
+        return "Internal Server Error"
+    }
+    if status == 502 {
+        return "Bad Gateway"
+    }
+    if status == 503 {
+        return "Service Unavailable"
+    }
+    return "Unknown"
+}
+
+pub func parse_response(raw: string) -> (Result<Response, string>) {
+    mut var headerEnd = indexOf(
+        &raw,
+        &CRLFCRLF,
+    )
+    mut var headerSepLen: int = 4
+    if headerEnd == -1 {
+        headerEnd = indexOf(
+            &raw,
+            &LFLF,
+        )
+        headerSepLen = 2
+    }
+    if headerEnd == -1 {
+        return Err("invalid response: no header terminator")
+    }
+    var headerPart = raw.substring(
+        0,
+        headerEnd,
+    )
+    var bodyPart = raw.substring(
+        headerEnd + headerSepLen,
+        raw.len(),
+    )
+    mut var statusLineEnd = indexOf(
+        &headerPart,
+        &LF,
+    )
+    if statusLineEnd == -1 {
+        return Err("invalid response: no status line")
+    }
+    mut var statusLineTrimEnd: int = statusLineEnd
+    if statusLineEnd > 0 && headerPart[statusLineEnd - 1] == '\r' {
+        statusLineTrimEnd = statusLineEnd - 1
+    }
+    var statusLine = headerPart.substring(
+        0,
+        statusLineTrimEnd,
+    )
+    var headersPart = headerPart.substring(
+        statusLineEnd + 1,
+        headerPart.len(),
+    )
+    var firstSpace = indexOf(
+        &statusLine,
+        &" ",
+    )
+    if firstSpace == -1 {
+        return Err("invalid status line: missing space")
+    }
+    var _version = statusLine.substring(
+        0,
+        firstSpace,
+    )
+    var rest = statusLine.substring(
+        firstSpace + 1,
+        statusLine.len(),
+    )
+    var secondSpace = indexOf(
+        &rest,
+        &" ",
+    )
+    mut var statusCodeStr: string = ""
+    mut var reason: string = ""
+    if secondSpace == -1 {
+        statusCodeStr = rest
+    } else {
+        statusCodeStr = rest.substring(
+            0,
+            secondSpace,
+        )
+        reason = rest.substring(
+            secondSpace + 1,
+            rest.len(),
+        )
+    }
+    mut var headers: Vec<Header, _> = Vec.from([])
+    var statusCodeResult: Result<int, string> = statusCodeStr.parseInt()
+    if !statusCodeResult.is_ok() {
+        return Err("invalid status code")
+    }
+    var statusCode: int = statusCodeResult.unwrap()
+    mut var current: string = headersPart
+    while current.len() > 0 {
+        var lineEnd = indexOf(
+            &current,
+            &LF,
+        )
+        mut var line: string = ""
+        if lineEnd == -1 {
+            line = current
+            current = ""
+        } else {
+            mut var trimEnd: int = lineEnd
+            if lineEnd > 0 && current[lineEnd - 1] == '\r' {
+                trimEnd = lineEnd - 1
+            }
+            line = current.substring(
+                0,
+                trimEnd,
+            )
+            current = current.substring(
+                lineEnd + 1,
+                current.len(),
+            )
+        }
+        if line.len() == 0 {
+            break
+        }
+        var colonIndex = indexOf(
+            &line,
+            &":",
+        )
+        if colonIndex != -1 {
+            var name = line.substring(
+                0,
+                colonIndex,
+            )
+            mut var value: string = line.substring(
+                colonIndex + 1,
+                line.len(),
+            )
+            if value.startsWith(" ") {
+                value = value.substring(
+                    1,
+                    value.len(),
+                )
+            }
+            headers.push(Header{name: name, value: value})
+        }
+    }
+    var body: Vec<int, _> = bodyPart.bytes()
+    return Ok(Response{
+        body:    body,
+        headers: headers,
+        reason:  reason,
+        status:  statusCode,
+    })
+}

@@ -1,0 +1,427 @@
+package math
+
+// Math helpers for Bak programs that need floating-point utilities.
+
+pub const PI: float64 = 3.141592653589793
+pub const Tau: float64 = PI * 2.0
+pub const E: float64 = 2.718281828459045
+pub const Phi: float64 = 1.618033988749895
+pub const Sqrt2: float64 = 1.4142135623730951
+pub const Ln2: float64 = 0.6931471805599453
+pub const Ln10: float64 = 2.302585092994046
+
+pub const EPSILON: float64 = 0.000000000001
+pub const SERIES_LIMIT: int = 60
+
+// Basic integer utilities
+pub func absInt(value: int) -> (int) {
+    if value < 0 {
+        return -value
+    }
+    return value
+}
+
+pub func signInt(value: int) -> (int) {
+    if value < 0 {
+        return -1
+    }
+    if value > 0 {
+        return 1
+    }
+    return 0
+}
+
+pub func minInt(left: int, right: int) -> (int) {
+    if left < right {
+        return left
+    }
+    return right
+}
+
+pub func maxInt(left: int, right: int) -> (int) {
+    if left > right {
+        return left
+    }
+    return right
+}
+
+pub func clampInt(value: int, minVal: int, maxVal: int) -> (int) {
+    if value < minVal {
+        return minVal
+    }
+    if value > maxVal {
+        return maxVal
+    }
+    return value
+}
+
+// Floating point helpers
+pub func absFloat(value: float64) -> (float64) {
+    if value < 0.0 {
+        return -value
+    }
+    return value
+}
+
+pub func signFloat(value: float64) -> (float64) {
+    if value < 0.0 {
+        return -1.0
+    }
+    if value > 0.0 {
+        return 1.0
+    }
+    return 0.0
+}
+
+pub func minFloat(left: float64, right: float64) -> (float64) {
+    if left < right {
+        return left
+    }
+    return right
+}
+
+pub func maxFloat(left: float64, right: float64) -> (float64) {
+    if left > right {
+        return left
+    }
+    return right
+}
+
+pub func clampFloat(value: float64, minVal: float64, maxVal: float64) -> (float64) {
+    if value < minVal {
+        return minVal
+    }
+    if value > maxVal {
+        return maxVal
+    }
+    return value
+}
+
+pub func floor(value: float64) -> (float64) {
+    var truncated: int = int(value)
+    var truncatedFloat: float64 = float64(truncated)
+    if truncatedFloat > value {
+        return truncatedFloat - 1.0
+    }
+    return truncatedFloat
+}
+
+pub func ceil(value: float64) -> (float64) {
+    var truncated: int = int(value)
+    var truncatedFloat: float64 = float64(truncated)
+    if truncatedFloat < value {
+        return truncatedFloat + 1.0
+    }
+    return truncatedFloat
+}
+
+pub func trunc(value: float64) -> (float64) {
+    return float64(int(value))
+}
+
+pub func round(value: float64) -> (float64) {
+    if value < 0.0 {
+        return ceil(value - 0.5)
+    }
+    return floor(value + 0.5)
+}
+
+pub func fract(value: float64) -> (float64) {
+    return value - floor(value)
+}
+
+pub func mod(value: float64, modulus: float64) -> (float64) {
+    if modulus == 0.0 {
+        return 0.0
+    }
+    var normalized: float64 = trunc(value / modulus)
+    mut var result: float64 = value - modulus * normalized
+    if modulus > 0.0 && result < 0.0 {
+        result = result + modulus
+    } else if modulus < 0.0 && result > 0.0 {
+        result = result + modulus
+    }
+    return result
+}
+
+// Exponential / logarithmic helpers
+pub func exp(value: float64) -> (float64) {
+    mut var sum: float64 = 1.0
+    mut var term: float64 = 1.0
+    mut var index: int = 1
+    while index < SERIES_LIMIT {
+        term = term * value / float64(index)
+        sum = sum + term
+        if absFloat(term) < EPSILON {
+            break
+        }
+        index = index + 1
+    }
+    return sum
+}
+
+pub func ln(value: float64) -> (float64) {
+    if value <= 0.0 {
+        return 0.0
+    }
+
+    mut var normalized: float64 = value
+    mut var shift: int = 0
+    while normalized > 2.0 {
+        normalized = normalized / E
+        shift = shift + 1
+    }
+    while normalized < 0.5 {
+        normalized = normalized * E
+        shift = shift - 1
+    }
+
+    var z: float64 = (normalized - 1.0) / (normalized + 1.0)
+    var zsq: float64 = z * z
+    mut var term: float64 = z
+    mut var sum: float64 = z
+    mut var idx: int = 1
+    while idx < SERIES_LIMIT {
+        term = term * zsq
+        var denom: float64 = float64(2 * idx + 1)
+        sum = sum + term/denom
+        if absFloat(term) < EPSILON {
+            break
+        }
+        idx = idx + 1
+    }
+
+    return float64(shift) + 2.0 * sum
+}
+
+pub func exp2(value: float64) -> (float64) {
+    return exp(value * Ln2)
+}
+
+pub func log2(value: float64) -> (float64) {
+    if value <= 0.0 {
+        return 0.0
+    }
+    return ln(value) / Ln2
+}
+
+pub func log10(value: float64) -> (float64) {
+    if value <= 0.0 {
+        return 0.0
+    }
+    return ln(value) / Ln10
+}
+
+// Power helpers
+pub func pow(base: float64, exponent: float64) -> (float64) {
+    if exponent == 0.0 {
+        return 1.0
+    }
+    if base == 0.0 {
+        if exponent > 0.0 {
+            return 0.0
+        }
+        return 0.0
+    }
+
+    var intExp: int = int(exponent)
+    if float64(intExp) == exponent {
+        mut var result: float64 = 1.0
+        mut var count: int = absInt(intExp)
+        mut var factor: float64 = base
+        while count > 0 {
+            result = result * factor
+            count = count - 1
+        }
+        if intExp < 0 {
+            result = 1.0 / result
+        }
+        return result
+    }
+
+    if base < 0.0 {
+        return 0.0
+    }
+    return exp(exponent * ln(base))
+}
+
+pub func sqrt(value: float64) -> (float64) {
+    if value <= 0.0 {
+        return 0.0
+    }
+    mut var guess: float64 = value
+    if guess < 1.0 {
+        guess = 1.0
+    }
+    mut var diff: float64 = 1.0
+    mut var iter: int = 0
+    while absFloat(diff) > EPSILON && iter < SERIES_LIMIT {
+        mut var next: float64 = 0.5 * (guess + value/guess)
+        diff = next - guess
+        guess = next
+        iter = iter + 1
+    }
+    return guess
+}
+
+pub func cbrt(value: float64) -> (float64) {
+    return pow(value, 1.0/3.0)
+}
+
+pub func hypot(a: float64, b: float64) -> (float64) {
+    return sqrt(a * a + b * b)
+}
+
+// Trigonometry helpers
+pub func sin(value: float64) -> (float64) {
+    mut var angle: float64 = normalizeAngle(value)
+    mut var term: float64 = angle
+    mut var sum: float64 = angle
+    mut var idx: int = 1
+    while idx < SERIES_LIMIT {
+        term = term * -angle * angle / float64((2 * idx) * (2 * idx + 1))
+        sum = sum + term
+        if absFloat(term) < EPSILON {
+            break
+        }
+        idx = idx + 1
+    }
+    return sum
+}
+
+pub func cos(value: float64) -> (float64) {
+    mut var angle: float64 = normalizeAngle(value)
+    mut var term: float64 = 1.0
+    mut var sum: float64 = 1.0
+    mut var idx: int = 1
+    while idx < SERIES_LIMIT {
+        term = term * -angle * angle / float64((2 * idx - 1) * (2 * idx))
+        sum = sum + term
+        if absFloat(term) < EPSILON {
+            break
+        }
+        idx = idx + 1
+    }
+    return sum
+}
+
+pub func tan(value: float64) -> (float64) {
+    var cosine: float64 = cos(value)
+    if cosine == 0.0 {
+        return 0.0
+    }
+    return sin(value) / cosine
+}
+
+pub func asin(value: float64) -> (float64) {
+    if value <= -1.0 {
+        return -PI / 2.0
+    }
+    if value >= 1.0 {
+        return PI / 2.0
+    }
+    mut var diff: float64 = 1.0 - value * value
+    if diff < 0.0 {
+        diff = 0.0
+    }
+    return atan(value / sqrt(diff))
+}
+
+pub func acos(value: float64) -> (float64) {
+    return PI / 2.0 - asin(value)
+}
+
+pub func atan(value: float64) -> (float64) {
+    if value == 0.0 {
+        return 0.0
+    }
+    mut var arg: float64 = value
+    mut var sign: float64 = 1.0
+    if arg < 0.0 {
+        sign = -1.0
+        arg = -arg
+    }
+    mut var result: float64
+    if arg > 1.0 {
+        result = PI / 2.0 - atanSeries(1.0/arg)
+    } else {
+        result = atanSeries(arg)
+    }
+    return result * sign
+}
+
+pub func atan2(y: float64, x: float64) -> (float64) {
+    if x > 0.0 {
+        return atan(y / x)
+    }
+    if x < 0.0 {
+        if y >= 0.0 {
+            return atan(y / x) + PI
+        }
+        return atan(y / x) - PI
+    }
+    if y > 0.0 {
+        return PI / 2.0
+    }
+    if y < 0.0 {
+        return -PI / 2.0
+    }
+    return 0.0
+}
+
+pub func deg2rad(degrees: float64) -> (float64) {
+    return degrees * PI / 180.0
+}
+
+pub func rad2deg(radians: float64) -> (float64) {
+    return radians * 180.0 / PI
+}
+
+pub func sinh(value: float64) -> (float64) {
+    return (exp(value) - exp(-value)) / 2.0
+}
+
+pub func cosh(value: float64) -> (float64) {
+    return (exp(value) + exp(-value)) / 2.0
+}
+
+pub func tanh(value: float64) -> (float64) {
+    var ePlus: float64 = exp(value)
+    var eMinus: float64 = exp(-value)
+    mut var denom: float64 = ePlus + eMinus
+    if denom == 0.0 {
+        return 0.0
+    }
+    return (ePlus - eMinus) / denom
+}
+
+// Internal helpers
+func normalizeAngle(value: float64) -> (float64) {
+    if value == 0.0 {
+        return 0.0
+    }
+    mut var wrapped: float64 = value - Tau * floor(value / Tau)
+    if wrapped > PI {
+        wrapped = wrapped - Tau
+    } else if wrapped < -PI {
+        wrapped = wrapped + Tau
+    }
+    return wrapped
+}
+
+func atanSeries(value: float64) -> (float64) {
+    mut var term: float64 = value
+    mut var sum: float64 = value
+    var square: float64 = value * value
+    mut var idx: int = 1
+    while idx < SERIES_LIMIT {
+        term = term * -square
+        var denom: float64 = float64(2 * idx + 1)
+        sum = sum + term/denom
+        if absFloat(term) < EPSILON {
+            break
+        }
+        idx = idx + 1
+    }
+    return sum
+}

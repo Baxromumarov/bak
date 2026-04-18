@@ -1,0 +1,62 @@
+
+# HTTP Package Design in bak
+
+This document outlines the recommended approach for implementing an HTTP package in bak, focusing on clarity, explicitness, and testability.
+
+## Scope (v1)
+
+- HTTP/1.1 only
+- Plain TCP (no TLS)
+- Blocking IO
+- One request per connection
+- No async, chunked encoding, keep-alive, or compression
+
+## Recommended File Layout
+
+```
+std/http/
+  http.bak
+  request.bak
+  response.bak
+  parser.bak
+  client.bak
+  server.bak
+```
+
+## Core Types
+
+```bak
+pub struct Request {
+    method string
+    path string
+    version string
+    headers Vec<Header, _>
+    body Vec<byte, _>
+}
+
+pub struct Response {
+    status int
+    reason string
+    headers Vec<Header, _>
+    body Vec<byte, _>
+}
+
+pub struct Header {
+    name string
+    value string
+}
+```
+
+## HTTP Parsing
+
+- Start with parsing logic (no IO required).
+- Example functions:
+  - `parse_request_line(line string) -> Result<(string, string, string), string>`
+  - `parse_header(line string) -> Result<Header, string>`
+  - `parse_request(raw string) -> Result<Request, string>`
+
+Parsing rules:
+- Split request line by spaces (expect 3 parts)
+- Split headers on first ':' and trim whitespace
+- Store header names as-is
+- Parse until empty line, then body

@@ -1,0 +1,3 @@
+package native
+
+// Symbol table and relocation model (Phase 1 placeholder).

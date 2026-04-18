@@ -1,0 +1,38 @@
+package main
+
+import "std/os"
+
+func main() -> (void) {
+    println("Testing os.getenv...")
+
+    var home: Option<string> = os.getenv("HOME")
+
+    if home.is_some() {
+        var h: string = home.unwrap()
+
+        println(
+            "HOME:",
+            h,
+        )
+    } else {
+        println("HOME not set")
+    }
+
+    var path: Option<string> = os.getenv("PATH")
+
+    if path.is_some() {
+        println("PATH is set")
+    } else {
+        println("PATH not set")
+    }
+
+    var nonexistent: Option<string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
+
+    if nonexistent.is_none() {
+        println("PASS: Non-existent var returns None")
+    } else {
+        println("FAIL: Found non-existent var")
+    }
+
+    println("Done")
+}

@@ -1,0 +1,19 @@
+package std
+
+struct StringBuiltins {}
+impl StringBuiltins {
+    pub func bytes() -> (Vec<int,_>) { return Vec.from([]) }
+    pub func len() -> (int) { return 0 }
+}
+
+struct VecBuiltins {}
+impl VecBuiltins {
+    pub func len() -> (int) { return 0 }
+    pub func push(item: int) -> (void) { return }
+    pub func pop() -> (int) { return 0 }
+}
+
+struct MapBuiltins {}
+impl MapBuiltins {
+    pub func len() -> (int) { return 0 }
+}

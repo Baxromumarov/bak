@@ -1,0 +1,39 @@
+// tests/unused_checks/unused_types_aliases_structs.bak
+// Expected: warnings for `UnusedType`, `UnusedStruct`, and possibly `MyAlias` if unused.
+package main
+
+// alias and types
+type MyAlias = int
+type UsedType = int
+type UnusedType = int
+
+// structs
+struct UsedStruct {
+    A: int
+    B: int
+}
+
+struct UnusedStruct {
+    X: int
+    Y: int
+}
+
+func consumesUsedType(x: UsedType) -> (void) {
+    println("consumesUsedType", x)
+    return void
+}
+
+func usesStruct(s: UsedStruct) -> (void) {
+    println(s.A)
+    return void
+}
+
+func main() -> (void) {
+    var v: UsedType = UsedType(1)
+    consumesUsedType(v)
+
+    var s: UsedStruct = UsedStruct{A:1, B:2}
+    usesStruct(s)
+
+    return void
+}

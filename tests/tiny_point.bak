@@ -1,0 +1,14 @@
+package main
+
+struct Point {
+    X: int
+    Y: int
+}
+
+func main() -> (int) {
+    var p: Point = Point{X: 1, Y: 2}
+
+    println("done")
+
+    return 0
+}

@@ -1,0 +1,26 @@
+// Test import syntax with aliases
+package main
+
+import "tests/typelib.bak" as tl
+import "tests/mathlib.bak" as ml
+
+func main() -> (void) {
+    println("=== Testing Import Aliases ===")
+    
+    // Use typelib with tl alias
+    var point: tl.Point = tl.Point{X: 7, Y: 9}
+    println("Point:", point.X, point.Y)
+    
+    var num: tl.Integer = tl.makeInteger(777)
+    println("Integer:", num)
+    
+    // Use mathlib with ml alias
+    var sum: int = ml.add(10, 5)
+    println("Sum:", sum)
+    
+    var calc: ml.Calc = ml.Calc{A: 100, B: 200}
+    println("Calc:", calc.A, calc.B)
+    
+    println("Import alias tests passed!")
+    return void
+}

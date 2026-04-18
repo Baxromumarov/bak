@@ -1,0 +1,78 @@
+// Test pub visibility keyword
+package main
+
+// Public function
+pub func greet(name: string) -> (string) {
+    return "Hello, " + name
+}
+
+// Private function (default)
+func helper() -> (int) {
+    return 42
+}
+
+// Public struct
+pub struct Person {
+    pub name: string
+    pub age: int
+    ssn: string  // private field
+}
+
+// Private struct (default)
+struct InternalData {
+    value: int
+}
+
+// Public constant
+pub const MAX_SIZE: int = 100
+
+// Private constant
+const INTERNAL_LIMIT: int = 50
+
+// Public type
+pub type ID = int
+
+// Private type
+type Counter = int
+
+// Public alias
+pub alias Status = string
+
+// Private alias  
+alias Code = int
+
+// Public enum
+pub enum Color {
+    Red
+    Green
+    Blue
+}
+
+// Private enum
+enum InternalState {
+    Pending
+    Done
+}
+
+func main() -> (void) {
+    println("Testing pub visibility")
+    
+    // Test public function
+    var msg: string = greet("World")
+    println(msg)
+    
+    // Test private function
+    var num: int = helper()
+    println(num)
+    
+    // Test public struct with public fields
+    var p: Person = Person{name: "Alice", age: 30, ssn: "123-45-6789"}
+    println(p.name)
+    println(p.age)
+    
+    // Test constants
+    println(MAX_SIZE)
+    println(INTERNAL_LIMIT)
+    
+    println("All pub visibility tests passed!")
+}

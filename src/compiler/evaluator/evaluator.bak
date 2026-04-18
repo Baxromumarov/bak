@@ -1,0 +1,1118 @@
+// Tree-walking interpreter for the Bak language.
+// Evaluates AST nodes and produces runtime values.
+package evaluator
+
+import "src/compiler/ast/ast.bak" as ast
+import "src/compiler/object/object.bak" as obj
+import "src/compiler/object/environment.bak" as env
+import "src/std/strconv/strconv.bak" as strconv
+
+// ============================================================================
+// Main Eval Function
+// ============================================================================
+
+pub func Eval(node: ast.Node, e: &mut env.Environment) -> (obj.Object) {
+    switch node {
+        // Statements
+        case ast.Node.Program(p) {
+            return evalProgram(p, e)
+        }
+        case ast.Node.ExpressionStmt(es) {
+            return Eval(ast.Node.Expr(es.Expression), e)
+        }
+        case ast.Node.VarStmt(vs) {
+            return evalVarStatement(vs, e)
+        }
+        case ast.Node.ConstStmt(cs) {
+            return evalConstStatement(cs, e)
+        }
+        case ast.Node.ReturnStmt(rs) {
+            return evalReturnStatement(rs, e)
+        }
+        case ast.Node.BlockStmt(bs) {
+            return evalBlockStatement(bs, e)
+        }
+        case ast.Node.IfStmt(is) {
+            return evalIfStatement(is, e)
+        }
+        case ast.Node.WhileStmt(ws) {
+            return evalWhileStatement(ws, e)
+        }
+        case ast.Node.ForStmt(fs) {
+            return evalForStatement(fs, e)
+        }
+        case ast.Node.SwitchStmt(ss) {
+            return evalSwitchStatement(ss, e)
+        }
+        case ast.Node.BreakStmt(_) {
+            return obj.newBreak()
+        }
+        case ast.Node.ContinueStmt(_) {
+            return obj.newContinue()
+        }
+        case ast.Node.AssignmentStmt(asStmt) {
+            return evalAssignmentStatement(asStmt, e)
+        }
+        case ast.Node.FunctionDecl(fd) {
+            return evalFunctionDecl(fd, e)
+        }
+        case ast.Node.StructDecl(sd) {
+            return evalStructDecl(sd, e)
+        }
+        case ast.Node.EnumDecl(ed) {
+            return evalEnumDecl(ed, e)
+        }
+        case ast.Node.ImplDecl(id) {
+            return evalImplDecl(id, e)
+        }
+        case ast.Node.PackageStmt(_) {
+            return obj.newVoid()
+        }
+        case ast.Node.ImportStmt(impStmt) {
+            return evalImportStatement(impStmt, e)
+        }
+        case ast.Node.ImportBlock(ib) {
+            return evalImportBlock(ib, e)
+        }
+
+        // Expressions
+        case ast.Node.Expr(expr) {
+            return evalExpression(expr, e)
+        }
+
+        default {
+            return obj.newError("unknown node type", 0, 0)
+        }
+    }
+}
+
+// ============================================================================
+// Expression Evaluation
+// ============================================================================
+
+func evalExpression(expr: ast.Expression, e: &mut env.Environment) -> (obj.Object) {
+    switch expr {
+        case ast.Expression.Identifier(id) {
+            return evalIdentifier(id, e)
+        }
+        case ast.Expression.IntegerLiteral(il) {
+            return obj.newInteger(il.Value)
+        }
+        case ast.Expression.FloatLiteral(fl) {
+            return obj.newFloat(fl.Value)
+        }
+        case ast.Expression.StringLiteral(sl) {
+            return obj.newString(sl.Value)
+        }
+        case ast.Expression.CharLiteral(cl) {
+            return obj.newChar(cl.Value)
+        }
+        case ast.Expression.BooleanLiteral(bl) {
+            return obj.newBoolean(bl.Value)
+        }
+        case ast.Expression.VecLiteral(vl) {
+            return evalVecLiteral(vl, e)
+        }
+        case ast.Expression.Prefix(pe) {
+            return evalPrefixExpression(pe, e)
+        }
+        case ast.Expression.Infix(ie) {
+            return evalInfixExpression(ie, e)
+        }
+        case ast.Expression.Index(ix) {
+            return evalIndexExpression(ix, e)
+        }
+        case ast.Expression.Call(ce) {
+            return evalCallExpression(ce, e)
+        }
+        case ast.Expression.FieldAccess(fa) {
+            return evalFieldAccess(fa, e)
+        }
+        case ast.Expression.MethodCall(mc) {
+            return evalMethodCall(mc, e)
+        }
+        case ast.Expression.StructLiteral(sl) {
+            return evalStructLiteral(sl, e)
+        }
+        case ast.Expression.Range(re) {
+            return evalRangeExpression(re, e)
+        }
+        case ast.Expression.Tuple(te) {
+            return evalTupleExpression(te, e)
+        }
+        case ast.Expression.Borrow(be) {
+            return evalBorrowExpression(be, e)
+        }
+        default {
+            return obj.newError("unknown expression type", 0, 0)
+        }
+    }
+}
+
+// ============================================================================
+// Program Evaluation
+// ============================================================================
+
+func evalProgram(program: ast.Program, e: &mut env.Environment) -> (obj.Object) {
+    mut var result: obj.Object = obj.newVoid()
+    mut var localEnv: env.Environment = e
+
+    // First pass: declarations
+    for stmt in program.Statements {
+        switch stmt {
+            case ast.Statement.FunctionDecl(fd) {
+                result = Eval(ast.Node.FunctionDecl(fd), localEnv)
+            }
+            case ast.Statement.StructDecl(sd) {
+                result = Eval(ast.Node.StructDecl(sd), localEnv)
+            }
+            case ast.Statement.EnumDecl(ed) {
+                result = Eval(ast.Node.EnumDecl(ed), localEnv)
+            }
+            case ast.Statement.Const(cs) {
+                result = Eval(ast.Node.ConstStmt(cs), localEnv)
+            }
+            case ast.Statement.Import(is) {
+                result = Eval(ast.Node.ImportStmt(impStmt), localEnv)
+            }
+            default {
+                // Skip other statements in first pass
+            }
+        }
+
+        if obj.isError(result) {
+            return result
+        }
+    }
+
+    // Second pass: look for main()
+    switch localEnv.Get("main") {
+        case Some(mainFn) {
+            switch mainFn {
+                case obj.Object.FunctionVal(fn) {
+                    var extendedEnv: env.Environment = env.NewEnclosed(localEnv)
+                    return evalBlockStatement(fn.Body, extendedEnv)
+                }
+                default {
+                    return obj.newError("main is not a function", 0, 0)
+                }
+            }
+        }
+        case None {
+            // No main function - just evaluate remaining statements
+            for stmt in program.Statements {
+                result = evalStatement(stmt, localEnv)
+                if obj.isError(result) || obj.isReturnValue(result) {
+                    return result
+                }
+            }
+        }
+    }
+
+    return result
+}
+
+// ============================================================================
+// Statement Evaluation
+// ============================================================================
+
+func evalStatement(stmt: ast.Statement, e: &mut env.Environment) -> (obj.Object) {
+    switch stmt {
+        case ast.Statement.Expression(es) {
+            return evalExpression(es.Expression, e)
+        }
+        case ast.Statement.Var(vs) {
+            return evalVarStatement(vs, e)
+        }
+        case ast.Statement.Const(cs) {
+            return evalConstStatement(cs, e)
+        }
+        case ast.Statement.Return(rs) {
+            return evalReturnStatement(rs, e)
+        }
+        case ast.Statement.If(is) {
+            return evalIfStatement(is, e)
+        }
+        case ast.Statement.While(ws) {
+            return evalWhileStatement(ws, e)
+        }
+        case ast.Statement.For(fs) {
+            return evalForStatement(fs, e)
+        }
+        case ast.Statement.Switch(ss) {
+            return evalSwitchStatement(ss, e)
+        }
+        case ast.Statement.Break(_) {
+            return obj.newBreak()
+        }
+        case ast.Statement.Continue(_) {
+            return obj.newContinue()
+        }
+        case ast.Statement.Assignment(asStmt) {
+            return evalAssignmentStatement(asStmt, e)
+        }
+        default {
+            return obj.newVoid()
+        }
+    }
+}
+
+func evalVarStatement(vs: ast.VarStatement, e: &mut env.Environment) -> (obj.Object) {
+    switch vs.Value {
+        case Some(valExpr) {
+            var value: obj.Object = evalExpression(valExpr, e)
+            if obj.isError(value) {
+                return value
+            }
+            e.Set(vs.Name.Value, value, vs.Mutable)
+        }
+        case None {
+            // Variable without initial value
+            e.Set(vs.Name.Value, obj.newNull(), vs.Mutable)
+        }
+    }
+    return obj.newVoid()
+}
+
+func evalConstStatement(cs: ast.ConstStatement, e: &mut env.Environment) -> (obj.Object) {
+    var value: obj.Object = evalExpression(cs.Value, e)
+    if obj.isError(value) {
+        return value
+    }
+    e.SetConstant(cs.Name.Value, value)
+    return obj.newVoid()
+}
+
+func evalReturnStatement(rs: ast.ReturnStatement, e: &mut env.Environment) -> (obj.Object) {
+    switch rs.ReturnValue {
+        case Some(val) {
+            var value: obj.Object = evalExpression(val, e)
+            if obj.isError(value) {
+                return value
+            }
+            return obj.newReturnValue(value)
+        }
+        case None {
+            return obj.newReturnValue(obj.newVoid())
+        }
+    }
+}
+
+func evalBlockStatement(block: ast.BlockStatement, e: &mut env.Environment) -> (obj.Object) {
+    mut var result: obj.Object = obj.newVoid()
+    
+    for stmt in block.Statements {
+        result = evalStatement(stmt, e)
+        
+        if obj.isError(result) || obj.isReturnValue(result) || 
+           obj.isBreak(result) || obj.isContinue(result) {
+            return result
+        }
+    }
+    
+    return result
+}
+
+func evalIfStatement(is: ast.IfStatement, e: &mut env.Environment) -> (obj.Object) {
+    var condition: obj.Object = evalExpression(is.Condition, e)
+    if obj.isError(condition) {
+        return condition
+    }
+    
+    if obj.isTruthy(condition) {
+        return evalBlockStatement(is.Consequence, e)
+    }
+    
+    switch is.Alternative {
+        case Some(alt) {
+            return evalBlockStatement(alt, e)
+        }
+        case None {
+            return obj.newVoid()
+        }
+    }
+}
+
+func evalWhileStatement(ws: ast.WhileStatement, e: &mut env.Environment) -> (obj.Object) {
+    while true {
+        var condition: obj.Object = evalExpression(ws.Condition, e)
+        if obj.isError(condition) {
+            return condition
+        }
+        
+        if !obj.isTruthy(condition) {
+            return obj.newVoid()
+        }
+        
+        var result: obj.Object = evalBlockStatement(ws.Body, e)
+        
+        if obj.isError(result) || obj.isReturnValue(result) {
+            return result
+        }
+        if obj.isBreak(result) {
+            return obj.newVoid()
+        }
+        // Continue just restarts the loop
+    }
+}
+
+func evalForStatement(fs: ast.ForStatement, e: &mut env.Environment) -> (obj.Object) {
+    var iterable: obj.Object = evalExpression(fs.Iterable, e)
+    if obj.isError(iterable) {
+        return iterable
+    }
+    
+    switch iterable {
+        case obj.Object.VecVal(v) {
+            for elem in v.Elements {
+                var loopEnv: env.Environment = env.NewEnclosed(e)
+                loopEnv.Set(fs.Variable.Value, elem, false)
+                
+                var result: obj.Object = evalBlockStatement(fs.Body, loopEnv)
+                
+                if obj.isError(result) || obj.isReturnValue(result) {
+                    return result
+                }
+                if obj.isBreak(result) {
+                    return obj.newVoid()
+                }
+            }
+        }
+        case obj.Object.RangeVal(r) {
+            for i in r.Start..r.End {
+                var loopEnv: env.Environment = env.NewEnclosed(e)
+                loopEnv.Set(fs.Variable.Value, obj.newInteger(i), false)
+                
+                var result: obj.Object = evalBlockStatement(fs.Body, loopEnv)
+                
+                if obj.isError(result) || obj.isReturnValue(result) {
+                    return result
+                }
+                if obj.isBreak(result) {
+                    return obj.newVoid()
+                }
+            }
+        }
+        case obj.Object.StringVal(s) {
+            for ch in s.Value {
+                var loopEnv: env.Environment = env.NewEnclosed(e)
+                loopEnv.Set(fs.Variable.Value, obj.newChar(ch), false)
+                
+                var result: obj.Object = evalBlockStatement(fs.Body, loopEnv)
+                
+                if obj.isError(result) || obj.isReturnValue(result) {
+                    return result
+                }
+                if obj.isBreak(result) {
+                    return obj.newVoid()
+                }
+            }
+        }
+        default {
+            return obj.newError("cannot iterate over non-iterable type", 0, 0)
+        }
+    }
+    
+    return obj.newVoid()
+}
+
+func evalSwitchStatement(ss: ast.SwitchStatement, e: &mut env.Environment) -> (obj.Object) {
+    var value: obj.Object = evalExpression(ss.Value, e)
+    if obj.isError(value) {
+        return value
+    }
+    
+    for sc in ss.Cases {
+        if sc.Default {
+            return evalBlockStatement(sc.Body, e)
+        }
+        
+        for pattern in sc.Values {
+            var patternVal: obj.Object = evalExpression(pattern, e)
+            if objectsEqual(value, patternVal) {
+                return evalBlockStatement(sc.Body, e)
+            }
+        }
+    }
+    
+    return obj.newVoid()
+}
+
+func evalAssignmentStatement(as: ast.AssignmentStatement, e: &mut env.Environment) -> (obj.Object) {
+    var value: obj.Object = evalExpression(asStmt.Value, e)
+    if obj.isError(value) {
+        return value
+    }
+    
+    switch asStmt.Left {
+        case ast.Expression.Identifier(id) {
+            switch e.Update(id.Value, value) {
+                case Some(errMsg) {
+                    return obj.newError(errMsg, 0, 0)
+                }
+                case None {
+                    return obj.newVoid()
+                }
+            }
+        }
+        default {
+            return obj.newError("invalid assignment target", 0, 0)
+        }
+    }
+}
+
+// ============================================================================
+// Expression Helpers
+// ============================================================================
+
+func evalIdentifier(id: ast.Identifier, e: &mut env.Environment) -> (obj.Object) {
+    switch e.Get(id.Value) {
+        case Some(val) {
+            return val
+        }
+        case None {
+            return obj.newError("undefined variable: " + id.Value, 0, 0)
+        }
+    }
+}
+
+func evalVecLiteral(vl: ast.VecLiteral, e: &mut env.Environment) -> (obj.Object) {
+    mut var elements: Vec<obj.Object, _> = Vec.new()
+    
+    for elem in vl.Elements {
+        var value: obj.Object = evalExpression(elem, e)
+        if obj.isError(value) {
+            return value
+        }
+        elements.push(value)
+    }
+    
+    return obj.Object.VecVal(obj.VecObj{
+        Elements: elements,
+        ElemType: "",
+        Size: -1,
+        Mutable: true,
+    })
+}
+
+func evalPrefixExpression(pe: ast.PrefixExpression, e: &mut env.Environment) -> (obj.Object) {
+    var right: obj.Object = evalExpression(pe.Right, e)
+    if obj.isError(right) {
+        return right
+    }
+    
+    if pe.Operator == "!" {
+        return obj.newBoolean(!obj.isTruthy(right))
+    }
+    
+    if pe.Operator == "-" {
+        switch right {
+            case obj.Object.IntegerVal(i) {
+                return obj.newInteger(-i.Value)
+            }
+            case obj.Object.FloatVal(f) {
+                return obj.newFloat(-f.Value)
+            }
+            default {
+                return obj.newError("cannot negate non-numeric value", 0, 0)
+            }
+        }
+    }
+    
+    return obj.newError("unknown operator: " + pe.Operator, 0, 0)
+}
+
+func evalInfixExpression(ie: ast.InfixExpression, e: &mut env.Environment) -> (obj.Object) {
+    var left: obj.Object = evalExpression(ie.Left, e)
+    if obj.isError(left) {
+        return left
+    }
+    
+    var right: obj.Object = evalExpression(ie.Right, e)
+    if obj.isError(right) {
+        return right
+    }
+    
+    return evalInfixOperation(ie.Operator, left, right)
+}
+
+func evalInfixOperation(op: &string, left: obj.Object, right: obj.Object) -> (obj.Object) {
+    // Integer operations
+    switch left {
+        case obj.Object.IntegerVal(l) {
+            switch right {
+                case obj.Object.IntegerVal(r) {
+                    return evalIntegerInfix(op, l.Value, r.Value)
+                }
+                default {}
+            }
+        }
+        default {}
+    }
+    
+    // Float operations
+    switch left {
+        case obj.Object.FloatVal(l) {
+            switch right {
+                case obj.Object.FloatVal(r) {
+                    return evalFloatInfix(op, l.Value, r.Value)
+                }
+                default {}
+            }
+        }
+        default {}
+    }
+    
+    // String operations
+    switch left {
+        case obj.Object.StringVal(l) {
+            switch right {
+                case obj.Object.StringVal(r) {
+                    if op == "+" {
+                        return obj.newString(l.Value + r.Value)
+                    }
+                    if op == "==" {
+                        return obj.newBoolean(l.Value == r.Value)
+                    }
+                    if op == "!=" {
+                        return obj.newBoolean(l.Value != r.Value)
+                    }
+                }
+                default {}
+            }
+        }
+        default {}
+    }
+    
+    // Boolean operations
+    switch left {
+        case obj.Object.BooleanVal(l) {
+            switch right {
+                case obj.Object.BooleanVal(r) {
+                    if op == "&&" {
+                        return obj.newBoolean(l.Value && r.Value)
+                    }
+                    if op == "||" {
+                        return obj.newBoolean(l.Value || r.Value)
+                    }
+                    if op == "==" {
+                        return obj.newBoolean(l.Value == r.Value)
+                    }
+                    if op == "!=" {
+                        return obj.newBoolean(l.Value != r.Value)
+                    }
+                }
+                default {}
+            }
+        }
+        default {}
+    }
+    
+    return obj.newError("unknown operator or type mismatch: " + op, 0, 0)
+}
+
+func evalIntegerInfix(op: &string, left: int, right: int) -> (obj.Object) {
+    if op == "+" { return obj.newInteger(left + right) }
+    if op == "-" { return obj.newInteger(left - right) }
+    if op == "*" { return obj.newInteger(left * right) }
+    if op == "/" { 
+        if right == 0 {
+            return obj.newError("division by zero", 0, 0)
+        }
+        return obj.newInteger(left / right) 
+    }
+    if op == "%" { return obj.newInteger(left % right) }
+    if op == "<" { return obj.newBoolean(left < right) }
+    if op == ">" { return obj.newBoolean(left > right) }
+    if op == "<=" { return obj.newBoolean(left <= right) }
+    if op == ">=" { return obj.newBoolean(left >= right) }
+    if op == "==" { return obj.newBoolean(left == right) }
+    if op == "!=" { return obj.newBoolean(left != right) }
+    
+    return obj.newError("unknown integer operator: " + op, 0, 0)
+}
+
+func evalFloatInfix(op: &string, left: float64, right: float64) -> (obj.Object) {
+    if op == "+" { return obj.newFloat(left + right) }
+    if op == "-" { return obj.newFloat(left - right) }
+    if op == "*" { return obj.newFloat(left * right) }
+    if op == "/" { return obj.newFloat(left / right) }
+    if op == "<" { return obj.newBoolean(left < right) }
+    if op == ">" { return obj.newBoolean(left > right) }
+    if op == "<=" { return obj.newBoolean(left <= right) }
+    if op == ">=" { return obj.newBoolean(left >= right) }
+    if op == "==" { return obj.newBoolean(left == right) }
+    if op == "!=" { return obj.newBoolean(left != right) }
+    
+    return obj.newError("unknown float operator: " + op, 0, 0)
+}
+
+func evalIndexExpression(ix: ast.IndexExpression, e: &mut env.Environment) -> (obj.Object) {
+    var left: obj.Object = evalExpression(ix.Left, e)
+    if obj.isError(left) {
+        return left
+    }
+    
+    var index: obj.Object = evalExpression(ix.Index, e)
+    if obj.isError(index) {
+        return index
+    }
+    
+    switch left {
+        case obj.Object.VecVal(v) {
+            switch index {
+                case obj.Object.IntegerVal(i) {
+                    if i.Value < 0 || i.Value >= v.Elements.len() {
+                        return obj.newError("index out of bounds", 0, 0)
+                    }
+                    return v.Elements[i.Value]
+                }
+                default {
+                    return obj.newError("index must be an integer", 0, 0)
+                }
+            }
+        }
+        case obj.Object.StringVal(s) {
+            switch index {
+                case obj.Object.IntegerVal(i) {
+                    if i.Value < 0 || i.Value >= s.Value.len() {
+                        return obj.newError("index out of bounds", 0, 0)
+                    }
+                    return obj.newChar(s.Value[i.Value])
+                }
+                default {
+                    return obj.newError("index must be an integer", 0, 0)
+                }
+            }
+        }
+        default {
+            return obj.newError("index operator not supported", 0, 0)
+        }
+    }
+}
+
+func evalCallExpression(ce: ast.CallExpression, e: &mut env.Environment) -> (obj.Object) {
+    var fn: obj.Object = evalExpression(ce.Function, e)
+    if obj.isError(fn) {
+        return fn
+    }
+    
+    mut var args: &Vec<obj.Object, _> = Vec.new()
+    for arg in ce.Arguments {
+        var evaluated: obj.Object = evalExpression(arg, e)
+        if obj.isError(evaluated) {
+            return evaluated
+        }
+        args.push(evaluated)
+    }
+    
+    return applyFunction(fn, args)
+}
+
+func applyFunction(fn: obj.Object, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    switch fn {
+        case obj.Object.FunctionVal(f) {
+            if args.len() != f.Parameters.len() {
+                return obj.newError("wrong number of arguments", 0, 0)
+            }
+            
+            var extendedEnv: env.Environment = env.New()
+            for i in 0..f.Parameters.len() {
+                extendedEnv.Set(f.Parameters[i].Name.Value, args[i], f.Parameters[i].Mutable)
+            }
+            
+            var result: obj.Object = evalBlockStatement(f.Body, extendedEnv)
+            return unwrapReturnValue(result)
+        }
+        case obj.Object.BuiltinVal(b) {
+            return evalBuiltin(b.Name, args)
+        }
+        default {
+            return obj.newError("not a function", 0, 0)
+        }
+    }
+}
+
+func unwrapReturnValue(result: obj.Object) -> (obj.Object) {
+    switch result {
+        case obj.Object.ReturnVal(rv) {
+            switch rv.Value {
+                case Some(v) { return *v }
+                case None { return obj.newVoid() }
+            }
+        }
+        default {
+            return result
+        }
+    }
+}
+
+func evalFieldAccess(fa: ast.FieldAccessExpression, e: &mut env.Environment) -> (obj.Object) {
+    var objVal: obj.Object = evalExpression(fa.Object, e)
+    if obj.isError(objVal) {
+        return objVal
+    }
+    
+    switch objVal {
+        case obj.Object.StructVal(s) {
+            for field in s.Fields {
+                if field.Name == fa.Field.Value {
+                    switch field.Value {
+                        case Some(v) { return *v }
+                        case None { return obj.newNull() }
+                    }
+                }
+            }
+            return obj.newError("undefined field: " + fa.Field.Value, 0, 0)
+        }
+        default {
+            return obj.newError("field access on non-struct", 0, 0)
+        }
+    }
+}
+
+func evalMethodCall(mc: ast.MethodCallExpression, e: &mut env.Environment) -> (obj.Object) {
+    var objVal: obj.Object = evalExpression(mc.Object, e)
+    if obj.isError(objVal) {
+        return objVal
+    }
+    
+    mut var args: &Vec<obj.Object, _> = Vec.new()
+    for arg in mc.Arguments {
+        var evaluated: obj.Object = evalExpression(arg, e)
+        if obj.isError(evaluated) {
+            return evaluated
+        }
+        args.push(evaluated)
+    }
+    
+    // Handle Vec methods
+    switch objVal {
+        case obj.Object.VecVal(v) {
+            return evalVecMethod(v, mc.Method.Value, args)
+        }
+        case obj.Object.StringVal(s) {
+            return evalStringMethod(s, mc.Method.Value, args)
+        }
+        case obj.Object.ResultVal(r) {
+            return evalResultMethod(r, mc.Method.Value, args)
+        }
+        case obj.Object.OptionVal(o) {
+            return evalOptionMethod(o, mc.Method.Value, args)
+        }
+        default {
+            return obj.newError("method call on unsupported type", 0, 0)
+        }
+    }
+}
+
+func evalVecMethod(v: obj.VecObj, method: &string, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    if method == "len" {
+        return obj.newInteger(v.Elements.len())
+    }
+    if method == "push" {
+        if args.len() != 1 {
+            return obj.newError("push requires exactly 1 argument", 0, 0)
+        }
+        v.Elements.push(args[0])
+        return obj.newVoid()
+    }
+    if method == "pop" {
+        if v.Elements.len() == 0 {
+            return obj.newNone()
+        }
+        var last: obj.Object = v.Elements[v.Elements.len() - 1]
+        // Note: In a real implementation, we'd remove the last element
+        return obj.newSome(last)
+    }
+    if method == "is_empty" || method == "isEmpty" {
+        return obj.newBoolean(v.Elements.len() == 0)
+    }
+    
+    return obj.newError("unknown Vec method: " + method, 0, 0)
+}
+
+func evalStringMethod(s: obj.StringObj, method: &string, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    if method == "len" {
+        return obj.newInteger(s.Value.len())
+    }
+    if method == "is_empty" || method == "isEmpty" {
+        return obj.newBoolean(s.Value.len() == 0)
+    }
+    
+    return obj.newError("unknown String method: " + method, 0, 0)
+}
+
+func evalResultMethod(r: obj.ResultObj, method: &string, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    if method == "is_ok" {
+        if args.len() != 0 {
+            return obj.newError("is_ok requires 0 arguments", 0, 0)
+        }
+        return obj.newBoolean(r.IsOk)
+    }
+    if method == "is_err" {
+        if args.len() != 0 {
+            return obj.newError("is_err requires 0 arguments", 0, 0)
+        }
+        return obj.newBoolean(!r.IsOk)
+    }
+    if method == "unwrap" {
+        if args.len() != 0 {
+            return obj.newError("unwrap requires 0 arguments", 0, 0)
+        }
+        if !r.IsOk {
+            return obj.newError("unwrap called on Err result", 0, 0)
+        }
+        switch r.Value {
+            case Some(v) { return *v }
+            case None { return obj.newNull() }
+        }
+    }
+    if method == "unwrap_err" {
+        if args.len() != 0 {
+            return obj.newError("unwrap_err requires 0 arguments", 0, 0)
+        }
+        if r.IsOk {
+            return obj.newError("unwrap_err called on Ok result", 0, 0)
+        }
+        switch r.Value {
+            case Some(v) { return *v }
+            case None { return obj.newNull() }
+        }
+    }
+    return obj.newError("unknown Result method: " + method, 0, 0)
+}
+
+func evalOptionMethod(o: obj.OptionObj, method: &string, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    if method == "is_some" {
+        if args.len() != 0 {
+            return obj.newError("is_some requires 0 arguments", 0, 0)
+        }
+        return obj.newBoolean(o.IsSome)
+    }
+    if method == "is_none" {
+        if args.len() != 0 {
+            return obj.newError("is_none requires 0 arguments", 0, 0)
+        }
+        return obj.newBoolean(!o.IsSome)
+    }
+    if method == "unwrap" {
+        if args.len() != 0 {
+            return obj.newError("unwrap requires 0 arguments", 0, 0)
+        }
+        if !o.IsSome {
+            return obj.newError("unwrap called on None", 0, 0)
+        }
+        switch o.Value {
+            case Some(v) { return *v }
+            case None { return obj.newNull() }
+        }
+    }
+    if method == "unwrapOr" {
+        if args.len() != 1 {
+            return obj.newError("unwrapOr requires 1 argument", 0, 0)
+        }
+        if o.IsSome {
+            switch o.Value {
+                case Some(v) { return *v }
+                case None { return obj.newNull() }
+            }
+        }
+        return args[0]
+    }
+    return obj.newError("unknown Option method: " + method, 0, 0)
+}
+
+func evalStructLiteral(sl: ast.StructLiteral, e: &mut env.Environment) -> (obj.Object) {
+    mut var fields: Vec<obj.StructField, _> = Vec.new()
+    
+    for f in sl.Fields {
+        var value: obj.Object = evalExpression(f.Value, e)
+        if obj.isError(value) {
+            return value
+        }
+        fields.push(obj.StructField{
+            Name: f.Name.Value,
+            Value: Some(Box.new(value)),
+        })
+    }
+    
+    return obj.Object.StructVal(obj.StructObj{
+        Name: sl.Name.Value,
+        Fields: fields,
+    })
+}
+
+func evalRangeExpression(re: ast.RangeExpression, e: &mut env.Environment) -> (obj.Object) {
+    var start: obj.Object = evalExpression(re.Start, e)
+    if obj.isError(start) {
+        return start
+    }
+    
+    var end: obj.Object = evalExpression(re.End, e)
+    if obj.isError(end) {
+        return end
+    }
+    
+    switch start {
+        case obj.Object.IntegerVal(s) {
+            switch end {
+                case obj.Object.IntegerVal(en) {
+                    return obj.newRange(s.Value, en.Value)
+                }
+                default {
+                    return obj.newError("range end must be integer", 0, 0)
+                }
+            }
+        }
+        default {
+            return obj.newError("range start must be integer", 0, 0)
+        }
+    }
+}
+
+func evalTupleExpression(te: ast.TupleExpression, e: &mut env.Environment) -> (obj.Object) {
+    mut var elements: Vec<obj.Object, _> = Vec.new()
+    
+    for elem in te.Elements {
+        var value: obj.Object = evalExpression(elem, e)
+        if obj.isError(value) {
+            return value
+        }
+        elements.push(value)
+    }
+    
+    return obj.Object.TupleVal(obj.TupleObj{Elements: elements})
+}
+
+func evalBorrowExpression(be: ast.BorrowExpression, e: &mut env.Environment) -> (obj.Object) {
+    var value: obj.Object = evalExpression(be.Value, e)
+    if obj.isError(value) {
+        return value
+    }
+    
+    return obj.Object.BorrowVal(obj.BorrowObj{
+        Value: Some(Box.new(value)),
+        Mutable: be.Mutable,
+    })
+}
+
+// ============================================================================
+// Declaration Evaluation
+// ============================================================================
+
+func evalFunctionDecl(fd: ast.FunctionDecl, e: &mut env.Environment) -> (obj.Object) {
+    var fn: obj.Object = obj.Object.FunctionVal(obj.FunctionObj{
+        Parameters: fd.Parameters,
+        Body: fd.Body,
+        Env: None,
+        ReturnType: Some(fd.ReturnType),
+    })
+    
+    e.Set(fd.Name.Value, fn, false)
+    return obj.newVoid()
+}
+
+func evalStructDecl(sd: ast.StructDecl, e: &mut env.Environment) -> (obj.Object) {
+    // Struct definitions are stored for later instantiation
+    return obj.newVoid()
+}
+
+func evalEnumDecl(ed: ast.EnumDecl, e: &mut env.Environment) -> (obj.Object) {
+    // Enum definitions are stored for later instantiation
+    return obj.newVoid()
+}
+
+func evalImplDecl(id: ast.ImplDecl, e: &mut env.Environment) -> (obj.Object) {
+    // Impl blocks register methods on types
+    return obj.newVoid()
+}
+
+func evalImportStatement(is: ast.ImportStatement, e: &mut env.Environment) -> (obj.Object) {
+    // Import handling is done at a higher level
+    return obj.newVoid()
+}
+
+func evalImportBlock(ib: ast.ImportBlock, e: &mut env.Environment) -> (obj.Object) {
+    for imp in ib.Imports {
+        var result: obj.Object = evalImportStatement(imp, e)
+        if obj.isError(result) {
+            return result
+        }
+    }
+    return obj.newVoid()
+}
+
+// ============================================================================
+// Builtins
+// ============================================================================
+
+func evalBuiltin(name: &string, args: &Vec<obj.Object, _>) -> (obj.Object) {
+    if name == "println" {
+        for arg in args {
+            print(obj.inspect(arg))
+        }
+        println("")
+        return obj.newVoid()
+    }
+    if name == "print" {
+        for arg in args {
+            print(obj.inspect(arg))
+        }
+        return obj.newVoid()
+    }
+    if name == "len" {
+        if args.len() != 1 {
+            return obj.newError("len requires exactly 1 argument", 0, 0)
+        }
+        switch args[0] {
+            case obj.Object.VecVal(v) {
+                return obj.newInteger(v.Elements.len())
+            }
+            case obj.Object.StringVal(s) {
+                return obj.newInteger(s.Value.len())
+            }
+            default {
+                return obj.newError("len not supported for this type", 0, 0)
+            }
+        }
+    }
+    
+    return obj.newError("unknown builtin: " + name, 0, 0)
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+func objectsEqual(a: obj.Object, b: obj.Object) -> (bool) {
+    switch a {
+        case obj.Object.IntegerVal(ai) {
+            switch b {
+                case obj.Object.IntegerVal(bi) {
+                    return ai.Value == bi.Value
+                }
+                default { return false }
+            }
+        }
+        case obj.Object.StringVal(aStr) {
+            switch b {
+                case obj.Object.StringVal(bStr) {
+                    return aStr.Value == bStr.Value
+                }
+                default { return false }
+            }
+        }
+        case obj.Object.BooleanVal(ab) {
+            switch b {
+                case obj.Object.BooleanVal(bb) {
+                    return ab.Value == bb.Value
+                }
+                default { return false }
+            }
+        }
+        default {
+            return false
+        }
+    }
+}

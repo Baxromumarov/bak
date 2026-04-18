@@ -1,0 +1,36 @@
+// Test native fs.readFile and fs.writeFile
+package main
+
+import "std/fs"
+
+func main() -> (void) {
+    // Test fs.writeFile
+    var test_content: string = "Hello from Bak native fs.writeFile!"
+    var write_result: Result<void, string> = fs.writeFile("/tmp/bak_fs_write_test.txt", test_content)
+
+    if write_result.is_ok() {
+        println("PASS: fs.writeFile succeeded")
+    } else {
+        println("FAIL: fs.writeFile failed")
+    }
+
+    // Test fs.readFile
+    var result: Result<string, string> = fs.readFile("/tmp/bak_fs_write_test.txt")
+
+    if result.is_ok() {
+        println("PASS: fs.readFile succeeded")
+    } else {
+        println("FAIL: fs.readFile failed")
+    }
+
+    // Test reading non-existent file
+    var bad_result: Result<string, string> = fs.readFile("/this/file/does/not/exist/at/all.txt")
+
+    if bad_result.is_err() {
+        println("PASS: fs.readFile returns Err for non-existent file")
+    } else {
+        println("FAIL: fs.readFile should have returned Err")
+    }
+
+    println("=== Native fs read/write tests complete ===")
+}

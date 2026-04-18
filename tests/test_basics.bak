@@ -1,0 +1,63 @@
+// Test file for basic language features
+package main
+
+func main() -> (void) {
+    println("=== Testing Basic Language Features ===")
+    
+    // Variables
+    println("\n1. Variables:")
+    var x: int = 10
+    var y: int = 20
+    mut var z: int = 30
+    z = 40
+    println("  x:", x, "y:", y, "z:", z)
+    
+    // Constants
+    println("\n2. Constants:")
+    const PI: float64 = 3.14159
+    const NAME: string = "bak"
+    println("  PI:", PI)
+    println("  NAME:", NAME)
+    
+    // Booleans
+    println("\n3. Booleans:")
+    var isTrue: bool = true
+    var isFalse: bool = false
+    println("  true && false:", isTrue && isFalse)
+    println("  true || false:", isTrue || isFalse)
+    println("  !true:", !isTrue)
+    
+    // Arithmetic
+    println("\n4. Arithmetic:")
+    println("  10 + 5:", 10 + 5)
+    println("  10 - 5:", 10 - 5)
+    println("  10 * 5:", 10 * 5)
+    println("  10 / 5:", 10 / 5)
+    println("  10 % 3:", 10 % 3)
+    
+    // Comparison
+    println("\n5. Comparison:")
+    println("  10 == 10:", 10 == 10)
+    println("  10 != 5:", 10 != 5)
+    println("  10 > 5:", 10 > 5)
+    println("  10 < 5:", 10 < 5)
+    println("  10 >= 10:", 10 >= 10)
+    println("  10 <= 5:", 10 <= 5)
+    
+    // Strings
+    println("\n6. Strings:")
+    var greeting: string = "Hello"
+    var name: string = "World"
+    println("  Concatenation:", greeting + ", " + name + "!")
+    println("  Length:", greeting.len())
+    
+    // Type conversions
+    println("\n7. Type conversions:")
+    var intVal: int = 42
+    var floatVal: float64 = 3.14
+    println("  int(3.14):", int(floatVal))
+    println("  float(42):", float64(intVal))
+    println("  string(42):", string(intVal))
+    
+    println("\n=== Basic tests complete ===")
+}

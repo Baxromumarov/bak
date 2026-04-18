@@ -1,0 +1,18 @@
+// Minimal test for for-in loop behavior
+package main
+
+func main() -> (void) {
+    mut var items: Vec<int, _> = Vec.from([1, 2, 3])
+    
+    println("Starting loop test")
+    mut var count: int = 0
+    for item in items {
+        println("Item:", item)
+        count = count + 1
+        if count > 5 {
+            println("INFINITE LOOP DETECTED!")
+            return
+        }
+    }
+    println("Loop completed normally")
+}

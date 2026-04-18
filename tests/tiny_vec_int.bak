@@ -1,0 +1,10 @@
+package main
+
+func main() -> (int) {
+    mut var v: Vec<int, _> = Vec.new()
+
+    v.push(42)
+    println("done")
+
+    return 0
+}

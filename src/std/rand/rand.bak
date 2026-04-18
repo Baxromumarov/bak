@@ -1,0 +1,203 @@
+package rand
+
+// =============================================================================
+// Random Number Generation for Bak
+// =============================================================================
+// Implements xoshiro256** PRNG - fast, high-quality pseudorandom generator.
+// Seeded automatically from system clock on first use.
+// Internal state (xoshiro256** uses 4 x 64-bit words)
+mut var s0: int = 0
+mut var s1: int = 0
+mut var s2: int = 0
+mut var s3: int = 0
+mut var seeded: bool = false
+
+// -----------------------------------------------------------------------------
+// Seeding
+// -----------------------------------------------------------------------------
+// seed initializes the PRNG with the given value.
+// Uses SplitMix64 to expand a single seed into the 4-word state.
+pub func seed(val: int) -> (void) {
+    // SplitMix64 to fill state from a single seed
+    mut var z: int = val
+
+    // SplitMix64 constants (decimal equivalents of hex):
+    // 0x9e3779b97f4a7c15 = -7046029254386353131 (signed)
+    // 0xbf58476d1ce4e5b9 = -4658895280553007687 (signed)
+    // 0x94d049bb133111eb = -7723592293110705685 (signed)
+    z = z + -7046029254386353131
+    z = (z ^ z >> 30) * -4658895280553007687
+    z = (z ^ z >> 27) * -7723592293110705685
+    s0 = z ^ z >> 31
+    z = s0 + -7046029254386353131
+    z = (z ^ z >> 30) * -4658895280553007687
+    z = (z ^ z >> 27) * -7723592293110705685
+    s1 = z ^ z >> 31
+    z = s1 + -7046029254386353131
+    z = (z ^ z >> 30) * -4658895280553007687
+    z = (z ^ z >> 27) * -7723592293110705685
+    s2 = z ^ z >> 31
+    z = s2 + -7046029254386353131
+    z = (z ^ z >> 30) * -4658895280553007687
+    z = (z ^ z >> 27) * -7723592293110705685
+    s3 = z ^ z >> 31
+    seeded = true
+
+    return void
+}
+
+// auto_seed seeds from the system monotonic clock if not yet seeded.
+func auto_seed() -> (void) {
+    if !seeded {
+        seed(__builtin_monotonic_now())
+    }
+
+    return void
+}
+
+// rotl performs left rotation on a 64-bit integer.
+func rotl(x: int, k: int) -> (int) {
+    return x << k | x >> 64 - k
+}
+
+// next_raw generates the next raw 64-bit pseudorandom value (xoshiro256**).
+func next_raw() -> (int) {
+    auto_seed()
+
+    var result: int = rotl(
+        s1 * 5,
+        7,
+    ) * 9
+    var t: int = s1 << 17
+
+    s2 = s2 ^ s0
+    s3 = s3 ^ s1
+    s1 = s1 ^ s2
+    s0 = s0 ^ s3
+    s2 = s2 ^ t
+    s3 = rotl(
+        s3,
+        45,
+    )
+
+    return result
+}
+
+// -----------------------------------------------------------------------------
+// Integer Generation
+// -----------------------------------------------------------------------------
+// int_n returns a random integer in [0, n).
+// Panics if n <= 0.
+pub func int_n(n: int) -> (int) {
+    if n <= 0 {
+        panic "rand.int_n: n must be positive"
+    }
+
+    // Use rejection sampling to avoid modulo bias
+    mut var r: int = next_raw()
+
+    // Make positive
+    if r < 0 {
+        r = -r
+    }
+
+    if r < 0 {
+        // Handle int min (still negative after negation)
+        r = 0
+    }
+
+    return r % n
+}
+
+// int_range returns a random integer in [min, max].
+pub func int_range(min: int, max: int) -> (int) {
+    if min > max {
+        panic "rand.int_range: min must be <= max"
+    }
+
+    if min == max {
+        return min
+    }
+
+    return min + int_n(max - min + 1)
+}
+
+// next_int returns a random non-negative integer.
+pub func next_int() -> (int) {
+    mut var r: int = next_raw()
+
+    if r < 0 {
+        r = -r
+    }
+
+    if r < 0 {
+        r = 0
+    }
+
+    return r
+}
+
+// -----------------------------------------------------------------------------
+// Boolean Generation
+// -----------------------------------------------------------------------------
+// coin returns a random boolean value (like a coin flip).
+pub func coin() -> (bool) {
+    return next_raw() & 1 == 1
+}
+
+// -----------------------------------------------------------------------------
+// Shuffling and Selection
+// -----------------------------------------------------------------------------
+// shuffle randomly reorders a Vec<int, _> in place using Fisher-Yates.
+pub func shuffle_ints(arr: &mut Vec<int, _>) -> (void) {
+    mut var i: int = arr.len() - 1
+
+    while i > 0 {
+        var j: int = int_n(i + 1)
+        // Swap arr[i] and arr[j]
+        var tmp: int = arr[i]
+
+        arr[i] = arr[j]
+        arr[j] = tmp
+        i = i - 1
+    }
+
+    return void
+}
+
+// shuffle randomly reorders a Vec<string, _> in place using Fisher-Yates.
+pub func shuffle_strings(arr: &mut Vec<string, _>) -> (void) {
+    mut var i: int = arr.len() - 1
+
+    while i > 0 {
+        var j: int = int_n(i + 1)
+        var tmp: string = arr[i]
+
+        arr[i] = arr[j]
+        arr[j] = tmp
+        i = i - 1
+    }
+
+    return void
+}
+
+// -----------------------------------------------------------------------------
+// Float Generation
+// -----------------------------------------------------------------------------
+// next_float returns a random float64 in [0.0, 1.0).
+pub func next_float() -> (float64) {
+    mut var r: int = next_raw()
+
+    // To get 53 bits of precision, right shift by 11.
+    if r < 0 {
+        r = -r
+    }
+
+    if r < 0 {
+        r = 0
+    }
+
+    var res: int = r >> 11
+
+    return float64(res) / 9007199254740992.0
+} // 2^53

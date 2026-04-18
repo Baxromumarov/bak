@@ -1,0 +1,191 @@
+package main
+
+import "std/http" as http
+import "std/encoding/json" as json
+import "std/strings"
+
+// --- Domain structs ---
+struct User {
+    id:    int
+    name:  string
+    email: string
+}
+
+struct ApiError {
+    code:    int
+    message: string
+}
+
+// --- Encoders: struct -> Json ---
+func user_to_json(u: User) -> (json.Json) {
+    mut var entries: Vec<json.JsonEntry, _> = Vec.new()
+
+    entries.push(json.entry(
+        "id",
+        json.Json.Int(u.id),
+    ))
+    entries.push(json.entry(
+        "name",
+        json.Json.String(u.name),
+    ))
+    entries.push(json.entry(
+        "email",
+        json.Json.String(u.email),
+    ))
+
+    return json.object(entries)
+}
+
+func error_to_json(e: ApiError) -> (json.Json) {
+    mut var entries: Vec<json.JsonEntry, _> = Vec.new()
+
+    entries.push(json.entry(
+        "code",
+        json.Json.Int(e.code),
+    ))
+    entries.push(json.entry(
+        "message",
+        json.Json.String(e.message),
+    ))
+
+    return json.object(entries)
+}
+
+// --- Handlers ---
+// Return a single user as JSON
+func get_user_handler(_req: http.Request) -> (http.Response) {
+    var user: User = User{
+        email: "bakhrom@example.com",
+        id:    1,
+        name:  "Bakhrom",
+    }
+
+    return http.json_body(
+        200,
+        user_to_json(user),
+    )
+}
+
+// Return a list of users as JSON
+func list_users_handler(_req: http.Request) -> (http.Response) {
+    mut var users: Vec<User, _> = Vec.new()
+
+    users.push(User{
+        email: "bakhrom@example.com",
+        id:    1,
+        name:  "Bakhrom",
+    })
+    users.push(User{
+        email: "ali@example.com",
+        id:    2,
+        name:  "Ali",
+    })
+
+    // encode_array maps each User through user_to_json
+    var body: json.Json = json.encode_array(
+        users,
+        user_to_json,
+    )
+
+    return http.json_body(
+        200,
+        body,
+    )
+}
+
+// Parse JSON from request body using ObjBuilder, then respond
+func create_user_handler(req: http.Request) -> (http.Response) {
+    var body_str: string = strings.fromBytes(req.body)
+    var parse_result = json.unmarshal(body_str)
+
+    if parse_result.is_err() {
+        return http.json_body(
+            400,
+            error_to_json(ApiError{code: 400, message: "invalid JSON"}),
+        )
+    }
+
+    // Decode into User with ObjBuilder pattern
+    var decoded = json.decode_obj(
+        parse_result.unwrap(),
+        func(b: &mut json.ObjBuilder) -> (User) {
+            var name: string = b.string_field("name")
+            var email: string = b.string_field("email")
+
+            return User{
+                email: email,
+                id:    0,
+                name:  name,
+            }
+        },
+    )
+
+    if decoded.is_err() {
+        return http.json_body(
+            422,
+            error_to_json(ApiError{code: 422, message: decoded.unwrap_err()}),
+        )
+    }
+
+    var user: User = decoded.unwrap()
+
+    // Pretty-printed JSON response
+    return http.json_pretty_body(
+        201,
+        user_to_json(user),
+    )
+}
+
+// Generic respond() and respond_bytes() examples
+func health_handler(_req: http.Request) -> (http.Response) {
+    return http.respond(
+        200,
+        "OK",
+        "text/plain",
+    )
+}
+
+func raw_handler(_req: http.Request) -> (http.Response) {
+    var data: Vec<int, _> = "raw bytes".bytes()
+
+    return http.respond_bytes(
+        200,
+        data,
+        "application/octet-stream",
+    )
+}
+
+func main() -> (void) {
+    mut var r: http.Router = http.new_router()
+
+    r.get(
+        "/user",
+        get_user_handler,
+    )
+    r.get(
+        "/users",
+        list_users_handler,
+    )
+    r.post(
+        "/users",
+        create_user_handler,
+    )
+    r.get(
+        "/health",
+        health_handler,
+    )
+    r.get(
+        "/raw",
+        raw_handler,
+    )
+    println("Starting JSON API server on localhost:8080...")
+
+    var res = http.listen_and_serve(
+        "localhost:8080",
+        r,
+    )
+
+    if res.is_err() {
+        println("Server error: " + res.unwrap_err())
+    }
+}

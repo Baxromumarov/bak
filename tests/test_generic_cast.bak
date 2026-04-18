@@ -1,0 +1,14 @@
+
+func check<T>(val: &T)->(void) {
+    println("Type of *val:", type(*val))
+    if type(*val) == "string" {
+        // Try to cast &T to &string
+        // var s: &string = val as &string // This likely fails at compile time
+        // println("Value:", *s)
+    }
+}
+
+func main() {
+    var s: string = "hello"
+    check(&s)
+}

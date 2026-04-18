@@ -1,0 +1,60 @@
+package main
+
+import "std/http" as http
+import "std/strings"
+
+func handler(req: http.Request) -> (http.Response) {
+    println("Received request: " + req.method + " " + req.path)
+
+    // Echo back the body if present
+    var bodyStr: string = strings.fromBytes(req.body)
+
+    if bodyStr.len() > 0 {
+        println("Body: " + bodyStr)
+    }
+
+    mut var headers: Vec<http.Header, _> = Vec.from([])
+
+    headers.push(
+        http.Header{
+            name:  "Content-Type",
+            value: "text/plain",
+        },
+    )
+    headers.push(
+        http.Header{
+            name:  "Server",
+            value: "BakHTTP/0.1",
+        },
+    )
+
+    var msg: string = "Hello from Bak Server! path=" + req.path
+    var bodyBytes = msg.bytes()
+
+    return http.Response{
+        body:    bodyBytes,
+        headers: headers,
+        reason:  "OK",
+        status:  200,
+    }
+}
+
+func main() -> (void) {
+    println("Starting server on localhost:8080...")
+
+    mut var r: http.Router = http.new_router()
+
+    r.get(
+        "/",
+        handler,
+    )
+
+    var res = http.listen_and_serve(
+        "localhost:8080",
+        r,
+    )
+
+    if res.is_err() {
+        println("Server error: " + res.unwrap_err())
+    }
+}

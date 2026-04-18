@@ -1,0 +1,125 @@
+v1 - stable, non-capturing
+enable callbacks (HTTP handlers, iterators, dispatch)
+
+# Anonymous Functions in bak
+
+Anonymous functions (function literals) in bak are unnamed, stateless functions that cannot capture variables from their surrounding scope. They are designed for simplicity, predictability, and explicitness.
+
+## Key Principles
+
+- Anonymous functions cannot capture local variables (no closures).
+- No hidden memory allocation or lifetime extension.
+- Lowered to compiler-generated top-level functions.
+
+## Syntax
+
+**Basic:**
+```
+func(x int) -> (int) { return x + 1 }
+```
+**Assign to variable:**
+```
+var inc = func(x int) -> (int) { return x + 1 }
+```
+**Pass as argument:**
+```
+apply(func(x int) -> (int) { return x * 2 })
+```
+**Multiple parameters:**
+```
+func(a int, b int) -> (int) { return a + b }
+```
+**Void return:**
+```
+func(msg string) -> (void) { println(msg); return void }
+```
+
+## Scope Rules
+
+- Only parameters, local variables, and global items (functions, constants, types) are visible inside an anonymous function.
+- Referencing any non-global variable from an outer scope is a compile-time error.
+
+Example (valid):
+```
+const GLOBAL int = 10
+var f = func(x int) -> (int) { var y int = 2; return x + y + GLOBAL }
+```
+Example (invalid):
+```
+var offset int = 5
+var f = func(x int) -> (int) { return x + offset } // Error: cannot capture 'offset'
+```
+
+## Semantics
+
+- Anonymous functions are values: they can be assigned, passed, stored, or returned.
+- They do not allocate memory or environments and do not require GC.
+- Lowered to private, compiler-generated top-level functions.
+
+## Ownership & Borrowing
+
+- Anonymous functions may take parameters by value or by borrow and obey all ownership rules.
+- They do not extend lifetimes or borrow captured data.
+
+## Use Cases
+
+- Callbacks (e.g., HTTP handlers)
+- Small transformations (e.g., `vec.map(func(x int) -> (int) { return x * 2 })`)
+- Dispatch tables
+
+## Not for
+
+- Holding state
+- Capturing configuration
+- Sharing mutable data
+- Resource ownership
+
+Use structs and methods for stateful logic.
+
+## Explicit Alternative to Closures
+
+Instead of capturing state, use explicit structs:
+```
+struct Handler { prefix string }
+impl Handler {
+    func handle(req Request) -> (Response) { return response.ok(prefix) }
+}
+http.serve(Handler{ prefix: "Hello" })
+```
+
+## Comparison with Other Languages
+
+| Feature         | Koka | Go | Rust | Bak |
+|-----------------|------|----|------|-----|
+| Anonymous funcs | OK   | OK | OK   | OK  |
+| Capture         | OK   | OK | OK   | NO  |
+| Hidden alloc    | OK   | OK | Sometimes | NO |
+| Lifetimes       | Effect| GC | Static | NO |
+| Closure env     | Yes  | Yes| Yes  | NO  |
+| Predictability  | Med  | Med| High | Very High |
+
+## Benefits
+
+- Simpler mental model
+- No capture or lifetime surprises
+- No GC assumptions
+- Trivial compiler lowering
+- No runtime changes or closure objects
+
+## Future Extensions (Not in v1)
+
+- Capturing closures
+- Effect-tracked captures
+- Environment allocation
+- Partial application
+
+## Final Laws
+
+- Anonymous functions cannot capture local variables
+- Lowered to plain functions
+- No implicit allocation or lifetime extension
+- All state must be explicit
+
+## One-Sentence Definition
+
+Bak supports anonymous function literals, not closures: they are unnamed functions with no captured state, lowered to regular functions at compile time.

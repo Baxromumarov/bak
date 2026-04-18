@@ -1,0 +1,13 @@
+package main
+
+// Single param, single return
+func double(a: int) -> (int) {
+    return a * 2
+}
+
+func main() -> (void) {
+    // ERROR: double expects 1, got 0
+    var x = double()
+    println(x)
+    return void
+}

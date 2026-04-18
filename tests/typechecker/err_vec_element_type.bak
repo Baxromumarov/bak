@@ -1,0 +1,9 @@
+// Test: Vec element type - should FAIL
+// Error: Vec element type mismatch
+package main
+
+func main() -> (void) {
+    // This should check Vec element types
+    var _nums: Vec<int, 3> = Vec.from([1, 2, "three"])
+    return void
+}

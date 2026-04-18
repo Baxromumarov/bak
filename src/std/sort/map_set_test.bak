@@ -1,0 +1,116 @@
+package sort
+
+import "src/std/test/test.bak" as test
+import "src/std/collections/set.bak" as collections_set
+import "src/std/collections/hashmap.bak" as hashmap
+import "src/std/sort/set.bak" as sort_set
+import "src/std/sort/map.bak" as sort_map
+import "src/std/sort/vector.bak" as sort_vector
+
+func less_len(a: &string, b: &string) -> (bool) {
+    return a.len() < b.len()
+}
+
+func test_sort_generic_set() -> (void) {
+    mut var t: test.T = test.new("test_sort_generic_set")
+    mut var s: collections_set.Set<int> = collections_set.new_set()
+    s.add(3)
+    s.add(1)
+    s.add(2)
+    var items: Vec<int, _> = sort_set.sort_set(&s, true, sort_vector.compare_ints)
+    t.eq(items[0], 1)
+    t.eq(items[1], 2)
+    t.eq(items[2], 3)
+    t.finish()
+}
+
+func test_sorted_keys_generic_map() -> (void) {
+    mut var t: test.T = test.new("test_sorted_keys_generic_map")
+    mut var m: hashmap.HashMap<int, string> = hashmap.new_hash_map()
+    m.insert(2, "two")
+    m.insert(1, "one")
+    m.insert(3, "three")
+    var keys: Vec<int, _> = sort_map.sorted_keys(&m, true, sort_vector.compare_ints)
+    t.eq(keys[0], 1)
+    t.eq(keys[1], 2)
+    t.eq(keys[2], 3)
+    t.finish()
+}
+
+func test_sort_string_set() -> (void) {
+    mut var t: test.T = test.new("test_sort_string_set")
+    mut var s: collections_set.StringSet = collections_set.new_string_set()
+    s.add("b")
+    s.add("a")
+    s.add("c")
+    var items: Vec<string, _> = sort_set.sort_string_set(&s, true)
+    t.eq_string(items[0], "a")
+    t.eq_string(items[1], "b")
+    t.eq_string(items[2], "c")
+    t.finish()
+}
+
+func test_sort_int_set_desc() -> (void) {
+    mut var t: test.T = test.new("test_sort_int_set_desc")
+    mut var s: collections_set.IntSet = collections_set.new_int_set()
+    s.add(1)
+    s.add(3)
+    s.add(2)
+    var items: Vec<int, _> = sort_set.sort_int_set(&s, false)
+    t.eq(items[0], 3)
+    t.eq(items[1], 2)
+    t.eq(items[2], 1)
+    t.finish()
+}
+
+func test_sort_string_set_by() -> (void) {
+    mut var t: test.T = test.new("test_sort_string_set_by")
+    mut var s: collections_set.StringSet = collections_set.new_string_set()
+    s.add("ccc")
+    s.add("a")
+    s.add("bb")
+    var items: Vec<string, _> = sort_set.sort_string_set_by(&s, true, less_len)
+    t.eq_string(items[0], "a")
+    t.eq_string(items[1], "bb")
+    t.eq_string(items[2], "ccc")
+    t.finish()
+}
+
+func test_sorted_keys_string_map() -> (void) {
+    mut var t: test.T = test.new("test_sorted_keys_string_map")
+    mut var m: hashmap.HashMap<string, string> = hashmap.new_hash_map()
+    m.insert("b", "1")
+    m.insert("a", "2")
+    m.insert("c", "3")
+    var keys: Vec<string, _> = sort_map.sorted_keys(&m, true, sort_vector.compare_strings)
+    t.eq_string(keys[0], "a")
+    t.eq_string(keys[1], "b")
+    t.eq_string(keys[2], "c")
+    t.finish()
+}
+
+func test_sorted_keys_string_map_by() -> (void) {
+    mut var t: test.T = test.new("test_sorted_keys_string_map_by")
+    mut var m: hashmap.HashMap<string, string> = hashmap.new_hash_map()
+    m.insert("bbb", "1")
+    m.insert("a", "2")
+    m.insert("cc", "3")
+    var keys: Vec<string, _> = sort_map.sorted_keys_by(&m, true, less_len)
+    t.eq_string(keys[0], "a")
+    t.eq_string(keys[1], "cc")
+    t.eq_string(keys[2], "bbb")
+    t.finish()
+}
+
+func test_sorted_keys_int_map() -> (void) {
+    mut var t: test.T = test.new("test_sorted_keys_int_map")
+    mut var m: hashmap.HashMap<string, int> = hashmap.new_hash_map()
+    m.insert("2", 20)
+    m.insert("1", 10)
+    m.insert("3", 30)
+    var keys: Vec<string, _> = sort_map.sorted_keys(&m, true, sort_vector.compare_strings)
+    t.eq_string(keys[0], "1")
+    t.eq_string(keys[1], "2")
+    t.eq_string(keys[2], "3")
+    t.finish()
+}

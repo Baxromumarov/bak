@@ -1,0 +1,93 @@
+package main
+
+struct Node {
+    value: int
+    next: Node box?
+}
+
+func main() -> (void) {
+    var n: Node = Node{
+        next: None, 
+        value: 11,
+    }
+    // Mix of raw Box, Option(Some(Box)), Box(Some(...)), None
+    
+    var t1: Node = Node{
+        next: Box(n), 
+        value: 1,
+    }
+    // raw Box -> treated as Some(Box)
+    
+    var t2: Node = Node{
+        next: Some(Box(n)), 
+        value: 2,
+    }
+    // Some(Box)
+    var t3: Node = Node{
+        next: Box(Some(n)), 
+        value: 3,
+    }
+    // Box(Some)
+    var t4: Node = Node{
+        next: None, 
+        value: 4,
+    }
+    // t1
+    if t1.next.is_some() {
+        println("t1: top is_some")
+    } else {
+        println("t1: top is_none")
+    }
+    switch t1.next {
+        case Some(v) {
+            println("t1: switch Some")
+        }
+        case None {
+            println("t1: switch None")
+        }
+    }
+    // t2
+    if t2.next.is_some() {
+        println("t2: top is_some")
+    } else {
+        println("t2: top is_none")
+    }
+    switch t2.next {
+        case Some(v) {
+            println("t2: switch Some")
+        }
+        case None {
+            println("t2: switch None")
+        }
+    }
+    // t3
+    if t3.next.is_some() {
+        println("t3: top is_some")
+    } else {
+        println("t3: top is_none")
+    }
+    switch t3.next {
+        case Some(v) {
+            println("t3: switch Some")
+        }
+        case None {
+            println("t3: switch None")
+        }
+    }
+    // t4
+    if t4.next.is_some() {
+        println("t4: top is_some")
+    } else {
+        println("t4: top is_none")
+    }
+    switch t4.next {
+        case Some(v) {
+            println("t4: switch Some")
+        }
+        case None {
+            println("t4: switch None")
+        }
+    }
+    println("TEST_OK")
+    return void
+}

@@ -1,0 +1,8 @@
+package main
+
+import "src/compiler/native/backend.bak" as native
+
+func main() -> (void) {
+    println(native.ShouldSkipBootstrapFunction(&"main"))
+    println(native.ShouldSkipBootstrapFunction(&"native.emit_stmt"))
+}

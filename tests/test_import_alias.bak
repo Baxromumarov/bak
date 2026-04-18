@@ -1,0 +1,17 @@
+// Test importing with alias
+package main
+
+import "tests/mathlib.bak" as math
+
+func main() -> (void) {
+    println("Testing import with alias")
+    
+    // Use the aliased module
+    var sum: int = math.add(5, 3)
+    println("math.add(5, 3) =", sum)
+    
+    var diff: int = math.sub(10, 4)
+    println("math.sub(10, 4) =", diff)
+    
+    println("All import tests passed!")
+}

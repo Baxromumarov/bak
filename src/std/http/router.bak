@@ -1,0 +1,163 @@
+package http
+
+pub struct Route {
+    pub method:  string
+    pub path:    string
+    pub handler: func(Request) -> (Response)
+}
+
+pub struct Router {
+    routes:            Vec<Route, _>
+    not_found_handler: func(Request) -> (Response)
+}
+
+pub func new_router() -> (Router) {
+    return Router{not_found_handler: default_not_found, routes: Vec.new()}
+}
+
+func default_not_found(_req: Request) -> (Response) {
+    return Response{
+        body:    "404 Not Found".bytes(),
+        headers: Vec.new(),
+        reason:  "Not Found",
+        status:  404,
+    }
+}
+
+func split_path(path: string) -> (Vec<string, _>) {
+    mut var segments: Vec<string, _> = Vec.new()
+    mut var i: int = 0
+    mut var start: int = 0
+    while i < path.len() {
+        if path[i] == '/' {
+            if i > start {
+                segments.push(path.substring(
+                    start,
+                    i,
+                ))
+            }
+            start = i + 1
+        }
+        i = i + 1
+    }
+    if start < path.len() {
+        segments.push(path.substring(
+            start,
+            path.len(),
+        ))
+    }
+    return segments
+}
+
+impl Router as r {
+    pub mut func get(
+        path: string,
+        handler: func(Request) -> (Response),
+    ) -> (void) {
+        r.routes.push(Route{
+            handler: handler,
+            method:  "GET",
+            path:    path,
+        })
+    }
+
+    pub mut func post(
+        path: string,
+        handler: func(Request) -> (Response),
+    ) -> (void) {
+        r.routes.push(Route{
+            handler: handler,
+            method:  "POST",
+            path:    path,
+        })
+    }
+
+    pub mut func put(
+        path: string,
+        handler: func(Request) -> (Response),
+    ) -> (void) {
+        r.routes.push(Route{
+            handler: handler,
+            method:  "PUT",
+            path:    path,
+        })
+    }
+
+    pub mut func delete(
+        path: string,
+        handler: func(Request) -> (Response),
+    ) -> (void) {
+        r.routes.push(Route{
+            handler: handler,
+            method:  "DELETE",
+            path:    path,
+        })
+    }
+
+    pub mut func handle(
+        method: string,
+        path: string,
+        handler: func(Request) -> (Response),
+    ) -> (void) {
+        r.routes.push(Route{
+            handler: handler,
+            method:  method,
+            path:    path,
+        })
+    }
+
+    pub mut func set_not_found(handler: func(Request) -> (Response)) -> (void) {
+        r.not_found_handler = handler
+    }
+
+    pub func dispatch(mut req: Request) -> (Response) {
+        mut var path: string = req.path
+        var queryIdx = path.indexOf("?")
+        if queryIdx.is_some() {
+            path = path.substring(
+                0,
+                queryIdx.unwrap(),
+            )
+        }
+        var reqSegments: Vec<string, _> = split_path(path)
+        var reqSegmentsLen: int = reqSegments.len()
+        mut var i: int = 0
+        while i < r.routes.len() {
+            var route: Route = r.routes[i]
+            if route.method == req.method {
+                var routeSegments: Vec<string, _> = split_path(route.path)
+                if routeSegments.len() == reqSegmentsLen {
+                    mut var match: bool = true
+                    mut var params: Vec<QueryParam, _> = Vec.new()
+                    mut var j: int = 0
+                    while j < routeSegments.len() {
+                        var rs: string = routeSegments[j]
+                        var reqS: string = reqSegments[j]
+                        if rs.startsWith(":") {
+                            var paramName: string = rs.substring(
+                                1,
+                                rs.len(),
+                            )
+                            params.push(QueryParam{
+                                name:  paramName,
+                                value: reqS,
+                            })
+                        } else if rs != reqS {
+                            match = false
+                            break
+                        }
+                        j = j + 1
+                    }
+                    if match {
+                        req.params = params
+                        var h: func(Request) -> (Response) = route.handler
+                        return h(req)
+                    }
+                }
+            }
+            i = i + 1
+        }
+        var h: func(Request) -> (Response) = r.not_found_handler
+        return h(req)
+    }
+}

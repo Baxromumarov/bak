@@ -1,0 +1,12 @@
+package main
+
+func threeParams(a: int, b: string, c: bool) -> (void) { 
+    println(a, b, c)
+    return void 
+}
+
+func main() -> (void) {
+    // ERROR: threeParams expects 3, got 5
+    threeParams(1, "test", true, 42, "extra")
+    return void
+}

@@ -1,0 +1,10 @@
+package main
+
+func main() -> (void) {
+    if 5 == "hello" {
+        print("Equal\n")
+    } else {
+        print("Not Equal\n")
+    }
+    return void
+}

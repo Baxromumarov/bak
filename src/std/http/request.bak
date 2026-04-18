@@ -1,0 +1,272 @@
+package http
+
+import "src/std/strings/strings.bak" as strings
+
+pub struct QueryParam {
+    pub name:  string
+    pub value: string
+}
+
+pub struct Request {
+    pub method:  string
+    pub path:    string
+    pub version: string
+    pub headers: Vec<Header, _>
+    pub body:    Vec<int, _>
+    pub params:  Vec<QueryParam, _>
+}
+
+pub func parse_query(path: string) -> (Vec<QueryParam, _>) {
+    mut var out: Vec<QueryParam, _> = Vec.new()
+    var idx_opt = path.indexOf("?")
+    if idx_opt.is_none() {
+        return out
+    }
+    var start: int = idx_opt.unwrap() + 1
+    if start >= path.len() {
+        return out
+    }
+    mut var i: int = start
+    mut var segment_start: int = start
+    mut var eq_index: int = -1
+    while i <= path.len() {
+        if i == path.len() || path[i] == '&' {
+            if i > segment_start {
+                if eq_index != -1 {
+                    var key: string = path.substring(
+                        segment_start,
+                        eq_index,
+                    )
+                    var value: string = path.substring(
+                        eq_index + 1,
+                        i,
+                    )
+                    out.push(QueryParam{name: key, value: value})
+                } else {
+                    var key: string = path.substring(
+                        segment_start,
+                        i,
+                    )
+                    out.push(QueryParam{name: key, value: ""})
+                }
+            }
+            segment_start = i + 1
+            eq_index = -1
+            i = i + 1
+            continue
+        }
+        if path[i] == '=' && eq_index == -1 {
+            eq_index = i
+        }
+        i = i + 1
+    }
+    return out
+}
+
+pub func build_query(params: &Vec<QueryParam, _>) -> (string) {
+    mut var out: string = ""
+    mut var i: int = 0
+    while i < params.len() {
+        if i > 0 {
+            out = out + "&"
+        }
+        out = out + (params[i]).name
+        if (params[i]).value.len() > 0 {
+            out = out + "=" + (params[i]).value
+        }
+        i = i + 1
+    }
+    return out
+}
+
+pub func append_query(url: string, params: Vec<QueryParam, _>) -> (string) {
+    if params.len() == 0 {
+        return url
+    }
+    var qs: string = build_query(&params)
+    if qs.len() == 0 {
+        return url
+    }
+    if url.indexOf("?").is_some() {
+        return url + "&" + qs
+    }
+    return url + "?" + qs
+}
+
+impl Request as r {
+    pub func header(name: string) -> (Option<string>) {
+        return header_value(
+            &r.headers,
+            name,
+        )
+    }
+
+    pub func has_header(name: string) -> (bool) {
+        return r.header(name).is_some()
+    }
+
+    pub func query_params() -> (Vec<QueryParam, _>) {
+        return parse_query(r.path)
+    }
+
+    pub func query(name: string) -> (Option<string>) {
+        var params: Vec<QueryParam, _> = parse_query(r.path)
+        mut var i: int = 0
+        while i < params.len() {
+            if (params[i]).name == name {
+                return Some((params[i]).value)
+            }
+            i = i + 1
+        }
+        return None
+    }
+
+    pub func body_string() -> (string) {
+        return strings.fromBytes(r.body)
+    }
+
+    pub func param(name: string) -> (Option<string>) {
+        mut var i: int = 0
+        while i < r.params.len() {
+            if (r.params[i]).name == name {
+                return Some((r.params[i]).value)
+            }
+            i = i + 1
+        }
+        return None
+    }
+}
+
+pub func parse_request(raw: string) -> (Result<Request, string>) {
+    mut var headerEnd = indexOf(
+        &raw,
+        &CRLFCRLF,
+    )
+    mut var sepLen: int = 4
+    if headerEnd == -1 {
+        headerEnd = indexOf(
+            &raw,
+            &LFLF,
+        )
+        sepLen = 2
+    }
+    if headerEnd == -1 {
+        return Err("invalid request: no header terminator")
+    }
+    var headerPart = raw.substring(
+        0,
+        headerEnd,
+    )
+    var bodyPart = raw.substring(
+        headerEnd + sepLen,
+        raw.len(),
+    )
+    mut var statusLineEnd = indexOf(
+        &headerPart,
+        &LF,
+    )
+    if statusLineEnd == -1 {
+        return Err("invalid request: no request line")
+    }
+    mut var requestLineTrimEnd: int = statusLineEnd
+    if statusLineEnd > 0 && headerPart[statusLineEnd - 1] == '\r' {
+        requestLineTrimEnd = statusLineEnd - 1
+    }
+    var requestLine = headerPart.substring(
+        0,
+        requestLineTrimEnd,
+    )
+    var headersPart = headerPart.substring(
+        statusLineEnd + 1,
+        headerPart.len(),
+    )
+    var firstSpace = indexOf(
+        &requestLine,
+        &" ",
+    )
+    if firstSpace == -1 {
+        return Err("invalid request line")
+    }
+    var method = requestLine.substring(
+        0,
+        firstSpace,
+    )
+    var rest = requestLine.substring(
+        firstSpace + 1,
+        requestLine.len(),
+    )
+    var secondSpace = indexOf(
+        &rest,
+        &" ",
+    )
+    if secondSpace == -1 {
+        return Err("invalid request line: missing HTTP version")
+    }
+    var pathStr = rest.substring(
+        0,
+        secondSpace,
+    )
+    var version = rest.substring(
+        secondSpace + 1,
+        rest.len(),
+    )
+    mut var headers: Vec<Header, _> = Vec.from([])
+    mut var current: string = headersPart
+    while current.len() > 0 {
+        var lineEnd = indexOf(
+            &current,
+            &LF,
+        )
+        mut var line: string = ""
+        if lineEnd == -1 {
+            line = current
+            current = ""
+        } else {
+            mut var trimEnd: int = lineEnd
+            if lineEnd > 0 && current[lineEnd - 1] == '\r' {
+                trimEnd = lineEnd - 1
+            }
+            line = current.substring(
+                0,
+                trimEnd,
+            )
+            current = current.substring(
+                lineEnd + 1,
+                current.len(),
+            )
+        }
+        if line.len() == 0 {
+            break
+        }
+        var colonIndex = indexOf(
+            &line,
+            &":",
+        )
+        if colonIndex != -1 {
+            var name = line.substring(
+                0,
+                colonIndex,
+            )
+            mut var value = line.substring(
+                colonIndex + 1,
+                line.len(),
+            )
+            if value.startsWith(" ") {
+                value = value.substring(
+                    1,
+                    value.len(),
+                )
+            }
+            headers.push(Header{name: name, value: value})
+        }
+    }
+    var body: Vec<int, _> = bodyPart.bytes()
+    return Ok(Request{
+        body:    body,
+        headers: headers,
+        method:  method,
+        params:  Vec.new(),
+        path:    pathStr,
+        version: version,
+    })
+}

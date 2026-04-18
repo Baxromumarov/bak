@@ -1,0 +1,38 @@
+package std
+
+impl Option as self {
+    pub func is_some() -> (bool) {
+        switch self {
+            case Some(_) { return true }
+            case None { return false }
+        }
+    }
+
+    pub func is_none() -> (bool) {
+        switch self {
+            case Some(_) { return false }
+            case None { return true }
+        }
+    }
+
+    pub func unwrap() -> (T) {
+        switch self {
+            case Some(v) { return v }
+            case None { panic("unwrap called on None") }
+        }
+    }
+
+    pub func unwrapOr(defaultVal: T) -> (T) {
+        switch self {
+            case Some(v) { return v }
+            case None { return defaultVal }
+        }
+    }
+
+    pub func to_string() -> (string) {
+        switch self {
+            case Some(v) { return "Some(" + string(v) + ")" }
+            case None { return "None" }
+        }
+    }
+}

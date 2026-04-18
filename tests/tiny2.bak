@@ -1,0 +1,9 @@
+package main
+
+func main() -> (int) {
+    var x: int = 42
+
+    println(x.toString())
+
+    return 0
+}

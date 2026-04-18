@@ -1,0 +1,101 @@
+package main
+
+import "src/std/collections/set.bak" as set
+import "src/std/collections/queue.bak" as queue
+import "src/std/test/test.bak" as test
+
+func test_string_set_basic() -> (void) {
+    mut var t: test.T = test.new("test_string_set_basic")
+
+    mut var s: set.StringSet = set.new_string_set()
+    t.is_true(s.is_empty())
+
+    s.add("a")
+    s.add("b")
+    s.add("a")
+    t.eq(s.len(), 2)
+    t.is_true(s.contains("a"))
+    t.is_false(s.contains("c"))
+
+    t.is_true(s.remove("a"))
+    t.is_false(s.contains("a"))
+    t.eq(s.len(), 1)
+
+    s.clear()
+    t.is_true(s.is_empty())
+}
+
+func test_int_set_basic() -> (void) {
+    mut var t: test.T = test.new("test_int_set_basic")
+
+    mut var s: set.IntSet = set.new_int_set()
+    t.is_true(s.is_empty())
+
+    s.add(10)
+    s.add(20)
+    s.add(10)
+    t.eq(s.len(), 2)
+    t.is_true(s.contains(10))
+    t.is_false(s.contains(30))
+
+    t.is_true(s.remove(10))
+    t.is_false(s.contains(10))
+    t.eq(s.len(), 1)
+}
+
+func test_queue_basic() -> (void) {
+    mut var t: test.T = test.new("test_queue_basic")
+
+    mut var q: queue.Queue<int> = queue.new_queue()
+    t.is_true(q.is_empty())
+
+    q.push(1)
+    q.push(2)
+    q.push(3)
+    t.eq(q.len(), 3)
+
+    switch q.peek() {
+        case Some(v) { t.eq(v, 1) }
+        case None { t.fail("expected Some from peek") }
+    }
+
+    switch q.pop() {
+        case Some(v) { t.eq(v, 1) }
+        case None { t.fail("expected Some from pop") }
+    }
+
+    switch q.pop() {
+        case Some(v) { t.eq(v, 2) }
+        case None { t.fail("expected Some from pop") }
+    }
+
+    switch q.pop() {
+        case Some(v) { t.eq(v, 3) }
+        case None { t.fail("expected Some from pop") }
+    }
+
+    switch q.pop() {
+        case Some(_) { t.fail("expected None from empty pop") }
+        case None {}
+    }
+
+    t.is_true(q.is_empty())
+}
+
+func test_string_queue_basic() -> (void) {
+    mut var t: test.T = test.new("test_string_queue_basic")
+
+    mut var q: queue.Queue<string> = queue.new_queue()
+    q.push("a")
+    q.push("b")
+
+    switch q.pop() {
+        case Some(v) { t.eq_string(v, "a") }
+        case None { t.fail("expected Some from pop") }
+    }
+    switch q.pop() {
+        case Some(v) { t.eq_string(v, "b") }
+        case None { t.fail("expected Some from pop") }
+    }
+    t.is_true(q.is_empty())
+}

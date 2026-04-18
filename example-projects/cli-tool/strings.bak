@@ -1,0 +1,127 @@
+package main
+
+// String utilities for pattern matching
+import "example-projects/cli-tool/types.bak" as types
+
+// Check if a line matches the pattern
+pub func match_pattern(line: string, pattern: string, ignore_case: bool) -> (bool) {
+    mut var search_line: string = line
+    mut var search_pattern: string = pattern
+    
+    if ignore_case {
+        search_line = to_lower(line)
+        search_pattern = to_lower(pattern)
+    }
+    
+    return search_line.contains(search_pattern)
+}
+
+// Convert string to lowercase
+pub func to_lower(s: string) -> (lower: string) {
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < s.len() {
+        var c: char = s[i]
+        var code: int = int(c)
+        // A-Z is 65-90, add 32 to get a-z
+        if code >= 65 && code <= 90 {
+            result = result + string(char(code + 32))
+        } else {
+            result = result + string(c)
+        }
+        i = i + 1
+    }
+    lower = result
+    return
+}
+
+// Trim whitespace from start and end
+pub func trim(s: string) -> (trimmed: string) {
+    mut var start: int = 0
+    mut var end: int = s.len()
+    
+    // Find first non-whitespace
+    while start < s.len() {
+        var c: char = s[start]
+        if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+            break
+        }
+        start = start + 1
+    }
+    
+    // Find last non-whitespace
+    while end > start {
+        var c: char = s[end - 1]
+        if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+            break
+        }
+        end = end - 1
+    }
+    
+    // Extract substring
+    trimmed = ""
+    mut var i: int = start
+    while i < end {
+        trimmed = trimmed + string(s[i])
+        i = i + 1
+    }
+    return
+}
+
+// Split string by delimiter
+pub func split_lines(content: string) -> (Vec<string, _>) {
+    mut var lines: Vec<string, _> = Vec.new()
+    mut var current: string = ""
+    mut var i: int = 0
+    
+    while i < content.len() {
+        var c: char = content[i]
+        if c == '\n' {
+            lines.push(current)
+            current = ""
+        } else if c != '\r' {
+            current = current + string(c)
+        }
+        i = i + 1
+    }
+    
+    // Don't forget the last line
+    if current.len() > 0 {
+        lines.push(current)
+    }
+    return lines
+}
+
+// Count words in a string
+pub func count_words(s: string) -> (count: int) {
+    count = 0
+    mut var in_word: bool = false
+    mut var i: int = 0
+    
+    while i < s.len() {
+        var c: char = s[i]
+        var is_space: bool = c == ' ' || c == '\t' || c == '\n' || c == '\r'
+        
+        if !is_space && !in_word {
+            count = count + 1
+            in_word = true
+        } else if is_space {
+            in_word = false
+        }
+        i = i + 1
+    }
+    return
+}
+
+// Count characters (excluding newlines)
+pub func count_chars(s: string) -> (count: int) {
+    count = 0
+    mut var i: int = 0
+    while i < s.len() {
+        if s[i] != '\n' && s[i] != '\r' {
+            count = count + 1
+        }
+        i = i + 1
+    }
+    return
+}

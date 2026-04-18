@@ -1,0 +1,15 @@
+package main
+
+struct Person {
+    name: string
+}
+
+func main() -> (void) {
+    var name: string = "Bak"
+    var version: int = 1
+    var s: string = f"Hello {name} {version}"
+    println(s)
+
+    var p: Person = Person{name: "Alice"}
+    println(f"Person: {p.name}")
+}

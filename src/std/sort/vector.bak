@@ -1,0 +1,220 @@
+package sort
+
+// =============================================================================
+// Sorting Utilities for Bak
+// =============================================================================
+// Pure Bak implementation of sorting algorithms.
+// Provides generic sorting with optional custom comparators.
+
+// -----------------------------------------------------------------------------
+// Generic Sorting
+// -----------------------------------------------------------------------------
+
+// sort sorts a Vec<T> using the provided comparator.
+// Set asc=true for ascending order, asc=false for descending.
+pub func sort<T>(arr: &mut Vec<T, _>, asc: bool, cmp: func(&T, &T) -> (int)) -> (void) {
+    if arr.len() <= 1 {
+        return void
+    }
+    mut var i: int = 1
+    while i < arr.len() {
+        mut var j: int = i
+        while j > 0 {
+            var order: int = cmp(&arr[j - 1], &arr[j])
+            if asc {
+                if order <= 0 { break }
+            } else {
+                if order >= 0 { break }
+            }
+            swap(arr, j - 1, j)
+            j = j - 1
+        }
+        i = i + 1
+    }
+    return void
+}
+
+// sort_by sorts a Vec<T> using a custom less function (like Go's sort.Slice).
+// The less function should return true if a < b in the desired order.
+pub func sort_by<T>(arr: &mut Vec<T, _>, asc: bool, less: func(&T, &T) -> (bool)) -> (void) {
+    if arr.len() <= 1 {
+        return void
+    }
+    mut var i: int = 1
+    while i < arr.len() {
+        mut var j: int = i
+        while j > 0 {
+            mut var should_stop: bool = false
+            if asc {
+                should_stop = !less(&arr[j], &arr[j - 1])
+            } else {
+                should_stop = !less(&arr[j - 1], &arr[j])
+            }
+            if should_stop { break }
+            swap(arr, j - 1, j)
+            j = j - 1
+        }
+        i = i + 1
+    }
+    return void
+}
+
+// reverse reverses a Vec<T> in place.
+pub func reverse<T>(arr: &mut Vec<T, _>) -> (void) {
+    mut var left: int = 0
+    mut var right: int = arr.len() - 1
+    while left < right {
+        swap(arr, left, right)
+        left = left + 1
+        right = right - 1
+    }
+    return void
+}
+
+// is_sorted checks if a Vec<T> is sorted with the given comparator and order.
+pub func is_sorted<T>(arr: &Vec<T, _>, asc: bool, cmp: func(&T, &T) -> (int)) -> (bool) {
+    if arr.len() <= 1 {
+        return true
+    }
+    mut var i: int = 1
+    while i < arr.len() {
+        var order: int = cmp(&arr[i - 1], &arr[i])
+        if asc {
+            if order > 0 { return false }
+        } else {
+            if order < 0 { return false }
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// -----------------------------------------------------------------------------
+// Type-Specific Convenience Wrappers
+// -----------------------------------------------------------------------------
+
+// sort_ints sorts a Vec<int> in ascending or descending order.
+pub func sort_ints(arr: &mut Vec<int, _>, asc: bool) -> (void) {
+    sort(arr, asc, compare_ints)
+}
+
+// sort_strings sorts a Vec<string> in ascending or descending order.
+pub func sort_strings(arr: &mut Vec<string, _>, asc: bool) -> (void) {
+    sort(arr, asc, compare_strings)
+}
+
+// is_sorted_ints checks if a Vec<int> is sorted in ascending or descending order.
+pub func is_sorted_ints(arr: &Vec<int, _>, asc: bool) -> (bool) {
+    return is_sorted(arr, asc, compare_ints)
+}
+
+// is_sorted_strings checks if a Vec<string> is sorted in ascending or descending order.
+pub func is_sorted_strings(arr: &Vec<string, _>, asc: bool) -> (bool) {
+    return is_sorted(arr, asc, compare_strings)
+}
+
+func swap<T>(arr: &mut Vec<T, _>, i: int, j: int) -> (void) {
+    var temp: T = arr[i]
+    arr[i] = arr[j]
+    arr[j] = temp
+    return void
+}
+
+// -----------------------------------------------------------------------------
+// Comparators
+// -----------------------------------------------------------------------------
+
+// compare_ints compares two ints.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
+pub func compare_ints(a: &int, b: &int) -> (int) {
+    if *a < *b { return -1 }
+    if *a > *b { return 1 }
+    return 0
+}
+
+// compare_strings compares two strings lexicographically.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
+pub func compare_strings(a: &string, b: &string) -> (int) {
+    mut var minLen: int = a.len()
+    if b.len() < minLen {
+        minLen = b.len()
+    }
+    
+    mut var i: int = 0
+    while i < minLen {
+        if int(a[i]) < int(b[i]) {
+            return -1
+        }
+        if int(a[i]) > int(b[i]) {
+            return 1
+        }
+        i = i + 1
+    }
+    
+    if a.len() < b.len() {
+        return -1
+    }
+    if a.len() > b.len() {
+        return 1
+    }
+    return 0
+}
+
+// -----------------------------------------------------------------------------
+// Utility Functions
+// -----------------------------------------------------------------------------
+
+// min_int returns the minimum of two integers
+pub func min_int(a: int, b: int) -> (int) {
+    if a < b {
+        return a
+    }
+    return b
+}
+
+// max_int returns the maximum of two integers
+pub func max_int(a: int, b: int) -> (int) {
+    if a > b {
+        return a
+    }
+    return b
+}
+
+// abs_int returns the absolute value of an integer
+pub func abs_int(n: int) -> (int) {
+    if n < 0 {
+        return 0 - n
+    }
+    return n
+}
+
+// clamp_int clamps a value between min and max (inclusive)
+pub func clamp_int(val: int, lo: int, hi: int) -> (int) {
+    if val < lo {
+        return lo
+    }
+    if val > hi {
+        return hi
+    }
+    return val
+}
+
+// binary_search_int searches for value in a sorted Vec<int>
+// Returns the index if found, or -1 if not found
+pub func binary_search_int(arr: &Vec<int, _>, target: int) -> (int) {
+    mut var left: int = 0
+    mut var right: int = arr.len() - 1
+    
+    while left <= right {
+        var mid: int = left + (right - left) / 2
+        if arr[mid] == target {
+            return mid
+        }
+        if arr[mid] < target {
+            left = mid + 1
+        } else {
+            right = mid - 1
+        }
+    }
+    return -1
+}

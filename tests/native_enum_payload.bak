@@ -1,0 +1,16 @@
+package main
+
+enum Shape {
+    Circle(int)
+    Rectangle(int, int)
+}
+
+func main() -> (int) {
+    var s: Shape = Rectangle(3, 4)
+    mut var result: int = 0
+    switch s {
+        case Circle(r) { result = r }
+        case Rectangle(w, h) { result = w + h }
+    }
+    return result
+}

@@ -1,0 +1,20 @@
+package main
+
+import "src/std/os/os.bak" as os
+
+func main() -> (void) {
+    var args: Vec<string, _> = os.args()
+    
+    var count: int = args.len()
+    print("Argument count: ")
+    print(count)
+    print("\n")
+    
+    mut var i: int = 0
+    while i < count {
+        print("Arg: ")
+        print(args[i])
+        print("\n")
+        i = i + 1
+    }
+}

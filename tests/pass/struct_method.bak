@@ -1,0 +1,17 @@
+package main
+
+struct Person {
+    name: string
+}
+
+impl Person as p {
+    func greet() -> (string) {
+        return "hi " + p.name
+    }
+}
+
+func main() -> (void) {
+    var p: Person = Person{name: "A"}
+    var _s: string = p.greet()
+    return void
+}

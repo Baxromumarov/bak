@@ -1,0 +1,15 @@
+package main
+
+func main() -> (void) {
+    mut var v: Vec<int, _> = Vec.new()
+    v.push(42)
+    v.push(100)
+    var len: int = v.len()
+    print("Vec len: ")
+    print(len)
+    print("\n")
+    var first: int = v[0]
+    print("First: ")
+    print(first)
+    print("\n")
+}

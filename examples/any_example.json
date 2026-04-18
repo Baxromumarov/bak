@@ -1,0 +1,10 @@
+{
+  "name": "Alice",
+  "age": 30,
+  "active": true,
+  "score": 3.5,
+  "tags": [
+    "a",
+    "b"
+  ]
+}

@@ -1,0 +1,8 @@
+package main
+
+func main() -> (void) {
+    mut var x: int8 = 5
+    x = 10
+    println(x)
+    return void
+}

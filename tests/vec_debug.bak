@@ -1,0 +1,39 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+struct Module {
+    Path:    string
+    Imports: Vec<Entry, _>
+}
+
+func main() -> (int) {
+    mut var modules: Vec<Module, _> = Vec.new()
+    mut var entries: Vec<Entry, _> = Vec.new()
+
+    entries.push(Entry{Alias: "a", Path: "a.bak"})
+    entries.push(Entry{Alias: "b", Path: "b.bak"})
+
+    var m: Module = Module{Imports: entries, Path: "main.bak"}
+
+    modules.push(m)
+    // Test direct access (not through Vec index)
+    println("direct m.Path=")
+    println(m.Path)
+    println("direct m.Imports.len()=" + m.Imports.len().toString())
+    // Test through Vec index
+    println("modules.len()=" + modules.len().toString())
+    println("about to index modules[0]")
+
+    var mod: Module = modules[0]
+
+    println("indexed ok")
+    println("mod.Path=")
+    println(mod.Path)
+    println("mod.Imports.len()=" + mod.Imports.len().toString())
+
+    return 0
+}

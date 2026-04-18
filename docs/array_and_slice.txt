@@ -1,0 +1,230 @@
+
+# Arrays and Slices in bak
+
+bak provides two primary array types under the unified name `Vec`:
+
+## 1. Static Arrays
+
+**Syntax:**  
+`Vec<T, N>`
+
+- Fixed size known at compile time.
+- Stored inline (stack or embedded).
+- Cannot grow or shrink.
+- Length is always exactly `N`.
+- Example:
+    ```
+    var arr Vec<int, 4> = Vec.from([1, 2, 3, 4])
+    ```
+
+## 2. Dynamic Arrays
+
+**Syntax:**  
+`Vec<T, _>`
+
+- Size determined at runtime.
+- Heap-allocated.
+- Growable and shrinkable.
+- Length may change over time.
+- Example:
+    ```
+    mut var arr Vec<string, _> = Vec.from(["apple", "banana", "cherry"])
+    ```
+
+## 3. Array Literals
+
+- Array literals are written as `[1, 2, 3]`.
+- They are untyped sequences with compile-time known length.
+- Cannot be assigned directly to a variable without specifying a type.
+
+## 4. Initialization Rules
+
+- Static arrays must be initialized with exactly `N` elements.
+- Dynamic arrays can be initialized empty or with any number of elements.
+- Example of static array error:
+    ```
+    var arr Vec<int, 4> = Vec.from([1, 2, 3, 4, 5]) // Error: too many elements
+    ```
+
+## 5. No Implicit Conversion
+
+- There are no implicit conversions between static and dynamic arrays.
+NO Invalid:
+
+var x = [1,2,3]
+
+
+Array literals may only be used as input to constructors such as Vec.from.
+
+3 Static Array Declarations (Vec<T, N>)
+3.1 Construction from a literal (required)
+var a Vec<int,3> = Vec.from([1, 2, 3])
+
+
+Rules:
+
+The literal length must be exactly N
+
+Checked at compile time
+
+Mismatch is a compile-time error
+
+NO Invalid:
+
+var a Vec<int,3> = Vec.from([1,2])
+var a Vec<int,3> = Vec.from([1,2,3,4])
+
+3.2 Default initialization
+var a Vec<int,3>
+
+
+Semantics:
+
+All elements are default-initialized
+
+Equivalent to:
+
+Vec.from([0,0,0])
+
+
+Allowed only if T is default-initializable
+
+3.3 Zero-sized static array
+var a Vec<int,0> = Vec.from([])
+
+
+Valid
+
+Represents an empty static array
+
+Still not growable
+
+3.4 Mutability
+var a Vec<int,3>      // immutable
+mut var b Vec<int,3> // elements may be mutated
+
+
+mut allows modifying elements
+
+Does not allow resizing (static arrays never resize)
+
+4 Dynamic Array Declarations (Vec<T, _>)
+4.1 Default initialization (empty, non-allocated)
+var v Vec<int,_>
+
+
+Semantics:
+
+Length = 0
+
+Capacity = 0
+
+No heap allocation
+
+Equivalent to Vec.new()
+
+This is the only implicit dynamic Vec value allowed.
+
+4.2 Explicit empty construction
+mut var v Vec<int,_> = Vec.new()
+
+
+Semantics:
+
+Explicit dynamic Vec creation
+
+Heap allocation may occur on first mutation
+
+mut is required to grow or shrink
+
+4.3 Construction from a literal
+var v Vec<int,_> = Vec.from([1, 2, 3])
+
+
+Rules:
+
+Performs an explicit conversion
+
+Allocates on the heap
+
+Copies elements
+
+Cost is visible in code
+
+4.4 Pre-allocation (optional API)
+mut var v Vec<int,_> = Vec.with_cap(16)
+
+
+Explicit capacity reservation
+
+No elements initialized
+
+Heap allocation is explicit
+
+4.5 Mutability
+var v Vec<int,_>      // immutable dynamic Vec
+mut var v Vec<int,_>  // growable / mutable Vec
+
+
+Rules:
+
+Without mut, calls like push, pop, remove are forbidden
+
+With mut, resizing operations are allowed
+
+5 Forbidden Forms (Very Important)
+No implicit literal assignment
+var v Vec<int,_> = [1,2,3]   // NO
+var a Vec<int,3> = [1,2,3]   // NO
+
+
+Reason:
+
+Hides allocation
+
+Blurs static vs dynamic distinction
+
+No implicit conversions
+var v Vec<int,_> = a         // NO if a is Vec<int,3>
+
+
+Conversions must always be explicit.
+
+No ambiguous empty literals
+var v Vec<int,_> = []        // NO
+
+
+Use either:
+
+var v Vec<int,_>
+
+
+or
+
+var v Vec<int,_> = Vec.new()
+
+6 Summary Table
+Declaration	Allowed	Meaning
+var a Vec<int,3> = Vec.from([1,2,3])	OK	static array
+var a Vec<int,3>	OK	zero-initialized static
+var v Vec<int,_>	OK	empty dynamic, no alloc
+var v Vec<int,_> = Vec.new()	OK	explicit dynamic
+var v Vec<int,_> = Vec.from([1,2,3])	OK	explicit alloc + copy
+var v Vec<int,_> = []	NO	ambiguous
+var v Vec<int,_> = [1,2,3]	NO	implicit conversion
+var a Vec<int,3> = Vec.new()	NO	dynamic -> static
+7 Design Guarantees (What bak promises)
+
+No hidden heap allocation
+
+No implicit resizing
+
+No implicit conversion between static and dynamic arrays
+
+All costs are visible in code
+
+Static and dynamic arrays have clearly separated semantics
+
+8 Mental Model (One Sentence)
+
+Array literals describe data; Vec.from describes storage.

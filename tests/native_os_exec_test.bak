@@ -1,0 +1,22 @@
+package main
+
+import "std/os"
+
+func main() -> (void) {
+    println("Testing os.exec...")
+
+    // Test running /bin/echo with no args
+    mut var args: Vec<string, _> = Vec.new()
+    var result: Result<os.ExecResult, string> = os.exec(
+        "/bin/echo",
+        args,
+    )
+
+    if result.is_ok() {
+        println("PASS: exec succeeded")
+    } else {
+        println("FAIL: exec failed")
+    }
+
+    println("Done")
+}

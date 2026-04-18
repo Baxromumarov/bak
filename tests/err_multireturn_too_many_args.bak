@@ -1,0 +1,13 @@
+package main
+
+// Function with multiple returns
+func multiReturn(a: int, b: string) -> (int, string, bool) {
+    return a * 2, b, true
+}
+
+func main() -> (void) {
+    // ERROR: multiReturn expects 2, got 4
+    var (x, y, z) = multiReturn(1, "hi", true, 42)
+    println(x, y, z)
+    return void
+}

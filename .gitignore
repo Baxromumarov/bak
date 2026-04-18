@@ -1,0 +1,13 @@
+.vscode
+.idea
+.DS_Store
+.env
+.antigravity
+.claude
+.codex
+
+# Build artifacts
+bakc-stage0
+bakc-stage1
+bakc-stage2
+bakc

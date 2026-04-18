@@ -1,0 +1,49 @@
+# Unused Code Rules in bak
+
+bak enforces strict rules for unused code to maintain clarity and code quality. The following summarizes the rules for each category:
+
+## 1. Variables and Parameters
+- Unused local variables and function parameters trigger a warning.
+- Use `_` to explicitly mark a variable or parameter as intentionally unused.
+  - Example:
+    ```
+    var _ = compute()      // explicit ignore
+    var x = compute()      // warning if unused
+    func f(_ int, y int) { println(y) }
+    ```
+
+## 2. Struct Fields
+- Struct fields are never warned as unused.
+- Do not use `_` as a struct field name.
+- Fields are part of the type's API and may be used elsewhere or later.
+
+## 3. Functions
+- Private (non-`pub`) functions: warning if unused within the package.
+- Public (`pub`) functions: never warned as unused.
+
+## 4. Constants
+- Private constants: warning if unused.
+- Public constants: never warned as unused.
+
+## 5. Aliases
+- Warning if an alias is declared but never referenced in the file.
+- No `_` escape hatch for aliases.
+
+## 6. Types (struct, enum, type alias)
+- Private types: warning if unused within the package.
+- Public types: never warned as unused.
+
+## 7. Summary Table
+
+| Category           | Unused Default | How to Silence |
+|--------------------|---------------|----------------|
+| Local variables    | Warning       | Use `_`        |
+| Function params    | Warning       | Use `_`        |
+| Struct fields      | Allowed       | N/A            |
+| Private functions  | Warning       | Make pub/use   |
+| Public functions   | Allowed       | N/A            |
+| Private constants  | Warning       | Make pub/use   |
+| Public constants   | Allowed       | N/A            |
+| Alias              | Warning       | Remove it      |
+| Private types      | Warning       | Make pub/use   |
+| Public types       | Allowed       | N/A            |

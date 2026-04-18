@@ -1,0 +1,25 @@
+package main
+
+import "src/std/collections/hashmap.bak" as collections
+
+func main() -> (void) {
+    mut var m: collections.HashMap<string, int> = collections.new_hash_map()
+    m.insert("a", 1)
+    m.insert("b", 2)
+    m.insert("c", 3)
+
+    var vals: Vec<int, _> = m.values()
+    println("Values count:")
+    println(vals.len())
+
+    mut var sum: int = 0
+    mut var i: int = 0
+    while i < vals.len() {
+        sum = sum + vals[i]
+        i = i + 1
+    }
+    println("Sum:")
+    println(sum)
+
+    return void
+}

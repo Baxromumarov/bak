@@ -1,0 +1,107 @@
+// Test native fs.* functions
+package main
+
+import "std/fs"
+import "std/os"
+
+func main() -> (void) {
+    // Test fs.exists
+    var exists: bool = fs.exists("tests/native_fs_test.bak")
+
+    if exists {
+        println("PASS: fs.exists returns true for existing file")
+    } else {
+        println("FAIL: fs.exists returned false for existing file")
+    }
+
+    var not_exists: bool = fs.exists("this_file_does_not_exist_12345.txt")
+
+    if !not_exists {
+        println("PASS: fs.exists returns false for non-existing file")
+    } else {
+        println("FAIL: fs.exists returned true for non-existing file")
+    }
+
+    // Test fs.isFile
+    var is_file: bool = fs.isFile("tests/native_fs_test.bak")
+
+    if is_file {
+        println("PASS: fs.isFile returns true for file")
+    } else {
+        println("FAIL: fs.isFile returned false for file")
+    }
+
+    // Test fs.isDir
+    var is_dir: bool = fs.isDir("tests")
+
+    if is_dir {
+        println("PASS: fs.isDir returns true for directory")
+    } else {
+        println("FAIL: fs.isDir returned false for directory")
+    }
+
+    var is_not_dir: bool = fs.isDir("tests/native_fs_test.bak")
+
+    if !is_not_dir {
+        println("PASS: fs.isDir returns false for file")
+    } else {
+        println("FAIL: fs.isDir returned true for file")
+    }
+
+    // Test fs.readFile
+    var result: Result<string, string> = fs.readFile("tests/native_fs_test.bak")
+
+    switch result {
+        case Ok(content) {
+            println("PASS: fs.readFile succeeded")
+
+            // Check if content contains expected string
+            if content.len() > 0 {
+                println("PASS: File content length > 0")
+            } else {
+                println("FAIL: File content is empty")
+            }
+        }
+        case Err(msg) {
+            print("FAIL: fs.readFile failed: ")
+            println(msg)
+        }
+    }
+
+    // Test fs.writeFile
+    var test_file: string = "/tmp/bak_fs_test_output.txt"
+    var test_content: string = "Hello from Bak native fs.writeFile!"
+    var write_result: Result<void, string> = fs.writeFile(
+        test_file,
+        test_content,
+    )
+
+    switch write_result {
+        case Ok(_) {
+            println("PASS: fs.writeFile succeeded")
+
+            // Verify by reading back
+            var read_back: Result<string, string> = fs.readFile(test_file)
+
+            switch read_back {
+                case Ok(content) {
+                    if content == test_content {
+                        println("PASS: Read back content matches written content")
+                    } else {
+                        println("FAIL: Content mismatch")
+                    }
+                }
+                case Err(msg) {
+                    print("FAIL: Could not read back written file: ")
+                    println(msg)
+                }
+            }
+        }
+        case Err(msg) {
+            print("FAIL: fs.writeFile failed: ")
+            println(msg)
+        }
+    }
+
+    println("=== Native fs tests complete ===")
+}

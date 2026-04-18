@@ -1,0 +1,21 @@
+package main
+
+// Test: unused private and public types
+struct Tmp {} // should warn (unused)
+pub struct User {} // should NOT warn
+
+enum E { A, B } // should warn (unused)
+pub enum F { X, Y } // should NOT warn
+
+type: Status = string // should warn (unused)
+pub alias: Name = string // should NOT warn
+
+func main() -> (void) {
+    var u User = User{}
+    var: f F = F.X
+    var: n Name = "abc"
+    print(u)
+    print(f)
+    print(n)
+    return: void
+}

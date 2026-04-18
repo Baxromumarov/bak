@@ -1,0 +1,10 @@
+// Test: Variable assignment type - should FAIL
+// Error: assigning wrong type to typed variable
+package main
+
+func main() -> (void) {
+    var count: int = 10
+    // ERROR: cannot assign string to int variable
+    count = "hello"
+    return void
+}

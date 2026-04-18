@@ -1,0 +1,347 @@
+package main
+
+// bake-demo - Single-file task runner demonstration
+// Shows dependency resolution and task execution
+
+import "src/std/time/time.bak" as time
+
+// ============ Types ============
+
+pub struct TaskDef {
+    name: string
+    description: string
+    commands: Vec<string, _>
+    deps: Vec<string, _>
+}
+
+impl TaskDef as t {
+    pub func new(name: string) -> (TaskDef) {
+        return TaskDef{
+            name: name,
+            description: "",
+            commands: Vec.new(),
+            deps: Vec.new()
+        }
+    }
+    
+    pub mut func add_command(cmd: string) -> (void) {
+        t.commands.push(cmd)
+        return void
+    }
+    
+    pub mut func add_dep(dep: string) -> (void) {
+        t.deps.push(dep)
+        return void
+    }
+    
+    pub mut func set_description(desc: string) -> (void) {
+        t.description = desc
+        return void
+    }
+}
+
+pub struct Config {
+    tasks: Vec<TaskDef, _>
+    default_task: string
+}
+
+impl Config as c {
+    pub func new() -> (Config) {
+        return Config{
+            tasks: Vec.new(),
+            default_task: "default"
+        }
+    }
+    
+    pub mut func add_task(task: TaskDef) -> (void) {
+        c.tasks.push(task)
+        return void
+    }
+    
+    pub mut func set_default(name: string) -> (void) {
+        c.default_task = name
+        return void
+    }
+    
+    pub func get_task(name: string) -> (Option<TaskDef>) {
+        mut var i: int = 0
+        while i < c.tasks.len() {
+            if c.tasks[i].name == name {
+                return Some(c.tasks[i])
+            }
+            i = i + 1
+        }
+        return None
+    }
+    
+    pub func has_task(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < c.tasks.len() {
+            if c.tasks[i].name == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+}
+
+// ============ Execution Order ============
+
+pub func get_execution_order(config: &Config, target: &string) -> (Result<Vec<string, _>, string>) {
+    if !config.has_task(*target) {
+        return Err("Task not found: " + *target)
+    }
+    
+    mut var order: Vec<string, _> = Vec.new()
+    mut var queue: Vec<string, _> = Vec.new()
+    
+    queue.push(*target)
+    
+    mut var iterations: int = 0
+    var max_iterations: int = 100
+    
+    while queue.len() > 0 && iterations < max_iterations {
+        var current: string = queue[0]
+        queue.remove(0)
+        
+        if vec_contains(&order, &current) {
+            iterations = iterations + 1
+            continue
+        }
+        
+        var task_opt: Option<TaskDef> = config.get_task(current)
+        switch task_opt {
+            case Some(task) {
+                mut var j: int = 0
+                while j < task.deps.len() {
+                    var dep: string = task.deps[j]
+                    if !vec_contains(&order, &dep) {
+                        queue.push(dep)
+                    }
+                    j = j + 1
+                }
+                
+                mut var all_deps_satisfied: bool = true
+                mut var k: int = 0
+                while k < task.deps.len() {
+                    if !vec_contains(&order, &task.deps[k]) {
+                        all_deps_satisfied = false
+                        queue.push(current)
+                        break
+                    }
+                    k = k + 1
+                }
+                
+                if all_deps_satisfied {
+                    order.push(current)
+                }
+            }
+            case None {
+                return Err("Task not found: " + current)
+            }
+        }
+        
+        iterations = iterations + 1
+    }
+    
+    if iterations >= max_iterations {
+        return Err("Possible cycle detected")
+    }
+    
+    return Ok(order)
+}
+
+func vec_contains(vec: &Vec<string, _>, s: &string) -> (bool) {
+    mut var i: int = 0
+    while i < vec.len() {
+        if vec[i] == *s {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// ============ Runner ============
+
+pub func run_tasks(config: &Config, target: string) -> (Result<int, string>) {
+    println("Resolving dependencies...")
+    println("")
+    
+    var order_result: Result<Vec<string, _>, string> = get_execution_order(config, &target)
+    
+    switch order_result {
+        case Err(e) {
+            return Err(e)
+        }
+        case Ok(order) {
+            println("Execution order: ")
+            mut var x: int = 0
+            while x < order.len() {
+                println("  ", x + 1, ". ", order[x])
+                x = x + 1
+            }
+            println("")
+            
+            mut var completed: int = 0
+            mut var i: int = 0
+            
+            while i < order.len() {
+                var task_name: string = order[i]
+                var task_opt: Option<TaskDef> = config.get_task(task_name)
+                
+                switch task_opt {
+                    case Some(task) {
+                        var start: time.Time = time.now()
+                        
+                        println("▶ Running: ", task.name)
+                        if task.description.len() > 0 {
+                            println("  Description: ", task.description)
+                        }
+                        
+                        mut var j: int = 0
+                        while j < task.commands.len() {
+                            println("  $ ", task.commands[j])
+                            j = j + 1
+                        }
+                        
+                        // Simulate work
+                        mut var work: int = 0
+                        while work < 5000 { work = work + 1 }
+                        
+                        var end: time.Time = time.now()
+                        var duration: time.Duration = end.sub(start)
+                        
+                        println("✓ Completed in ", duration.as_millis(), "ms")
+                        println("")
+                        completed = completed + 1
+                    }
+                    case None {}
+                }
+                
+                i = i + 1
+            }
+            
+            return Ok(completed)
+        }
+    }
+    
+    return Err("Unexpected error")
+}
+
+// ============ Print Tasks ============
+
+pub func print_task_list(config: &Config) -> (void) {
+    println("Available tasks:")
+    println("")
+    
+    mut var i: int = 0
+    while i < config.tasks.len() {
+        var task: TaskDef = config.tasks[i]
+        mut var line: string = "  " + task.name
+        
+        if task.description.len() > 0 {
+            line = line + " - " + task.description
+        }
+        
+        if task.deps.len() > 0 {
+            line = line + " [deps: "
+            mut var j: int = 0
+            while j < task.deps.len() {
+                if j > 0 { line = line + ", " }
+                line = line + task.deps[j]
+                j = j + 1
+            }
+            line = line + "]"
+        }
+        
+        println(line)
+        i = i + 1
+    }
+    
+    println("")
+    println("Default task: ", config.default_task)
+    return void
+}
+
+// ============ Main ============
+
+func main() -> (void) {
+    println("╔════════════════════════════════════╗")
+    println("║     BAKE - Task Runner for Bak     ║")
+    println("╚════════════════════════════════════╝")
+    println("")
+    
+    // Create sample configuration
+    mut var config: Config = Config.new()
+    
+    // Define tasks
+    mut var clean: TaskDef = TaskDef.new("clean")
+    clean.set_description("Remove build artifacts")
+    clean.add_command("rm -rf ./build")
+    clean.add_command("rm -rf ./dist")
+    config.add_task(clean)
+    
+    mut var deps: TaskDef = TaskDef.new("deps")
+    deps.set_description("Install dependencies")
+    deps.add_command("bak check ./src")
+    config.add_task(deps)
+    
+    mut var lint: TaskDef = TaskDef.new("lint")
+    lint.set_description("Run linter")
+    lint.add_dep("deps")
+    lint.add_command("bak lint ./src")
+    config.add_task(lint)
+    
+    mut var compile: TaskDef = TaskDef.new("compile")
+    compile.set_description("Compile the project")
+    compile.add_dep("deps")
+    compile.add_command("mkdir -p ./build")
+    compile.add_command("bak compile ./src -o ./build/app")
+    config.add_task(compile)
+    
+    mut var test: TaskDef = TaskDef.new("test")
+    test.set_description("Run tests")
+    test.add_dep("compile")
+    test.add_command("bak test ./tests")
+    config.add_task(test)
+    
+    mut var build: TaskDef = TaskDef.new("build")
+    build.set_description("Full build with tests")
+    build.add_dep("clean")
+    build.add_dep("lint")
+    build.add_dep("test")
+    build.add_command("cp -r ./build ./dist")
+    build.add_command("echo 'Build complete!'")
+    config.add_task(build)
+    
+    config.set_default("build")
+    
+    // Show available tasks
+    println("--- Available Tasks ---")
+    print_task_list(&config)
+    println("")
+    
+    // Run the build task
+    println("═══════════════════════════════════════")
+    println("Running: build")
+    println("═══════════════════════════════════════")
+    println("")
+    
+    var result: Result<int, string> = run_tasks(&config, "build")
+    switch result {
+        case Ok(count) {
+            println("═══════════════════════════════════════")
+            println("Summary:")
+            println("  Tasks completed: ", count)
+            println("  Status: SUCCESS ✓")
+            println("═══════════════════════════════════════")
+        }
+        case Err(e) {
+            println("Error: ", e)
+        }
+    }
+    
+    return void
+}

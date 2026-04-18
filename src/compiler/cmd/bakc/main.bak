@@ -1,0 +1,38 @@
+package main
+
+import "src/compiler/driver/driver.bak" as driver
+
+func main() -> (void) {
+    var args: Vec<string, _> = __builtin_args()
+    var argc: int = args.len()
+    mut var nativePos: int = -1
+
+    if argc > 1 && args[1] == "native" {
+        nativePos = 1
+    } else if argc > 0 && args[0] == "native" {
+        nativePos = 0
+    }
+
+    if nativePos < 0 || argc <= nativePos + 1 {
+        driver.printUsage()
+        __builtin_exit(1)
+        return
+    }
+
+    var inputPath: string = copyString(&args[nativePos + 1])
+    mut var outPath: string = "a.out"
+
+    if argc > nativePos + 3 && args[nativePos + 2] == "-o" {
+        outPath = copyString(&args[nativePos + 3])
+    }
+
+    var rc: int = driver.runNative(
+        inputPath,
+        outPath,
+    )
+    __builtin_exit(rc)
+}
+
+func copyString(value: &string) -> (string) {
+    return *value
+}

@@ -1,0 +1,13 @@
+package main
+
+func main() -> (int) {
+    mut var v: Vec<int, _> = Vec.new()
+    v.push(42)
+    var opt: Option<int> = v.pop()
+    mut var result: int = 0
+    switch opt {
+        case Some(val) { result = val }
+        case None { result = 0 }
+    }
+    return result
+}

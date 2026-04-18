@@ -1,0 +1,14 @@
+// Test: Function argument type - should FAIL
+// Error: passing wrong type to function
+package main
+
+func greet(name: string) -> (void) {
+    println("Hello,", name)
+    return void
+}
+
+func main() -> (void) {
+    // ERROR: 123 is int, but greet expects string
+    greet(123)
+    return void
+}

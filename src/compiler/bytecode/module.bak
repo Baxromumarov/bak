@@ -1,0 +1,247 @@
+// Bytecode module definitions for bakc.
+package bytecode
+
+import "src/compiler/ast/ast.bak" as ast
+import "src/compiler/bytecode/value.bak" as value
+
+pub struct BytecodeModule {
+    pub Constants: Vec<value.Value, _>
+    pub Functions: Vec<FunctionObj, _>
+    pub EntryPoint: int
+    pub StructDefs: Vec<StructDef, _>
+    pub EnumDefs: Vec<EnumDef, _>
+    pub Methods: Vec<MethodEntry, _>
+    pub Globals: Vec<GlobalEntry, _>
+    pub FunctionIndices: Vec<FunctionIndexEntry, _>
+}
+
+// Internal helper to reference fields that are currently unused
+// so the compiler doesn't emit spurious UnusedField warnings.
+func _mark_unused_bytecode_fields_used() -> (void) {
+    mut var f: FunctionObj
+    f.NumLocals = f.NumLocals
+    f.SourceMap = f.SourceMap
+    f.Arity = f.Arity
+
+    mut var fd: FieldDef
+    fd.TypeExpr = fd.TypeExpr
+
+    mut var v: VariantDef
+    v.VariantID = v.VariantID
+    v.PayloadCount = v.PayloadCount
+    return
+}
+
+pub struct FunctionObj {
+    pub Name: string
+    pub Arity: int
+    pub Code: Vec<int, _>
+    pub Constants: Vec<value.Value, _>
+    pub NumLocals: int
+    pub UpvalueCount: int
+    pub SourceMap: Vec<SourceMapEntry, _>
+}
+
+pub func FunctionPushCode(fn: &mut FunctionObj, b: int) -> (void) {
+    (*fn).Code.push(b)
+    return
+}
+
+pub func FunctionCodeLen(fn: &FunctionObj) -> (int) {
+    return (*fn).Code.len()
+}
+
+pub func FunctionGetCode(fn: &FunctionObj, idx: int) -> (int) {
+    return (*fn).Code[idx]
+}
+
+pub func FunctionSetCode(_fn: &mut FunctionObj, _idx: int, val: int) -> (void) {
+    (*_fn).Code[_idx] = val
+    return
+}
+
+pub func FunctionAddConstant(fn: &mut FunctionObj, v: value.Value) -> (int) {
+    (*fn).Constants.push(v)
+    var idx: int = (*fn).Constants.len() - 1
+    return idx
+}
+
+pub struct SourcePos {
+    pub Line: int
+    pub Column: int
+}
+
+pub struct SourceMapEntry {
+    pub Ip: int
+    pub Pos: SourcePos
+}
+
+pub struct StructDef {
+    pub Name: string
+    pub TypeID: int
+    pub Fields: Vec<FieldDef, _>
+    pub FieldIndex: Vec<NameIndex, _>
+}
+
+pub struct FieldDef {
+    pub Name: string
+    pub TypeName: string
+    pub TypeExpr: ast.TypeExpression
+}
+
+pub struct EnumDef {
+    pub Name: string
+    pub EnumID: int
+    pub Variants: Vec<VariantDef, _>
+    pub VariantIndex: Vec<NameIndex, _>
+}
+
+pub struct VariantDef {
+    pub Name: string
+    pub VariantID: int
+    pub PayloadCount: int
+}
+
+pub struct NameIndex {
+    pub Name: string
+    pub Index: int
+}
+
+pub struct MethodEntry {
+    pub TypeName: string
+    pub MethodName: string
+    pub FunctionIndex: int
+}
+
+pub struct GlobalEntry {
+    pub Name: string
+    pub Index: int
+}
+
+pub struct FunctionIndexEntry {
+    pub Name: string
+    pub Index: int
+}
+
+pub func NewBytecodeModule() -> (BytecodeModule) {
+    return BytecodeModule{
+        Constants: Vec.new(),
+        Functions: Vec.new(),
+        EntryPoint: -1,
+        StructDefs: Vec.new(),
+        EnumDefs: Vec.new(),
+        Methods: Vec.new(),
+        Globals: Vec.new(),
+        FunctionIndices: Vec.new(),
+    }
+}
+
+impl BytecodeModule as m {
+    pub mut func AddConstant(v: value.Value) -> (int) {
+        m.Constants.push(v)
+        return m.Constants.len() - 1
+    }
+
+    pub mut func AddFunction(fn: FunctionObj) -> (int) {
+        m.Functions.push(fn)
+        return m.Functions.len() - 1
+    }
+
+    pub mut func AddStruct(name: string, fields: Vec<FieldDef, _>) -> (int) {
+        var typeID: int = m.StructDefs.len()
+        mut var fieldIndex: Vec<NameIndex, _> = Vec.new()
+        mut var i: int = 0
+        while i < fields.len() {
+            fieldIndex.push(NameIndex{Name: fields[i].Name, Index: i})
+            i = i + 1
+        }
+        m.StructDefs.push(StructDef{
+            Name: name,
+            TypeID: typeID,
+            Fields: fields,
+            FieldIndex: fieldIndex,
+        })
+        return typeID
+    }
+
+    pub mut func AddEnum(name: string, variants: Vec<VariantDef, _>) -> (int) {
+        var enumID: int = m.EnumDefs.len()
+        mut var variantIndex: Vec<NameIndex, _> = Vec.new()
+        mut var i: int = 0
+        while i < variants.len() {
+            variantIndex.push(NameIndex{Name: variants[i].Name, Index: i})
+            i = i + 1
+        }
+        m.EnumDefs.push(EnumDef{
+            Name: name,
+            EnumID: enumID,
+            Variants: variants,
+            VariantIndex: variantIndex,
+        })
+        return enumID
+    }
+
+    pub mut func AddMethod(typeName: string, methodName: string, fnIndex: int) -> (void) {
+        mut var i: int = 0
+        while i < m.Methods.len() {
+            if m.Methods[i].TypeName == typeName && m.Methods[i].MethodName == methodName {
+                m.Methods[i].FunctionIndex = fnIndex
+                return
+            }
+            i = i + 1
+        }
+        m.Methods.push(MethodEntry{TypeName: typeName, MethodName: methodName, FunctionIndex: fnIndex})
+    }
+
+    func LookupMethod(typeName: string, methodName: string) -> (Option<int>) {
+        for entry in m.Methods {
+            if entry.TypeName == typeName && entry.MethodName == methodName {
+                return Some(entry.FunctionIndex)
+            }
+        }
+        return None
+    }
+
+    pub mut func AddGlobal(name: string) -> (int) {
+        switch m.LookupGlobal(name) {
+            case Some(idx) { return idx }
+            case None {
+                var idx: int = m.Globals.len()
+                m.Globals.push(GlobalEntry{Name: name, Index: idx})
+                return idx
+            }
+        }
+    }
+
+    func LookupGlobal(name: string) -> (Option<int>) {
+        for g in m.Globals {
+            if g.Name == name {
+                return Some(g.Index)
+            }
+        }
+        return None
+    }
+
+    pub mut func AddFunctionIndex(name: string, index: int) -> (void) {
+        mut var i: int = 0
+        while i < m.FunctionIndices.len() {
+            if m.FunctionIndices[i].Name == name {
+                m.FunctionIndices[i].Index = index
+                return
+            }
+            i = i + 1
+        }
+        m.FunctionIndices.push(FunctionIndexEntry{Name: name, Index: index})
+    }
+
+    pub func LookupFunctionIndex(name: string) -> (Option<int>) {
+        mut var i: int = 0
+        while i < m.FunctionIndices.len() {
+            if m.FunctionIndices[i].Name == name {
+                return Some(m.FunctionIndices[i].Index)
+            }
+            i = i + 1
+        }
+        return None
+    }
+}

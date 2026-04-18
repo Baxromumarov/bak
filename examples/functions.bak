@@ -1,0 +1,52 @@
+// Functions in bak
+// All functions must declare return type explicitly
+// Functions return values through `return`, never implicitly
+
+package main
+
+// Simple function with explicit return type
+func add(a: int, b: int) -> (int) {
+    return a + b
+}
+
+// Function returning void - no need to return void explicitly
+func greet(name: string) -> (void) {
+    println("Hello,", name)
+}
+
+// Recursive function
+func factorial(n: int) -> (int) {
+    if n <= 1 {
+        return 1
+    } else {
+        return n * factorial(n - 1)
+    }
+}
+
+// Function with multiple parameters
+func calculate(a: int, b: int, op: string) -> (int) {
+    switch op {
+        case "add" {
+            return a + b
+        }
+        case "sub" {
+            return a - b
+        }
+        case "mul" {
+            return a * b
+        }
+        case "div" {
+            return a / b
+        }
+        default {
+            return 0
+        }
+    }
+}
+
+func main() -> (void) {
+    println("add(5, 3) =", add(5, 3))
+    greet("bak developer")
+    println("factorial(5) =", factorial(5))
+    println("calculate(10, 3, \"mul\") =", calculate(10, 3, "mul"))
+}

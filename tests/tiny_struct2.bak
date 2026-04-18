@@ -1,0 +1,16 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+func main() -> (int) {
+    println("before struct")
+
+    var e: Entry = Entry{Alias: "h", Path: "hello"}
+
+    println("after struct")
+
+    return 0
+}

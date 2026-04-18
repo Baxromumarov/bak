@@ -1,0 +1,58 @@
+package sync
+
+import "src/std/sync/cancel.bak" as c
+import "src/std/test/test.bak" as test
+import "src/std/thread/thread.bak" as thread
+import "src/std/time/time.bak" as time
+
+mut var observed_cancel: bool = false
+
+func cancel_worker(t: &c.CancelToken) -> (void) {
+    while !t.is_cancelled() {
+    }
+    observed_cancel = true
+}
+
+func test_cancel_basic() -> (void) {
+    mut var t: test.T = test.new("test_cancel_basic")
+    var token: c.CancelToken = c.new_cancel_token()
+    t.is_false(token.is_cancelled())
+    token.cancel()
+    t.is_true(token.is_cancelled())
+    token.cancel()
+    t.is_true(token.is_cancelled())
+    t.finish()
+}
+
+func test_cancel_thread_visibility() -> (void) {
+    mut var t: test.T = test.new("test_cancel_thread_visibility")
+    observed_cancel = false
+    var token: c.CancelToken = c.new_cancel_token()
+    var thr: thread.Thread = thread.spawn(cancel_worker, &token)
+    token.cancel()
+    thr.join()
+    t.is_true(observed_cancel)
+    t.finish()
+}
+
+func test_cancel_after() -> (void) {
+    mut var t: test.T = test.new("test_cancel_after")
+    var token: c.CancelToken = c.cancel_after(time.millis(10))
+    thread.sleep(time.millis(25))
+    t.is_true(token.is_cancelled())
+    t.finish()
+}
+
+func main() -> (void) {
+    println("=== CancelToken Tests ===")
+    println("")
+    
+    test_cancel_basic()
+    test_cancel_thread_visibility()
+    test_cancel_after()
+    
+    println("")
+    println("All CancelToken tests completed!")
+    return void
+}
+

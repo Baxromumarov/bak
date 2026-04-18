@@ -1,0 +1,21 @@
+package net
+
+import "src/std/net/net.bak" as net
+import "src/std/test/test.bak" as test
+
+func test_bind_and_close_listener() -> (void) {
+    mut var t: test.T = test.new("test_bind_and_close_listener")
+
+    var res: Result<net.TcpListener, string> = net.bind("127.0.0.1", 0)
+    if res.is_ok() {
+        mut var listener: net.TcpListener = res.unwrap()
+        var close_res: Result<void, string> = net.close_listener(&mut listener)
+        if close_res.is_err() {
+            t.fail("close_listener failed: " + close_res.unwrap_err())
+        }
+    } else {
+        t.fail("bind failed: " + res.unwrap_err())
+    }
+
+    t.finish()
+}

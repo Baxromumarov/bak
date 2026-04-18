@@ -1,0 +1,123 @@
+package collections
+
+import "src/std/collections/hashmap.bak" as hashmap
+
+// Set is a generic set backed by HashMap<T, bool>.
+pub struct Set<T> {
+    map: hashmap.HashMap<T, bool>
+}
+
+pub func new_set<T>() -> (Set<T>) {
+    return Set{map: hashmap.new_hash_map()}
+}
+
+impl Set as s {
+    pub mut func add(value: T) -> (void) {
+        s.map.insert(value, true)
+    }
+
+    pub mut func remove(value: T) -> (bool) {
+        switch s.map.remove(&value) {
+            case Some(_) { return true }
+            case None { return false }
+        }
+    }
+
+    pub func contains(value: T) -> (bool) {
+        return s.map.contains(&value)
+    }
+
+    pub func len() -> (int) {
+        return s.map.len()
+    }
+
+    pub func values() -> (Vec<T, _>) {
+        return s.map.keys()
+    }
+
+    pub func is_empty() -> (bool) {
+        return s.map.len() == 0
+    }
+
+    pub mut func clear() -> (void) {
+        s.map.clear()
+    }
+}
+
+// StringSet is a simple set backed by Set<string>.
+pub struct StringSet {
+    inner: Set<string>
+}
+
+pub func new_string_set() -> (StringSet) {
+    return StringSet{inner: new_set()}
+}
+
+impl StringSet as s {
+    pub mut func add(value: string) -> (void) {
+        s.inner.add(value)
+    }
+
+    pub mut func remove(value: string) -> (bool) {
+        return s.inner.remove(value)
+    }
+
+    pub func contains(value: string) -> (bool) {
+        return s.inner.contains(value)
+    }
+
+    pub func len() -> (int) {
+        return s.inner.len()
+    }
+
+    pub func values() -> (Vec<string, _>) {
+        return s.inner.values()
+    }
+
+    pub func is_empty() -> (bool) {
+        return s.inner.is_empty()
+    }
+
+    pub mut func clear() -> (void) {
+        s.inner.clear()
+    }
+}
+
+// IntSet is a simple set backed by Set<int>.
+pub struct IntSet {
+    inner: Set<int>
+}
+
+pub func new_int_set() -> (IntSet) {
+    return IntSet{inner: new_set()}
+}
+
+impl IntSet as s {
+    pub mut func add(value: int) -> (void) {
+        s.inner.add(value)
+    }
+
+    pub mut func remove(value: int) -> (bool) {
+        return s.inner.remove(value)
+    }
+
+    pub func contains(value: int) -> (bool) {
+        return s.inner.contains(value)
+    }
+
+    pub func len() -> (int) {
+        return s.inner.len()
+    }
+
+    pub func values() -> (Vec<int, _>) {
+        return s.inner.values()
+    }
+
+    pub func is_empty() -> (bool) {
+        return s.inner.is_empty()
+    }
+
+    pub mut func clear() -> (void) {
+        s.inner.clear()
+    }
+}

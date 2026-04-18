@@ -1,0 +1,93 @@
+package main
+
+// --- Result tests ---
+
+func might_fail(ok: bool) -> (Result<int, string>) {
+    if ok {
+        return Ok(42)
+    }
+    return Err("something went wrong")
+}
+
+func use_result_ok() -> (Result<int, string>) {
+    var val: int = might_fail(true)?
+    return Ok(val + 1)
+}
+
+func use_result_err() -> (Result<int, string>) {
+    var val: int = might_fail(false)?
+    return Ok(val + 1)
+}
+
+// --- Option tests ---
+
+func find_value(present: bool) -> (Option<int>) {
+    if present {
+        return Some(100)
+    }
+    return None
+}
+
+func use_option_some() -> (Option<int>) {
+    var val: int = find_value(true)?
+    return Some(val + 1)
+}
+
+func use_option_none() -> (Option<int>) {
+    var val: int = find_value(false)?
+    return Some(val + 1)
+}
+
+func main() -> (void) {
+    println("=== Result ? operator ===")
+
+    // Ok path: should unwrap and return Ok(43)
+    switch use_result_ok() {
+        case Ok(v) {
+            println("ok:")
+            println(v)
+        }
+        case Err(e) {
+            println("err:")
+            println(e)
+        }
+    }
+
+    // Err path: should propagate the error
+    switch use_result_err() {
+        case Ok(v) {
+            println("ok:")
+            println(v)
+        }
+        case Err(e) {
+            println("err:")
+            println(e)
+        }
+    }
+
+    println("=== Option ? operator ===")
+
+    // Some path: should unwrap and return Some(101)
+    switch use_option_some() {
+        case Some(v) {
+            println("some:")
+            println(v)
+        }
+        case None {
+            println("none")
+        }
+    }
+
+    // None path: should propagate None
+    switch use_option_none() {
+        case Some(v) {
+            println("some:")
+            println(v)
+        }
+        case None {
+            println("none")
+        }
+    }
+
+    return void
+}

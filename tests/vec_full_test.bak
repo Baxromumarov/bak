@@ -1,0 +1,30 @@
+package main
+
+func main() -> (void) {
+    mut var v: Vec<int, _> = Vec.new()
+    v.push(1)
+    v.push(2)
+    v.push(3)
+    
+    println("len: ", v.len())
+    println("is_empty: ", v.is_empty())
+    println("first: ", v.first().unwrap())
+    println("last: ", v.last().unwrap())
+    println("contains 2: ", v.contains(2))
+    println("contains 5: ", v.contains(5))
+    
+    v.reverse()
+    println("after reverse, first: ", v.first().unwrap())
+    
+    var removed: Option<int> = v.remove(1)
+    println("removed at 1: ", removed.unwrap())
+    println("len after remove: ", v.len())
+    
+    // v.clear()
+    println("len after clear: ", v.len())
+    
+    var v2: Vec<string, _> = Vec.from(["hello", "world"])
+    println("joined: ", v2.join(" "))
+    
+    return void
+}

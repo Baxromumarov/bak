@@ -1,0 +1,25 @@
+package mysql
+
+import "std/db/db" as db
+
+// Native MySQL driver using built-in database connection.
+// Connection string format: "user:password@tcp(host:port)/database"
+
+// connect opens a MySQL connection and returns a Connection handle.
+pub func connect(conn_str: string) -> (Result<db.Connection, string>) {
+    var result = __builtin_mysql_connect(conn_str)
+    if result.is_ok() {
+        return Ok(db.Connection{Handle: result.unwrap()})
+    }
+    return Err(result.unwrap_err())
+}
+
+// query executes a SQL query and returns a QueryResult.
+pub func query(conn: &db.Connection, sql: string) -> (Result<db.QueryResult, string>) {
+    return __builtin_mysql_query(conn.Handle, sql)
+}
+
+// close closes the database connection.
+pub func close(conn: db.Connection) -> (Result<void, string>) {
+    return __builtin_mysql_close(conn.Handle)
+}

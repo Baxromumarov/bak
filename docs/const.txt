@@ -1,0 +1,82 @@
+
+# Constants in bak
+
+Constants in bak are compile-time values declared using the `const` keyword. They are evaluated during compilation and do not occupy storage at runtime.
+
+## Syntax
+
+**Singular constant:**
+```
+const NAME Type = VALUE
+```
+Example:
+```
+const GREETING string = "Hello world"
+```
+
+**Multiple constants (block form):**
+```
+const (
+    NAME1 Type = VALUE1
+    NAME2 Type = VALUE2
+)
+```
+Example:
+```
+const (
+    MAX_USERS int = 1000
+    PI        float64 = 3.14159
+    GREETING  string = "Hello world"
+)
+```
+
+## Rules
+
+- All constants must specify an explicit type (required in v1).
+- Constants are immutable and global.
+- No reassignment, shadowing, or local constants.
+- No `mut const`.
+
+## Allowed Constant Values (v1)
+
+- int, int8, int16, int32, int64
+- uint, uint8, uint16, uint32, uint64
+- float32, float64
+- bool
+- char
+- string
+- enum variants
+- Arithmetic expressions of constants
+
+## Forbidden as Constants
+
+- Structs
+- Vec
+- Box
+- Option
+- Function calls
+- Heap allocation
+
+Examples of forbidden usage (compile-time errors):
+```
+const x int = runtimeValue()     // NO
+const v Vec<int,_> = [1,2,3]     // NO
+const s string = readFile()      // NO
+```
+
+## Semantics
+
+- Constants are evaluated at compile time and substituted directly into bytecode.
+- No runtime storage or cost.
+
+## Rationale
+
+- Matches Go's ergonomics and Rust's discipline.
+- Easy to implement and self-host.
+- Zero runtime impact.
+
+---
+
+**Summary:**
+
+Constants are compile-time values declared with `const`. All constants must have an explicit type and are evaluated at compile time. Only primitive types and constant expressions are allowed. Constants are immutable, global, and do not occupy runtime storage.

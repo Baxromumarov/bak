@@ -1,0 +1,99 @@
+bool
+a & b        // NO type mismatch
+x << 7   // OK
+x << 16   // NO
+
+# Bitwise Operations in bak
+
+Bitwise operators in bak are strictly defined for clarity, safety, and predictability.
+
+## 1. Allowed Types
+
+Bitwise operations are only permitted on integer types:
+
+- int, int8, int16, int32, int64
+- uint, uint8, uint16, uint32, uint64
+
+Operations on float, bool, char, string, Vec, or structs are not allowed.
+
+## 2. Operand Type Rules
+
+- Both operands must have the same concrete type.
+- No implicit widening or narrowing is performed.
+- Explicit casting is required for mixed types.
+
+Example:
+```
+var a uint8 = 1
+var b uint16 = 2
+var c = uint16(a) & b   // OK
+```
+
+## 3. Bitwise NOT
+
+- Use the `!` operator for bitwise NOT (Rust-style).
+- `^` is reserved for XOR.
+
+Example:
+```
+var x uint8 = 0b1010
+var y = !x
+```
+
+## 4. Shift Operations
+
+- Shift counts must be integers, less than the bit width, and of the same type or explicitly cast.
+- No "untyped constant" loopholes.
+
+Example:
+```
+var x uint8 = 1
+x << 7   // OK
+x << 8   // Error: shift count too large
+```
+
+## 5. Signed vs Unsigned Shifts
+
+- `>>` on signed integers: arithmetic shift (sign bit preserved)
+- `>>` on unsigned integers: logical shift (zero-fill)
+
+Example:
+```
+var a int8 = -1
+a >> 1     // keeps sign bit
+
+var b uint8 = 255
+b >> 1     // zero-fills
+```
+
+## 6. Overflow Behavior
+
+- Overflow behavior must be consistent and documented.
+- Recommended: Debug builds trap, release builds wrap (Rust-like), or always wrap (Go-like).
+
+## 7. Operators
+
+| Operation | Operator |
+|-----------|----------|
+| AND       | &        |
+| OR        | \|       |
+| XOR       | ^        |
+| NOT       | !        |
+| Left shift| <<       |
+| Right shift| >>      |
+
+## 8. Forbidden Patterns
+
+- No implicit widening or narrowing
+- No untyped magic constants
+- No bitwise ops on non-integers
+- No silent overflow ambiguity
+
+## 9. Summary
+
+- Bitwise operators are defined only for integer types.
+- Operands must have the same type; no implicit conversions.
+- Bitwise NOT uses `!`.
+- Shift counts must be valid.
+- Signed right shifts are arithmetic; unsigned are logical.
+- Overflow behavior is defined and consistent.

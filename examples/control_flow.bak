@@ -1,0 +1,70 @@
+// Control Flow in bak
+// All control flow constructs are statements, not expressions
+
+package main
+
+func main() -> (void) {
+    // If statement
+    var x: int = 10
+    
+    if x > 5 {
+        println("x is greater than 5")
+    } else {
+        println("x is 5 or less")
+    }
+    
+    // While loop
+    mut var counter: int = 0
+    while counter < 5 {
+        println("counter =", counter)
+        counter = counter + 1
+    }
+    
+    // For loop - iterating over a range
+    println("For loop with Vec:")
+    var numbers = [1, 2, 3, 4, 5]
+    for num in numbers {
+        println("  num =", num)
+    }
+    
+    // For loop with string
+    println("Iterating over string:")
+    var word: string = "bak"
+    for ch in word {
+        println("  char:", ch)
+    }
+    
+    // Switch statement (no fallthrough!)
+    var day: int = 3
+    switch day {
+        case 1 {
+            println("Monday")
+        }
+        case 2 {
+            println("Tuesday")
+        }
+        case 3 {
+            println("Wednesday")
+        }
+        case 4, 5 {
+            println("Thursday or Friday")
+        }
+        default {
+            println("Weekend")
+        }
+    }
+    
+    // Break and continue
+    println("Break and continue example:")
+    mut var i: int = 0
+    while i < 10 {
+        i = i + 1
+        if i == 3 {
+            continue
+        }
+        if i == 7 {
+            break
+        }
+        println("i =", i)
+    }
+}

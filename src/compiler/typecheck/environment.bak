@@ -1,0 +1,419 @@
+package typecheck
+
+import "src/compiler/ast/ast.bak" as ast
+import "src/std/strings/strings.bak" as strings
+
+pub struct Symbol {
+    Name: string
+    Type: Option<ast.TypeExpression>
+    Mutable: bool
+    Moved: bool
+    MoveLine: int
+    MoveColumn: int
+    MoveReason: string
+    Poisoned: bool
+    Used: bool
+    Line: int
+    Column: int
+}
+
+pub struct EnvCacheEntry {
+    Name: string
+    Index: int
+}
+
+pub struct EnvBucket {
+    Entries: Vec<EnvCacheEntry, _>
+}
+
+pub struct Environment {
+    store: Vec<Symbol, _>
+    buckets: Vec<EnvBucket, _>
+    outer: Option<&Environment>
+    borrowedMut: Vec<string, _>
+    borrowedIm: Vec<string, _>
+    pub activeMutBorrows: Vec<string, _>
+    pub activeImBorrows: Vec<string, _>
+}
+
+pub func NewEnv() -> (Environment) {
+    mut var e: Environment = Environment{
+        store: Vec.new(),
+        buckets: Vec.new(),
+        outer: None,
+        borrowedMut: Vec.new(),
+        borrowedIm: Vec.new(),
+        activeMutBorrows: Vec.new(),
+        activeImBorrows: Vec.new(),
+    }
+    
+    // Initialize buckets for global scope optimization
+    mut var i: int = 0
+    while i < 1024 {
+        e.buckets.push(EnvBucket{Entries: Vec.new()})
+        i = i + 1
+    }
+    return e
+}
+
+pub func NewEnclosedEnv(outer: &Environment) -> (Environment) {
+    return Environment{
+        store: Vec.new(),
+        buckets: Vec.new(), // Local scopes use linear scan (empty buckets)
+        outer: Some(outer),
+        borrowedMut: Vec.new(),
+        borrowedIm: Vec.new(),
+        activeMutBorrows: Vec.new(),
+        activeImBorrows: Vec.new(),
+    }
+}
+
+impl Environment as e {
+    func cloneSymbol(sym: &Symbol) -> (Symbol) {
+        // Return a detached copy so lookups don't accidentally move from env storage.
+        return Symbol{
+            Name: (*sym).Name + "",
+            // NOTE: During bootstrap the native backend has shown instability when
+            // implicitly copying TypeExpression (it can contain Vec fields).
+            // Returning `None` avoids copying and keeps the compiler running.
+            Type: None,
+            Mutable: (*sym).Mutable,
+            Moved: (*sym).Moved,
+            MoveLine: (*sym).MoveLine,
+            MoveColumn: (*sym).MoveColumn,
+            MoveReason: (*sym).MoveReason + "",
+            Poisoned: (*sym).Poisoned,
+            Used: (*sym).Used,
+            Line: (*sym).Line,
+            Column: (*sym).Column,
+        }
+    }
+
+    mut func Define(name: string, t: Option<ast.TypeExpression>, mutable: bool, line: int, col: int) -> (bool) {
+        // Optimisation: use buckets if available
+        if e.buckets.len() > 0 {
+             var h: int = name.hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                 if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, &name) == 0 {
+                     return false
+                 }
+                 i = i + 1
+             }
+             
+             e.buckets[bucketIdx].Entries.push(EnvCacheEntry{
+                 Name: name + "",
+                 Index: e.store.len(), // New index
+             })
+        } else {
+            mut var j: int = 0
+            while j < e.store.len() {
+                if strings.compare(&e.store[j].Name, &name) == 0 {
+                    return false
+                }
+                j = j + 1
+            }
+        }
+
+        e.store.push(Symbol{
+            Name: name + "",
+            Type: t,
+            Mutable: mutable,
+            Moved: false,
+            MoveLine: 0,
+            MoveColumn: 0,
+            MoveReason: "",
+            Poisoned: false,
+            Used: false,
+            Line: line,
+            Column: col,
+        })
+        return true
+    }
+
+    func Lookup(name: &string) -> (Option<Symbol>) {
+        // Debug: bootstrap lookup crashes (token.LookupIdent / TokenTypeString switch)
+        // Keep very targeted to avoid log spam.
+        var dbg_ident: string = "ident"
+        var dbg_t: string = "t"
+        var dbg_pkg: string = "PACKAGE"
+        if strings.compare(name, &dbg_ident) == 0 || strings.compare(name, &dbg_t) == 0 {
+            println("env: Lookup name=" + *name + " store=" + e.store.len().toString() + " buckets=" + e.buckets.len().toString())
+        }
+        if strings.compare(name, &dbg_pkg) == 0 {
+            println("env: Lookup name=PACKAGE store=" + e.store.len().toString() + " buckets=" + e.buckets.len().toString())
+        }
+        if e.buckets.len() > 0 {
+             var h: int = (*name).hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+             
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                 if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, name) == 0 {
+                     return Some(e.cloneSymbol(&e.store[e.buckets[bucketIdx].Entries[i].Index]))
+                 }
+                 i = i + 1
+             }
+        } else {
+            mut var j: int = 0
+            while j < e.store.len() {
+                if strings.compare(&e.store[j].Name, name) == 0 {
+                    return Some(e.cloneSymbol(&e.store[j]))
+                }
+                j = j + 1
+            }
+        }
+
+        switch e.outer {
+            case Some(outerEnv) {
+                if strings.compare(name, &dbg_pkg) == 0 { println("env: Lookup PACKAGE delegating to outer") }
+                return outerEnv.Lookup(name)
+            }
+            case None {
+                if strings.compare(name, &dbg_pkg) == 0 { println("env: Lookup PACKAGE no outer") }
+                return None
+            }
+        }
+    }
+
+    mut func SetType(name: string, t: Option<ast.TypeExpression>) -> (bool) {
+        if e.buckets.len() > 0 {
+             var h: int = name.hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+             
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                 if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, &name) == 0 {
+                     e.store[e.buckets[bucketIdx].Entries[i].Index].Type = t
+                     return true
+                 }
+                 i = i + 1
+             }
+        } else {
+            mut var i: int = 0
+            while i < e.store.len() {
+                if strings.compare(&e.store[i].Name, &name) == 0 {
+                    e.store[i].Type = t
+                    return true
+                }
+                i = i + 1
+            }
+        }
+        return false
+    }
+
+    func IsMoved(name: string) -> (bool) {
+        switch e.Lookup(&name) {
+            case Some(sym) {
+                return sym.Moved
+            }
+            case None {
+                return false
+            }
+        }
+    }
+
+    func IsPoisoned(name: string) -> (bool) {
+        switch e.Lookup(&name) {
+            case Some(sym) {
+                return sym.Poisoned
+            }
+            case None {
+                return false
+            }
+        }
+    }
+
+    mut func MarkPoisoned(name: string) -> (bool) {
+        if e.buckets.len() > 0 {
+             var h: int = name.hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+             
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                 if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, &name) == 0 {
+                     e.store[e.buckets[bucketIdx].Entries[i].Index].Poisoned = true
+                     return true
+                 }
+                 i = i + 1
+             }
+        } else {
+            mut var i: int = 0
+            while i < e.store.len() {
+                if strings.compare(&e.store[i].Name, &name) == 0 {
+                    e.store[i].Poisoned = true
+                    return true
+                }
+                i = i + 1
+            }
+        }
+        return false
+    }
+
+    mut func MarkMoved(name: string, line: int, col: int, reason: string) -> (bool) {
+        if e.buckets.len() > 0 {
+             var h: int = name.hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+             
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                 if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, &name) == 0 {
+                     var idx: int = e.buckets[bucketIdx].Entries[i].Index
+                     e.store[idx].Moved = true
+                     e.store[idx].MoveLine = line
+                     e.store[idx].MoveColumn = col
+                     e.store[idx].MoveReason = reason
+                     return true
+                 }
+                 i = i + 1
+             }
+        } else {
+            mut var i: int = 0
+            while i < e.store.len() {
+                if strings.compare(&e.store[i].Name, &name) == 0 {
+                    e.store[i].Moved = true
+                    e.store[i].MoveLine = line
+                    e.store[i].MoveColumn = col
+                    e.store[i].MoveReason = reason
+                    return true
+                }
+                i = i + 1
+            }
+        }
+        return false
+    }
+
+    func MoveInfo(name: string) -> (Option<Symbol>) {
+        return e.Lookup(&name)
+    }
+
+    func IsMutable(name: string) -> (Option<bool>) {
+        switch e.Lookup(&name) {
+            case Some(sym) { return Some(sym.Mutable) }
+            case None { return None }
+        }
+    }
+
+    mut func MarkUsed(name: string) -> (bool) {
+        if e.buckets.len() > 0 {
+             var h: int = name.hash()
+             mut var bucketIdx: int = h % 1024
+             if bucketIdx < 0 { bucketIdx = -bucketIdx }
+             
+             mut var i: int = 0
+             while i < e.buckets[bucketIdx].Entries.len() {
+                if strings.compare(&e.buckets[bucketIdx].Entries[i].Name, &name) == 0 {
+                    var idx: int = e.buckets[bucketIdx].Entries[i].Index
+                    e.store[idx].Used = true
+                    return true
+                }
+                i = i + 1
+            }
+        } else {
+             mut var j: int = 0
+             while j < e.store.len() {
+                if strings.compare(&e.store[j].Name, &name) == 0 {
+                    e.store[j].Used = true
+                    return true
+                }
+                j = j + 1
+            }
+        }
+        return false
+    }
+}
+
+    impl Environment as e {
+    mut func MarkBorrowedMut(name: string) -> (bool) {
+        // Find which environment owns this variable and mark it there
+        mut var i: int = 0
+        while i < e.store.len() {
+            if strings.compare(&e.store[i].Name, &name) == 0 {
+                e.borrowedMut.push(name + "")
+                return true
+            }
+            i = i + 1
+            }
+            switch e.outer {
+                case Some(_) { return false }
+                case None { return false }
+            }
+        }
+
+    mut func ClearBorrowedMut(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < e.borrowedMut.len() {
+            if strings.compare(&e.borrowedMut[i], &name) == 0 {
+                e.borrowedMut.remove(i)
+                return true
+            }
+                i = i + 1
+            }
+            switch e.outer {
+                case Some(_) { return false }
+                case None { return false }
+            }
+        }
+
+    func IsBorrowedMut(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < e.borrowedMut.len() {
+            if strings.compare(&e.borrowedMut[i], &name) == 0 { return true }
+            i = i + 1
+        }
+            switch e.outer {
+                case Some(outer) { return outer.IsBorrowedMut(name) }
+                case None { return false }
+            }
+        }
+
+    mut func MarkBorrowedIm(name: string) -> (bool) {
+            // Find which environment owns this variable and mark it there
+        mut var i: int = 0
+        while i < e.store.len() {
+            if strings.compare(&e.store[i].Name, &name) == 0 {
+                e.borrowedIm.push(name + "")
+                return true
+            }
+            i = i + 1
+            }
+            switch e.outer {
+                case Some(_) { return false }
+                case None { return false }
+            }
+        }
+
+    mut func ClearBorrowedIm(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < e.borrowedIm.len() {
+            if strings.compare(&e.borrowedIm[i], &name) == 0 {
+                e.borrowedIm.remove(i)
+                return true
+            }
+                i = i + 1
+            }
+            switch e.outer {
+                case Some(_) { return false }
+                case None { return false }
+            }
+        }
+
+    func IsBorrowedIm(name: string) -> (bool) {
+        mut var i: int = 0
+        while i < e.borrowedIm.len() {
+            if strings.compare(&e.borrowedIm[i], &name) == 0 { return true }
+            i = i + 1
+        }
+            switch e.outer {
+                case Some(outer) { return outer.IsBorrowedIm(name) }
+                case None { return false }
+            }
+        }
+    }

@@ -1,0 +1,38 @@
+package std
+
+impl Result as self {
+    pub func is_ok() -> (bool) {
+        switch self {
+            case Ok(_) { return true }
+            case Err(_) { return false }
+        }
+    }
+
+    pub func is_err() -> (bool) {
+        switch self {
+            case Ok(_) { return false }
+            case Err(_) { return true }
+        }
+    }
+
+    pub func unwrap() -> (T) {
+        switch self {
+            case Ok(v) { return v }
+            case Err(e) { panic("unwrap called on Err: " + string(e)) }
+        }
+    }
+
+    pub func unwrap_err() -> (E) {
+        switch self {
+            case Ok(_) { panic("unwrap_err called on Ok result") }
+            case Err(e) { return e }
+        }
+    }
+
+    pub func to_string() -> (string) {
+        switch self {
+            case Ok(v) { return "Ok(" + string(v) + ")" }
+            case Err(e) { return "Err(" + string(e) + ")" }
+        }
+    }
+}

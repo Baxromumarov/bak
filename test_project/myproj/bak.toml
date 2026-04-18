@@ -1,0 +1,9 @@
+[package]
+  name = "myproj"
+  version = "0.1.0"
+  authors = ["Me <me@example.com>"]
+
+[dependencies]
+  [dependencies.tmp_test_repo]
+    git = "/home/bakhromumarov/go/src/github.com/baxromumarov/bak/test_project/myproj/../../tmp_test_repo"
+    version = "v2.0.0"

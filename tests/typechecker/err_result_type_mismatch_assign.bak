@@ -1,0 +1,9 @@
+// Test: Result type mismatch in variable assignment - should FAIL
+// Expected error: cannot assign Result<string, _> to variable of type Result<int, string>
+package main
+
+func main() -> (void) {
+    // ERROR: Ok("hello") produces Result<string, _> but variable expects Result<int, string>
+    var _result: Result<int, string> = Ok("hello")
+    return void
+}

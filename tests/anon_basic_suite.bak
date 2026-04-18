@@ -1,0 +1,38 @@
+package main
+
+func main() -> (void) {
+    // No params, void return
+    var f1 = func() -> (void) {
+        println("f1 called")
+    }
+
+    f1()
+
+    // Params, single return
+    var f2 = func(a: int, b: int) -> (int) {
+        return a + b
+    }
+
+    println(f2(
+        10,
+        20,
+    ))
+
+    // Multiple params of different types
+    var f3 = func(s: string, n: int) -> (void) {
+        println(s)
+        println(n)
+    }
+
+    f3(
+        "hello",
+        42,
+    )
+
+    // Immediate call
+    var res = func(x: int) -> (int) {
+        return x * x
+    }(5)
+
+    println(res)
+}

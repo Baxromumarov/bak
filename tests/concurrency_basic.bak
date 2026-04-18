@@ -1,0 +1,25 @@
+package main
+
+import "thread"
+import "src/std/time/time.bak" as time
+
+func main() -> (void) {
+    println("Main thread start")
+
+    var t: thread.Thread = thread.spawn(
+        worker,
+        100,
+    )
+
+    println("Main thread sleeping")
+    thread.sleep(time.millis(50))
+    println("Main thread woke up")
+    t.join()
+    println("Main thread finished")
+}
+
+func worker(n: int) -> (void) {
+    println("Worker start: " + n.toString())
+    thread.sleep(time.millis(100))
+    println("Worker done")
+}

@@ -1,0 +1,41 @@
+package main
+
+import "src/std/rand/rand.bak" as rand
+
+func main() -> (void) {
+    // Seed for reproducibility
+    rand.seed(42)
+
+    // Generate random integers
+    println("Random int [0, 100):")
+    println(rand.int_n(100))
+    println(rand.int_n(100))
+    println(rand.int_n(100))
+
+    // Random range
+    println("Random int [10, 20]:")
+    println(rand.int_range(10, 20))
+    println(rand.int_range(10, 20))
+
+    // Random boolean
+    println("Random bool:")
+    println(rand.coin())
+    println(rand.coin())
+
+    // Shuffle
+    mut var nums: Vec<int, _> = Vec.new()
+    nums.push(1)
+    nums.push(2)
+    nums.push(3)
+    nums.push(4)
+    nums.push(5)
+    rand.shuffle_ints(&mut nums)
+    println("Shuffled:")
+    mut var i: int = 0
+    while i < nums.len() {
+        println(nums[i])
+        i = i + 1
+    }
+
+    return void
+}

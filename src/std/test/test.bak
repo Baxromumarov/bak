@@ -1,0 +1,352 @@
+package test
+
+import "src/std/strconv/strconv.bak" as strconv
+
+// =============================================================================
+// Test Framework for Bak
+// =============================================================================
+//
+// A minimal testing framework :
+// - Just code + conventions, no framework magic
+// - No annotations, macros, or reflection
+// - Tests are functions starting with `test_` that take no arguments
+//
+// Usage:
+//   import "src/std/test/test.bak" as test
+//
+//   func test_addition() -> (void) {
+//       mut var t: test.T = test.new("test_addition")
+//       if 2 + 2 != 4 {
+//           t.fail("expected 4")
+//       }
+//   }
+//
+// =============================================================================
+
+// T is the test context object passed to every test function.
+// It tracks test state and collects failure messages.
+pub struct T {
+    failed: bool
+    failures: Vec<string, _>
+    name: string
+    case_desc: string
+}
+
+mut var name_prefix: string = ""
+
+pub func set_prefix(prefix: string) -> (void) {
+    name_prefix = prefix
+    return void
+}
+
+pub func clear_prefix() -> (void) {
+    name_prefix = ""
+    return void
+}
+
+// Create a new test context with the given test name.
+pub func new(name: string) -> (T) {
+    mut var full_name: string = name
+    if name_prefix != "" && !full_name.contains(":") {
+        full_name = name_prefix + ":" + full_name
+    }
+    return T{
+        failed: false,
+        failures: Vec.new(),
+        name: full_name,
+        case_desc: ""
+    }
+}
+
+func format_value<T>(val: T) -> (string) {
+    var type_name: string = typeof(val)
+    if type_name == "STRING" || type_name == "string" {
+        return string(val)
+    }
+    if type_name == "CHAR" || type_name == "char" {
+        return string(char(val))
+    }
+    if type_name == "INTEGER" ||
+        type_name == "int" || 
+        type_name == "int8" || 
+        type_name == "int16" ||
+        type_name == "int32" || 
+        type_name == "int64" || 
+        type_name == "uint" ||
+        type_name == "uint8" || 
+        type_name == "uint16" || 
+        type_name == "uint32" ||
+        type_name == "uint64" {
+        return strconv.intToString(int(val))
+    }
+    if type_name == "FLOAT" || type_name == "float" || type_name == "float32" || type_name == "float64" {
+        return strconv.formatFloat(float64(val), 6)
+    }
+    if type_name == "BOOLEAN" || type_name == "bool" {
+        if int(val) == 0 {
+            return "false"
+        }
+        return "true"
+    }
+    if type_name == "BOX" || type_name == "box" {
+        return format_value(unbox(val))
+    }
+    return "<value>"
+}
+
+impl T as t {
+
+    // fail records a failure message but allows the test to continue.
+    // Use this for non-fatal assertions where you want to collect
+    // multiple failures before the test ends.
+    pub mut func fail(msg: string) -> (void) {
+        t.failed = true
+        if t.case_desc != "" {
+            t.failures.push("  case: " + t.case_desc + "\n" + msg)
+        } else {
+            t.failures.push(msg)
+        }
+    }
+
+    // fail_now records a failure and marks that the test should stop.
+    // In the current implementation, this is the same as fail since
+    // we don't have exceptions/panics for early exit.
+    pub mut func fail_now(msg: string) -> (void) {
+        t.fail(msg)
+        return void
+    }
+
+    // ok returns true if no failures have been recorded.
+    pub func ok() -> (bool) {
+        return !t.failed
+    }
+
+    // has_failed returns true if any failures have been recorded.
+    pub func has_failed() -> (bool) {
+        return t.failed
+    }
+
+    // get_failures returns a copy of all failure messages.
+    pub func get_failures() -> (Vec<string, _>) {
+        return t.failures
+    }
+
+    // get_name returns the test name.
+    pub func get_name() -> (string) {
+        return t.name
+    }
+
+    // failure_count returns the number of recorded failures.
+    pub func failure_count() -> (int) {
+        return t.failures.len()
+    }
+
+    // finish checks for failures, prints them, and exits if the test failed.
+    pub func finish() -> (void) {
+        last_result = finish(&t)
+        has_last_result = true
+        return void
+    }
+
+    pub mut func set_case(desc: string) -> (void) {
+        t.case_desc = desc
+    }
+
+    pub mut func clear_case() -> (void) {
+        t.case_desc = ""
+    }
+
+    // -----------------------------------------------------------------------------
+    // Assertions
+    // -----------------------------------------------------------------------------
+
+    pub mut func eq<U>(got: U, want: U) -> (void) {
+        if got != want {
+            t.fail("  expected: " + format_value(want) + "\n  actual:   " + format_value(got))
+        }
+    }
+
+    pub mut func ne<U>(got: U, want: U) -> (void) {
+        if got == want {
+            t.fail("  expected: not " + format_value(want) + "\n  actual:   " + format_value(got))
+        }
+    }
+
+    pub mut func eq_string(got: string, want: string) -> (void) {
+        if got != want {
+            t.fail("  expected: " + strconv.quote(want) + "\n  actual:   " + strconv.quote(got))
+        }
+    }
+
+    pub mut func eq_char(got: char, want: char) -> (void) {
+        if got != want {
+            t.fail("  expected: '" + string(want) + "'\n  actual:   '" + string(got) + "'")
+        }
+    }
+
+    pub mut func eq_float(got: float64, want: float64) -> (void) {
+        mut var diff: float64 = got - want
+        if diff < 0.0 {
+            diff = -diff
+        }
+        if diff > 0.000001 {
+            t.fail("  expected: " + strconv.formatFloat(want, 6) + "\n  actual:   " + strconv.formatFloat(got, 6))
+        }
+    }
+
+    pub mut func is_true(cond: bool) -> (void) {
+        if !cond {
+            t.fail("  expected: true\n  actual:   false")
+        }
+    }
+
+    pub mut func is_false(cond: bool) -> (void) {
+        if cond {
+            t.fail("  expected: false\n  actual:   true")
+        }
+    }
+
+    pub mut func gt(got: int, want: int) -> (void) {
+        if got <= want {
+            t.fail("  expected: " + strconv.intToString(got) + " > " + strconv.intToString(want))
+        }
+    }
+
+    pub mut func gte(got: int, want: int) -> (void) {
+        if got < want {
+            t.fail("  expected: " + strconv.intToString(got) + " >= " + strconv.intToString(want))
+        }
+    }
+
+    pub mut func lt(got: int, want: int) -> (void) {
+        if got >= want {
+            t.fail("  expected: " + strconv.intToString(got) + " < " + strconv.intToString(want))
+        }
+    }
+
+    pub mut func lte(got: int, want: int) -> (void) {
+        if got > want {
+            t.fail("  expected: " + strconv.intToString(got) + " <= " + strconv.intToString(want))
+        }
+    }
+
+    pub mut func is_none<U>(opt: Option<U>) -> (void) {
+        switch opt {
+            case Some(v) {
+                t.fail("  expected: None\n  actual:   Some(" + format_value(v) + ")")
+            }
+            case None {}
+        }
+    }
+
+    pub mut func is_some<U>(opt: Option<U>) -> (void) {
+        switch opt {
+            case Some(_) {}
+            case None {
+                t.fail("  expected: Some\n  actual:   None")
+            }
+        }
+    }
+    
+    // String assertions helpers
+    pub mut func contains(haystack: string, needle: string) -> (void) {
+        if !haystack.contains(needle) {
+            t.fail("  expected: \"" + haystack + "\" to contain \"" + needle + "\"")
+        }
+    }
+}
+
+// =============================================================================
+// Test TestResult Reporting
+// =============================================================================
+
+// TestResult represents the outcome of a single test.
+// Using struct instead of enum to avoid compiler codegen issues with enum identifiers.
+pub struct TestResult {
+    name: string
+    passed: bool
+    failures: Vec<string, _>
+}
+
+// finish converts a test context into a TestResult after the test body runs.
+// Usage:
+//   mut var t T = test.new("my_test")
+//   // ... run test code with &mut t ...
+//   var result TestResult = test.finish(&t)
+pub func finish(t: &T) -> (TestResult) {
+    if !t.failed {
+        return TestResult{name: t.name, passed: true, failures: Vec.new()}
+    }
+    return TestResult{name: t.name, passed: false, failures: t.failures}
+}
+
+mut var has_last_result: bool = false
+mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new()}
+
+pub func take_last_result() -> (Option<TestResult>) {
+    if has_last_result {
+        has_last_result = false
+        return Some(last_result)
+    }
+    return None
+}
+
+pub func fail_result(name: string, msg: string) -> (TestResult) {
+    mut var failures: Vec<string, _> = Vec.new()
+    failures.push(msg)
+    return TestResult{name: name, passed: false, failures: failures}
+}
+
+// =============================================================================
+// Simple Console Runner
+// =============================================================================
+
+func esc() -> (string) { return string(char(27)) }
+func red() -> (string) { return esc() + "[31m" }
+func green() -> (string) { return esc() + "[32m" }
+func reset() -> (string) { return esc() + "[0m" }
+func bold() -> (string) { return esc() + "[1m" }
+
+// run_tests takes a list of results and prints the UI
+pub func run_tests(results: Vec<TestResult, _>) -> (void) {
+    println("running ", results.len(), " tests")
+    
+    mut var i: int = 0
+    while i < results.len() {
+        var r: TestResult = results.get(i).unwrap()
+        if r.passed {
+            println(green(), "PASS", reset(), " ", r.name)
+        } else {
+            println(red(), "FAIL", reset(), " ", r.name)
+        }
+        i = i + 1
+    }
+    println("")
+    println("")
+
+    mut var failed_count: int = 0
+    i = 0
+    while i < results.len() {
+        var r2: TestResult = results.get(i).unwrap()
+        if !r2.passed {
+            failed_count = failed_count + 1
+            println(red(), "FAILURES:", reset())
+            println("")
+            println(red(), r2.name, reset())
+            mut var j: int = 0
+            while j < r2.failures.len() {
+                println("  failure #", j + 1)
+                println(r2.failures.get(j).unwrap())
+                j = j + 1
+            }
+            println("")
+        }
+        i = i + 1
+    }
+
+    if failed_count == 0 {
+        println(green(), "ok (", results.len(), " tests)", reset())
+    } else {
+        println(red(), "test result: FAILED. ", results.len() - failed_count, " passed; ", failed_count, " failed", reset())
+    }
+}

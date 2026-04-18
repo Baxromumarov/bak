@@ -1,0 +1,11 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func main() -> (void) {
+    mut var d: Data = Data{id: 1}
+    mut var p1: &mut Data = &mut d
+    mut var p2: &mut Data = &mut d
+} // Error: Double mutable borrow

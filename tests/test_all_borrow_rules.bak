@@ -1,0 +1,42 @@
+// Test cases from ownership_and_borrowing_rule.txt
+// Run each test separately by uncommenting
+package main
+
+func inspect(v: &Vec<int, _>) -> (int) {
+    return v.len()
+}
+
+// func _modify(v: &mut Vec<int,_>) -> (void) {
+//     v.push(100)
+//     return void
+// }
+// func _consume(v: Vec<int,_>) -> (int) {
+//     return v.len()
+// }
+func main() -> (void) {
+    // ❌ TEST 1: Use after move - should fail
+    // var v Vec<int,_> = Vec.from([1,2,3])
+    // consume(v)
+    // consume(v)
+    // ✅ TEST 2: Multiple immutable borrows - should pass
+    var v1: Vec<int, _> = Vec.from([1, 2, 3])
+
+    inspect(&v1)
+    inspect(&v1)
+    println("Test 2 passed: multiple immutable borrows")
+
+    // ❌ TEST 3: mutable borrow then immutable borrow - should fail
+    // mut var v2 Vec<int,_> = Vec.from([1,2,3])
+    // modify(&mut v2)
+    // inspect(&v2)
+    // ✅ TEST 4: mutable borrow in a block, then immutable - should pass
+    // (The block scope clears the mutable borrow)
+    // Note: inline blocks not supported yet, using function scope instead
+    // mut var v3 Vec<int,_> = Vec.from([1,2,3])
+    // {
+    //     modify(&mut v3)
+    // }
+    // inspect(&v3)
+    // println("Test 4 passed: mutable borrow in block")
+    return void
+}

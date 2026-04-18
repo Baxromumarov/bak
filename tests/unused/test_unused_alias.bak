@@ -1,0 +1,10 @@
+package main
+
+// Test: unused alias
+alias Calc = math.Calc // should warn (unused)
+// alias _ = math.Calc // should error (not allowed)
+
+func main() -> (void) {
+    print("test")
+    return void
+}

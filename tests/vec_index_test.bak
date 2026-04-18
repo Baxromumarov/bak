@@ -1,0 +1,29 @@
+package test
+
+// Test Vec indexing with struct fields
+
+pub struct Buffer {
+    data: Vec<int, _>
+    pos: int
+}
+
+impl Buffer as b {
+    func get() -> (int) {
+        // This expression: b.data[b.pos]
+        // Both 'data' and 'pos' should be marked as used
+        return b.data[b.pos]
+    }
+    
+    mut func next() -> (void) {
+        b.pos = b.pos + 1
+        return void
+    }
+}
+
+pub func Create() -> (Buffer) {
+    mut var buf: Buffer = Buffer { data: Vec.new(), pos: 0 }
+    buf.data.push(10)
+    buf.data.push(20)
+    buf.data.push(30)
+    return buf
+}

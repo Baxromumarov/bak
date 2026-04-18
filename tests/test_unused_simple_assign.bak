@@ -1,0 +1,6 @@
+package main
+
+func main() -> (void) {
+    mut var x: int = 1
+    x = 2
+}

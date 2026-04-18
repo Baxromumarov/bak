@@ -1,0 +1,57 @@
+package main
+
+import "std/collections/queue"
+import "std/rand"
+
+func main() -> (void) {
+    // Test queue
+    mut var q: queue.Queue<int> = queue.new_queue()
+
+    q.push(1)
+    q.push(2)
+    q.push(3)
+
+    mut var p1: int = q.pop().unwrap()
+    mut var p2: int = q.pop().unwrap()
+
+    if p1 != 1 || p2 != 2 {
+        println(
+            "Queue pop failed, got",
+            p1,
+            p2,
+        )
+    } else {
+        println(
+            "Queue pop works! length is now",
+            q.len(),
+        )
+    }
+
+    // push a bunch to trigger compact
+    mut var i: int = 0
+
+    while i < 2000 {
+        q.push(i)
+        q.pop()
+        i = i + 1
+    }
+
+    println(
+        "Queue after 2000 pushes/pops length is",
+        q.len(),
+    )
+    // Test rand
+    rand.seed(42)
+
+    var f1: float64 = rand.next_float()
+    var f2: float64 = rand.next_float()
+
+    println(
+        "Random float 1:",
+        f1,
+    )
+    println(
+        "Random float 2:",
+        f2,
+    )
+}

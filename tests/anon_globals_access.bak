@@ -1,0 +1,17 @@
+package main
+
+var GLOBAL_VAR: int = 100
+const GLOBAL_CONST: int = 200
+
+func global_func() {
+    println("global func called")
+}
+
+func main() {
+    var f = func() {
+        println(GLOBAL_VAR)
+        println(GLOBAL_CONST)
+        global_func()
+    }
+    f()
+}

@@ -1,0 +1,63 @@
+dynamic dispatch
+
+# Map<K, V> in bak
+
+## Structure
+```
+struct Map<K, V> {
+    buckets Vec<Entry<K,V>, _>
+    len int
+}
+struct Entry<K, V> {
+    hash u64
+    key K
+    value V
+}
+```
+
+## API
+
+**Construction:**
+```
+var m Map<int, string> = Map.new()
+```
+
+**Insertion:**
+```
+m.insert(key, value)
+```
+
+**Lookup:**
+```
+var v = m.get(key) // Returns V? (owned value, not a borrow)
+```
+
+**Removal:**
+```
+var v = m.remove(key) // Returns V? (ownership moves out)
+```
+
+**Size:**
+```
+m.len()
+```
+
+**Contains:**
+```
+
+```
+
+## Ownership
+- All returned values are owned (no borrows, no lifetimes).
+- Simpler and safer; get_ref() can be added if borrowing is supported in the future.
+
+## Hashing
+- Hashable types must provide a free function:
+  - `func hash_int(x int) -> (u64)`
+  - `func hash_string(s string) -> (u64)`
+- The compiler links the correct hash function for each type.
+- No traits, dynamic dispatch, or vtables required.
+
+This approach is simple, explicit, and self-hosting friendly.
+
+

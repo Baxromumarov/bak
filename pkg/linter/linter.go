@@ -1,0 +1,380 @@
+package linter
+
+import (
+	"fmt"
+	"os"
+	"sort"
+	"strings"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/parser"
+)
+
+// Finding represents a lint finding at a specific location.
+type Finding struct {
+	Rule    string
+	Level   string // "error", "warning", "style"
+	Message string
+	File    string
+	Line    int
+	Column  int
+}
+
+// Config holds linter configuration.
+type Config struct {
+	MaxLineLength   int
+	MaxFuncParams   int
+	MaxNestingDepth int
+	DisabledRules   map[string]bool
+}
+
+// DefaultConfig returns the default linter configuration.
+func DefaultConfig() *Config {
+	return &Config{
+		MaxLineLength:   120,
+		MaxFuncParams:   7,
+		MaxNestingDepth: 5,
+		DisabledRules:   make(map[string]bool),
+	}
+}
+
+// Rule is the interface all lint rules implement.
+type Rule interface {
+	Name() string
+	Check(prog *ast.Program, source string, config *Config) []Finding
+}
+
+var allRules []Rule
+
+// RegisterRule adds a rule to the global registry.
+func RegisterRule(r Rule) {
+	allRules = append(allRules, r)
+}
+
+func init() {
+	RegisterRule(&NamingConventionRule{})
+	RegisterRule(&StyleRule{})
+	RegisterRule(&ComplexityRule{})
+	RegisterRule(&EmptyBlockRule{})
+}
+
+// LintFile parses and lints a single file.
+func LintFile(path string, config *Config) []Finding {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return []Finding{{Rule: "io", Level: "error", Message: err.Error(), File: path}}
+	}
+	source := string(data)
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		return nil // skip files with parse errors
+	}
+
+	var findings []Finding
+	for _, rule := range allRules {
+		if config.DisabledRules[rule.Name()] {
+			continue
+		}
+		for _, f := range rule.Check(program, source, config) {
+			f.File = path
+			findings = append(findings, f)
+		}
+	}
+	sort.Slice(findings, func(i, j int) bool {
+		if findings[i].Line != findings[j].Line {
+			return findings[i].Line < findings[j].Line
+		}
+		return findings[i].Column < findings[j].Column
+	})
+	return findings
+}
+
+// isSnakeCase checks if a string is snake_case (lowercase + underscores + digits).
+func isSnakeCase(s string) bool {
+	if s == "" || s == "_" {
+		return true
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// isPascalCase checks if a string starts with an uppercase letter.
+func isPascalCase(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	return s[0] >= 'A' && s[0] <= 'Z'
+}
+
+// isUpperSnakeCase checks if a string is UPPER_SNAKE_CASE.
+func isUpperSnakeCase(s string) bool {
+	if s == "" {
+		return true
+	}
+	for _, c := range s {
+		if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// --- Rules ---
+
+// NamingConventionRule checks that identifiers follow naming conventions.
+type NamingConventionRule struct{}
+
+func (r *NamingConventionRule) Name() string { return "naming-convention" }
+
+func (r *NamingConventionRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+	var findings []Finding
+	for _, stmt := range prog.Statements {
+		findings = append(findings, r.checkStatement(stmt)...)
+	}
+	return findings
+}
+
+func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
+	var findings []Finding
+	switch s := stmt.(type) {
+	case *ast.FunctionDecl:
+		if s.Name != nil && !isSnakeCase(s.Name.Value) && s.Name.Value != "main" {
+			findings = append(findings, Finding{
+				Rule:    "naming-convention",
+				Level:   "warning",
+				Message: "function '" + s.Name.Value + "' should be snake_case",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+		for _, p := range s.Parameters {
+			if p.Name != nil && p.Name.Value != "_" && !strings.HasPrefix(p.Name.Value, "_") && !isSnakeCase(p.Name.Value) {
+				findings = append(findings, Finding{
+					Rule:    "naming-convention",
+					Level:   "warning",
+					Message: "parameter '" + p.Name.Value + "' should be snake_case",
+					Line:    p.Name.Token.Line,
+					Column:  p.Name.Token.Column,
+				})
+			}
+		}
+	case *ast.StructDecl:
+		if s.Name != nil && !isPascalCase(s.Name.Value) {
+			findings = append(findings, Finding{
+				Rule:    "naming-convention",
+				Level:   "warning",
+				Message: "struct '" + s.Name.Value + "' should be PascalCase",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+	case *ast.EnumDecl:
+		if s.Name != nil && !isPascalCase(s.Name.Value) {
+			findings = append(findings, Finding{
+				Rule:    "naming-convention",
+				Level:   "warning",
+				Message: "enum '" + s.Name.Value + "' should be PascalCase",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+	case *ast.TraitDefinition:
+		if s.Name != nil && !isPascalCase(s.Name.Value) {
+			findings = append(findings, Finding{
+				Rule:    "naming-convention",
+				Level:   "warning",
+				Message: "trait '" + s.Name.Value + "' should be PascalCase",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+	case *ast.ConstStatement:
+		if s.Name != nil && !isUpperSnakeCase(s.Name.Value) && !isPascalCase(s.Name.Value) {
+			findings = append(findings, Finding{
+				Rule:    "naming-convention",
+				Level:   "warning",
+				Message: "constant '" + s.Name.Value + "' should be UPPER_SNAKE_CASE or PascalCase",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+	}
+	return findings
+}
+
+// StyleRule checks for style issues.
+type StyleRule struct{}
+
+func (r *StyleRule) Name() string { return "style" }
+
+func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+	var findings []Finding
+	lines := strings.Split(source, "\n")
+	for i, line := range lines {
+		// Line length check
+		if len(line) > config.MaxLineLength {
+			findings = append(findings, Finding{
+				Rule:    "style/line-length",
+				Level:   "style",
+				Message: fmt.Sprintf("line exceeds %d characters (%d)", config.MaxLineLength, len(line)),
+				Line:    i + 1,
+				Column:  config.MaxLineLength + 1,
+			})
+		}
+		// Trailing whitespace
+		trimmed := strings.TrimRight(line, " \t")
+		if len(trimmed) < len(line) && len(trimmed) > 0 {
+			findings = append(findings, Finding{
+				Rule:    "style/trailing-whitespace",
+				Level:   "style",
+				Message: "trailing whitespace",
+				Line:    i + 1,
+				Column:  len(trimmed) + 1,
+			})
+		}
+	}
+	return findings
+}
+
+// EmptyBlockRule checks for empty blocks.
+type EmptyBlockRule struct{}
+
+func (r *EmptyBlockRule) Name() string { return "empty-block" }
+
+func (r *EmptyBlockRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+	var findings []Finding
+	for _, stmt := range prog.Statements {
+		r.checkStmt(stmt, &findings)
+	}
+	return findings
+}
+
+func (r *EmptyBlockRule) checkStmt(stmt ast.Statement, findings *[]Finding) {
+	switch s := stmt.(type) {
+	case *ast.FunctionDecl:
+		if s.Body != nil && len(s.Body.Statements) == 0 && s.Name != nil {
+			*findings = append(*findings, Finding{
+				Rule:    "empty-block",
+				Level:   "warning",
+				Message: "empty function body '" + s.Name.Value + "'",
+				Line:    s.Name.Token.Line,
+				Column:  s.Name.Token.Column,
+			})
+		}
+	case *ast.IfStatement:
+		if s.Consequence != nil && len(s.Consequence.Statements) == 0 {
+			*findings = append(*findings, Finding{
+				Rule:    "empty-block",
+				Level:   "warning",
+				Message: "empty if block",
+				Line:    s.Token.Line,
+				Column:  s.Token.Column,
+			})
+		}
+	case *ast.WhileStatement:
+		if s.Body != nil && len(s.Body.Statements) == 0 {
+			*findings = append(*findings, Finding{
+				Rule:    "empty-block",
+				Level:   "warning",
+				Message: "empty while block",
+				Line:    s.Token.Line,
+				Column:  s.Token.Column,
+			})
+		}
+	case *ast.ForStatement:
+		if s.Body != nil && len(s.Body.Statements) == 0 {
+			*findings = append(*findings, Finding{
+				Rule:    "empty-block",
+				Level:   "warning",
+				Message: "empty for block",
+				Line:    s.Token.Line,
+				Column:  s.Token.Column,
+			})
+		}
+	}
+}
+
+// ComplexityRule checks for overly complex code.
+type ComplexityRule struct{}
+
+func (r *ComplexityRule) Name() string { return "complexity" }
+
+func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+	var findings []Finding
+	for _, stmt := range prog.Statements {
+		if fd, ok := stmt.(*ast.FunctionDecl); ok {
+			if fd.Name == nil {
+				continue
+			}
+			// Too many parameters
+			if len(fd.Parameters) > config.MaxFuncParams {
+				findings = append(findings, Finding{
+					Rule:  "complexity/too-many-params",
+					Level: "warning",
+					Message: fmt.Sprintf("function '%s' has %d parameters (max %d)",
+						fd.Name.Value, len(fd.Parameters), config.MaxFuncParams),
+					Line:   fd.Name.Token.Line,
+					Column: fd.Name.Token.Column,
+				})
+			}
+			// Deep nesting
+			if fd.Body != nil {
+				depth := measureNestingDepth(fd.Body, 0)
+				if depth > config.MaxNestingDepth {
+					findings = append(findings, Finding{
+						Rule:  "complexity/deep-nesting",
+						Level: "warning",
+						Message: fmt.Sprintf("function '%s' has nesting depth %d (max %d)",
+							fd.Name.Value, depth, config.MaxNestingDepth),
+						Line:   fd.Name.Token.Line,
+						Column: fd.Name.Token.Column,
+					})
+				}
+			}
+		}
+	}
+	return findings
+}
+
+func measureNestingDepth(block *ast.BlockStatement, current int) int {
+	max := current
+	for _, stmt := range block.Statements {
+		switch s := stmt.(type) {
+		case *ast.IfStatement:
+			if s.Consequence != nil {
+				d := measureNestingDepth(s.Consequence, current+1)
+				if d > max {
+					max = d
+				}
+			}
+			if s.Alternative != nil {
+				d := measureNestingDepth(s.Alternative, current+1)
+				if d > max {
+					max = d
+				}
+			}
+		case *ast.ForStatement:
+			if s.Body != nil {
+				d := measureNestingDepth(s.Body, current+1)
+				if d > max {
+					max = d
+				}
+			}
+		case *ast.WhileStatement:
+			if s.Body != nil {
+				d := measureNestingDepth(s.Body, current+1)
+				if d > max {
+					max = d
+				}
+			}
+		}
+	}
+	return max
+}

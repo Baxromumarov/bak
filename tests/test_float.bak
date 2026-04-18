@@ -1,0 +1,10 @@
+package main
+
+const PI: float32 = 3.14
+
+func main() -> (void) {
+    var x: float32 = 1.0
+    var y: float32 = PI + x
+    println(y)
+    return void
+}

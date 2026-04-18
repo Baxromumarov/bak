@@ -1,0 +1,31 @@
+// Test: Mutability with ownership - should PASS
+package main
+
+struct Counter {
+    pub value: int
+}
+
+impl Counter as c {
+    mut func increment() -> (void) {
+        c.value = c.value + 1
+        return void
+    }
+    
+    func get() -> (int) {
+        return c.value
+    }
+}
+
+func main() -> (void) {
+    mut var counter = Counter{value: 0}
+    
+    println("Initial:", counter.get())
+    
+    counter.increment()
+    counter.increment()
+    counter.increment()
+    
+    println("After 3 increments:", counter.get())
+    
+    return void
+}

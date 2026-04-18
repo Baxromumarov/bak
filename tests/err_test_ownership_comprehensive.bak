@@ -1,0 +1,149 @@
+// Comprehensive ownership test cases
+// Each test case should be run individually to verify error detection
+package main
+
+// =============================================================================
+// Test functions for ownership transfer
+// =============================================================================
+
+func consume_vec(v: Vec<int,_>) -> (int) {
+    return v.len()
+}
+
+func borrow_vec(v: &Vec<int,_>) -> (int) {
+    return v.len()
+}
+
+func borrow_mut_vec(v: &mut Vec<int,_>) -> (void) {
+    v.push(100)
+    return void
+}
+
+// =============================================================================
+// TEST 1: Basic use after move (should fail)
+// =============================================================================
+func test_use_after_move() -> (void) {
+    var v: Vec<int,_> = Vec.from([1,2,3])
+    consume_vec(v)      // v is moved here
+    consume_vec(v)      // ❌ ERROR: use of moved value 'v'
+    return void
+}
+
+// =============================================================================
+// TEST 2: Vec.len() after move (should fail)
+// =============================================================================
+func test_vec_len_after_move() -> (void) {
+    var v: Vec<int,_> = Vec.from([1,2,3])
+    consume_vec(v)      // v is moved here
+    var n: int = v.len() // ❌ ERROR: use of moved value 'v'
+    println(n)
+    return void
+}
+
+// =============================================================================
+// TEST 3: Push on immutable Vec (should fail)
+// =============================================================================
+func test_push_on_immutable() -> (void) {
+    var v: Vec<int,_> = Vec.from([1,2,3])  // immutable
+    v.push(4)           // ❌ ERROR: cannot call 'push' on immutable variable 'v'
+    return void
+}
+
+// =============================================================================
+// TEST 4: Borrow after move (should fail)
+// =============================================================================
+func test_borrow_after_move() -> (void) {
+    var v: Vec<int,_> = Vec.from([1,2,3])
+    consume_vec(v)      // v is moved here
+    borrow_vec(&v)      // ❌ ERROR: use of moved value 'v'
+    return void
+}
+
+// =============================================================================
+// TEST 5: Multiple borrows (should pass)
+// =============================================================================
+func test_multiple_immutable_borrows() -> (void) {
+    var v: Vec<int,_> = Vec.from([1,2,3])
+    var a: int = borrow_vec(&v)
+    var b: int = borrow_vec(&v)
+    println("Multiple immutable borrows:", a, b)
+    return void
+}
+
+// =============================================================================
+// TEST 6: Mutable borrow then immutable borrow (should fail)  
+// =============================================================================
+func test_mut_then_imm_borrow() -> (void) {
+    mut var v: Vec<int,_> = Vec.from([1,2,3])
+    borrow_mut_vec(&mut v)   // v is mutably borrowed
+    borrow_vec(&v)           // ❌ ERROR: cannot borrow 'v' as immutable because it is already borrowed as mutable
+    return void
+}
+
+// =============================================================================
+// TEST 7: Double mutable borrow (should fail)
+// =============================================================================
+func test_double_mut_borrow() -> (void) {
+    mut var v: Vec<int,_> = Vec.from([1,2,3])
+    borrow_mut_vec(&mut v)   // v is mutably borrowed
+    borrow_mut_vec(&mut v)   // ❌ ERROR: cannot borrow 'v' as mutable because it is already borrowed as mutable
+    return void
+}
+
+// =============================================================================
+// TEST 8: Move while borrowed (should fail)
+// =============================================================================
+func test_consume_while_borrowed() -> (void) {
+    mut var v: Vec<int,_> = Vec.from([1,2,3])
+    borrow_mut_vec(&mut v)   // v is mutably borrowed
+    consume_vec(v)           // ❌ ERROR: cannot move 'v' because it is mutably borrowed
+    return void
+}
+
+// =============================================================================
+// TEST 9: Struct field access after move (valid test for structs)
+// =============================================================================
+struct Point {
+    x: int
+    y: int
+}
+
+func consume_point(p: Point) -> (int) {
+    return p.x + p.y
+}
+
+func test_struct_field_after_move() -> (void) {
+    var p: Point = Point { x: 10, y: 20 }
+    consume_point(p)    // p is moved here
+    var x: int = p.x     // ❌ ERROR: use of moved value 'p'
+    println(x)
+    return void
+}
+
+// =============================================================================
+// TEST 10: Return moves value
+// =============================================================================
+func create_and_return() -> (Vec<int,_>) {
+    var v: Vec<int,_> = Vec.from([1,2,3])
+    return v            // v is moved by return
+    // No error here - v goes out of scope after return
+}
+
+func main() -> (void) {
+    println("=== Ownership Comprehensive Tests ===")
+    println("Each test function demonstrates an error case")
+    println("Run individual tests to see the errors")
+    
+    // Uncomment one at a time to test:
+    // test_use_after_move()
+    // test_vec_len_after_move()
+    // test_push_on_immutable()
+    // test_borrow_after_move()
+    test_multiple_immutable_borrows()  // This one should pass
+    // test_mut_then_imm_borrow()
+    // test_double_mut_borrow()
+    // test_consume_while_borrowed()
+    // test_struct_field_after_move()
+    
+    return void
+}

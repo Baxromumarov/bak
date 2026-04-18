@@ -1,0 +1,13 @@
+package main
+
+func consume(s: string) -> (void) {
+    return void
+}
+
+// expect: E0100 use of moved value 's'
+func main() -> (void) {
+    var s: string = "a"
+    consume(s)
+    consume(s)
+    return void
+}

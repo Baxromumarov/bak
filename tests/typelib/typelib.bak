@@ -1,0 +1,69 @@
+// Test library for alias and type tests
+// This module exports some types publicly and keeps others private
+package typelib
+
+// =============================================================================
+// PUBLIC TYPES - should be accessible from other packages
+// =============================================================================
+
+// Public struct
+pub struct Point {
+    X: int
+    Y: int
+}
+
+// Public struct with multiple fields
+pub struct Person {
+    Name: string
+    Age: int
+    Active: bool
+}
+
+// Public alias for a primitive
+pub alias Score = int
+
+// Public alias for a struct
+pub alias Coordinate = Point
+
+// Public type definition (distinct type)
+pub type UserID = int
+
+// Public type definition for string
+pub type Username = string
+
+// Public constant
+pub const MAX_POINTS: int = 100
+
+// Public function
+pub func createPoint(x: int, y: int) -> (Point) {
+    return Point{X: x, Y: y}
+}
+
+// Public function using alias
+pub func createCoordinate(x: int, y: int) -> (Coordinate) {
+    return Coordinate{X: x, Y: y}
+}
+
+// =============================================================================
+// PRIVATE TYPES - should NOT be accessible from other packages
+// =============================================================================
+
+// Private struct (no pub keyword)
+struct InternalData {
+    Secret: string
+    Value: int
+}
+
+// Private alias
+alias InternalScore = int
+
+// Private type definition
+type InternalID = int
+
+// Private constant
+const INTERNAL_MAX: int = 999
+
+// Private function
+func internalHelper() -> (int) {
+    return 42
+}

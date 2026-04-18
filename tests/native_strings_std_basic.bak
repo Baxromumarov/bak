@@ -1,0 +1,50 @@
+package main
+
+import "src/std/strings/strings.bak" as strings
+
+func main() -> (int) {
+    mut var score: int = 0
+
+    var s: string = "hello world"
+    var sub1: string = "world"
+    if strings.contains(&s, &sub1) {
+        score = score + 1
+    }
+    var sub2: string = "lo"
+    if strings.indexOf(&s, &sub2) == 3 {
+        score = score + 1
+    }
+    var sub3: string = "l"
+    if strings.lastIndexOf(&s, &sub3) == 9 {
+        score = score + 1
+    }
+    var pre: string = "hell"
+    if strings.startsWith(&s, &pre) {
+        score = score + 1
+    }
+    if strings.endsWith(&s, &sub1) {
+        score = score + 1
+    }
+    var a: string = "abc"
+    var b: string = "abd"
+    if strings.compare(&a, &b) < 0 {
+        score = score + 1
+    }
+    var t: string = "  hi\t"
+    var tr: string = strings.trim(&t)
+    if tr.len() == 2 && tr[0] == 'h' && tr[1] == 'i' {
+        score = score + 1
+    }
+    var base: string = "ab"
+    var rep: string = strings.repeat(&base, 3)
+    if rep.len() == 6 && rep[0] == 'a' && rep[5] == 'b' {
+        score = score + 1
+    }
+    var bytes: Vec<int, _> = Vec.from([97, 98, 99])
+    var from: string = strings.fromBytes(bytes)
+    if from.len() == 3 && from[2] == 'c' {
+        score = score + 1
+    }
+
+    return score
+}

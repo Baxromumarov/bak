@@ -1,0 +1,2387 @@
+// AST nodes for bakc.
+package ast
+
+import "src/compiler/token/token.bak" as token
+
+pub enum Visibility {
+    Private
+    Public
+}
+
+pub struct Program {
+    pub Statements: Vec<Statement, _>
+}
+
+pub func ProgramFromStatements(statements: Vec<Statement, _>) -> (Program) {
+    return Program{
+        Statements: statements,
+    }
+}
+
+pub func BreakStatementFromToken(tok: token.Token) -> (BreakStatement) {
+    return BreakStatement{
+        Token: tok,
+    }
+}
+
+pub func ContinueStatementFromToken(tok: token.Token) -> (ContinueStatement) {
+    return ContinueStatement{
+        Token: tok,
+    }
+}
+
+pub func PackageStatementFromTokenAndName(
+    pkgTok: token.Token,
+    nameTok: token.Token,
+    nameValue: string,
+) -> (PackageStatement) {
+    return PackageStatement{
+        Token: pkgTok,
+        Name: Identifier{
+            Token: nameTok,
+            Value: nameValue,
+        },
+    }
+}
+
+pub func ImportStatementFromPathAlias(
+    importTok: token.Token,
+    path: string,
+    aliasValue: string,
+) -> (ImportStatement) {
+    return ImportStatement{
+        Token: importTok,
+        Path:  path,
+        Alias: aliasValue,
+    }
+}
+
+pub func ImportBlockFromImports(
+    importTok: token.Token,
+    imports: Vec<ImportStatement, _>,
+) -> (ImportBlock) {
+    return ImportBlock{
+        Token:   importTok,
+        Imports: imports,
+    }
+}
+
+pub func IdentifierFromTokenValue(tok: token.Token, value: string) -> (Identifier) {
+    return Identifier{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func VarStatementFromParts(
+    varTok: token.Token,
+    name: Identifier,
+    mutable: bool,
+    varType: Option<TypeExpression>,
+    value: Option<Expression>,
+) -> (VarStatement) {
+    return VarStatement{
+        Token:   varTok,
+        Name:    name,
+        Type:    varType,
+        Value:   value,
+        Mutable: mutable,
+    }
+}
+
+pub func VarStatementFromPartsNoValue(
+    varTok: token.Token,
+    name: Identifier,
+    mutable: bool,
+    varType: Option<TypeExpression>,
+) -> (VarStatement) {
+    return VarStatementFromParts(
+        varTok,
+        name,
+        mutable,
+        varType,
+        None,
+    )
+}
+
+pub func VarStatementFromPartsWithValue(
+    varTok: token.Token,
+    name: Identifier,
+    mutable: bool,
+    varType: Option<TypeExpression>,
+    valueExpr: Expression,
+) -> (VarStatement) {
+    return VarStatementFromParts(
+        varTok,
+        name,
+        mutable,
+        varType,
+        Some(valueExpr),
+    )
+}
+
+pub func StatementVarFromParts(
+    varTok: token.Token,
+    name: Identifier,
+    mutable: bool,
+    varType: Option<TypeExpression>,
+    value: Option<Expression>,
+) -> (Statement) {
+    return Statement.Var(
+        VarStatementFromParts(
+            varTok,
+            name,
+            mutable,
+            varType,
+            value,
+        ),
+    )
+}
+
+pub func SomeStatement(stmt: Statement) -> (Option<Statement>) {
+    return Some(stmt)
+}
+
+pub func MultiVarStatementFromParts(
+    varTok: token.Token,
+    names: Vec<Identifier, _>,
+    types: Vec<Option<TypeExpression>, _>,
+    mutable: bool,
+    value: Option<Expression>,
+) -> (MultiVarStatement) {
+    return MultiVarStatement{
+        Token:   varTok,
+        Names:   names,
+        Types:   types,
+        Value:   value,
+        Mutable: mutable,
+    }
+}
+
+pub func ConstStatementFromParts(
+    constTok: token.Token,
+    name: Identifier,
+    visibility: Visibility,
+    constType: Option<TypeExpression>,
+    value: Expression,
+) -> (ConstStatement) {
+    mut var out: ConstStatement = ConstStatement{
+        Token:      constTok,
+        Visibility: visibility,
+        Name:       name,
+        Type:       constType,
+        Value:      value,
+    }
+
+    return out
+}
+
+pub func VarBlockFromVariables(
+    blockTok: token.Token,
+    variables: Vec<VarStatement, _>,
+) -> (VarBlock) {
+    return VarBlock{
+        Token:     blockTok,
+        Variables: variables,
+    }
+}
+
+pub func ConstBlockFromConstants(
+    blockTok: token.Token,
+    constants: Vec<ConstStatement, _>,
+) -> (ConstBlock) {
+    return ConstBlock{
+        Token:     blockTok,
+        Constants: constants,
+    }
+}
+
+pub func ReturnStatementFromParts(
+    returnTok: token.Token,
+    returnValue: Option<Expression>,
+) -> (ReturnStatement) {
+    return ReturnStatement{
+        Token:       returnTok,
+        ReturnValue: returnValue,
+    }
+}
+
+pub func TupleExpressionFromElements(
+    tupleTok: token.Token,
+    elements: Vec<Expression, _>,
+) -> (TupleExpression) {
+    return TupleExpression{
+        Token:    tupleTok,
+        Elements: elements,
+    }
+}
+
+pub func AssignmentStatementFromParts(
+    assignTok: token.Token,
+    left: Expression,
+    value: Expression,
+) -> (AssignmentStatement) {
+    var targetName: string = assignmentTargetName(
+        &left,
+    )
+    mut var valueKind: int = 0
+    mut var valueInt: int = 0
+    mut var valueFloat: float64 = 0.0
+    mut var valueBool: bool = false
+    mut var valueChar: char = char(0)
+    mut var valueText: string = ""
+    mut var outTok: token.Token = assignTok
+
+    switch value {
+        case Expression.IntegerLiteral(il) {
+            valueKind = 1
+            valueInt = il.Value
+        }
+        case Expression.FloatLiteral(fl) {
+            valueKind = 2
+            valueFloat = fl.Value
+        }
+        case Expression.StringLiteral(sl) {
+            valueKind = 3
+            valueText = sl.Value
+        }
+        case Expression.BooleanLiteral(bl) {
+            valueKind = 4
+            valueBool = bl.Value
+            if bl.Value {
+                valueInt = 1
+            } else {
+                valueInt = 0
+            }
+        }
+        case Expression.CharLiteral(cl) {
+            valueKind = 5
+            valueChar = cl.Value
+            valueInt = int(cl.Value)
+        }
+        case Expression.Identifier(id) {
+            valueKind = 6
+            valueText = id.Value
+        }
+        case Expression.MutableIdentifier(idm) {
+            valueKind = 6
+            valueText = idm.Value
+        }
+        case Expression.Borrow(be) {
+            switch be.Value {
+                case Expression.Identifier(id2) {
+                    valueKind = 7
+                    valueText = id2.Value
+                }
+                case Expression.MutableIdentifier(idm2) {
+                    valueKind = 7
+                    valueText = idm2.Value
+                }
+                default {
+                }
+            }
+        }
+        case Expression.VoidLiteral(_) {
+            valueKind = 8
+            valueInt = 0
+        }
+        default {
+        }
+    }
+
+    return AssignmentStatement{
+        Token:      outTok,
+        Left:       left,
+        Value:      value,
+        TargetName: targetName,
+        ValueKind:  valueKind,
+        ValueInt:   valueInt,
+        ValueFloat: valueFloat,
+        ValueBool:  valueBool,
+        ValueChar:  valueChar,
+        ValueText:  valueText,
+    }
+}
+
+func assignmentTargetName(left: &Expression) -> (string) {
+    switch *left {
+        case Expression.Identifier(id) {
+            return id.Value
+        }
+        case Expression.MutableIdentifier(idm) {
+            return idm.Value
+        }
+        default {
+            return ""
+        }
+    }
+}
+
+const ASSIGN_VALUE_HINT_NONE: int = 0
+const ASSIGN_VALUE_HINT_INT: int = 1
+const ASSIGN_VALUE_HINT_FLOAT: int = 2
+const ASSIGN_VALUE_HINT_STRING: int = 3
+const ASSIGN_VALUE_HINT_BOOL: int = 4
+const ASSIGN_VALUE_HINT_CHAR: int = 5
+const ASSIGN_VALUE_HINT_IDENT: int = 6
+const ASSIGN_VALUE_HINT_BORROW_IDENT: int = 7
+const ASSIGN_VALUE_HINT_VOID: int = 8
+
+func emptyAssignmentValueHint() -> (AssignmentValueHint) {
+    return AssignmentValueHint{
+        Kind:       ASSIGN_VALUE_HINT_NONE,
+        IntValue:   0,
+        FloatValue: 0.0,
+        BoolValue:  false,
+        CharValue:  char(0),
+        TextValue:  "",
+    }
+}
+
+func assignmentValueHint(value: &Expression) -> (AssignmentValueHint) {
+    switch *value {
+        case Expression.IntegerLiteral(il) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_INT,
+                IntValue:   il.Value,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  "",
+            }
+        }
+        case Expression.FloatLiteral(fl) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_FLOAT,
+                IntValue:   0,
+                FloatValue: fl.Value,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  "",
+            }
+        }
+        case Expression.StringLiteral(sl) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_STRING,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  sl.Value,
+            }
+        }
+        case Expression.BooleanLiteral(bl) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_BOOL,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  bl.Value,
+                CharValue:  char(0),
+                TextValue:  "",
+            }
+        }
+        case Expression.CharLiteral(cl) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_CHAR,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  cl.Value,
+                TextValue:  "",
+            }
+        }
+        case Expression.Identifier(id) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_IDENT,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  id.Value,
+            }
+        }
+        case Expression.MutableIdentifier(idm) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_IDENT,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  idm.Value,
+            }
+        }
+        case Expression.Borrow(be) {
+            switch be.Value {
+                case Expression.Identifier(id2) {
+                    return AssignmentValueHint{
+                        Kind:       ASSIGN_VALUE_HINT_BORROW_IDENT,
+                        IntValue:   0,
+                        FloatValue: 0.0,
+                        BoolValue:  false,
+                        CharValue:  char(0),
+                        TextValue:  id2.Value,
+                    }
+                }
+                case Expression.MutableIdentifier(idm2) {
+                    return AssignmentValueHint{
+                        Kind:       ASSIGN_VALUE_HINT_BORROW_IDENT,
+                        IntValue:   0,
+                        FloatValue: 0.0,
+                        BoolValue:  false,
+                        CharValue:  char(0),
+                        TextValue:  idm2.Value,
+                    }
+                }
+                default {
+                }
+            }
+        }
+        case Expression.VoidLiteral(_) {
+            return AssignmentValueHint{
+                Kind:       ASSIGN_VALUE_HINT_VOID,
+                IntValue:   0,
+                FloatValue: 0.0,
+                BoolValue:  false,
+                CharValue:  char(0),
+                TextValue:  "",
+            }
+        }
+        default {
+        }
+    }
+
+    return emptyAssignmentValueHint()
+}
+
+pub func ExpressionStatementFromExpression(
+    exprTok: token.Token,
+    expression: Expression,
+) -> (ExpressionStatement) {
+    mut var out: ExpressionStatement = ExpressionStatement{
+        Token:      exprTok,
+        Expression: expression,
+    }
+
+    return out
+}
+
+pub func BlockStatementFromStatements(
+    blockTok: token.Token,
+    statements: Vec<Statement, _>,
+) -> (BlockStatement) {
+    return BlockStatement{
+        Token:      blockTok,
+        Statements: statements,
+    }
+}
+
+pub func IfStatementFromParts(
+    ifTok: token.Token,
+    condition: Expression,
+    consequence: BlockStatement,
+    alternative: Option<BlockStatement>,
+) -> (IfStatement) {
+    return IfStatement{
+        Token:       ifTok,
+        Condition:   condition,
+        Consequence: consequence,
+        Alternative: alternative,
+    }
+}
+
+pub func WhileStatementFromParts(
+    whileTok: token.Token,
+    condition: Expression,
+    body: BlockStatement,
+) -> (WhileStatement) {
+    return WhileStatement{
+        Token:     whileTok,
+        Condition: condition,
+        Body:      body,
+    }
+}
+
+pub func ForStatementFromParts(
+    forTok: token.Token,
+    variable: Identifier,
+    iterable: Expression,
+    body: BlockStatement,
+) -> (ForStatement) {
+    return ForStatement{
+        Token:    forTok,
+        Variable: variable,
+        Iterable: iterable,
+        Body:     body,
+    }
+}
+
+pub func SwitchStatementFromParts(
+    switchTok: token.Token,
+    value: Expression,
+    cases: Vec<SwitchCase, _>,
+) -> (SwitchStatement) {
+    return SwitchStatement{
+        Token: switchTok,
+        Value: value,
+        Cases: cases,
+    }
+}
+
+pub func SwitchCaseFromParts(
+    caseTok: token.Token,
+    values: Vec<Expression, _>,
+    body: BlockStatement,
+    isDefault: bool,
+) -> (SwitchCase) {
+    return SwitchCase{
+        Token:   caseTok,
+        Values:  values,
+        Body:    body,
+        Default: isDefault,
+    }
+}
+
+pub func DeferStatementFromParts(
+    deferTok: token.Token,
+    body: BlockStatement,
+) -> (DeferStatement) {
+    return DeferStatement{
+        Token: deferTok,
+        Body:  body,
+    }
+}
+
+pub func PanicStatementFromParts(
+    panicTok: token.Token,
+    message: Expression,
+) -> (PanicStatement) {
+    return PanicStatement{
+        Token:   panicTok,
+        Message: message,
+    }
+}
+
+pub func UnsafeBlockFromParts(
+    unsafeTok: token.Token,
+    body: BlockStatement,
+) -> (UnsafeBlock) {
+    return UnsafeBlock{
+        Token: unsafeTok,
+        Body:  body,
+    }
+}
+
+pub func TypeExpressionSimpleByName(
+    typeTok: token.Token,
+    name: string,
+) -> (TypeExpression) {
+    return TypeExpression.Simple(
+        SimpleType{
+            Name:  name,
+            Token: typeTok,
+        },
+    )
+}
+
+pub func TypeExpressionBoxRefFromInner(
+    boxTok: token.Token,
+    inner: TypeExpression,
+) -> (TypeExpression) {
+    return TypeExpression.BoxRef(
+        BoxType{
+            Token: boxTok,
+            Inner: inner,
+        },
+    )
+}
+
+pub func TypeExpressionBoxOptionalFromInner(
+    boxTok: token.Token,
+    inner: TypeExpression,
+) -> (TypeExpression) {
+    return TypeExpression.BoxOptional(
+        BoxOptionalType{
+            Token: boxTok,
+            Inner: inner,
+        },
+    )
+}
+
+pub func BorrowTypeFromParts(
+    borrowTok: token.Token,
+    mutable: bool,
+    inner: TypeExpression,
+) -> (BorrowType) {
+    return BorrowType{
+        Token:   borrowTok,
+        Mutable: mutable,
+        Inner:   inner,
+    }
+}
+
+pub func FunctionTypeFromParts(
+    fnTok: token.Token,
+    parameters: Vec<TypeExpression, _>,
+    returnType: TypeExpression,
+) -> (FunctionType) {
+    return FunctionType{
+        Token:      fnTok,
+        Parameters: parameters,
+        ReturnType: returnType,
+    }
+}
+
+pub func TypeExpressionSizeFromParts(
+    sizeTok: token.Token,
+    value: int,
+    isDynamic: bool,
+) -> (TypeExpression) {
+    return TypeExpression.Size(
+        SizeExpression{
+            Token:     sizeTok,
+            Value:     value,
+            IsDynamic: isDynamic,
+        },
+    )
+}
+
+pub func GenericTypeFromParams(
+    genericTok: token.Token,
+    name: string,
+    typeParams: Vec<TypeExpression, _>,
+) -> (GenericType) {
+    return GenericType{
+        Name:       name,
+        Token:      genericTok,
+        TypeParams: typeParams,
+    }
+}
+
+pub func TypeExpressionTupleFromElements(
+    tupleTok: token.Token,
+    elements: Vec<TypeExpression, _>,
+) -> (TypeExpression) {
+    return TypeExpression.TupleRef(
+        TupleType{
+            Token:    tupleTok,
+            Elements: elements,
+        },
+    )
+}
+
+pub func ParameterFromParts(
+    paramTok: token.Token,
+    name: Identifier,
+    mutable: bool,
+    paramType: TypeExpression,
+) -> (Parameter) {
+    return Parameter{
+        Token:   paramTok,
+        Name:    name,
+        Type:    paramType,
+        Mutable: mutable,
+    }
+}
+
+pub func EmptyFunctionDecl() -> (FunctionDecl) {
+    var zeroTok: token.Token = token.MakeToken(
+        token.ILLEGAL,
+        "",
+        0,
+        0,
+    )
+
+    return FunctionDecl{
+        Token:      zeroTok,
+        Visibility: Visibility.Private,
+        Name: Identifier{
+            Token: zeroTok,
+            Value: "",
+        },
+        TypeParams: Vec.with_cap(0),
+        Parameters: Vec.with_cap(0),
+        ReturnType: TypeExpression.Simple(
+            SimpleType{
+                Token: zeroTok,
+                Name:  "void",
+            },
+        ),
+        Body: BlockStatement{
+            Token:      zeroTok,
+            Statements: Vec.with_cap(0),
+        },
+    }
+}
+
+pub func FunctionDeclFromCore(
+    visibility: Visibility,
+    name: Identifier,
+    typeParams: Vec<Identifier, _>,
+    parameters: Vec<Parameter, _>,
+    returnType: TypeExpression,
+    body: BlockStatement,
+) -> (FunctionDecl) {
+    return FunctionDecl{
+        Token:      name.Token,
+        Visibility: visibility,
+        Name:       name,
+        TypeParams: typeParams,
+        Parameters: parameters,
+        ReturnType: returnType,
+        Body:       body,
+    }
+}
+
+pub func StructDeclFromParts(
+    structTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    typeParams: Vec<Identifier, _>,
+    fields: Vec<StructField, _>,
+) -> (StructDecl) {
+    return StructDecl{
+        Token:      structTok,
+        Visibility: visibility,
+        Name:       name,
+        TypeParams: typeParams,
+        Fields:     fields,
+    }
+}
+
+pub func StructFieldFromParts(
+    fieldTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    fieldType: TypeExpression,
+) -> (StructField) {
+    return StructField{
+        Token:      fieldTok,
+        Visibility: visibility,
+        Name:       name,
+        Type:       fieldType,
+    }
+}
+
+pub func EnumDeclFromParts(
+    enumTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    typeParams: Vec<Identifier, _>,
+    variants: Vec<EnumVariant, _>,
+) -> (EnumDecl) {
+    return EnumDecl{
+        Token:      enumTok,
+        Visibility: visibility,
+        Name:       name,
+        TypeParams: typeParams,
+        Variants:   variants,
+    }
+}
+
+pub func EnumVariantFromParts(
+    variantTok: token.Token,
+    name: Identifier,
+    fields: Vec<TypeExpression, _>,
+) -> (EnumVariant) {
+    return EnumVariant{
+        Token:  variantTok,
+        Name:   name,
+        Fields: fields,
+    }
+}
+
+pub func TypeDeclFromParts(
+    typeTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    underlying: TypeExpression,
+) -> (TypeDecl) {
+    return TypeDecl{
+        Token:      typeTok,
+        Visibility: visibility,
+        Name:       name,
+        Underlying: underlying,
+    }
+}
+
+pub func AliasDeclFromParts(
+    aliasTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    underlying: TypeExpression,
+) -> (AliasDecl) {
+    return AliasDecl{
+        Token:      aliasTok,
+        Visibility: visibility,
+        Name:       name,
+        Underlying: underlying,
+    }
+}
+
+pub func ImplDeclFromParts(
+    implTok: token.Token,
+    typeName: Identifier,
+    receiver: Identifier,
+    methods: Vec<MethodDecl, _>,
+) -> (ImplDecl) {
+    return ImplDecl{
+        Token:    implTok,
+        TypeName: typeName,
+        Receiver: receiver,
+        Methods:  methods,
+    }
+}
+
+pub func MethodDeclFromCore(
+    methodTok: token.Token,
+    visibility: Visibility,
+    name: Identifier,
+    parameters: Vec<Parameter, _>,
+    returnType: TypeExpression,
+    body: BlockStatement,
+) -> (MethodDecl) {
+    return MethodDecl{
+        Token:      methodTok,
+        Visibility: visibility,
+        Name:       name,
+        Parameters: parameters,
+        ReturnType: returnType,
+        Body:       body,
+        Mutable:    false,
+    }
+}
+
+pub func MutableIdentifierFromTokenValue(
+    tok: token.Token,
+    value: string,
+) -> (MutableIdentifier) {
+    return MutableIdentifier{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func IntegerLiteralFromParts(
+    tok: token.Token,
+    value: int,
+) -> (IntegerLiteral) {
+    return IntegerLiteral{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func FloatLiteralFromParts(
+    tok: token.Token,
+    value: float64,
+) -> (FloatLiteral) {
+    return FloatLiteral{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func StringLiteralFromParts(
+    tok: token.Token,
+    value: string,
+) -> (StringLiteral) {
+    return StringLiteral{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func CharLiteralFromParts(
+    tok: token.Token,
+    value: char,
+) -> (CharLiteral) {
+    return CharLiteral{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func BooleanLiteralFromParts(
+    tok: token.Token,
+    value: bool,
+) -> (BooleanLiteral) {
+    return BooleanLiteral{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func VoidLiteralFromToken(tok: token.Token) -> (VoidLiteral) {
+    return VoidLiteral{
+        Token: tok,
+    }
+}
+
+pub func TypeConversionFromParts(
+    tok: token.Token,
+    typeName: string,
+    value: Expression,
+) -> (TypeConversion) {
+    return TypeConversion{
+        Token:    tok,
+        TypeName: typeName,
+        Value:    value,
+    }
+}
+
+pub func PrefixExpressionFromParts(
+    tok: token.Token,
+    operator: string,
+    right: Expression,
+) -> (PrefixExpression) {
+    return PrefixExpression{
+        Token:    tok,
+        Operator: operator,
+        Right:    right,
+    }
+}
+
+pub func BorrowExpressionFromParts(
+    tok: token.Token,
+    mutable: bool,
+    value: Expression,
+) -> (BorrowExpression) {
+    return BorrowExpression{
+        Token:   tok,
+        Mutable: mutable,
+        Value:   value,
+    }
+}
+
+pub func DerefExpressionFromParts(
+    tok: token.Token,
+    value: Expression,
+) -> (DerefExpression) {
+    return DerefExpression{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func BoxExpressionFromParts(
+    tok: token.Token,
+    value: Expression,
+) -> (BoxExpression) {
+    return BoxExpression{
+        Token: tok,
+        Value: value,
+    }
+}
+
+pub func InfixExpressionFromParts(
+    tok: token.Token,
+    left: Expression,
+    operator: string,
+    right: Expression,
+) -> (InfixExpression) {
+    return InfixExpression{
+        Token:    tok,
+        Left:     left,
+        Operator: operator,
+        Right:    right,
+    }
+}
+
+pub func RangeExpressionFromParts(
+    tok: token.Token,
+    start: Expression,
+    end: Expression,
+    startInclusive: bool,
+    endInclusive: bool,
+) -> (RangeExpression) {
+    return RangeExpression{
+        Token:          tok,
+        Start:          start,
+        End:            end,
+        StartInclusive: startInclusive,
+        EndInclusive:   endInclusive,
+    }
+}
+
+pub func CallExpressionFromParts(
+    tok: token.Token,
+    function: Expression,
+    arguments: Vec<Expression, _>,
+) -> (CallExpression) {
+    return CallExpression{
+        Token:     tok,
+        Function:  function,
+        Arguments: arguments,
+    }
+}
+
+pub func IndexExpressionFromParts(
+    tok: token.Token,
+    left: Expression,
+    index: Expression,
+) -> (IndexExpression) {
+    return IndexExpression{
+        Token: tok,
+        Left:  left,
+        Index: index,
+    }
+}
+
+pub func MethodCallExpressionFromParts(
+    tok: token.Token,
+    object: Expression,
+    method: Identifier,
+    arguments: Vec<Expression, _>,
+) -> (MethodCallExpression) {
+    return MethodCallExpression{
+        Token:     tok,
+        Object:    object,
+        Method:    method,
+        Arguments: arguments,
+    }
+}
+
+pub func FieldAccessExpressionFromParts(
+    tok: token.Token,
+    object: Expression,
+    field: Identifier,
+) -> (FieldAccessExpression) {
+    return FieldAccessExpression{
+        Token:  tok,
+        Object: object,
+        Field:  field,
+    }
+}
+
+pub func VecLiteralFromElements(
+    tok: token.Token,
+    elements: Vec<Expression, _>,
+) -> (VecLiteral) {
+    return VecLiteral{
+        Token:    tok,
+        Elements: elements,
+    }
+}
+
+pub func StructFieldValueFromParts(
+    name: Identifier,
+    value: Expression,
+) -> (StructFieldValue) {
+    return StructFieldValue{
+        Name:  name,
+        Value: value,
+    }
+}
+
+pub func StructLiteralFromParts(
+    tok: token.Token,
+    name: Identifier,
+    fields: Vec<StructFieldValue, _>,
+) -> (StructLiteral) {
+    return StructLiteral{
+        Token:  tok,
+        Name:   name,
+        Fields: fields,
+    }
+}
+
+pub func EnumVariantExpressionFromParts(
+    tok: token.Token,
+    variant: Identifier,
+    values: Vec<Expression, _>,
+) -> (EnumVariantExpression) {
+    return EnumVariantExpression{
+        Token:   tok,
+        Variant: variant,
+        Values:  values,
+    }
+}
+
+pub func FunctionLiteralFromParts(
+    tok: token.Token,
+    parameters: Vec<Parameter, _>,
+    returnType: TypeExpression,
+    body: BlockStatement,
+) -> (FunctionLiteral) {
+    return FunctionLiteral{
+        Token:      tok,
+        Parameters: parameters,
+        ReturnType: returnType,
+        Body:       body,
+    }
+}
+
+pub func TypeExpressionErrorFromMessage(
+    tok: token.Token,
+    msg: string,
+) -> (TypeExpression) {
+    return TypeExpression.Error(
+        ErrorType{
+            Token:   tok,
+            Message: msg,
+        },
+    )
+}
+
+pub enum TypeExpression {
+    Simple(SimpleType)
+    Generic(GenericType)
+    BorrowRef(BorrowType)
+    BoxRef(BoxType)
+    BoxOptional(BoxOptionalType)
+    Size(SizeExpression)
+    Void(VoidType)
+    Error(ErrorType)
+    TupleRef(TupleType)
+    Function(FunctionType)
+}
+
+pub struct SimpleType {
+    pub Token: token.Token
+    pub Name:  string
+}
+
+pub struct GenericType {
+    pub Token:      token.Token
+    pub Name:       string
+    pub TypeParams: Vec<TypeExpression, _>
+}
+
+pub struct BorrowType {
+    pub Token:   token.Token
+    pub Mutable: bool
+    pub Inner:   TypeExpression
+}
+
+pub struct BoxType {
+    pub Token: token.Token
+    pub Inner: TypeExpression
+}
+
+pub struct BoxOptionalType {
+    pub Token: token.Token
+    pub Inner: TypeExpression
+}
+
+pub struct SizeExpression {
+    pub Token:     token.Token
+    pub Value:     int
+    pub IsDynamic: bool
+}
+
+pub struct VoidType {
+    pub Token: token.Token
+}
+
+pub struct ErrorType {
+    pub Token:   token.Token
+    pub Message: string
+}
+
+pub struct TupleType {
+    pub Token:    token.Token
+    pub Elements: Vec<TypeExpression, _>
+}
+
+pub struct FunctionType {
+    pub Token:      token.Token
+    pub Parameters: Vec<TypeExpression, _>
+    pub ReturnType: TypeExpression
+}
+
+pub enum Statement {
+    Package(PackageStatement)
+    Import(ImportStatement)
+    ImportBlock(ImportBlock)
+    Var(VarStatement)
+    MultiVar(MultiVarStatement)
+    Const(ConstStatement)
+    ConstBlock(ConstBlock)
+    VarBlock(VarBlock)
+    Return(ReturnStatement)
+    Expression(ExpressionStatement)
+    Block(BlockStatement)
+    If(IfStatement)
+    While(WhileStatement)
+    For(ForStatement)
+    Switch(SwitchStatement)
+    Defer(DeferStatement)
+    Panic(PanicStatement)
+    Unsafe(UnsafeBlock)
+    Break(BreakStatement)
+    Continue(ContinueStatement)
+    Assignment(AssignmentStatement)
+    FunctionDecl(FunctionDecl)
+    StructDecl(StructDecl)
+    TypeDecl(TypeDecl)
+    AliasDecl(AliasDecl)
+    EnumDecl(EnumDecl)
+    ImplDecl(ImplDecl)
+}
+
+pub struct PackageStatement {
+    pub Token: token.Token
+    pub Name:  Identifier
+}
+
+pub struct ImportStatement {
+    pub Token: token.Token
+    pub Path:  string
+    pub Alias: string
+}
+
+pub struct ImportBlock {
+    pub Token:   token.Token
+    pub Imports: Vec<ImportStatement, _>
+}
+
+pub struct VarStatement {
+    pub Token:   token.Token
+    pub Name:    Identifier
+    pub Type:    Option<TypeExpression>
+    pub Value:   Option<Expression>
+    pub Mutable: bool
+}
+
+pub struct MultiVarStatement {
+    pub Token:   token.Token
+    pub Names:   Vec<Identifier, _>
+    pub Types:   Vec<Option<TypeExpression>, _>
+    pub Value:   Option<Expression>
+    pub Mutable: bool
+}
+
+pub struct ConstStatement {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub Type:       Option<TypeExpression>
+    pub Value:      Expression
+}
+
+pub struct ConstBlock {
+    pub Token:     token.Token
+    pub Constants: Vec<ConstStatement, _>
+}
+
+pub struct VarBlock {
+    pub Token:     token.Token
+    pub Variables: Vec<VarStatement, _>
+}
+
+pub struct ReturnStatement {
+    pub Token:       token.Token
+    pub ReturnValue: Option<Expression>
+}
+
+pub struct ExpressionStatement {
+    pub Token:      token.Token
+    pub Expression: Expression
+}
+
+pub struct BlockStatement {
+    pub Token:      token.Token
+    pub Statements: Vec<Statement, _>
+}
+
+pub struct IfStatement {
+    pub Token:       token.Token
+    pub Condition:   Expression
+    pub Consequence: BlockStatement
+    pub Alternative: Option<BlockStatement>
+}
+
+pub struct WhileStatement {
+    pub Token:     token.Token
+    pub Condition: Expression
+    pub Body:      BlockStatement
+}
+
+pub struct ForStatement {
+    pub Token:    token.Token
+    pub Variable: Identifier
+    pub Iterable: Expression
+    pub Body:     BlockStatement
+}
+
+pub struct SwitchCase {
+    pub Token:   token.Token
+    pub Values:  Vec<Expression, _>
+    pub Body:    BlockStatement
+    pub Default: bool
+}
+
+pub struct SwitchStatement {
+    pub Token: token.Token
+    pub Value: Expression
+    pub Cases: Vec<SwitchCase, _>
+}
+
+pub struct DeferStatement {
+    pub Token: token.Token
+    pub Body:  BlockStatement
+}
+
+pub struct PanicStatement {
+    pub Token:   token.Token
+    pub Message: Expression
+}
+
+pub struct UnsafeBlock {
+    pub Token: token.Token
+    pub Body:  BlockStatement
+}
+
+pub struct BreakStatement {
+    pub Token: token.Token
+}
+
+pub struct ContinueStatement {
+    pub Token: token.Token
+}
+
+pub struct AssignmentStatement {
+    pub Token:      token.Token
+    pub Left:       Expression
+    pub Value:      Expression
+    pub TargetName: string
+    pub ValueKind:  int
+    pub ValueInt:   int
+    pub ValueFloat: float64
+    pub ValueBool:  bool
+    pub ValueChar:  char
+    pub ValueText:  string
+}
+
+pub struct AssignmentValueHint {
+    pub Kind:       int
+    pub IntValue:   int
+    pub FloatValue: float64
+    pub BoolValue:  bool
+    pub CharValue:  char
+    pub TextValue:  string
+}
+
+pub struct FunctionDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub TypeParams: Vec<Identifier, _>
+    pub Parameters: Vec<Parameter, _>
+    pub ReturnType: TypeExpression
+    pub Body:       BlockStatement
+}
+
+pub struct Parameter {
+    pub Token:   token.Token
+    pub Name:    Identifier
+    pub Type:    TypeExpression
+    pub Mutable: bool
+}
+
+pub struct StructDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub TypeParams: Vec<Identifier, _>
+    pub Fields:     Vec<StructField, _>
+}
+
+pub struct StructField {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub Type:       TypeExpression
+}
+
+pub struct TypeDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub Underlying: TypeExpression
+}
+
+pub struct AliasDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub Underlying: TypeExpression
+}
+
+pub struct EnumDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub TypeParams: Vec<Identifier, _>
+    pub Variants:   Vec<EnumVariant, _>
+}
+
+pub struct EnumVariant {
+    pub Token:  token.Token
+    pub Name:   Identifier
+    pub Fields: Vec<TypeExpression, _>
+}
+
+pub struct ImplDecl {
+    pub Token:    token.Token
+    pub TypeName: Identifier
+    pub Receiver: Identifier
+    pub Methods:  Vec<MethodDecl, _>
+}
+
+pub struct MethodDecl {
+    pub Token:      token.Token
+    pub Visibility: Visibility
+    pub Name:       Identifier
+    pub Parameters: Vec<Parameter, _>
+    pub ReturnType: TypeExpression
+    pub Body:       BlockStatement
+    pub Mutable:    bool
+}
+
+pub func LowerImplMethod(
+    pkg: string,
+    typeName: Identifier,
+    receiver: Identifier,
+    implTok: token.Token,
+    md: MethodDecl,
+) -> (FunctionDecl) {
+    mut var methodName: string = typeName.Value + "." + md.Name.Value
+    mut var recvTypeName: string = typeName.Value
+
+    if pkg != "main" {
+        methodName = pkg + "." + methodName
+        recvTypeName = pkg + "." + recvTypeName
+    }
+
+    var recvType: TypeExpression = TypeExpression.Simple(
+        SimpleType{
+            Token: typeName.Token,
+            Name:  recvTypeName,
+        },
+    )
+    mut var methodParams: Vec<Parameter, _> = Vec.with_cap(md.Parameters.len() + 1)
+
+    methodParams.push(
+        Parameter{
+            Token:   implTok,
+            Name:    Identifier{
+                Token: receiver.Token,
+                Value: receiver.Value,
+            },
+            Type:    recvType,
+            Mutable: md.Mutable,
+        },
+    )
+
+    mut var pi: int = 0
+
+    while pi < md.Parameters.len() {
+        methodParams.push(md.Parameters[pi])
+        pi = pi + 1
+    }
+
+    return FunctionDecl{
+        Token:      md.Token,
+        Visibility: md.Visibility,
+        Name:       Identifier{
+            Token: md.Name.Token,
+            Value: methodName,
+        },
+        TypeParams: Vec.new(),
+        Parameters: methodParams,
+        ReturnType: md.ReturnType,
+        Body:       md.Body,
+    }
+}
+
+pub enum Expression {
+    Identifier(Identifier)
+    MutableIdentifier(MutableIdentifier)
+    IntegerLiteral(IntegerLiteral)
+    FloatLiteral(FloatLiteral)
+    StringLiteral(StringLiteral)
+    CharLiteral(CharLiteral)
+    BooleanLiteral(BooleanLiteral)
+    VoidLiteral(VoidLiteral)
+    Prefix(PrefixExpression)
+    Infix(InfixExpression)
+    Call(CallExpression)
+    TypeConversion(TypeConversion)
+    MethodCall(MethodCallExpression)
+    FieldAccess(FieldAccessExpression)
+    Index(IndexExpression)
+    StructLiteral(StructLiteral)
+    VecLiteral(VecLiteral)
+    Tuple(TupleExpression)
+    Range(RangeExpression)
+    EnumVariant(EnumVariantExpression)
+    Borrow(BorrowExpression)
+    Box(BoxExpression)
+    Deref(DerefExpression)
+    FunctionLiteral(FunctionLiteral)
+}
+
+pub struct Identifier {
+    pub Token: token.Token
+    pub Value: string
+}
+
+pub struct MutableIdentifier {
+    pub Token: token.Token
+    pub Value: string
+}
+
+pub struct IntegerLiteral {
+    pub Token: token.Token
+    pub Value: int
+}
+
+pub struct FloatLiteral {
+    pub Token: token.Token
+    pub Value: float64
+}
+
+pub struct StringLiteral {
+    pub Token: token.Token
+    pub Value: string
+}
+
+pub struct CharLiteral {
+    pub Token: token.Token
+    pub Value: char
+}
+
+pub struct BooleanLiteral {
+    pub Token: token.Token
+    pub Value: bool
+}
+
+pub struct VoidLiteral {
+    pub Token: token.Token
+}
+
+pub struct PrefixExpression {
+    pub Token:    token.Token
+    pub Operator: string
+    pub Right:    Expression
+}
+
+pub struct InfixExpression {
+    pub Token:    token.Token
+    pub Left:     Expression
+    pub Right:    Expression
+    pub Operator: string
+}
+
+pub struct CallExpression {
+    pub Token:     token.Token
+    pub Function:  Expression
+    pub Arguments: Vec<Expression, _>
+}
+
+pub struct TypeConversion {
+    pub Token:    token.Token
+    pub TypeName: string
+    pub Value:    Expression
+}
+
+pub struct MethodCallExpression {
+    pub Token:     token.Token
+    pub Object:    Expression
+    pub Method:    Identifier
+    pub Arguments: Vec<Expression, _>
+}
+
+pub struct FieldAccessExpression {
+    pub Token:  token.Token
+    pub Object: Expression
+    pub Field:  Identifier
+}
+
+pub struct IndexExpression {
+    pub Token: token.Token
+    pub Left:  Expression
+    pub Index: Expression
+}
+
+pub struct StructFieldValue {
+    pub Name:  Identifier
+    pub Value: Expression
+}
+
+pub struct StructLiteral {
+    pub Token:  token.Token
+    pub Name:   Identifier
+    pub Fields: Vec<StructFieldValue, _>
+}
+
+pub struct VecLiteral {
+    pub Token:    token.Token
+    pub Elements: Vec<Expression, _>
+}
+
+pub struct TupleExpression {
+    pub Token:    token.Token
+    pub Elements: Vec<Expression, _>
+}
+
+pub struct RangeExpression {
+    pub Token:          token.Token
+    pub Start:          Expression
+    pub End:            Expression
+    pub StartInclusive: bool
+    pub EndInclusive:   bool
+}
+
+pub struct EnumVariantExpression {
+    pub Token:   token.Token
+    pub Variant: Identifier
+    pub Values:  Vec<Expression, _>
+}
+
+pub struct BorrowExpression {
+    pub Token:   token.Token
+    pub Mutable: bool
+    pub Value:   Expression
+}
+
+pub struct BoxExpression {
+    pub Token: token.Token
+    pub Value: Expression
+}
+
+pub struct DerefExpression {
+    pub Token: token.Token
+    pub Value: Expression
+}
+
+pub struct FunctionLiteral {
+    pub Token:      token.Token
+    pub Parameters: Vec<Parameter, _>
+    pub ReturnType: TypeExpression
+    pub Body:       BlockStatement
+}
+
+func cloneString(value: &string) -> (string) {
+    return *value
+}
+
+func cloneIdentifier(id: &Identifier) -> (Identifier) {
+    return Identifier{
+        Token: id.Token,
+        Value: cloneString(&id.Value),
+    }
+}
+
+func cloneMutableIdentifier(id: &MutableIdentifier) -> (MutableIdentifier) {
+    return MutableIdentifier{
+        Token: id.Token,
+        Value: cloneString(&id.Value),
+    }
+}
+
+func cloneIdentifierVec(ids: &Vec<Identifier, _>) -> (Vec<Identifier, _>) {
+    mut var out: Vec<Identifier, _> = Vec.with_cap(ids.len())
+    mut var i: int = 0
+
+    while i < ids.len() {
+        out.push(
+            cloneIdentifier(&(*ids)[i]),
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneTypeExpressionVec(types: &Vec<TypeExpression, _>) -> (Vec<TypeExpression, _>) {
+    mut var out: Vec<TypeExpression, _> = Vec.with_cap(types.len())
+    mut var i: int = 0
+
+    while i < types.len() {
+        out.push(
+            cloneTypeExpression(&(*types)[i]),
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneOptionTypeExpression(typeOpt: &Option<TypeExpression>) -> (Option<TypeExpression>) {
+    switch *typeOpt {
+        case Some(t) {
+            return Some(
+                cloneTypeExpression(&t),
+            )
+        }
+        case None {
+            return None
+        }
+    }
+}
+
+func cloneParameter(param: &Parameter) -> (Parameter) {
+    return Parameter{
+        Token:   param.Token,
+        Name:    cloneIdentifier(&param.Name),
+        Type:    cloneTypeExpression(&param.Type),
+        Mutable: param.Mutable,
+    }
+}
+
+func cloneParameterVec(params: &Vec<Parameter, _>) -> (Vec<Parameter, _>) {
+    mut var out: Vec<Parameter, _> = Vec.with_cap(params.len())
+    mut var i: int = 0
+
+    while i < params.len() {
+        out.push(
+            cloneParameter(&(*params)[i]),
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneTypeExpression(t: &TypeExpression) -> (TypeExpression) {
+    switch *t {
+        case TypeExpression.Simple(st) {
+            return TypeExpression.Simple(
+                SimpleType{
+                    Token: st.Token,
+                    Name:  cloneString(&st.Name),
+                },
+            )
+        }
+        case TypeExpression.Generic(gt) {
+            return TypeExpression.Generic(
+                GenericType{
+                    Token:      gt.Token,
+                    Name:       cloneString(&gt.Name),
+                    TypeParams: cloneTypeExpressionVec(&gt.TypeParams),
+                },
+            )
+        }
+        case TypeExpression.BorrowRef(bt) {
+            return TypeExpression.BorrowRef(
+                BorrowType{
+                    Token:   bt.Token,
+                    Mutable: bt.Mutable,
+                    Inner:   cloneTypeExpression(&bt.Inner),
+                },
+            )
+        }
+        case TypeExpression.BoxRef(bt) {
+            return TypeExpression.BoxRef(
+                BoxType{
+                    Token: bt.Token,
+                    Inner: cloneTypeExpression(&bt.Inner),
+                },
+            )
+        }
+        case TypeExpression.BoxOptional(bt) {
+            return TypeExpression.BoxOptional(
+                BoxOptionalType{
+                    Token: bt.Token,
+                    Inner: cloneTypeExpression(&bt.Inner),
+                },
+            )
+        }
+        case TypeExpression.Size(st) {
+            return TypeExpression.Size(
+                SizeExpression{
+                    Token:     st.Token,
+                    Value:     st.Value,
+                    IsDynamic: st.IsDynamic,
+                },
+            )
+        }
+        case TypeExpression.Void(vt) {
+            return TypeExpression.Void(
+                VoidType{
+                    Token: vt.Token,
+                },
+            )
+        }
+        case TypeExpression.Error(et) {
+            return TypeExpression.Error(
+                ErrorType{
+                    Token:   et.Token,
+                    Message: cloneString(&et.Message),
+                },
+            )
+        }
+        case TypeExpression.TupleRef(tt) {
+            return TypeExpression.TupleRef(
+                TupleType{
+                    Token:    tt.Token,
+                    Elements: cloneTypeExpressionVec(&tt.Elements),
+                },
+            )
+        }
+        case TypeExpression.Function(ft) {
+            return TypeExpression.Function(
+                FunctionType{
+                    Token:      ft.Token,
+                    Parameters: cloneTypeExpressionVec(&ft.Parameters),
+                    ReturnType: cloneTypeExpression(&ft.ReturnType),
+                },
+            )
+        }
+        default {
+            return *t
+        }
+    }
+}
+
+func cloneExpressionVec(values: &Vec<Expression, _>) -> (Vec<Expression, _>) {
+    mut var out: Vec<Expression, _> = Vec.with_cap(values.len())
+    mut var i: int = 0
+
+    while i < values.len() {
+        out.push(
+            cloneExpression(&(*values)[i]),
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneStructFieldValueVec(fields: &Vec<StructFieldValue, _>) -> (Vec<StructFieldValue, _>) {
+    mut var out: Vec<StructFieldValue, _> = Vec.with_cap(fields.len())
+    mut var i: int = 0
+
+    while i < fields.len() {
+        out.push(
+            StructFieldValue{
+                Name:  cloneIdentifier(&((*fields)[i]).Name),
+                Value: cloneExpression(&((*fields)[i]).Value),
+            },
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneOptionExpression(exprOpt: &Option<Expression>) -> (Option<Expression>) {
+    switch *exprOpt {
+        case Some(expr) {
+            return Some(
+                cloneExpression(&expr),
+            )
+        }
+        case None {
+            return None
+        }
+    }
+}
+
+func cloneOptionBlockStatement(blockOpt: &Option<BlockStatement>) -> (Option<BlockStatement>) {
+    switch *blockOpt {
+        case Some(block) {
+            return Some(
+                cloneBlockStatement(&block),
+            )
+        }
+        case None {
+            return None
+        }
+    }
+}
+
+func cloneExpression(expr: &Expression) -> (Expression) {
+    switch *expr {
+        case Expression.Identifier(id) {
+            return Expression.Identifier(
+                cloneIdentifier(&id),
+            )
+        }
+        case Expression.MutableIdentifier(idm) {
+            return Expression.MutableIdentifier(
+                cloneMutableIdentifier(&idm),
+            )
+        }
+        case Expression.IntegerLiteral(il) {
+            return Expression.IntegerLiteral(
+                IntegerLiteral{
+                    Token: il.Token,
+                    Value: il.Value,
+                },
+            )
+        }
+        case Expression.FloatLiteral(fl) {
+            return Expression.FloatLiteral(
+                FloatLiteral{
+                    Token: fl.Token,
+                    Value: fl.Value,
+                },
+            )
+        }
+        case Expression.StringLiteral(sl) {
+            return Expression.StringLiteral(
+                StringLiteral{
+                    Token: sl.Token,
+                    Value: cloneString(&sl.Value),
+                },
+            )
+        }
+        case Expression.CharLiteral(cl) {
+            return Expression.CharLiteral(
+                CharLiteral{
+                    Token: cl.Token,
+                    Value: cl.Value,
+                },
+            )
+        }
+        case Expression.BooleanLiteral(bl) {
+            return Expression.BooleanLiteral(
+                BooleanLiteral{
+                    Token: bl.Token,
+                    Value: bl.Value,
+                },
+            )
+        }
+        case Expression.VoidLiteral(vl) {
+            return Expression.VoidLiteral(
+                VoidLiteral{
+                    Token: vl.Token,
+                },
+            )
+        }
+        case Expression.Prefix(pe) {
+            return Expression.Prefix(
+                PrefixExpression{
+                    Token:    pe.Token,
+                    Operator: cloneString(&pe.Operator),
+                    Right:    cloneExpression(&pe.Right),
+                },
+            )
+        }
+        case Expression.Infix(ie) {
+            return Expression.Infix(
+                InfixExpression{
+                    Token:    ie.Token,
+                    Left:     cloneExpression(&ie.Left),
+                    Right:    cloneExpression(&ie.Right),
+                    Operator: cloneString(&ie.Operator),
+                },
+            )
+        }
+        case Expression.Call(ce) {
+            return Expression.Call(
+                CallExpression{
+                    Token:     ce.Token,
+                    Function:  cloneExpression(&ce.Function),
+                    Arguments: cloneExpressionVec(&ce.Arguments),
+                },
+            )
+        }
+        case Expression.TypeConversion(tc) {
+            return Expression.TypeConversion(
+                TypeConversion{
+                    Token:    tc.Token,
+                    TypeName: cloneString(&tc.TypeName),
+                    Value:    cloneExpression(&tc.Value),
+                },
+            )
+        }
+        case Expression.MethodCall(mc) {
+            return Expression.MethodCall(
+                MethodCallExpression{
+                    Token:     mc.Token,
+                    Object:    cloneExpression(&mc.Object),
+                    Method:    cloneIdentifier(&mc.Method),
+                    Arguments: cloneExpressionVec(&mc.Arguments),
+                },
+            )
+        }
+        case Expression.FieldAccess(fe) {
+            return Expression.FieldAccess(
+                FieldAccessExpression{
+                    Token:  fe.Token,
+                    Object: cloneExpression(&fe.Object),
+                    Field:  cloneIdentifier(&fe.Field),
+                },
+            )
+        }
+        case Expression.Index(ie) {
+            return Expression.Index(
+                IndexExpression{
+                    Token: ie.Token,
+                    Left:  cloneExpression(&ie.Left),
+                    Index: cloneExpression(&ie.Index),
+                },
+            )
+        }
+        case Expression.StructLiteral(sl) {
+            return Expression.StructLiteral(
+                StructLiteral{
+                    Token:  sl.Token,
+                    Name:   cloneIdentifier(&sl.Name),
+                    Fields: cloneStructFieldValueVec(&sl.Fields),
+                },
+            )
+        }
+        case Expression.VecLiteral(vl) {
+            return Expression.VecLiteral(
+                VecLiteral{
+                    Token:    vl.Token,
+                    Elements: cloneExpressionVec(&vl.Elements),
+                },
+            )
+        }
+        case Expression.Tuple(te) {
+            return Expression.Tuple(
+                TupleExpression{
+                    Token:    te.Token,
+                    Elements: cloneExpressionVec(&te.Elements),
+                },
+            )
+        }
+        case Expression.Range(re) {
+            return Expression.Range(
+                RangeExpression{
+                    Token:          re.Token,
+                    Start:          cloneExpression(&re.Start),
+                    End:            cloneExpression(&re.End),
+                    StartInclusive: re.StartInclusive,
+                    EndInclusive:   re.EndInclusive,
+                },
+            )
+        }
+        case Expression.EnumVariant(ev) {
+            return Expression.EnumVariant(
+                EnumVariantExpression{
+                    Token:   ev.Token,
+                    Variant: cloneIdentifier(&ev.Variant),
+                    Values:  cloneExpressionVec(&ev.Values),
+                },
+            )
+        }
+        case Expression.Borrow(be) {
+            return Expression.Borrow(
+                BorrowExpression{
+                    Token:   be.Token,
+                    Mutable: be.Mutable,
+                    Value:   cloneExpression(&be.Value),
+                },
+            )
+        }
+        case Expression.Box(be) {
+            return Expression.Box(
+                BoxExpression{
+                    Token: be.Token,
+                    Value: cloneExpression(&be.Value),
+                },
+            )
+        }
+        case Expression.Deref(de) {
+            return Expression.Deref(
+                DerefExpression{
+                    Token: de.Token,
+                    Value: cloneExpression(&de.Value),
+                },
+            )
+        }
+        case Expression.FunctionLiteral(fl) {
+            return Expression.FunctionLiteral(
+                FunctionLiteral{
+                    Token:      fl.Token,
+                    Parameters: cloneParameterVec(&fl.Parameters),
+                    ReturnType: cloneTypeExpression(&fl.ReturnType),
+                    Body:       cloneBlockStatement(&fl.Body),
+                },
+            )
+        }
+        default {
+            return *expr
+        }
+    }
+}
+
+func cloneStatementVec(stmts: &Vec<Statement, _>) -> (Vec<Statement, _>) {
+    mut var out: Vec<Statement, _> = Vec.with_cap(stmts.len())
+    mut var i: int = 0
+
+    while i < stmts.len() {
+        out.push(
+            cloneStatement(&(*stmts)[i]),
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneSwitchCaseVec(cases: &Vec<SwitchCase, _>) -> (Vec<SwitchCase, _>) {
+    mut var out: Vec<SwitchCase, _> = Vec.with_cap(cases.len())
+    mut var i: int = 0
+
+    while i < cases.len() {
+        out.push(
+            SwitchCase{
+                Token:   (*cases)[i].Token,
+                Values:  cloneExpressionVec(&((*cases)[i]).Values),
+                Body:    cloneBlockStatement(&((*cases)[i]).Body),
+                Default: (*cases)[i].Default,
+            },
+        )
+        i = i + 1
+    }
+
+    return out
+}
+
+func cloneStatement(stmt: &Statement) -> (Statement) {
+    switch *stmt {
+        case Statement.Var(vs) {
+            return Statement.Var(
+                VarStatement{
+                    Token:   vs.Token,
+                    Name:    cloneIdentifier(&vs.Name),
+                    Type:    cloneOptionTypeExpression(&vs.Type),
+                    Value:   cloneOptionExpression(&vs.Value),
+                    Mutable: vs.Mutable,
+                },
+            )
+        }
+        case Statement.MultiVar(mvs) {
+            mut var outNames: Vec<Identifier, _> = Vec.with_cap(mvs.Names.len())
+            mut var outTypes: Vec<Option<TypeExpression>, _> = Vec.with_cap(mvs.Types.len())
+            mut var i: int = 0
+
+            while i < mvs.Names.len() {
+                outNames.push(
+                    cloneIdentifier(&mvs.Names[i]),
+                )
+                i = i + 1
+            }
+
+            i = 0
+            while i < mvs.Types.len() {
+                outTypes.push(
+                    cloneOptionTypeExpression(&mvs.Types[i]),
+                )
+                i = i + 1
+            }
+
+            return Statement.MultiVar(
+                MultiVarStatement{
+                    Token:   mvs.Token,
+                    Names:   outNames,
+                    Types:   outTypes,
+                    Value:   cloneOptionExpression(&mvs.Value),
+                    Mutable: mvs.Mutable,
+                },
+            )
+        }
+        case Statement.Const(cs) {
+            return Statement.Const(
+                ConstStatement{
+                    Token:      cs.Token,
+                    Visibility: cs.Visibility,
+                    Name:       cloneIdentifier(&cs.Name),
+                    Type:       cloneOptionTypeExpression(&cs.Type),
+                    Value:      cloneExpression(&cs.Value),
+                },
+            )
+        }
+        case Statement.ConstBlock(cb) {
+            mut var outConsts: Vec<ConstStatement, _> = Vec.with_cap(cb.Constants.len())
+            mut var i2: int = 0
+
+            while i2 < cb.Constants.len() {
+                var c: ConstStatement = cb.Constants[i2]
+
+                outConsts.push(
+                    ConstStatement{
+                        Token:      c.Token,
+                        Visibility: c.Visibility,
+                        Name:       cloneIdentifier(&c.Name),
+                        Type:       cloneOptionTypeExpression(&c.Type),
+                        Value:      cloneExpression(&c.Value),
+                    },
+                )
+
+                i2 = i2 + 1
+            }
+
+            return Statement.ConstBlock(
+                ConstBlock{
+                    Token:     cb.Token,
+                    Constants: outConsts,
+                },
+            )
+        }
+        case Statement.VarBlock(vb) {
+            mut var outVars: Vec<VarStatement, _> = Vec.with_cap(vb.Variables.len())
+            mut var i3: int = 0
+
+            while i3 < vb.Variables.len() {
+                var v: VarStatement = vb.Variables[i3]
+
+                outVars.push(
+                    VarStatement{
+                        Token:   v.Token,
+                        Name:    cloneIdentifier(&v.Name),
+                        Type:    cloneOptionTypeExpression(&v.Type),
+                        Value:   cloneOptionExpression(&v.Value),
+                        Mutable: v.Mutable,
+                    },
+                )
+
+                i3 = i3 + 1
+            }
+
+            return Statement.VarBlock(
+                VarBlock{
+                    Token:     vb.Token,
+                    Variables: outVars,
+                },
+            )
+        }
+        case Statement.Return(rs) {
+            return Statement.Return(
+                ReturnStatement{
+                    Token:       rs.Token,
+                    ReturnValue: cloneOptionExpression(&rs.ReturnValue),
+                },
+            )
+        }
+        case Statement.Expression(es) {
+            return Statement.Expression(
+                ExpressionStatement{
+                    Token:      es.Token,
+                    Expression: cloneExpression(&es.Expression),
+                },
+            )
+        }
+        case Statement.Block(bs) {
+            return Statement.Block(
+                cloneBlockStatement(&bs),
+            )
+        }
+        case Statement.If(is) {
+            return Statement.If(
+                IfStatement{
+                    Token:       is.Token,
+                    Condition:   cloneExpression(&is.Condition),
+                    Consequence: cloneBlockStatement(&is.Consequence),
+                    Alternative: cloneOptionBlockStatement(&is.Alternative),
+                },
+            )
+        }
+        case Statement.While(ws) {
+            return Statement.While(
+                WhileStatement{
+                    Token:     ws.Token,
+                    Condition: cloneExpression(&ws.Condition),
+                    Body:      cloneBlockStatement(&ws.Body),
+                },
+            )
+        }
+        case Statement.For(fs) {
+            return Statement.For(
+                ForStatement{
+                    Token:    fs.Token,
+                    Variable: cloneIdentifier(&fs.Variable),
+                    Iterable: cloneExpression(&fs.Iterable),
+                    Body:     cloneBlockStatement(&fs.Body),
+                },
+            )
+        }
+        case Statement.Switch(ss) {
+            return Statement.Switch(
+                SwitchStatement{
+                    Token: ss.Token,
+                    Value: cloneExpression(&ss.Value),
+                    Cases: cloneSwitchCaseVec(&ss.Cases),
+                },
+            )
+        }
+        case Statement.Defer(ds) {
+            return Statement.Defer(
+                DeferStatement{
+                    Token: ds.Token,
+                    Body:  cloneBlockStatement(&ds.Body),
+                },
+            )
+        }
+        case Statement.Panic(ps) {
+            return Statement.Panic(
+                PanicStatement{
+                    Token:   ps.Token,
+                    Message: cloneExpression(&ps.Message),
+                },
+            )
+        }
+        case Statement.Unsafe(us) {
+            return Statement.Unsafe(
+                UnsafeBlock{
+                    Token: us.Token,
+                    Body:  cloneBlockStatement(&us.Body),
+                },
+            )
+        }
+        case Statement.Break(bs) {
+            return Statement.Break(
+                BreakStatement{
+                    Token: bs.Token,
+                },
+            )
+        }
+        case Statement.Continue(cs) {
+            return Statement.Continue(
+                ContinueStatement{
+                    Token: cs.Token,
+                },
+            )
+        }
+        case Statement.Assignment(assignStmt) {
+            return Statement.Assignment(
+                AssignmentStatement{
+                    Token:      assignStmt.Token,
+                    Left:       cloneExpression(&assignStmt.Left),
+                    Value:      cloneExpression(&assignStmt.Value),
+                    TargetName: cloneString(&assignStmt.TargetName),
+                    ValueKind:  assignStmt.ValueKind,
+                    ValueInt:   assignStmt.ValueInt,
+                    ValueFloat: assignStmt.ValueFloat,
+                    ValueBool:  assignStmt.ValueBool,
+                    ValueChar:  assignStmt.ValueChar,
+                    ValueText:  cloneString(&assignStmt.ValueText),
+                },
+            )
+        }
+        default {
+            return *stmt
+        }
+    }
+}
+
+func cloneBlockStatement(block: &BlockStatement) -> (BlockStatement) {
+    return BlockStatement{
+        Token:      block.Token,
+        Statements: cloneStatementVec(&block.Statements),
+    }
+}
+
+pub func CloneStatement(stmt: &Statement) -> (Statement) {
+    return cloneStatement(stmt)
+}
+
+pub func CloneFunctionDecl(fd: &FunctionDecl) -> (FunctionDecl) {
+    return FunctionDecl{
+        Token:      fd.Token,
+        Visibility: fd.Visibility,
+        Name:       cloneIdentifier(&fd.Name),
+        TypeParams: cloneIdentifierVec(&fd.TypeParams),
+        Parameters: cloneParameterVec(&fd.Parameters),
+        ReturnType: cloneTypeExpression(&fd.ReturnType),
+        Body:       cloneBlockStatement(&fd.Body),
+    }
+}

@@ -1,0 +1,11 @@
+package main
+
+func foo(x: int64) -> (void) {
+    println(x)
+    return void
+}
+
+func main() -> (void) {
+    foo(5)
+    return void
+}

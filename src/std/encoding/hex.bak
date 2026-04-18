@@ -1,0 +1,179 @@
+package hex
+
+// =============================================================================
+// Hexadecimal Encoding/Decoding for Bak
+// =============================================================================
+// Pure Bak implementation of hexadecimal string encoding.
+
+// Hex alphabet
+const HEX_LOWER: string = "0123456789abcdef"
+const HEX_UPPER: string = "0123456789ABCDEF"
+
+// Character constants for parsing
+const CH_0: int = 48
+const CH_9: int = 57
+const CH_A_LOWER: int = 97
+const CH_F_LOWER: int = 102
+const CH_A_UPPER: int = 65
+const CH_F_UPPER: int = 70
+
+// -----------------------------------------------------------------------------
+// Encoding
+// -----------------------------------------------------------------------------
+
+// encode encodes a string to its hexadecimal representation
+// Each byte becomes two hex characters
+pub func encode(data: &string) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < data.len() {
+        var b: int = int(data[i])
+        var high: int = (b / 16) % 16
+        var low: int = b % 16
+        result = result + string(HEX_LOWER[high]) + string(HEX_LOWER[low])
+        i = i + 1
+    }
+    return result
+}
+
+// encode_upper encodes to uppercase hex
+pub func encode_upper(data: &string) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < data.len() {
+        var b: int = int(data[i])
+        var high: int = (b / 16) % 16
+        var low: int = b % 16
+        result = result + string(HEX_UPPER[high]) + string(HEX_UPPER[low])
+        i = i + 1
+    }
+    return result
+}
+
+// -----------------------------------------------------------------------------
+// Decoding
+// -----------------------------------------------------------------------------
+
+// hex_digit_value returns the numeric value of a hex digit, or -1 if invalid
+func hex_digit_value(ch: char) -> (int) {
+    var code: int = int(ch)
+    if code >= CH_0 && code <= CH_9 {
+        return code - CH_0
+    }
+    if code >= CH_A_LOWER && code <= CH_F_LOWER {
+        return code - CH_A_LOWER + 10
+    }
+    if code >= CH_A_UPPER && code <= CH_F_UPPER {
+        return code - CH_A_UPPER + 10
+    }
+    return -1
+}
+
+// decode decodes a hexadecimal string back to the original data
+// Returns an error if the input has odd length or invalid characters
+pub func decode(hex_str: &string) -> (Result<string, string>) {
+    if hex_str.len() % 2 != 0 {
+        return Err("hex string has odd length")
+    }
+    
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < hex_str.len() {
+        var high: int = hex_digit_value(hex_str[i])
+        var low: int = hex_digit_value(hex_str[i + 1])
+        
+        if high < 0 || low < 0 {
+            return Err("invalid hex character")
+        }
+        
+        var byte_val: int = high * 16 + low
+        result = result + string(char(byte_val))
+        i = i + 2
+    }
+    return Ok(result)
+}
+
+// -----------------------------------------------------------------------------
+// Utility Functions
+// -----------------------------------------------------------------------------
+
+// is_valid_hex checks if a string contains only valid hex characters
+pub func is_valid_hex(s: &string) -> (bool) {
+    if s.len() % 2 != 0 {
+        return false
+    }
+    mut var i: int = 0
+    while i < s.len() {
+        if hex_digit_value(s[i]) < 0 {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// encode_int formats an integer as a hex string (without 0x prefix)
+pub func encode_int(n: int) -> (string) {
+    if n == 0 {
+        return "0"
+    }
+    
+    mut var negative: bool = false
+    mut var num: int = n
+    if num < 0 {
+        negative = true
+        num = 0 - num
+    }
+    
+    mut var digits: Vec<char, _> = Vec.new()
+    while num > 0 {
+        var digit: int = num % 16
+        digits.push(HEX_LOWER[digit])
+        num = num / 16
+    }
+    
+    mut var result: string = ""
+    if negative {
+        result = "-"
+    }
+    mut var i: int = digits.len() - 1
+    while i >= 0 {
+        result = result + string(digits[i])
+        i = i - 1
+    }
+    return result
+}
+
+// decode_int parses a hex string as an integer
+pub func decode_int(s: &string) -> (Result<int, string>) {
+    if s.len() == 0 {
+        return Err("empty string")
+    }
+    
+    mut var idx: int = 0
+    mut var negative: bool = false
+    
+    if s[0] == char('-') {
+        negative = true
+        idx = 1
+    }
+    
+    if idx >= s.len() {
+        return Err("invalid syntax")
+    }
+    
+    mut var result: int = 0
+    while idx < s.len() {
+        var digit: int = hex_digit_value(s[idx])
+        if digit < 0 {
+            return Err("invalid hex character")
+        }
+        result = result * 16 + digit
+        idx = idx + 1
+    }
+    
+    if negative {
+        result = 0 - result
+    }
+    return Ok(result)
+}

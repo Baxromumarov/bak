@@ -1,0 +1,39 @@
+package main
+
+struct Pair {
+    X: int
+}
+
+func main() -> (int) {
+    mut var score: int = 0
+
+    // Vec<bool>
+    mut var vb: Vec<bool, _> = Vec.new()
+    vb.push(true)
+    vb.push(false)
+    if vb[0] {
+        score = score + 1
+    }
+    if vb[1] {
+        score = score + 1
+    }
+
+    // Vec<char>
+    mut var vc: Vec<char, _> = Vec.new()
+    vc.push('A')
+    vc.push('B')
+    if vc[0] == 'A' {
+        score = score + 1
+    }
+    if vc[1] == 'B' {
+        score = score + 1
+    }
+
+    // Vec<struct>
+    mut var vp: Vec<Pair, _> = Vec.new()
+    vp.push(Pair{X: 7})
+    vp.push(Pair{X: 9})
+    score = score + vp[0].X + vp[1].X
+
+    return score
+}

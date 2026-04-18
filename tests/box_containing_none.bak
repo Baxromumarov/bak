@@ -1,0 +1,29 @@
+package main
+
+struct Node {
+    value: int
+    next: Node box?
+}
+
+func main() -> (void) {
+    var n: Node = Node { value: 2, next: None }
+
+    // Box containing None
+    var head: Node = Node { value: 1, next: Box(None) }
+
+    // Box.is_some() should be false
+    if head.next.is_some() {
+        println("ERROR is_some on Box(None)")
+    } else {
+        println("box(None) is_some ok")
+    }
+
+    // switch should treat Box(None) as None
+    switch head.next {
+        case Some(_) { println("ERROR switch matched Some on Box(None)") }
+        case None { println("box(None) switch ok") }
+    }
+
+    println("TEST_OK")
+    return void
+}

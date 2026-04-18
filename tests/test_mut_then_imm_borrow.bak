@@ -1,0 +1,18 @@
+// ❌ TEST 3: mutable borrow then immutable borrow - should fail
+package main
+
+func inspect(v: &Vec<int,_>) -> (int) {
+    return v.len()
+}
+
+func modify(v: &mut Vec<int,_>) -> (void) {
+    v.push(100)
+    return void
+}
+
+func main() -> (void) {
+    mut var v: Vec<int,_> = Vec.from([1,2,3])
+    modify(&mut v)
+    inspect(&v)  // ❌ should error: v is still mutably borrowed
+    return void
+}

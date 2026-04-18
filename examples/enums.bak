@@ -1,0 +1,69 @@
+// A complete example: Enums and Pattern Matching in bak
+// Demonstrates enums as tagged unions
+
+package main
+
+// Define a custom enum for different shapes
+enum Shape {
+    Circle(float64)
+    Rectangle(float64, float64)
+    Triangle(float64, float64)
+}
+
+func calculateArea(shape: Shape) -> (float64) {
+    switch shape {
+        case Circle(radius) {
+            // Area = π * r²
+            return 3.14159 * radius * radius
+        }
+        case Rectangle(width, height) {
+            return width * height
+        }
+        case Triangle(base, height) {
+            return 0.5 * base * height
+        }
+    }
+}
+
+// Traffic light example
+enum TrafficLight {
+    Red
+    Yellow
+    Green
+}
+
+func getAction(light: TrafficLight) -> (string) {
+    switch light {
+        case Red {
+            return "Stop!"
+        }
+        case Yellow {
+            return "Slow down"
+        }
+        case Green {
+            return "Go!"
+        }
+    }
+}
+
+func main() -> (void) {
+    println("=== Shape Areas ===")
+    
+    var circle = Circle(5.0)
+    var rectangle = Rectangle(4.0, 6.0)
+    var triangle = Triangle(3.0, 4.0)
+    
+    println("Circle area:", calculateArea(circle))
+    println("Rectangle area:", calculateArea(rectangle))
+    println("Triangle area:", calculateArea(triangle))
+    
+    println("\n=== Traffic Light ===")
+    
+    var red: TrafficLight = Red
+    var yellow: TrafficLight = Yellow
+    var green: TrafficLight = Green
+    
+    println("Red light:", getAction(red))
+    println("Yellow light:", getAction(yellow))
+    println("Green light:", getAction(green))
+}

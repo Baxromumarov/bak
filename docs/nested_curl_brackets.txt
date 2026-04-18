@@ -1,0 +1,65 @@
+
+# Block Scopes and Nested Braces in bak
+
+## Block Scope Rules
+
+- A `{ ... }` block introduces a new lexical scope.
+- Variables declared inside a block do not escape.
+- Variables from outer scopes are visible and can be read or mutated inside the block.
+- Mutation is allowed if the variable is mutable and no conflicting borrow exists.
+
+## Example
+```
+func main() -> (void) {
+    var num: int = 12
+    {
+        num = 12 // valid: mutating outer variable
+    }
+    return void
+}
+```
+
+## Shadowing
+
+- Shadowing outer variables inside a block is disallowed in bak v1.
+- Example:
+  - Error: variable 'x' already declared in outer scope
+
+## Borrowing and Blocks
+
+- Block scopes work naturally with borrowing rules.
+- Example:
+```
+var d: Data
+{
+    var p: &mut Data = &mut d
+    modify(p)
+}
+inspect(&d) // OK: borrow ends at block exit
+```
+
+## Implementation Notes
+
+- Each `{}` pushes a new scope and pops it at the end.
+- No special cases; block parsing and scope management are straightforward.
+
+## What Not to Do
+
+- Do not treat `{}` as just grouping.
+- Do not allow scope reuse or runtime-only blocks.
+
+## Language Comparison
+
+| Language | Bare `{}` allowed | Mutates outer vars |
+|----------|-------------------|--------------------|
+| C        | OK                | OK                 |
+| Rust     | OK                | OK                 |
+| Go       | No (only control) | N/A                |
+| Zig      | OK                | OK                 |
+| Bak      | OK                | OK                 |
+
+## Summary
+
+- Blocks create scopes, not variables.
+- Outer variables are visible and mutable inside blocks.
+- No shadowing in v1 for clarity and safety.

@@ -1,0 +1,9 @@
+package main
+
+alias Code = string
+
+func main() -> (void) {
+    var a: Code = "hi"
+    var _b: string = a + "!"
+    return void
+}

@@ -1,0 +1,17 @@
+// tests/unused_checks/unused_vars_consts.bak
+// Expected: warning for `UNUSED_CONST` and `unusedVar`; no warning for `USED_CONST` and `usedVar`.
+package main
+
+const USED_CONST: int = 1
+const UNUSED_CONST: int = 2
+
+var usedVar: int = 3
+var unusedVar: int = 4
+var _ignoredVar: int = 5 // intentionally ignored
+
+func main() -> (void) {
+    println(USED_CONST)
+    var x = usedVar + 1
+    println(x)
+    return void
+}

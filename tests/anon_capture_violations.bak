@@ -1,0 +1,32 @@
+package main
+
+func main() {
+    var x: int = 10
+    
+    // Violation 1: Capture local variable
+    var f1 = func() {
+        println(x) // If uncommented, should fail
+    }
+    f1()
+}
+
+func test_param(a: int) {
+    // Violation 2: Capture parameter
+    var f = func() {
+        println(a) // If uncommented, should fail
+    }
+    f()
+}
+
+func test_nested_capture() {
+    var x: int = 1
+    var f = func() {
+        var y: int = 2
+        var f2 = func() {
+            println(x) // Fail
+            println(y) // Fail
+        }
+        f2()
+    }
+    f()
+}

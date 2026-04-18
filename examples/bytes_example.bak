@@ -1,0 +1,31 @@
+import "src/std/bytes/bytes.bak" as bytes
+
+func main() {
+    // create bytes from string
+    var b: bytes.Bytes = bytes.from_string("hello world")
+    println("len=", b.len())
+
+    // immutable view
+    var vRes = bytes.view(&b, 0, 5)
+    case vRes {
+        case Ok(v) {
+            println("view len=", bytes.view_len(&v))
+        }
+        case Err(e) {
+            println("view error:", e)
+        }
+    }
+
+    // mutable view
+    var mvRes = bytes.view_mut(&mut b, 6, 5)
+    case mvRes {
+        case Ok(mut mv) {
+            bytes.view_mut_set(&mut mv, 0, int('B'))
+        }
+        case Err(e) {
+            println("view_mut error:", e)
+        }
+    }
+
+    println("as string:", bytes.to_string(&b))
+}

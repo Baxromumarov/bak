@@ -1,0 +1,27 @@
+package sort
+
+import "src/std/collections/hashmap.bak" as hashmap
+import "src/std/sort/vector.bak" as vector
+
+// Return sorted keys from HashMap<K, V>.
+pub func sorted_keys<K, V>(
+    map: &hashmap.HashMap<K, V>,
+    asc: bool,
+    cmp: func(&K, &K) -> (int)
+) -> (Vec<K, _>) {
+    mut var keys: Vec<K, _> = map.keys()
+    vector.sort(&mut keys, asc, cmp)
+    return keys
+}
+
+// Return sorted keys from HashMap<K, V> using a custom less function.
+pub func sorted_keys_by<K, V>(
+    map: &hashmap.HashMap<K, V>,
+    asc: bool,
+    less: func(&K, &K) -> (bool)
+) -> (Vec<K, _>) {
+    mut var keys: Vec<K, _> = map.keys()
+    vector.sort_by(&mut keys, asc, less)
+    return keys
+}
+

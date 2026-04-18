@@ -1,0 +1,147 @@
+package sort
+
+import "src/std/test/test.bak" as test
+import "src/std/sort/vector.bak" as sortlib
+
+struct Item {
+    key: int
+    name: string
+}
+
+func compare_items(a: &Item, b: &Item) -> (int) {
+    if a.key < b.key { return -1 }
+    if a.key > b.key { return 1 }
+    return 0
+}
+
+func less_items(a: &Item, b: &Item) -> (bool) {
+    return a.key < b.key
+}
+func test_sort_ints() -> (void) {
+    mut var t: test.T = test.new("test_sort_ints")
+    mut var nums: Vec<int, _> = Vec.from([3, 1, 2])
+    sortlib.sort_ints(&mut nums, true)
+    t.eq(nums[0], 1)
+    t.eq(nums[1], 2)
+    t.eq(nums[2], 3)
+    t.is_true(sortlib.is_sorted_ints(&nums, true))
+    t.finish()
+}
+
+func test_sort_ints_desc() -> (void) {
+    mut var t: test.T = test.new("test_sort_ints_desc")
+    mut var nums: Vec<int, _> = Vec.from([3, 1, 2])
+    sortlib.sort_ints(&mut nums, false)
+    t.eq(nums[0], 3)
+    t.eq(nums[1], 2)
+    t.eq(nums[2], 1)
+    t.is_true(sortlib.is_sorted_ints(&nums, false))
+    t.finish()
+}
+
+func test_sort_strings() -> (void) {
+    mut var t: test.T = test.new("test_sort_strings")
+    mut var names: Vec<string, _> = Vec.from(["c", "a", "b"])
+    sortlib.sort_strings(&mut names, true)
+    t.eq_string(names[0], "a")
+    t.eq_string(names[1], "b")
+    t.eq_string(names[2], "c")
+    t.is_true(sortlib.is_sorted_strings(&names, true))
+    t.finish()
+}
+
+func test_sort_generic_cmp() -> (void) {
+    mut var t: test.T = test.new("test_sort_generic_cmp")
+    mut var items: Vec<Item, _> = Vec.from([
+        Item{key: 3, name: "c"},
+        Item{key: 1, name: "a"},
+        Item{key: 2, name: "b"},
+    ])
+    sortlib.sort(&mut items, true, compare_items)
+    t.eq(items[0].key, 1)
+    t.eq(items[1].key, 2)
+    t.eq(items[2].key, 3)
+    t.is_true(sortlib.is_sorted(&items, true, compare_items))
+    t.finish()
+}
+
+func test_sort_by() -> (void) {
+    mut var t: test.T = test.new("test_sort_by")
+    mut var items: Vec<Item, _> = Vec.from([
+        Item{key: 2, name: "b"},
+        Item{key: 1, name: "a"},
+        Item{key: 3, name: "c"},
+    ])
+    sortlib.sort_by(&mut items, false, less_items)
+    t.eq(items[0].key, 3)
+    t.eq(items[1].key, 2)
+    t.eq(items[2].key, 1)
+    t.finish()
+}
+
+func test_reverse() -> (void) {
+    mut var t: test.T = test.new("test_reverse")
+    mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+    sortlib.reverse(&mut nums)
+    t.eq(nums[0], 3)
+    t.eq(nums[1], 2)
+    t.eq(nums[2], 1)
+    t.finish()
+}
+
+func test_empty_vec() -> (void) {
+    mut var t: test.T = test.new("test_empty_vec")
+    mut var nums: Vec<int, _> = Vec.new()
+    sortlib.sort_ints(&mut nums, true)
+    sortlib.reverse(&mut nums)
+    t.eq(nums.len(), 0)
+    t.is_true(sortlib.is_sorted_ints(&nums, true))
+    t.finish()
+}
+
+func test_single_element() -> (void) {
+    mut var t: test.T = test.new("test_single_element")
+    mut var nums: Vec<int, _> = Vec.from([7])
+    sortlib.sort_ints(&mut nums, true)
+    t.eq(nums[0], 7)
+    sortlib.reverse(&mut nums)
+    t.eq(nums[0], 7)
+    t.is_true(sortlib.is_sorted_ints(&nums, true))
+    t.finish()
+}
+
+func test_duplicates() -> (void) {
+    mut var t: test.T = test.new("test_duplicates")
+    mut var nums: Vec<int, _> = Vec.from([2, 1, 2, 1])
+    sortlib.sort_ints(&mut nums, true)
+    t.eq(nums[0], 1)
+    t.eq(nums[1], 1)
+    t.eq(nums[2], 2)
+    t.eq(nums[3], 2)
+    t.is_true(sortlib.is_sorted_ints(&nums, true))
+    t.finish()
+}
+
+func test_already_sorted_desc() -> (void) {
+    mut var t: test.T = test.new("test_already_sorted_desc")
+    mut var nums: Vec<int, _> = Vec.from([5, 4, 3, 2, 1])
+    sortlib.sort_ints(&mut nums, false)
+    t.eq(nums[0], 5)
+    t.eq(nums[4], 1)
+    t.is_true(sortlib.is_sorted_ints(&nums, false))
+    t.finish()
+}
+
+func test_sort_by_asc() -> (void) {
+    mut var t: test.T = test.new("test_sort_by_asc")
+    mut var items: Vec<Item, _> = Vec.from([
+        Item{key: 3, name: "c"},
+        Item{key: 2, name: "b"},
+        Item{key: 1, name: "a"},
+    ])
+    sortlib.sort_by(&mut items, true, less_items)
+    t.eq(items[0].key, 1)
+    t.eq(items[1].key, 2)
+    t.eq(items[2].key, 3)
+    t.finish()
+}

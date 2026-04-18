@@ -1,0 +1,53 @@
+package main
+
+// Simpler task executor
+import "src/std/time/time.bak" as time
+import "example-projects/task-runner/types.bak" as types
+import "example-projects/task-runner/graph.bak" as graph
+
+// Run tasks in order
+pub func run_tasks(config: &types.Config, target: string) -> (Result<int, string>) {
+    var order_result: Result<Vec<string, _>, string> = graph.get_execution_order(config, target)
+    
+    switch order_result {
+        case Err(e) {
+            return Err(e)
+        }
+        case Ok(order) {
+            mut var completed: int = 0
+            mut var i: int = 0
+            
+            while i < order.len() {
+                var task_name: string = order[i]
+                var task_opt: Option<types.TaskDef> = config.get_task(task_name)
+                
+                switch task_opt {
+                    case Some(task) {
+                        println("▶ Running: ", task.name)
+                        if task.description.len() > 0 {
+                            println("  ", task.description)
+                        }
+                        
+                        // Execute commands
+                        mut var j: int = 0
+                        while j < task.commands.len() {
+                            println("  $ ", task.commands[j])
+                            j = j + 1
+                        }
+                        
+                        println("✓ Completed: ", task.name)
+                        println("")
+                        completed = completed + 1
+                    }
+                    case None {}
+                }
+                
+                i = i + 1
+            }
+            
+            return Ok(completed)
+        }
+    }
+    
+    return Err("Unexpected error")
+}

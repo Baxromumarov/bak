@@ -1,0 +1,10 @@
+package main
+
+struct Foo {
+    x: int
+}
+
+func main() -> (void) {
+    mut var f: Foo = Foo{x: 1}
+    f.x = 2
+}

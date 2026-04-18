@@ -1,0 +1,85 @@
+package main
+
+func return_result(n: int) -> (Result<int, string>) {
+    if n > 0 {
+        return Ok(n)
+    }
+    return Err("negative")
+}
+
+func return_option(b: bool) -> (Option<int>) {
+    if b {
+        return Some(42)
+    }
+    return None
+}
+
+func test_unwrap_result() -> (Result<int, string>) {
+    var val: int = return_result(5)?
+    return Ok(val * 2)
+}
+
+func test_unwrap_option() -> (Option<int>) {
+    var val2: int = return_option(true)?
+    return Some(val2 + 1)
+}
+
+func main() -> (void) {
+    var res: Result<int, string> = test_unwrap_result()
+    switch res {
+        case Ok(v) {
+            println("Ok:", v)
+        }
+        case Err(e) {
+            println("Err:", e)
+        }
+    }
+    
+    var opt: Option<int> = test_unwrap_option()
+    switch opt {
+        case Some(v) {
+            println("Some:", v)
+        }
+        case None {
+            println("None")
+        }
+    }
+
+	var val3: Result<int, string> = failing_func()
+    switch val3 {
+        case Ok(v) {
+            println("Success unexpectedly:", v)
+        }
+        case Err(e) {
+            println("Err:", e)
+        }
+    }
+
+	var val4: Option<int> = failing_option()
+	switch val4 {
+		case Some(v) {
+			println("Success unexpectedly:", v)
+		}
+		case None {
+			println("None as expected")
+		}
+	}
+}
+
+func failing_func() -> (Result<int, string>) {
+    var res: int = returns_err()?
+    return Ok(res * 2)
+}
+
+func returns_err() -> (Result<int, string>) {
+    return Err("something went wrong")
+}
+
+func failing_option() -> (Option<int>) {
+	var res: int = returns_none()?
+	return Some(res * 2)
+}
+
+func returns_none() -> (Option<int>) {
+	return None
+}

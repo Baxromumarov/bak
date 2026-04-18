@@ -1,0 +1,45 @@
+package main
+
+import "std/collections/hashmap"
+
+struct Vector2 {
+    x: int
+    y: int
+}
+
+func main() -> (void) {
+    mut var map: hashmap.HashMap<Vector2, string> = hashmap.new_hash_map()
+    var v1: Vector2 = Vector2{x: 1, y: 2}
+
+    map.insert(
+        v1,
+        "first",
+    )
+
+    var v2: Vector2 = Vector2{x: 1, y: 2}
+
+    println(
+        "string(v1):",
+        string(v1),
+    )
+    println(
+        "string(v2):",
+        string(v2),
+    )
+
+    // Check if lengths and equality work
+    var map_len: int = map.len()
+
+    println(
+        "MAP LEN:",
+        map_len,
+    )
+    println(
+        "EQ:",
+        v1 == v2,
+    )
+
+    var val: string = map.get(&v1).unwrap()
+
+    println(val)
+}

@@ -1,0 +1,58 @@
+package main
+
+import "simple_project/item.bak" as items
+import "simple_project/storage.bak" as storage
+
+func main() -> (void) {
+    println("--- Smart Warehouse Simulation ---")
+
+    mut var vault: storage.Vault = storage.NewVault()
+
+    // 1. Ownership & Immutability: Creating and moving items
+    var p1: items.Product = items.New(
+        "Laptop",
+        101,
+        1200.50,
+        items.Category.Electronics,
+    )
+    var p2: items.Product = items.New(
+        "Apple",
+        202,
+        1.20,
+        items.Category.Grocery,
+    )
+    var p3: items.Product = items.New(
+        "Chair",
+        303,
+        45.00,
+        items.Category.Furniture,
+    )
+
+    vault.Add(p1)
+    vault.Add(p2)
+    vault.Add(p3)
+
+    // 2. Type Strictness & Aliases
+    var total: float64 = vault.GetTotalValue()
+    print("Total Inventory Value: ")
+    println(total)
+
+    // 3. Anonymous Functions & Borrowing: Filtering with references
+    println("\nFiltering Electronics (ID > 100):")
+    
+    // Explicit type for bakc compatibility
+    var filterFunc: func(&items.Product) -> (bool) = func(p: &items.Product) -> (bool) {
+        // Borrowing 'p' to check fields
+        return p.ID > 100 && p.Kind == items.Category.Electronics
+    }
+
+    var electronics: Vec<items.Product, _> = vault.Filter(filterFunc)
+
+    for e in electronics {
+        print("Found: ")
+        println(e.Name)
+    }
+
+    println("--- Simulation Complete ---")
+    return void
+}

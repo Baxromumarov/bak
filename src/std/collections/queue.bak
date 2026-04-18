@@ -1,0 +1,72 @@
+package collections
+
+// Queue<T> is a simple FIFO queue backed by Vec<T>.
+pub struct Queue<T> {
+    items: Vec<T, _>
+    head:  int
+}
+
+pub func new_queue<T>() -> (Queue<T>) {
+    mut var items: Vec<T, _> = Vec.new()
+
+    return Queue{head: 0, items: items}
+}
+
+impl Queue as q {
+    pub mut func push(value: T) -> (void) {
+        q.items.push(value)
+    }
+
+    pub mut func pop() -> (Option<T>) {
+        if q.head >= q.items.len() {
+            return None
+        }
+
+        var val: T = q.items[q.head]
+
+        q.head = q.head + 1
+
+        // Compact if we have too much dead space
+        if q.head > 1024 && q.head > q.items.len() / 2 {
+            q.compact()
+        }
+
+        return Some(val)
+    }
+
+    pub func peek() -> (Option<T>) {
+        if q.head >= q.items.len() {
+            return None
+        }
+
+        return Some(q.items[q.head])
+    }
+
+    pub func len() -> (int) {
+        return q.items.len() - q.head
+    }
+
+    pub func is_empty() -> (bool) {
+        return q.head >= q.items.len()
+    }
+
+    pub mut func clear() -> (void) {
+        mut var items: Vec<T, _> = Vec.new()
+
+        q.items = items
+        q.head = 0
+    }
+
+    mut func compact() -> (void) {
+        mut var new_items: Vec<T, _> = Vec.with_cap(q.items.len() - q.head)
+        mut var i: int = q.head
+
+        while i < q.items.len() {
+            new_items.push(q.items[i])
+            i = i + 1
+        }
+
+        q.items = new_items
+        q.head = 0
+    }
+}

@@ -1,0 +1,12 @@
+package main
+
+func oneParam(a: int) -> (void) { 
+    println(a)
+    return void 
+}
+
+func main() -> (void) {
+    // ERROR: oneParam expects 1, got 0
+    oneParam()
+    return void
+}

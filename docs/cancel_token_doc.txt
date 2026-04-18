@@ -1,0 +1,97 @@
+token.cancel()
+
+# CancelToken
+
+`CancelToken` is an explicit, shareable cancellation flag for cooperative stopping of work in bak programs.
+
+## Overview
+
+- Explicit and opt-in
+- Cooperative (not forced)
+- Visible in function signatures
+- Not a context, not a key-value store, not global, not magical
+
+## Non-goals
+
+`CancelToken` does NOT:
+- Carry values
+- Propagate implicitly
+- Cancel threads forcibly
+- Replace `Result` or `panic`
+- Require garbage collection
+
+## Naming & Placement
+
+- Type: `CancelToken`
+- Package: `std/sync/cancel.bak`
+
+## Public API
+
+```bak
+pub struct CancelToken { /* opaque */ }
+
+> **`CancelToken` is the right name, the right abstraction, and the right time to add it.**
+
+
+```
+
+## Semantics
+
+- Cancellation is cooperative: code must check the token.
+- Idempotent: multiple `cancel()` calls are safe.
+- Monotonic: once cancelled, always cancelled.
+- Thread-safe: multiple readers, any thread may call `cancel()`.
+- No implicit propagation: tokens are passed explicitly.
+
+## Ownership & Borrowing
+
+- Token is owned by creator.
+- Shared via `&CancelToken` (immutable borrow).
+- `cancel()` uses interior mutability (no `&mut` required).
+
+## Implementation
+
+- Internally, `CancelToken` holds an atomic boolean flag.
+- `cancel()` sets the flag; `is_cancelled()` reads it.
+- Safe for use across threads.
+
+## Usage Example
+
+```bak
+var token = new_cancel_token()
+func worker(t &CancelToken) {
+    while !t.is_cancelled() {
+        do_work()
+    }
+}
+var t = thread.spawn(worker, &token)
+token.cancel()
+t.join()
+```
+
+## Not Supported
+
+- Cannot forcibly cancel threads
+- Cannot interrupt syscalls
+- Cannot unwind stack
+- Cannot replace `panic`
+
+## Testing
+
+- Test basic cancellation and thread visibility.
+- Test idempotency of `cancel()`.
+
+## Comparison to Go
+
+| Go `context.Context` | bak `CancelToken` |
+|----------------------|-------------------|
+| carries values       | NO                |
+| implicit propagation | NO                |
+| used everywhere      | NO                |
+| unclear ownership    | NO                |
+| single purpose       | YES               |
+| explicit             | YES               |
+| simple               | YES               |
+## 4 Semantics (very important - lock these)
+
+

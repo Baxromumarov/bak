@@ -1,0 +1,396 @@
+// Package packages provides package management and visibility enforcement for the bak language.
+package packages
+
+import (
+	"fmt"
+	"path/filepath"
+	"sync"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+)
+
+// Symbol represents a symbol exported from a package
+type Symbol struct {
+	Name       string
+	Visibility ast.Visibility
+	Kind       SymbolKind
+	Node       ast.Node // The AST node that defines this symbol
+}
+
+// SymbolKind represents the kind of symbol
+type SymbolKind int
+
+const (
+	SymbolFunc SymbolKind = iota
+	SymbolStruct
+	SymbolEnum
+	SymbolConst
+	SymbolType
+	SymbolAlias
+)
+
+func (k SymbolKind) String() string {
+	switch k {
+	case SymbolFunc:
+		return "function"
+	case SymbolStruct:
+		return "struct"
+	case SymbolEnum:
+		return "enum"
+	case SymbolConst:
+		return "constant"
+	case SymbolType:
+		return "type"
+	case SymbolAlias:
+		return "alias"
+	default:
+		return "unknown"
+	}
+}
+
+// Package represents a parsed package with its symbols
+type Package struct {
+	Name            string
+	Path            string             // file path or package path
+	Symbols         map[string]*Symbol // name -> symbol
+	Program         *ast.Program       // the parsed AST
+	Imports         []string           // paths of imported packages
+	ResolvedImports []string           // normalized import paths
+	Used            map[string]bool    // tracks which exported symbols have been used by importers
+	mu              sync.RWMutex
+}
+
+// NewPackage creates a new Package
+func NewPackage(name, path string, program *ast.Program) *Package {
+	pkg := &Package{
+		Name:            name,
+		Path:            path,
+		Symbols:         make(map[string]*Symbol),
+		Program:         program,
+		Imports:         []string{},
+		ResolvedImports: []string{},
+		Used:            make(map[string]bool),
+	}
+	pkg.extractSymbols()
+	return pkg
+}
+
+// extractSymbols extracts all symbols from the package's AST
+func (p *Package) extractSymbols() {
+	for _, stmt := range p.Program.Statements {
+		switch node := stmt.(type) {
+		case *ast.FunctionDecl:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolFunc,
+					Node:       node,
+				}
+			}
+		case *ast.StructDecl:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolStruct,
+					Node:       node,
+				}
+			}
+		case *ast.EnumDecl:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolEnum,
+					Node:       node,
+				}
+			}
+		case *ast.ConstStatement:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolConst,
+					Node:       node,
+				}
+			}
+		case *ast.ConstBlock:
+			for _, c := range node.Constants {
+				if c.Name != nil {
+					p.Symbols[c.Name.Value] = &Symbol{
+						Name:       c.Name.Value,
+						Visibility: c.Visibility,
+						Kind:       SymbolConst,
+						Node:       c,
+					}
+				}
+			}
+		case *ast.TypeDecl:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolType,
+					Node:       node,
+				}
+			}
+		case *ast.AliasDecl:
+			if node.Name != nil {
+				p.Symbols[node.Name.Value] = &Symbol{
+					Name:       node.Name.Value,
+					Visibility: node.Visibility,
+					Kind:       SymbolAlias,
+					Node:       node,
+				}
+			}
+		case *ast.ImportStatement:
+			p.Imports = append(p.Imports, node.Path)
+		case *ast.ImportBlock:
+			for _, imp := range node.Imports {
+				p.Imports = append(p.Imports, imp.Path)
+			}
+		}
+	}
+}
+
+// GetPublicSymbols returns only the public symbols
+func (p *Package) GetPublicSymbols() map[string]*Symbol {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	public := make(map[string]*Symbol)
+	for name, sym := range p.Symbols {
+		if sym.Visibility == ast.Public {
+			public[name] = sym
+		}
+	}
+	return public
+}
+
+// MarkUsed marks a symbol as used in this package (called by importers)
+func (p *Package) MarkUsed(name string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.Used[name] = true
+}
+
+// WasUsed reports whether a symbol was marked used by importers
+func (p *Package) WasUsed(name string) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.Used[name]
+}
+
+func (p *Package) AddResolvedImport(path string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.ResolvedImports = append(p.ResolvedImports, path)
+}
+
+func (p *Package) GetResolvedImports() []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if len(p.ResolvedImports) == 0 {
+		return nil
+	}
+	copied := make([]string, len(p.ResolvedImports))
+	copy(copied, p.ResolvedImports)
+	return copied
+}
+
+// GetSymbol returns a symbol by name, checking visibility
+func (p *Package) GetSymbol(name string, fromSamePackage bool) (*Symbol, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	sym, exists := p.Symbols[name]
+	if !exists {
+		return nil, fmt.Errorf("symbol '%s' not found in package '%s'", name, p.Name)
+	}
+
+	if !fromSamePackage && sym.Visibility != ast.Public {
+		return nil, fmt.Errorf("symbol '%s' in package '%s' is private", name, p.Name)
+	}
+
+	return sym, nil
+}
+
+// Registry manages all loaded packages
+type Registry struct {
+	packages map[string]*Package // path -> package
+	loading  map[string]bool     // tracks packages currently being loaded (for cycle detection)
+	mu       sync.RWMutex
+}
+
+// NewRegistry creates a new package registry
+func NewRegistry() *Registry {
+	return &Registry{
+		packages: make(map[string]*Package),
+		loading:  make(map[string]bool),
+	}
+}
+
+// global registry instance
+var GlobalRegistry = NewRegistry()
+
+// RegisterPackage adds a package to the registry
+func (r *Registry) RegisterPackage(pkg *Package) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.packages[pkg.Path] = pkg
+}
+
+// GetPackage retrieves a package by path
+func (r *Registry) GetPackage(path string) (*Package, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	pkg, exists := r.packages[path]
+	return pkg, exists
+}
+
+// IsLoading checks if a package is currently being loaded (for cycle detection)
+func (r *Registry) IsLoading(path string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.loading[path]
+}
+
+// StartLoading marks a package as being loaded
+func (r *Registry) StartLoading(path string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.loading[path] = true
+}
+
+// FinishLoading marks a package as done loading
+func (r *Registry) FinishLoading(path string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.loading, path)
+}
+
+// RemovePackage removes a package from the registry, forcing a reload on next import.
+func (r *Registry) RemovePackage(path string) {
+	path = normalizePath(path)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.packages, path)
+	delete(r.loading, path)
+}
+
+func (r *Registry) RecordResolvedImport(pkgPath, importPath string) {
+	pkgPath = normalizePath(pkgPath)
+	importPath = normalizePath(importPath)
+
+	r.mu.RLock()
+	pkg, exists := r.packages[pkgPath]
+	r.mu.RUnlock()
+	if !exists {
+		return
+	}
+
+	pkg.AddResolvedImport(importPath)
+}
+
+// CheckCyclicImport checks for cyclic imports starting from a package
+func (r *Registry) CheckCyclicImport(startPath string, importPath string, visited map[string]bool) error {
+	// Normalize paths
+	startPath = normalizePath(startPath)
+	importPath = normalizePath(importPath)
+
+	if startPath == importPath {
+		return fmt.Errorf("package '%s' imports itself", startPath)
+	}
+
+	// Allow same-directory imports (files in the same package can import each other)
+	if filepath.Dir(startPath) == filepath.Dir(importPath) {
+		return nil
+	}
+
+	if visited[importPath] {
+		return fmt.Errorf("cyclic import detected: package '%s' is already in the import chain", importPath)
+	}
+
+	visited[importPath] = true
+	defer delete(visited, importPath)
+
+	// Check if the imported package has already been loaded
+	pkg, exists := r.GetPackage(importPath)
+	if !exists {
+		// Package not loaded yet - no cycle from this path yet
+		return nil
+	}
+
+	// Recursively check imports of the imported package
+	imports := pkg.GetResolvedImports()
+	if len(imports) == 0 {
+		imports = pkg.Imports
+	}
+	for _, imp := range imports {
+		if err := r.CheckCyclicImport(startPath, imp, visited); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// normalizePath normalizes a file path for comparison
+func normalizePath(path string) string {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return absPath
+}
+
+// GetSymbolFromPackage retrieves a symbol from a package, checking visibility
+func (r *Registry) GetSymbolFromPackage(pkgPath string, symbolName string, callerPkgPath string) (*Symbol, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	pkg, exists := r.packages[pkgPath]
+	if !exists {
+		return nil, fmt.Errorf("package '%s' not found", pkgPath)
+	}
+
+	fromSamePackage := normalizePath(pkgPath) == normalizePath(callerPkgPath)
+	return pkg.GetSymbol(symbolName, fromSamePackage)
+}
+
+// GetAllSymbolsFromPackage returns all accessible symbols from a package
+func (r *Registry) GetAllSymbolsFromPackage(pkgPath string, callerPkgPath string) (map[string]*Symbol, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	pkg, exists := r.packages[pkgPath]
+	if !exists {
+		return nil, fmt.Errorf("package '%s' not found", pkgPath)
+	}
+
+	fromSamePackage := normalizePath(pkgPath) == normalizePath(callerPkgPath)
+	if fromSamePackage {
+		return pkg.Symbols, nil
+	}
+	return pkg.GetPublicSymbols(), nil
+}
+
+// GetAllPackages returns all registered packages
+func (r *Registry) GetAllPackages() []*Package {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	result := make([]*Package, 0, len(r.packages))
+	for _, pkg := range r.packages {
+		result = append(result, pkg)
+	}
+	return result
+}
+
+// Reset clears the registry (useful for testing)
+func (r *Registry) Reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.packages = make(map[string]*Package)
+	r.loading = make(map[string]bool)
+}

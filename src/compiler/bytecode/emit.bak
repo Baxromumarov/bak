@@ -1,0 +1,311 @@
+// JSON emitter for bytecode modules.
+package emit
+
+import "src/compiler/bytecode/module.bak" as bytecode
+import "src/compiler/bytecode/value.bak" as value
+import "src/std/strconv/strconv.bak" as strconv
+import "src/std/fs/fs.bak" as fs
+
+pub func EmitModuleJson(m: &bytecode.BytecodeModule) -> (string) {
+    mut var out: string = "{"
+    out = out + "\"version\":1,"
+    out = out + "\"entry\":" + strconv.intToString((*m).EntryPoint) + ","
+    out = out + "\"constants\":" + emitValueList((*m).Constants) + ","
+    out = out + "\"functions\":" + emitFunctionList((*m).Functions) + ","
+    out = out + "\"structs\":" + emitStructList((*m).StructDefs) + ","
+    out = out + "\"enums\":" + emitEnumList((*m).EnumDefs) + ","
+    out = out + "\"methods\":" + emitMethodList((*m).Methods) + ","
+    out = out + "\"globals\":" + emitGlobalList((*m).Globals) + ","
+    out = out + "\"function_indices\":" + emitFunctionIndexList((*m).FunctionIndices)
+    out = out + "}"
+    return out
+}
+
+    // Emit a package JSON containing multiple modules and an entry index.
+    pub func EmitPackageJson(mods: &Vec<bytecode.BytecodeModule, _>, entry: int) -> (string) {
+        mut var out: string = "{"
+        out = out + "\"version\":1,"
+        out = out + "\"entry\":" + strconv.intToString(entry) + ","
+        out = out + "\"modules\":["
+        mut var i: int = 0
+        while i < mods.len() {
+            if i > 0 { out = out + "," }
+            out = out + EmitModuleJson(&mods[i])
+            i = i + 1
+        }
+        out = out + "]}"
+        return out
+    }
+
+    pub func WritePackageJson(path: string, mods: Vec<bytecode.BytecodeModule, _>, entry: int) -> (Result<void, string>) {
+        var data: string = EmitPackageJson(&mods, entry)
+        return fs.writeFile(path, data)
+    }
+
+pub func WriteModuleJson(path: string, m: bytecode.BytecodeModule) -> (Result<void, string>) {
+    var data: string = EmitModuleJson(&m)
+    return fs.writeFile(path, data)
+}
+
+func emitValueList(values: Vec<value.Value, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < values.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        out = out + emitValue(values[i])
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitFunctionList(funcs: Vec<bytecode.FunctionObj, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < funcs.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        out = out + emitFunction(funcs[i])
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitFunction(fn: bytecode.FunctionObj) -> (string) {
+    mut var out: string = "{"
+    out = out + "\"name\":\"" + escapeString(fn.Name) + "\","
+    out = out + "\"arity\":" + strconv.intToString(fn.Arity) + ","
+    out = out + "\"num_locals\":" + strconv.intToString(fn.NumLocals) + ","
+    out = out + "\"code\":" + emitIntList(fn.Code) + ","
+    out = out + "\"constants\":" + emitValueList(fn.Constants) + ","
+    out = out + "\"sourcemap\":" + emitSourceMapList(fn.SourceMap)
+    out = out + "}"
+    return out
+}
+
+func emitSourceMapList(entries: Vec<bytecode.SourceMapEntry, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < entries.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var entry: bytecode.SourceMapEntry = entries[i]
+        out = out + "{"
+        out = out + "\"ip\":" + strconv.intToString(entry.Ip) + ","
+        out = out + "\"line\":" + strconv.intToString(entry.Pos.Line) + ","
+        out = out + "\"col\":" + strconv.intToString(entry.Pos.Column)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitStructList(structs: Vec<bytecode.StructDef, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < structs.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var sd: bytecode.StructDef = structs[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(sd.Name) + "\","
+        out = out + "\"type_id\":" + strconv.intToString(sd.TypeID) + ","
+        out = out + "\"fields\":" + emitFieldList(sd.Fields)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitFieldList(fields: Vec<bytecode.FieldDef, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < fields.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var f: bytecode.FieldDef = fields[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(f.Name) + "\","
+        out = out + "\"type_name\":\"" + escapeString(f.TypeName) + "\""
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitEnumList(enums: Vec<bytecode.EnumDef, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < enums.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var ed: bytecode.EnumDef = enums[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(ed.Name) + "\","
+        out = out + "\"enum_id\":" + strconv.intToString(ed.EnumID) + ","
+        out = out + "\"variants\":" + emitVariantList(ed.Variants)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitVariantList(vars: Vec<bytecode.VariantDef, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < vars.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var v: bytecode.VariantDef = vars[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(v.Name) + "\","
+        out = out + "\"variant_id\":" + strconv.intToString(v.VariantID) + ","
+        out = out + "\"payload_count\":" + strconv.intToString(v.PayloadCount)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitMethodList(methods: Vec<bytecode.MethodEntry, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < methods.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var m: bytecode.MethodEntry = methods[i]
+        out = out + "{"
+        out = out + "\"type\":\"" + escapeString(m.TypeName) + "\","
+        out = out + "\"method\":\"" + escapeString(m.MethodName) + "\","
+        out = out + "\"fn\":" + strconv.intToString(m.FunctionIndex)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitGlobalList(globals: Vec<bytecode.GlobalEntry, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < globals.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var g: bytecode.GlobalEntry = globals[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(g.Name) + "\","
+        out = out + "\"index\":" + strconv.intToString(g.Index)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitFunctionIndexList(entries: Vec<bytecode.FunctionIndexEntry, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < entries.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        var e: bytecode.FunctionIndexEntry = entries[i]
+        out = out + "{"
+        out = out + "\"name\":\"" + escapeString(e.Name) + "\","
+        out = out + "\"index\":" + strconv.intToString(e.Index)
+        out = out + "}"
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitIntList(values: Vec<int, _>) -> (string) {
+    mut var out: string = "["
+    mut var i: int = 0
+    while i < values.len() {
+        if i > 0 {
+            out = out + ","
+        }
+        out = out + strconv.intToString(values[i])
+        i = i + 1
+    }
+    out = out + "]"
+    return out
+}
+
+func emitValue(v: value.Value) -> (string) {
+    var t: value.ValueType = value.ValueTypeOf(v)
+    if t == value.VAL_NIL {
+        return "{\"type\":\"nil\"}"
+    }
+    if t == value.VAL_BOOL {
+        return "{\"type\":\"bool\",\"value\":" + boolToString(value.BoolValueOf(v)) + "}"
+    }
+    if t == value.VAL_INT {
+        return "{\"type\":\"int\",\"value\":" + strconv.intToString(value.IntValueOf(v)) + "}"
+    }
+    if t == value.VAL_FLOAT {
+        var fv: float64 = value.FloatValueOf(v)
+        return "{\"type\":\"float\",\"value\":" + fv.toString() + "}"
+    }
+    if t == value.VAL_STRING {
+        return "{\"type\":\"string\",\"value\":\"" + escapeString(value.StringValueOf(v)) + "\"}"
+    }
+    if t == value.VAL_CHAR {
+        var s: string = string(value.CharValueOf(v))
+        return "{\"type\":\"char\",\"value\":\"" + escapeString(s) + "\"}"
+    }
+    return "{\"type\":\"object\",\"value\":" + strconv.intToString(value.ObjectIndexOf(v)) + "}"
+}
+
+func boolToString(v: bool) -> (string) {
+    if v {
+        return "true"
+    }
+    return "false"
+}
+
+func escapeString(s: string) -> (string) {
+    mut var out: string = ""
+    var chars: Vec<char, _> = s.chars()
+    mut var i: int = 0
+    while i < chars.len() {
+        var ch: char = chars[i]
+        if ch == '"' {
+            out = out + "\\\""
+        } else if ch == '\\' {
+            out = out + "\\\\"
+        } else if ch == '\n' {
+            out = out + "\\n"
+        } else if ch == '\r' {
+            out = out + "\\r"
+        } else if ch == '\t' {
+            out = out + "\\t"
+        } else if ch == char(0) {
+            out = out + "\\u0000"
+        } else if ch == char(27) {
+            out = out + "\\u001b"
+        } else {
+            out = out + string(ch)
+        }
+        i = i + 1
+    }
+    return out
+}

@@ -1,0 +1,406 @@
+BAK LANGUAGE SPECIFICATION (v1.0)
+================================
+
+
+There is:
+- No garbage collector
+- No exceptions
+- No inheritance
+- No implicit heap allocation
+- No implicit concurrency
+
+Instead, bak provides:
+- Explicit ownership and borrowing
+- Deterministic destruction
+- OS threads
+- Explicit synchronization
+- A small, understandable core
+
+
+1. Design Philosophy
+====================
+
+bak follows these core principles:
+
+1) Explicit over clever
+2) Statements over expressions
+3) Values over references
+4) No hidden costs
+5) Safety by default
+
+Control flow constructs are statements.
+Failure is represented by values, not exceptions.
+Memory behavior must be visible in code.
+
+
+2. Compilation Model
+====================
+- Ahead-of-Time compilation
+- Native binaries
+- Minimal runtime
+- Stable ABI
+- C-friendly FFI via `unsafe`
+
+
+3. Lexical Structure
+====================
+
+3.1 Keywords
+------------
+Reserved keywords:
+
+package var const mut func return struct enum impl if else while for switch import unsafe panic defer void
+
+
+4. Types
+========
+
+4.1 Primitive types
+-------------------
+bool
+int int8 int16 int32 int64
+uint uint8 uint16 uint32 uint64
+float32 float64
+char
+string
+
+4.2 Generic and composite types
+-------------------------------
+Vec<T, N> where N is an int or _ for dynamic size.
+Option<T> and Result<T, E> for optional and fallible values.
+T box for explicit heap allocation; T box? for optional boxed values.
+
+4.3 void
+--------
+void represents "no value".
+
+Rules:
+- Only valid as a function return type
+- Cannot be assigned
+- Cannot appear in expressions
+
+
+5. Variables
+============
+
+Variables are immutable by default.
+
+    var x int = 10
+    mut var y int = 20
+
+Assignment is only allowed on `mut` variables.
+There is no ++ or --.
+
+
+6. Ownership and Moves
+======================
+
+Every value has exactly one owner.
+
+    var a Vec<int, 5>
+    var b = a   // move
+    // a is now invalid
+
+Copying must be explicit if the type supports it.
+
+
+7. Borrowing
+============
+
+Borrow types:
+    &T
+    &mut T
+
+Rules:
+- Multiple immutable borrows allowed
+- Only one mutable borrow
+- Immutable and mutable borrows cannot coexist
+- Borrows cannot outlive the owner
+
+There are no explicit lifetime annotations in v1.
+
+
+8. Functions
+============
+
+8.1 Declaration
+---------------
+Every function must declare a return type.
+
+    func add(a int, b int) -> (int) {
+        return a + b
+    }
+
+8.2 Return rules
+----------------
+- Non-void functions must return a value on all paths
+- void functions must explicitly `return void`
+- Implicit returns are forbidden
+
+
+9. Structs
+==========
+
+    struct Student {
+        Name string
+        Age int
+        Balance float64
+    }
+
+
+10. Methods (impl blocks)
+=========================
+
+Methods are defined using `impl` blocks.
+
+    impl Student as s {
+        func getName() -> (string) {
+            return s.Name
+        }
+
+        mut func setAge(age int) -> (void) {
+            s.Age = age
+            return void
+        }
+    }
+
+There is no inheritance.
+There is no interface/trait system in v1.
+Only concrete types and impl blocks exist.
+
+
+11. Enums
+=========
+
+Enums are tagged unions.
+
+    enum Option<T> {
+        Some(T)
+        None
+    }
+
+
+12. Control Flow
+================
+
+12.1 if
+-------
+    if cond {
+        ...
+    } else {
+        ...
+    }
+
+12.2 while
+----------
+    while cond {
+        ...
+    }
+
+12.3 for
+--------
+    for item in iterable {
+        ...
+    }
+
+There is no C-style for loop.
+
+
+13. switch
+==========
+
+switch is a statement with no fallthrough.
+
+    switch x {
+        case 1 {
+            ...
+        }
+        case 2, 3 {
+            ...
+        }
+        default {
+            ...
+        }
+    }
+
+Switching on enums without default must be exhaustive.
+
+
+14. Ranges
+==========
+
+Ranges are iterable values.
+
+[a, b]   inclusive
+(a, b)   exclusive
+[a, b)
+(b, a]
+
+
+15. Vec
+=======
+
+Vec is the unified sequence type.
+
+15.1 Fixed-size Vec
+-------------------
+    Vec<T, N>
+
+Example:
+    var a Vec<int, 5>
+
+Properties:
+- Size known at compile time
+- Always zero-initialized
+- Value semantics
+- Cannot grow or shrink
+- Stack-friendly
+
+15.2 Dynamic Vec
+----------------
+    Vec<T, _>
+
+Example:
+    mut var v Vec<int, _> = Vec.new()
+    v.push(10)
+
+Properties:
+- Size known at runtime
+- Heap-backed
+- Growable
+- Move-only by default
+
+There are no implicit conversions between Vec<T, N> and Vec<T, _>.
+
+
+16. Error Handling
+==================
+
+bak uses explicit result values.
+
+16.1 Result type
+----------------
+    Result<T, E>
+
+Result has two variants:
+- Ok(T)
+- Err(E)
+
+Example:
+    func parse(s string) -> (Result<int, ParseError>) {
+        return Ok(42)
+    }
+
+16.2 Handling results
+---------------------
+    var r = parse("123")
+
+    switch r {
+        case Ok(v) {
+            ...
+        }
+        case Err(e) {
+            ...
+        }
+    }
+
+Ignoring a Result value is a compile-time error.
+
+
+17. Defer
+=========
+
+defer schedules a block to run at scope exit.
+
+    func example() -> (void) {
+        defer { cleanup() }
+        return void
+    }
+
+panic aborts the program after running deferred blocks.
+
+    func crash() -> (void) {
+        defer { println("cleaning up") }
+        panic("boom")
+    }
+
+
+18. Standard Library (Selected)
+===============================
+
+path / filepath
+    clean, join, base, dir, ext, split
+
+crypto
+    fnv1a hash and a simple RNG
+
+encoding/json
+    Json values, marshal/unmarshal, and pretty printing
+
+http
+    client helpers and a basic router/server
+
+log
+    leveled, colorful logger with prefix and time options
+
+Examples live in:
+    examples/path_example.bak
+    examples/crypto_example.bak
+    examples/json_example.bak
+    examples/http_client_example.bak
+    examples/http_server_example.bak
+    examples/log_example.bak
+
+
+19. Concurrency
+===============
+
+bak uses OS threads only.
+
+    var h = thread.spawn(func() -> (void) {
+        work()
+        return void
+    })
+
+    h.join()
+
+
+19. Unsafe
+==========
+
+unsafe marks code that may violate safety guarantees.
+
+    unsafe {
+        ...
+    }
+
+Unsafe code is required for FFI and low-level operations.
+
+
+20. Modules
+===========
+
+Modules are filesystem-based.
+
+    import net.http
+
+There is a single module definition file per project.
+
+
+21. Entry Point
+===============
+
+    func main() -> (void) {
+        return void
+    }
+
+
+22. What bak avoids
+===================
+- Garbage collection
+- Exceptions
+- Interfaces / traits (v1)
+- Inheritance
+- Implicit allocations
+- Expression-oriented control flow
+

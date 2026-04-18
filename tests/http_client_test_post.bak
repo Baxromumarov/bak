@@ -1,0 +1,41 @@
+package main
+
+import "http"
+
+
+func main() -> (void) {
+    println("Testing HTTP POST...")
+    
+    // Test HTTP POST to httpbin.org
+    // httpbin returns the data we sent in the body
+    var url: string = "http://httpbin.org/post"
+    var payload: string = "{\"name\": \"Bak\", \"type\": \"Language\"}"
+    
+    println("\n[POST]", url)
+    println("Payload:", payload)
+    
+    var res = http.post(url, payload)
+    
+    if res.is_err() {
+        println("Error:", res.unwrap_err())
+        return
+    }
+    
+    var response = res.unwrap()
+    println("Status:", response.status, response.reason)
+    
+    var body: string = __builtin_string_from_bytes(response.body, 0, response.body.len())
+    println("Response Body Preview:")
+    mut var previewLen = body.len()
+    if previewLen > 300 {
+        previewLen = 300
+    }
+    println(body.substring(0, previewLen))
+    
+    if body.indexOf("Bak").is_some() {
+        println("SUCCESS: Response contains payload data")
+    } else {
+        println("FAILURE: Response missing payload data")
+    }
+}
+

@@ -1,0 +1,12 @@
+package main
+
+func noParams() -> (void) { 
+    println("noParams called")
+    return void 
+}
+
+func main() -> (void) {
+    // ERROR: noParams expects 0, got 3
+    noParams(1, 2, 3)
+    return void
+}

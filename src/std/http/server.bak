@@ -1,0 +1,146 @@
+package http
+
+import "src/std/net/net.bak"
+import "src/std/strings/strings.bak" as strings
+import "src/std/log/log.bak" as log
+
+pub struct Server {
+    pub addr:    string
+    pub router:  Router
+    pub version: string
+}
+
+pub func new_server(addr: string, router: Router) -> (Server) {
+    return Server{
+        addr:    addr,
+        router:  router,
+        version: HTTP_1_1,
+    }
+}
+
+impl Server as self {
+    pub func start() -> (Result<void, string>) {
+        var addr: string = self.addr
+        var portIdx = addr.lastIndexOf(":")
+        if portIdx.is_none() {
+            return Err("invalid address: missing port")
+        }
+        var host: string = addr.substring(
+            0,
+            portIdx.unwrap(),
+        )
+        var portStr: string = addr.substring(
+            portIdx.unwrap() + 1,
+            addr.len(),
+        )
+        var portRes = portStr.parseInt()
+        if portRes.is_err() {
+            return Err("invalid port")
+        }
+        var port: int = portRes.unwrap()
+        var bindRes = net.bind(
+            host,
+            port,
+        )
+        if bindRes.is_err() {
+            return Err(bindRes.unwrap_err())
+        }
+        mut var listener = bindRes.unwrap()
+        log.info("Server listening on " + addr)
+        while true {
+            var connRes = net.accept(&mut listener)
+            if connRes.is_ok() {
+                mut var conn = connRes.unwrap()
+                self.handle_connection(&mut conn)
+            } else {
+            }
+        }
+        return Ok(void)
+    }
+
+    func handle_connection(conn: &mut net.TcpStream) -> (void) {
+        // Read request with timeout
+        var readRes = net.read(
+            conn,
+            4096,
+        )
+        if readRes.is_err() {
+            net.close(conn)
+            return
+        }
+        var data = readRes.unwrap()
+        if data.len() == 0 {
+            net.close(conn)
+            return
+        }
+        var dataStr: string = strings.fromBytes(data)
+        var reqRes = parse_request(dataStr)
+        if reqRes.is_err() {
+            send_response(
+                conn,
+                text(
+                    400,
+                    "Bad Request",
+                ),
+                self.version,
+            )
+            net.close(conn)
+            return
+        }
+        var req = reqRes.unwrap()
+        // Dispatch to router
+        var resp = self.router.dispatch(req)
+        // Log
+        log.info(req.method + " " + req.path + " -> " + string(resp.status) + " " + resp.reason)
+        // Send response
+        send_response(
+            conn,
+            resp,
+            self.version,
+        )
+        net.close(conn)
+        return
+    }
+}
+
+pub func listen_and_serve(addr: string, r: Router) -> (Result<void, string>) {
+    var s = new_server(
+        addr,
+        r,
+    )
+    return s.start()
+}
+
+func send_response(
+    conn: &mut net.TcpStream,
+    resp: Response,
+    version: string,
+) -> (void) {
+    mut var respStr: string = version + " " + string(resp.status) + " " + resp.reason + "\r\n"
+    // Add standard headers
+    respStr = respStr + "Server: bak-http\r\n"
+    respStr = respStr + "Connection: close\r\n"
+    // Add headers from response
+    mut var i: int = 0
+    while i < resp.headers.len() {
+        var h: Header = resp.headers[i]
+        respStr = respStr + h.name + ": " + h.value + "\r\n"
+        i = i + 1
+    }
+    // Add Content-Length
+    respStr = respStr + "Content-Length: " + string(resp.body.len()) + "\r\n"   
+
+    respStr = respStr + "\r\n"
+    var headBytes = respStr.bytes()
+    var _ = net.write(
+        conn,
+        headBytes,
+    )
+    if resp.body.len() > 0 {
+        var _ = net.write(
+            conn,
+            resp.body,
+        )
+    }
+    return
+}

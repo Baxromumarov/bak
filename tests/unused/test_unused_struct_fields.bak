@@ -1,0 +1,15 @@
+// Test: unused struct fields
+package main
+
+// Test: unused struct fields
+struct Person {
+    name: string // should NOT warn
+    age: int    // should NOT warn
+    // _ int   // should NOT be allowed (should error if present)
+}
+
+func main() -> (void) {
+    var p: Person = Person{name: "A", age: 42}
+    print(p.name)
+    return void
+}

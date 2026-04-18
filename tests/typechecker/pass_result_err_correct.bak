@@ -1,0 +1,24 @@
+// Test: Result Err with matching type - should PASS
+// This file should compile without type errors
+package main
+
+func parseValue(s: string) -> (Result<int, string>) {
+    if s == "" {
+        // OK: "error message" is string, matches Result<int, string> error type
+        return Err("Empty input")
+    }
+    return Ok(42)
+}
+
+func main() -> (void) {
+    var result = parseValue("")
+    switch result {
+        case Ok(v) {
+            println("Parsed:", v)
+        }
+        case Err(e) {
+            println("Error:", e)
+        }
+    }
+    return void
+}

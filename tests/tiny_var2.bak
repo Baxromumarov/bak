@@ -1,0 +1,11 @@
+package main
+
+func main() -> (int) {
+    println("before var")
+
+    var x: int = 42
+
+    println("after var")
+
+    return 0
+}

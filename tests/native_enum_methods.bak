@@ -1,0 +1,15 @@
+package main
+
+func main() -> (int) {
+    var a: Option<int> = Some(7)
+    var b: Option<int> = None
+    mut var result: int = 0
+    if a.is_some() {
+        result = result + 1
+    }
+    if b.is_none() {
+        result = result + 1
+    }
+    result = result + a.unwrap()
+    return result
+}

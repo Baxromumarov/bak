@@ -1,0 +1,9 @@
+package main
+
+mut var log: string = ""
+
+func main() -> (void) {
+    defer { log = log + "A" }
+    defer { log = log + "B" }
+    panic("boom")
+}

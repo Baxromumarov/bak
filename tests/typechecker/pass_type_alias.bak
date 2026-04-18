@@ -1,0 +1,25 @@
+// Test: Type alias correct usage - should PASS
+package main
+
+alias UserId = int
+alias Username = string
+
+struct User {
+    pub id: UserId
+    pub name: Username
+}
+
+func createUser(id: UserId, name: Username) -> (User) {
+    return User{id: id, name: name}
+}
+
+func main() -> (void) {
+    var id: UserId = 42
+    var name: Username = "Alice"
+    var user = createUser(id, name)
+    
+    println("User ID:", user.id)
+    println("Username:", user.name)
+    
+    return void
+}

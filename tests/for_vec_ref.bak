@@ -1,0 +1,31 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+func listEntries(items: &Vec<Entry, _>) -> (int) {
+    mut var count: int = 0
+
+    for ent in *items {
+        println(ent.Path)
+        count = count + 1
+    }
+
+    return count
+}
+
+func main() -> (int) {
+    mut var entries: Vec<Entry, _> = Vec.new()
+
+    entries.push(Entry{Alias: "a", Path: "a.bak"})
+    entries.push(Entry{Alias: "b", Path: "b.bak"})
+    println("before listEntries")
+
+    var n: int = listEntries(&entries)
+
+    println("listed entries")
+
+    return 0
+}

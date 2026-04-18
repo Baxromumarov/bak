@@ -1,0 +1,62 @@
+package errors
+
+import "src/std/strconv/strconv.bak" as strconv
+
+// Build ESC character (ASCII 27) for ANSI codes
+// ESC[ is the CSI (Control Sequence Introducer)
+func esc() -> (string) {
+    return string(char(27)) + "["
+}
+
+// Color builders
+func red() -> (string) {
+    return esc() + "31m"
+}
+
+func bold() -> (string) {
+    return esc() + "1m"
+}
+
+func blue() -> (string) {
+    return esc() + "34m"
+}
+
+func yellow() -> (string) {
+    return esc() + "33m"
+}
+
+func reset() -> (string) {
+    return esc() + "0m"
+}
+
+// report prints a formatted runtime error with the given context.
+// This mirrors the compiler's diagnostic output style.
+// Usage: errors.report("file not found", "check that the path exists")
+pub func report(message: string, help: string) -> (void) {
+    // Print error header in bold red
+    println(bold() + red() + "ERROR" + reset() + ": " + message)
+    // Print help suggestion if provided
+    if help != "" {
+        println("  " + blue() + "= help:" + reset() + " " + help)
+    }
+    println("")
+}
+
+// report_at prints a formatted runtime error with file/line context.
+// Usage: errors.report_at("main.bak", 71, "file not found", "check the path")
+pub func report_at(file: string, line: int, message: string, help: string) -> (void) {
+    // Print error header in bold red  
+    println(bold() + red() + "ERROR" + reset() + ": " + message)
+    // Print location
+    println("  " + blue() + "-->" + reset() + " " + file + ":" + strconv.intToString(line))
+    // Print help suggestion if provided
+    if help != "" {
+        println("  " + blue() + "= help:" + reset() + " " + help)
+    }
+    println("")
+}
+
+// warn prints a formatted warning message.
+pub func warn(message: string) -> (void) {
+    println(bold() + yellow() + "WARNING" + reset() + ": " + message)
+}

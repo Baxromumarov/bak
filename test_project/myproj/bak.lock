@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "packages": {
+    "tmp_test_repo": {
+      "name": "tmp_test_repo",
+      "version": "v2.0.0",
+      "source": "/home/bakhromumarov/go/src/github.com/baxromumarov/bak/test_project/myproj/../../tmp_test_repo",
+      "commit": "c9bc1b5dfb02891a9d6aba8bd00eb49fab50d57c",
+      "path": ".bak-cache/pkg/tmp_test_repo"
+    }
+  }
+}

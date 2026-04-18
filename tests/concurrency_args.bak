@@ -1,0 +1,24 @@
+package main
+
+import "thread"
+
+func main() -> (void) {
+    println("Main start")
+    
+    var t1 = thread.spawn(sum, 10, 20)
+    var t2 = thread.spawn(concat, "Hello ", "World")
+    
+    t1.join()
+    t2.join()
+    println("Main done")
+}
+
+func sum(a: int, b: int) -> (void) {
+    var res: int = a + b
+    println("Sum: " + res.toString())
+}
+
+func concat(s1: string, s2: string) -> (void) {
+    var res: string = s1 + s2
+    println("Concat: " + res)
+}

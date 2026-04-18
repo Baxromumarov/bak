@@ -1,0 +1,487 @@
+// Runtime object system for the Bak interpreter.
+// All values during evaluation are represented as Objects.
+package object
+
+// ObjectType represents the type of a runtime object
+pub enum ObjectType {
+    INTEGER
+    FLOAT
+    BOOLEAN
+    STRING
+    CHAR
+    VOID
+    NULL
+    RETURN_VALUE
+    ERROR
+    FUNCTION
+    BUILTIN
+    VEC
+    STRUCT
+    ENUM
+    RESULT
+    OPTION
+    BORROW
+    RANGE
+    BREAK
+    CONTINUE
+    MODULE
+    BOX
+    TUPLE
+}
+
+// Object represents a runtime value
+pub enum Object {
+    IntegerVal(IntegerObj)
+    FloatVal(FloatObj)
+    BooleanVal(BooleanObj)
+    StringVal(StringObj)
+    CharVal(CharObj)
+    VoidVal(VoidObj)
+    NullVal(NullObj)
+    ReturnVal(ReturnValueObj)
+    ErrorVal(ErrorObj)
+    FunctionVal(FunctionObj)
+    BuiltinVal(BuiltinObj)
+    VecVal(VecObj)
+    StructVal(StructObj)
+    EnumVal(EnumValueObj)
+    ResultVal(ResultObj)
+    OptionVal(OptionObj)
+    BorrowVal(BorrowObj)
+    RangeVal(RangeObj)
+    BreakVal(BreakObj)
+    ContinueVal(ContinueObj)
+    ModuleVal(ModuleObj)
+    BoxVal(BoxObj)
+    TupleVal(TupleObj)
+}
+
+// ============================================================================
+// Primitive Types
+// ============================================================================
+
+pub struct IntegerObj {
+    Value: int
+    Bits: int        // 8, 16, 32, 64
+    Unsigned: bool
+}
+
+pub struct FloatObj {
+    Value: float64
+}
+
+pub struct BooleanObj {
+    Value: bool
+}
+
+pub struct StringObj {
+    Value: string
+}
+
+pub struct CharObj {
+    Value: char
+}
+
+pub struct VoidObj {}
+
+pub struct NullObj {}
+
+// ============================================================================
+// Control Flow
+// ============================================================================
+
+pub struct ReturnValueObj {
+    Value: Box<Object>?
+}
+
+pub struct BreakObj {}
+
+pub struct ContinueObj {}
+
+// ============================================================================
+// Error
+// ============================================================================
+
+pub struct ErrorObj {
+    Message: string
+    Line: int
+    Column: int
+}
+
+// ============================================================================
+// Functions
+// ============================================================================
+
+import "src/compiler/ast/ast.bak" as ast
+
+pub struct FunctionObj {
+    Parameters: Vec<ast.Parameter, _>
+    Body: ast.BlockStatement
+    Env: Box<Environment>?
+    ReturnType: Option<ast.TypeExpression>
+}
+
+pub struct BuiltinObj {
+    Name: string
+    // Builtins are handled specially by the evaluator
+}
+
+// ============================================================================
+// Collections
+// ============================================================================
+
+pub struct VecObj {
+    Elements: Vec<Object, _>
+    ElemType: string
+    Size: int        // -1 for dynamic
+    Mutable: bool
+}
+
+pub struct TupleObj {
+    Elements: Vec<Object, _>
+}
+
+// ============================================================================
+// Structs and Enums
+// ============================================================================
+
+pub struct StructObj {
+    Name: string
+    Fields: Vec<StructField, _>
+}
+
+pub struct StructField {
+    Name: string
+    Value: Box<Object>?
+}
+
+pub struct EnumValueObj {
+    EnumName: string
+    Variant: string
+    Values: Vec<Object, _>
+}
+
+// ============================================================================
+// Result and Option
+// ============================================================================
+
+pub struct ResultObj {
+    IsOk: bool
+    Value: Box<Object>?
+}
+
+pub struct OptionObj {
+    IsSome: bool
+    Value: Box<Object>?
+}
+
+// ============================================================================
+// Borrow and Box
+// ============================================================================
+
+pub struct BorrowObj {
+    Value: Box<Object>?
+    Mutable: bool
+}
+
+pub struct BoxObj {
+    Value: Box<Object>?
+}
+
+// ============================================================================
+// Range
+// ============================================================================
+
+pub struct RangeObj {
+    Start: int
+    End: int
+    StartInclusive: bool
+    EndInclusive: bool
+}
+
+// ============================================================================
+// Module
+// ============================================================================
+
+pub struct ModuleObj {
+    Name: string
+    // Functions and constants are stored in the module's environment
+}
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+pub func objectType(obj: Object) -> (ObjectType) {
+    switch obj {
+        case Object.IntegerVal(_) { return ObjectType.INTEGER }
+        case Object.FloatVal(_) { return ObjectType.FLOAT }
+        case Object.BooleanVal(_) { return ObjectType.BOOLEAN }
+        case Object.StringVal(_) { return ObjectType.STRING }
+        case Object.CharVal(_) { return ObjectType.CHAR }
+        case Object.VoidVal(_) { return ObjectType.VOID }
+        case Object.NullVal(_) { return ObjectType.NULL }
+        case Object.ReturnVal(_) { return ObjectType.RETURN_VALUE }
+        case Object.ErrorVal(_) { return ObjectType.ERROR }
+        case Object.FunctionVal(_) { return ObjectType.FUNCTION }
+        case Object.BuiltinVal(_) { return ObjectType.BUILTIN }
+        case Object.VecVal(_) { return ObjectType.VEC }
+        case Object.StructVal(_) { return ObjectType.STRUCT }
+        case Object.EnumVal(_) { return ObjectType.ENUM }
+        case Object.ResultVal(_) { return ObjectType.RESULT }
+        case Object.OptionVal(_) { return ObjectType.OPTION }
+        case Object.BorrowVal(_) { return ObjectType.BORROW }
+        case Object.RangeVal(_) { return ObjectType.RANGE }
+        case Object.BreakVal(_) { return ObjectType.BREAK }
+        case Object.ContinueVal(_) { return ObjectType.CONTINUE }
+        case Object.ModuleVal(_) { return ObjectType.MODULE }
+        case Object.BoxVal(_) { return ObjectType.BOX }
+        case Object.TupleVal(_) { return ObjectType.TUPLE }
+    }
+}
+
+pub func inspect(obj: Object) -> (string) {
+    switch obj {
+        case Object.IntegerVal(i) { 
+            return strconv.intToString(i.Value) 
+        }
+        case Object.FloatVal(f) { 
+            return strconv.floatToString(f.Value) 
+        }
+        case Object.BooleanVal(b) { 
+            if b.Value { return "true" } else { return "false" }
+        }
+        case Object.StringVal(s) { 
+            return s.Value 
+        }
+        case Object.CharVal(c) { 
+            return char(c.Value).toString() 
+        }
+        case Object.VoidVal(_) { 
+            return "void" 
+        }
+        case Object.NullVal(_) { 
+            return "null" 
+        }
+        case Object.ReturnVal(rv) { 
+            switch rv.Value {
+                case Some(v) { return inspect(*v) }
+                case None { return "void" }
+            }
+        }
+        case Object.ErrorVal(e) { 
+            return "Error: " + e.Message 
+        }
+        case Object.FunctionVal(_) { 
+            return "<function>" 
+        }
+        case Object.BuiltinVal(b) { 
+            return "<builtin:" + b.Name + ">" 
+        }
+        case Object.VecVal(v) { 
+            mut var result: string = "["
+            for i in 0..v.Elements.len() {
+                if i > 0 { result = result + ", " }
+                result = result + inspect(v.Elements[i])
+            }
+            return result + "]"
+        }
+        case Object.StructVal(s) { 
+            return s.Name + "{...}" 
+        }
+        case Object.EnumVal(e) { 
+            if e.Values.len() == 0 {
+                return e.EnumName + "." + e.Variant
+            }
+            return e.EnumName + "." + e.Variant + "(...)"
+        }
+        case Object.ResultVal(r) { 
+            if r.IsOk {
+                switch r.Value {
+                    case Some(v) { return "Ok(" + inspect(*v) + ")" }
+                    case None { return "Ok()" }
+                }
+            } else {
+                switch r.Value {
+                    case Some(v) { return "Err(" + inspect(*v) + ")" }
+                    case None { return "Err()" }
+                }
+            }
+        }
+        case Object.OptionVal(o) { 
+            if o.IsSome {
+                switch o.Value {
+                    case Some(v) { return "Some(" + inspect(*v) + ")" }
+                    case None { return "Some()" }
+                }
+            } else {
+                return "None"
+            }
+        }
+        case Object.BorrowVal(b) { 
+            if b.Mutable {
+                switch b.Value {
+                    case Some(v) { return "&mut " + inspect(*v) }
+                    case None { return "&mut ??" }
+                }
+            } else {
+                switch b.Value {
+                    case Some(v) { return "&" + inspect(*v) }
+                    case None { return "&??" }
+                }
+            }
+        }
+        case Object.RangeVal(r) { 
+            var start: string = strconv.intToString(r.Start)
+            var end: string = strconv.intToString(r.End)
+            return start + ".." + end
+        }
+        case Object.BreakVal(_) { 
+            return "break" 
+        }
+        case Object.ContinueVal(_) { 
+            return "continue" 
+        }
+        case Object.ModuleVal(m) { 
+            return "<module:" + m.Name + ">" 
+        }
+        case Object.BoxVal(b) { 
+            switch b.Value {
+                case Some(v) { return "Box(" + inspect(*v) + ")" }
+                case None { return "Box(null)" }
+            }
+        }
+        case Object.TupleVal(t) { 
+            mut var result: string = "("
+            for i in 0..t.Elements.len() {
+                if i > 0 { result = result + ", " }
+                result = result + inspect(t.Elements[i])
+            }
+            return result + ")"
+        }
+    }
+}
+
+// ============================================================================
+// Constructors
+// ============================================================================
+
+pub func newInteger(value: int) -> (Object) {
+    return Object.IntegerVal(IntegerObj{Value: value, Bits: 64, Unsigned: false})
+}
+
+pub func newFloat(value: float64) -> (Object) {
+    return Object.FloatVal(FloatObj{Value: value})
+}
+
+pub func newBoolean(value: bool) -> (Object) {
+    return Object.BooleanVal(BooleanObj{Value: value})
+}
+
+pub func newString(value: string) -> (Object) {
+    return Object.StringVal(StringObj{Value: value})
+}
+
+pub func newChar(value: char) -> (Object) {
+    return Object.CharVal(CharObj{Value: value})
+}
+
+pub func newVoid() -> (Object) {
+    return Object.VoidVal(VoidObj{})
+}
+
+pub func newNull() -> (Object) {
+    return Object.NullVal(NullObj{})
+}
+
+pub func newError(message: string, line: int, column: int) -> (Object) {
+    return Object.ErrorVal(ErrorObj{Message: message, Line: line, Column: column})
+}
+
+pub func newReturnValue(value: Object) -> (Object) {
+    return Object.ReturnVal(ReturnValueObj{Value: Some(Box.new(value))})
+}
+
+pub func newBreak() -> (Object) {
+    return Object.BreakVal(BreakObj{})
+}
+
+pub func newContinue() -> (Object) {
+    return Object.ContinueVal(ContinueObj{})
+}
+
+pub func newVec() -> (Object) {
+    return Object.VecVal(VecObj{
+        Elements: Vec.new(),
+        ElemType: "",
+        Size: -1,
+        Mutable: true,
+    })
+}
+
+pub func newOk(value: Object) -> (Object) {
+    return Object.ResultVal(ResultObj{IsOk: true, Value: Some(Box.new(value))})
+}
+
+pub func newErr(value: Object) -> (Object) {
+    return Object.ResultVal(ResultObj{IsOk: false, Value: Some(Box.new(value))})
+}
+
+pub func newSome(value: Object) -> (Object) {
+    return Object.OptionVal(OptionObj{IsSome: true, Value: Some(Box.new(value))})
+}
+
+pub func newNone() -> (Object) {
+    return Object.OptionVal(OptionObj{IsSome: false, Value: None})
+}
+
+pub func newRange(start: int, end: int) -> (Object) {
+    return Object.RangeVal(RangeObj{
+        Start: start,
+        End: end,
+        StartInclusive: true,
+        EndInclusive: false,
+    })
+}
+
+// ============================================================================
+// Type Checks
+// ============================================================================
+
+pub func isError(obj: Object) -> (bool) {
+    switch obj {
+        case Object.ErrorVal(_) { return true }
+        default { return false }
+    }
+}
+
+pub func isReturnValue(obj: Object) -> (bool) {
+    switch obj {
+        case Object.ReturnVal(_) { return true }
+        default { return false }
+    }
+}
+
+pub func isBreak(obj: Object) -> (bool) {
+    switch obj {
+        case Object.BreakVal(_) { return true }
+        default { return false }
+    }
+}
+
+pub func isContinue(obj: Object) -> (bool) {
+    switch obj {
+        case Object.ContinueVal(_) { return true }
+        default { return false }
+    }
+}
+
+pub func isTruthy(obj: Object) -> (bool) {
+    switch obj {
+        case Object.BooleanVal(b) { return b.Value }
+        case Object.NullVal(_) { return false }
+        case Object.VoidVal(_) { return false }
+        case Object.IntegerVal(i) { return i.Value != 0 }
+        default { return true }
+    }
+}

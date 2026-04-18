@@ -1,0 +1,17 @@
+package main
+
+pub struct Entry {
+    pub Path:  string
+    pub Alias: string
+}
+
+func main() -> (int) {
+    var importPath: string = "src/compiler/driver/driver.bak"
+    var importAlias: string = "driver"
+    var e: Entry = Entry{Alias: importAlias, Path: importPath}
+
+    println("e.Path=" + e.Path)
+    println("e.Alias=" + e.Alias)
+
+    return 0
+}

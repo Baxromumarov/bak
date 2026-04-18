@@ -1,0 +1,31 @@
+package main
+
+func apply(f: func(int) -> (int), val int) -> (int) {
+    return f(val)
+}
+
+func get_multiplier(m: int) -> (func(int) -> (int)) {
+    // Note: m cannot be captured, so this is limited in Bak
+    // but we can return an anon func that uses globals or just its own params
+    return func(x: int) -> (int) {
+        return x * 2 // Using constant 2 because we can't capture m
+    }
+}
+
+func main() {
+    // Pass as argument
+    var res1 = apply(func(x: int) -> (int) { return x + 1 }, 10)
+    println(res1)
+
+    // Return from function
+    var mult = get_multiplier(5)
+    println(mult(10))
+
+    // Nested HOF
+    var res2 = apply(combine(func(x: int) -> (int) { return x * 2 }), 5)
+    println(res2)
+}
+
+func combine(f: func(int) -> (int)) -> (func(int) -> (int)) {
+    return f
+}

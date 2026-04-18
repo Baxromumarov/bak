@@ -1,0 +1,225 @@
+package fmt
+
+import "src/std/strconv/strconv.bak" as strconv
+
+// =============================================================================
+// String Formatting for Bak
+// =============================================================================
+// Provides sprintf-style string formatting with type-safe variadic args.
+//
+// Since Bak doesn't have variadic functions or runtime reflection,
+// we provide format functions for common arities and type combinations,
+// plus a StringBuilder for custom formatting.
+
+// -----------------------------------------------------------------------------
+// StringBuilder - efficient string construction
+// -----------------------------------------------------------------------------
+
+pub struct StringBuilder {
+    parts: Vec<string, _>
+}
+
+pub func new_builder() -> (StringBuilder) {
+    return StringBuilder{parts: Vec.new()}
+}
+
+impl StringBuilder as sb {
+    pub mut func write(s: string) -> (void) {
+        sb.parts.push(s)
+        return void
+    }
+
+    pub mut func write_int(n: int) -> (void) {
+        sb.parts.push(strconv.intToString(n))
+        return void
+    }
+
+    pub mut func write_bool(b: bool) -> (void) {
+        if b {
+            sb.parts.push("true")
+        } else {
+            sb.parts.push("false")
+        }
+        return void
+    }
+
+    pub mut func write_char(c: char) -> (void) {
+        sb.parts.push(string(c))
+        return void
+    }
+
+    pub mut func write_line(s: string) -> (void) {
+        sb.parts.push(s)
+        sb.parts.push("\n")
+        return void
+    }
+
+    pub func build() -> (string) {
+        mut var result: string = ""
+        mut var i: int = 0
+        while i < sb.parts.len() {
+            result = result + sb.parts[i]
+            i = i + 1
+        }
+        return result
+    }
+
+    pub mut func clear() -> (void) {
+        mut var empty: Vec<string, _> = Vec.new()
+        sb.parts = empty
+        return void
+    }
+
+    pub func len() -> (int) {
+        mut var total: int = 0
+        mut var i: int = 0
+        while i < sb.parts.len() {
+            total = total + sb.parts[i].len()
+            i = i + 1
+        }
+        return total
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Core format engine
+// -----------------------------------------------------------------------------
+
+// format_args takes a format string and a Vec of string arguments,
+// replacing {} placeholders sequentially.
+// Example: format_args("Hello, {}! You are {} years old.", args)
+pub func format_args(template: string, args: &Vec<string, _>) -> (string) {
+    mut var sb: StringBuilder = new_builder()
+    mut var arg_idx: int = 0
+    mut var i: int = 0
+    var tlen: int = template.len()
+
+    while i < tlen {
+        if i + 1 < tlen && int(template[i]) == 123 && int(template[i + 1]) == 125 {
+            // Found "{}"
+            if arg_idx < args.len() {
+                sb.write(args[arg_idx])
+                arg_idx = arg_idx + 1
+            } else {
+                sb.write("{}")
+            }
+            i = i + 2
+        } else {
+            sb.write(string(template[i]))
+            i = i + 1
+        }
+    }
+    return sb.build()
+}
+
+// -----------------------------------------------------------------------------
+// Typed format functions (1-6 string args)
+// -----------------------------------------------------------------------------
+
+// format1 formats a template with 1 string argument.
+pub func format1(template: string, a1: string) -> (string) {
+    mut var args: Vec<string, _> = Vec.new()
+    args.push(a1)
+    return format_args(template, &args)
+}
+
+// format2 formats a template with 2 string arguments.
+pub func format2(template: string, a1: string, a2: string) -> (string) {
+    mut var args: Vec<string, _> = Vec.new()
+    args.push(a1)
+    args.push(a2)
+    return format_args(template, &args)
+}
+
+// format3 formats a template with 3 string arguments.
+pub func format3(template: string, a1: string, a2: string, a3: string) -> (string) {
+    mut var args: Vec<string, _> = Vec.new()
+    args.push(a1)
+    args.push(a2)
+    args.push(a3)
+    return format_args(template, &args)
+}
+
+// format4 formats a template with 4 string arguments.
+pub func format4(template: string, a1: string, a2: string, a3: string, a4: string) -> (string) {
+    mut var args: Vec<string, _> = Vec.new()
+    args.push(a1)
+    args.push(a2)
+    args.push(a3)
+    args.push(a4)
+    return format_args(template, &args)
+}
+
+// -----------------------------------------------------------------------------
+// Convenience: format with int conversion
+// -----------------------------------------------------------------------------
+
+// sprintf_int formats a template replacing {} with an integer.
+pub func sprintf_int(template: string, n: int) -> (string) {
+    return format1(template, strconv.intToString(n))
+}
+
+// sprintf_2int formats a template replacing {} with two integers.
+pub func sprintf_2int(template: string, a: int, b: int) -> (string) {
+    return format2(template, strconv.intToString(a), strconv.intToString(b))
+}
+
+// sprintf_str_int formats a template with a string and an integer.
+pub func sprintf_str_int(template: string, s: string, n: int) -> (string) {
+    return format2(template, s, strconv.intToString(n))
+}
+
+// sprintf_int_str formats a template with an integer and a string.
+pub func sprintf_int_str(template: string, n: int, s: string) -> (string) {
+    return format2(template, strconv.intToString(n), s)
+}
+
+// -----------------------------------------------------------------------------
+// Join utilities
+// -----------------------------------------------------------------------------
+
+// join_ints joins a Vec<int, _> with a separator string.
+pub func join_ints(arr: &Vec<int, _>, sep: string) -> (string) {
+    if arr.len() == 0 {
+        return ""
+    }
+    mut var sb: StringBuilder = new_builder()
+    mut var i: int = 0
+    while i < arr.len() {
+        if i > 0 {
+            sb.write(sep)
+        }
+        sb.write_int(arr[i])
+        i = i + 1
+    }
+    return sb.build()
+}
+
+// repeat returns a string repeated n times.
+pub func repeat(s: string, n: int) -> (string) {
+    mut var sb: StringBuilder = new_builder()
+    mut var i: int = 0
+    while i < n {
+        sb.write(s)
+        i = i + 1
+    }
+    return sb.build()
+}
+
+// pad_left pads a string to the given width with the given char.
+pub func pad_left(s: string, width: int, pad_char: string) -> (string) {
+    mut var result: string = s
+    while result.len() < width {
+        result = pad_char + result
+    }
+    return result
+}
+
+// pad_right pads a string to the given width with the given char.
+pub func pad_right(s: string, width: int, pad_char: string) -> (string) {
+    mut var result: string = s
+    while result.len() < width {
+        result = result + pad_char
+    }
+    return result
+}

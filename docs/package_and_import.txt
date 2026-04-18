@@ -1,0 +1,265 @@
+bak uses an explicit pub keyword for visibility.
+Identifiers are private by default.
+
+This applies to:
+
+structs
+
+enums
+
+functions
+
+constants
+
+type aliases
+
+methods
+
+fields
+
+There is no case-based visibility anymore.
+
+This simplifies:
+
+compiler logic
+
+diagnostics
+
+refactoring
+
+Unicode handling
+
+self-hosting
+
+Good call.
+
+2 Visibility rules (spec-ready)
+Default: private to package
+package lexer
+
+func lex() {}        // private
+struct token {}     // private
+const eof = 0        // private
+
+
+Accessible only inside the same package.
+
+Public symbols use pub
+package lexer
+
+pub struct Token {
+    Kind int        // private field
+    pub Value string
+}
+
+pub func Lex() -> (Token) {
+    return Token{Kind: 0, Value: ""}
+}
+
+
+Rules:
+
+pub applies only to the next declaration
+
+No "block pub"
+
+Visibility is explicit and local
+
+Access from another package
+import "lexer"
+
+var t lexer.Token      // OK
+lexer.Lex()            // OK
+
+t.Kind                 // NO private field
+t.Value                // OK
+
+3 What pub does not do
+
+No re-exporting
+
+pub import "other"     // NO not allowed
+
+
+No partial imports
+
+import "lexer".Token  // NO
+
+
+No implicit visibility
+
+func PublicFunc() {}  // NO still private
+
+
+Only pub makes things public.
+
+4 Interaction with methods (impl blocks)
+
+Visibility is per method, not per impl.
+
+impl Token as t {
+    pub func String() -> (string) {
+        return t.Value
+    }
+
+    func debug() {}   // private
+}
+
+
+From another package:
+
+t.String()   // OK
+t.debug()    // NO
+
+5 Minimal compiler implementation (Go)
+
+This is very easy now.
+
+A. AST change
+
+Every declaration node gets:
+
+type Visibility int
+
+const (
+    Private Visibility = iota
+    Public
+)
+
+Decl.Visibility Visibility
+
+
+Parser rule:
+
+if pub keyword is present -> Public
+
+else -> Private
+
+B. Symbol table
+
+Each symbol stores:
+
+type Symbol struct {
+    Name       string
+    Package    string
+    Visibility Visibility
+}
+
+C. Name resolution rule (core check)
+
+When resolving pkg.Symbol:
+
+if symbol.Visibility == Private && symbol.Package != currentPackage {
+    error("symbol '%s' is private to package '%s'", ...)
+}
+
+
+That's it.
+
+No casing logic.
+No Unicode rules.
+No hacks.
+
+6 Diagnostics you should add immediately
+
+Good errors make this feel "done".
+
+Private access
+error: symbol 'lex' is private to package 'lexer'
+
+Missing pub
+note: consider making 'Token' public with 'pub struct Token'
+
+7 What this unlocks (important)
+
+By choosing pub now, you get:
+
+easier refactors
+
+clearer APIs
+
+better error messages
+
+simpler self-hosting
+
+future features like:
+
+pub(crate) (maybe)
+
+pub(in pkg)
+
+docs generation
+
+All impossible or painful with case-based visibility.
+
+cyclic import is not allowed
+
+# Package Visibility and Imports in bak
+
+## Visibility
+- All identifiers (structs, enums, functions, constants, type aliases, methods, fields) are private by default.
+- Use the `pub` keyword to make a symbol public.
+- No case-based visibility.
+
+## Rules
+- `pub` applies only to the next declaration (no block `pub`).
+- Visibility is explicit and local.
+- No re-exporting or partial imports.
+- Only `pub` makes things public; naming alone does not.
+
+## Examples
+```bak
+package lexer
+func lex() {}        // private
+struct token {}      // private
+const eof = 0        // private
+
+pub struct Token {
+     Kind int        // private field
+     pub Value string
+}
+
+pub func Lex() -> (Token) {
+     return Token{Kind: 0, Value: ""}
+}
+```
+
+**Access from another package:**
+```bak
+import "lexer"
+var t lexer.Token      // OK
+lexer.Lex()            // OK
+t.Kind                 // NO (private field)
+
+```
+
+## Methods and impl blocks
+- Visibility is per method, not per impl block.
+```bak
+impl Token as t {
+     pub func String() -> (string) { return t.Value }
+     func debug() {}   // private
+}
+```
+From another package:
+- `t.String()`   // OK
+- `t.debug()`    // NO
+
+## Compiler Implementation
+- Each declaration node has a `Visibility` (Private or Public).
+- Symbol table tracks name, package, and visibility.
+- Name resolution: if a symbol is private and not in the current package, emit an error.
+
+## Diagnostics
+- Private access: `error: symbol 'lex' is private to package 'lexer'`
+- Missing pub: `note: consider making 'Token' public with 'pub struct Token'`
+
+## Benefits
+- Easier refactoring
+- Clearer APIs
+- Better error messages
+- Simpler self-hosting
+- Enables future features (e.g., `pub(crate)`, docs generation)
+
+## Restrictions
+- Cyclic imports are not allowed.

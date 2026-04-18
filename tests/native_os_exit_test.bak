@@ -1,0 +1,11 @@
+package main
+
+import "std/os"
+
+func main() -> (void) {
+    // Test os.exit first (simplest)
+    println("Testing os.exit...")
+    os.exit(0)
+    // This should never print
+    println("ERROR: Should have exited!")
+}

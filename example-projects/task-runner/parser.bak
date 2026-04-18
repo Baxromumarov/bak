@@ -1,0 +1,258 @@
+package main
+
+// Bakfile parser - parses task configuration from file
+import "src/std/fs/fs.bak" as fs
+import "example-projects/task-runner/types.bak" as types
+
+// Parse result enum
+pub enum ParseResult {
+    Success(types.Config)
+    Error(string)
+}
+
+// Parse a bakfile into a Config
+pub func parse_file(filepath: string) -> (ParseResult) {
+    var content_result: Result<string, string> = fs.read(filepath)
+    switch content_result {
+        case Err(e) {
+            return ParseResult.Error("Failed to read file: " + e)
+        }
+        case Ok(content) {
+            return parse_content(content)
+        }
+    }
+    return ParseResult.Error("Unexpected error")
+}
+
+// Parse bakfile content
+pub func parse_content(content: string) -> (ParseResult) {
+    mut var config: types.Config = types.Config.new()
+    mut var current_task: Option<types.TaskDef> = None
+    
+    var lines: Vec<string, _> = split_lines(content)
+    mut var line_num: int = 0
+    
+    while line_num < lines.len() {
+        var line: string = trim(lines[line_num])
+        
+        // Skip empty lines and comments
+        if line.len() == 0 || starts_with(&line, "#") {
+            line_num = line_num + 1
+            continue
+        }
+        
+        // Task definition: [task_name]
+        if starts_with(&line, "[") && ends_with(&line, "]") {
+            // Save previous task
+            switch current_task {
+                case Some(task) {
+                    config.add_task(task)
+                }
+                case None {}
+            }
+            
+            // Extract task name
+            var name: string = substring(line, 1, line.len() - 1)
+            current_task = Some(types.TaskDef.new(name))
+            line_num = line_num + 1
+            continue
+        }
+        
+        // Key-value pair
+        var (key, value) = parse_key_value(line)
+        if key.len() > 0 {
+            switch current_task {
+                case Some(task) {
+                    switch key {
+                        case "description" {
+                            task.set_description(value)
+                            current_task = Some(task)
+                        }
+                        case "command" {
+                            task.add_command(value)
+                            current_task = Some(task)
+                        }
+                        case "cmd" {
+                            task.add_command(value)
+                            current_task = Some(task)
+                        }
+                        case "depends" {
+                            var deps: Vec<string, _> = split_comma(value)
+                            mut var i: int = 0
+                            while i < deps.len() {
+                                task.add_dep(trim(deps[i]))
+                                i = i + 1
+                            }
+                            current_task = Some(task)
+                        }
+                        case "deps" {
+                            var deps: Vec<string, _> = split_comma(value)
+                            mut var i: int = 0
+                            while i < deps.len() {
+                                task.add_dep(trim(deps[i]))
+                                i = i + 1
+                            }
+                            current_task = Some(task)
+                        }
+                        case "dir" {
+                            task.set_working_dir(value)
+                            current_task = Some(task)
+                        }
+                        case "silent" {
+                            task.set_silent(value == "true")
+                            current_task = Some(task)
+                        }
+                        default {}
+                    }
+                }
+                case None {
+                    // Global config
+                    if key == "default" {
+                        config.set_default(value)
+                    }
+                }
+            }
+        }
+        
+        line_num = line_num + 1
+    }
+    
+    // Save last task
+    switch current_task {
+        case Some(task) {
+            config.add_task(task)
+        }
+        case None {}
+    }
+    
+    return ParseResult.Success(config)
+}
+
+// Parse key=value or key: value
+func parse_key_value(line: string) -> (key: string, value: string) {
+    key = ""
+    value = ""
+    mut var i: int = 0
+    mut var found_separator: bool = false
+    
+    while i < line.len() {
+        var c: char = line[i]
+        if !found_separator && (c == '=' || c == ':') {
+            found_separator = true
+            i = i + 1
+            // Skip whitespace after separator
+            while i < line.len() && (line[i] == ' ' || line[i] == '\t') {
+                i = i + 1
+            }
+            continue
+        }
+        
+        if found_separator {
+            value = value + string(c)
+        } else if c != ' ' && c != '\t' {
+            key = key + string(c)
+        }
+        i = i + 1
+    }
+    return
+}
+
+// Split string into lines
+func split_lines(content: string) -> (lines: Vec<string, _>) {
+    lines = Vec.new()
+    mut var current: string = ""
+    mut var i: int = 0
+    
+    while i < content.len() {
+        var c: char = content[i]
+        if c == '\n' {
+            lines.push(current)
+            current = ""
+        } else if c != '\r' {
+            current = current + string(c)
+        }
+        i = i + 1
+    }
+    
+    if current.len() > 0 {
+        lines.push(current)
+    }
+    return
+}
+
+// Split by comma
+func split_comma(s: string) -> (parts: Vec<string, _>) {
+    parts = Vec.new()
+    mut var current: string = ""
+    mut var i: int = 0
+    
+    while i < s.len() {
+        var c: char = s[i]
+        if c == ',' {
+            if current.len() > 0 {
+                parts.push(current)
+                current = ""
+            }
+        } else {
+            current = current + string(c)
+        }
+        i = i + 1
+    }
+    
+    if current.len() > 0 {
+        parts.push(current)
+    }
+    return
+}
+
+// String utilities
+func trim(s: string) -> (result: string) {
+    result = ""
+    mut var start: int = 0
+    mut var end: int = s.len()
+    
+    while start < s.len() && (s[start] == ' ' || s[start] == '\t') {
+        start = start + 1
+    }
+    while end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
+        end = end - 1
+    }
+    
+    mut var i: int = start
+    while i < end {
+        result = result + string(s[i])
+        i = i + 1
+    }
+    return
+}
+
+func starts_with(s: &string, prefix: string) -> (bool) {
+    if s.len() < prefix.len() { return false }
+    mut var i: int = 0
+    while i < prefix.len() {
+        if (*s)[i] != prefix[i] { return false }
+        i = i + 1
+    }
+    return true
+}
+
+func ends_with(s: &string, suffix: string) -> (bool) {
+    if s.len() < suffix.len() { return false }
+    var offset: int = s.len() - suffix.len()
+    mut var i: int = 0
+    while i < suffix.len() {
+        if (*s)[offset + i] != suffix[i] { return false }
+        i = i + 1
+    }
+    return true
+}
+
+func substring(s: string, start: int, end: int) -> (result: string) {
+    result = ""
+    mut var i: int = start
+    while i < end && i < s.len() {
+        result = result + string(s[i])
+        i = i + 1
+    }
+    return
+}

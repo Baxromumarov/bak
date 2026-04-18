@@ -1,0 +1,91 @@
+package crypto
+
+// Lightweight crypto helpers: FNV-1a hash and RNG.
+
+import "src/std/time/time.bak" as time
+
+pub const FNV_OFFSET_32: int = 2166136261
+pub const FNV_PRIME_32: int = 16777619
+const U32_MOD: int = 4294967296
+
+pub func fnv1a(s: string) -> (int) {
+    mut var hash: int = FNV_OFFSET_32
+    mut var i: int = 0
+    while i < s.len() {
+        hash = hash ^ int(s[i])
+        hash = (hash * FNV_PRIME_32) % U32_MOD
+        if hash < 0 {
+            hash = hash + U32_MOD
+        }
+        i = i + 1
+    }
+    return hash
+}
+
+pub func fnv1a_bytes(data: Vec<int, _>) -> (int) {
+    mut var hash: int = FNV_OFFSET_32
+    mut var i: int = 0
+    while i < data.len() {
+        hash = hash ^ data[i]
+        hash = (hash * FNV_PRIME_32) % U32_MOD
+        if hash < 0 {
+            hash = hash + U32_MOD
+        }
+        i = i + 1
+    }
+    return hash
+}
+
+pub struct RNG {
+    state: int
+}
+
+pub func new_rng(seed: int) -> (RNG) {
+    mut var init: int = seed
+    if init == 0 {
+        init = 1
+    }
+    return RNG{state: init}
+}
+
+pub func rng_from_time() -> (RNG) {
+    return new_rng(time.now().unix_nanos())
+}
+
+impl RNG as r {
+    pub mut func next_u32() -> (int) {
+        mut var x: int = r.state
+        x = x ^ (x << 13)
+        x = x ^ (x >> 17)
+        x = x ^ (x << 5)
+        r.state = x
+        if x < 0 {
+            return -x
+        }
+        return x
+    }
+
+    pub mut func next_int(max: int) -> (int) {
+        if max <= 0 {
+            return 0
+        }
+        return r.next_u32() % max
+    }
+
+    pub mut func range(min: int, max: int) -> (int) {
+        if max <= min {
+            return min
+        }
+        return min + (r.next_u32() % (max - min + 1))
+    }
+
+    pub mut func bytes(count: int) -> (Vec<int, _>) {
+        mut var out: Vec<int, _> = Vec.new()
+        mut var i: int = 0
+        while i < count {
+            out.push(r.next_u32() % 256)
+            i = i + 1
+        }
+        return out
+    }
+}

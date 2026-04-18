@@ -1,0 +1,15 @@
+package main
+
+// Test functions
+func noParams() -> (void) { return void }
+func oneParam(a: int) -> (void) { return void }
+func twoParams(a: int, b: string) -> (void) { return void }
+func threeParams(a: int, b: string, c: bool) -> (void) { return void }
+func fourParams(a: int, b: float64, c: string, d: bool) -> (void) { return void }
+func sixParams(a: int, b: int, c: int, d: int, e: int, f: int) -> (void) { return void }
+
+func main() -> (void) {
+    // ERROR: noParams expects 0, got 1
+    noParams(42)
+    return void
+}

@@ -1,0 +1,27 @@
+package main
+
+func main() -> (int) {
+    var s: string = "src/compiler/driver/driver.bak"
+
+    if s.startsWith("./") {
+        println("starts with ./")
+    } else {
+        println("no ./")
+    }
+
+    if s.startsWith("../") {
+        println("starts with ../")
+    } else {
+        println("no ../")
+    }
+
+    if s.startsWith("src/std/driver") {
+        println("starts with src/std/driver")
+    } else {
+        println("no src/std/driver")
+    }
+
+    println("done")
+
+    return 0
+}

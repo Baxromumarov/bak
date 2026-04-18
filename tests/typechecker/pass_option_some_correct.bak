@@ -1,0 +1,24 @@
+// Test: Option Some with matching type - should PASS
+// This file should compile without type errors
+package main
+
+func findValue(id: int) -> (Option<int>) {
+    if id == 0 {
+        return None
+    }
+    // OK: 42 is int, matches Option<int>
+    return Some(id * 10)
+}
+
+func main() -> (void) {
+    var result = findValue(5)
+    switch result {
+        case Some(v) {
+            println("Found:", v)
+        }
+        case None {
+            println("Not found")
+        }
+    }
+    return void
+}

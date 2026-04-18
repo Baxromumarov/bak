@@ -1,0 +1,13 @@
+package main
+
+func main() -> (int) {
+    var s: string = "hello world"
+
+    if s.startsWith("hello") {
+        println("yes")
+    } else {
+        println("no")
+    }
+
+    return 0
+}

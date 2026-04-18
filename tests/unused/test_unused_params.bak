@@ -1,0 +1,12 @@
+package main
+
+// Test: unused function parameters
+func f(_: int, y: int, z: int) -> (void) {
+    println(y) // z is unused, should warn; _ is unused, should NOT warn
+    return void
+}
+
+func main() -> (void) {
+    f(1, 2, 3)
+    return void
+}

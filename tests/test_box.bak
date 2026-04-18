@@ -1,0 +1,82 @@
+// Test file for Box and Recursive Types
+package main
+
+// A simple linked list node using Box for the next pointer
+struct ListNode {
+    value: int
+    next: Box
+}
+
+// Binary tree node
+struct TreeNode {
+    value: int
+    left: Box
+    right: Box
+}
+
+func main() -> (void) {
+    println("=== Testing Box and Recursive Types ===")
+    
+    // Basic Box operations
+    println("\n1. Basic Box operations:")
+    var boxed: Box = Box(42)
+    println("  Box(42):", boxed)
+    println("  boxed.is_nil():", boxed.is_nil())
+    println("  boxed.unwrap():", boxed.unwrap())
+    
+    // Box with unwrap_or
+    println("\n2. Box.unwrap_or():")
+    println("  boxed.unwrap_or(0):", boxed.unwrap_or(0))
+    
+    // unbox builtin
+    println("\n3. unbox builtin:")
+    var value: int = unbox(boxed)
+    println("  unbox(boxed):", value)
+    
+    // Using Box for struct field (simulating recursive type)
+    println("\n4. Linked List using Box:")
+    
+    // Create a simple linked list: 1 -> 2 -> 3
+    var node3: ListNode = ListNode{value: 3, next: Box(None)}
+    var node2: ListNode = ListNode{value: 2, next: Box(node3)}
+    var node1: ListNode = ListNode{value: 1, next: Box(node2)}
+    
+    println("  First node value:", node1.value)
+    println("  Second node value:", node1.next.unwrap().value)
+    println("  Third node value:", node1.next.unwrap().next.unwrap().value)
+    println("  Third node next is_nil:", node1.next.unwrap().next.unwrap().next.is_nil())
+    
+    // Binary tree example
+    println("\n5. Binary Tree using Box:")
+    var leaf1: TreeNode = TreeNode{
+        value: 1, 
+        left: Box(None), 
+        right: Box(None),
+    }
+    
+    var leaf2: TreeNode = TreeNode{
+        value: 3, 
+        left: Box(None), 
+        right: Box(None),
+    }
+    
+    var root: TreeNode = TreeNode{
+        value: 2, 
+        left: Box(leaf1), 
+        right: Box(leaf2),
+    }
+    
+    println("  Root value:", root.value)
+    println("  Left child:", root.left.unwrap().value)
+    println("  Right child:", root.right.unwrap().value)
+    println("  Left child's left is_nil:", root.left.unwrap().left.is_nil())
+    
+    // Box.set() to modify
+    println("\n6. Box.set() modification:")
+    var mutableBox: Box = Box(100)
+    println("  Before set:", mutableBox.unwrap())
+    mutableBox.set(200)
+    println("  After set:", mutableBox.unwrap())
+    
+    println("\n=== Box/Recursive Type tests complete ===")
+}

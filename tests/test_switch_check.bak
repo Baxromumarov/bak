@@ -1,0 +1,17 @@
+package main
+
+func main() -> (void) {
+    var x: int64 = 6
+    switch x {
+        case 5 {
+            println("Five")
+        }
+        case 6 {
+            println("Six")
+        }
+        case "hello" {
+            println("Hello")
+        }
+    }
+    return void
+}

@@ -1,0 +1,188 @@
+// Runtime environment for the Bak interpreter.
+// Maps variable names to their values during evaluation.
+package object
+
+import "src/compiler/object/object.bak" as obj
+
+// Environment represents a scope with variable bindings
+pub struct Environment {
+    store: Vec<Binding, _>
+    outer: Box<Environment>?
+}
+
+pub struct Binding {
+    Name: string
+    Value: obj.Object
+    Mutable: bool
+    Constant: bool
+}
+
+// New creates a new empty environment
+pub func New() -> (Environment) {
+    return Environment{
+        store: Vec.new(),
+        outer: None,
+    }
+}
+
+// NewEnclosed creates a new environment with an outer scope
+pub func NewEnclosed(outer: Environment) -> (Environment) {
+    return Environment{
+        store: Vec.new(),
+        outer: Some(Box.new(outer)),
+    }
+}
+
+impl Environment as e {
+    // Get retrieves a value from the environment
+    pub func Get(name: string) -> (Option<obj.Object>) {
+        for binding in e.store {
+            if binding.Name == name {
+                return Some(binding.Value)
+            }
+        }
+        
+        // Check outer scope
+        switch e.outer {
+            case Some(outerEnv) {
+                return outerEnv.Get(name)
+            }
+            case None {
+                return None
+            }
+        }
+    }
+    
+    // GetBinding retrieves the full binding from the environment
+    pub func GetBinding(name: string) -> (Option<Binding>) {
+        for binding in e.store {
+            if binding.Name == name {
+                return Some(binding)
+            }
+        }
+        
+        // Check outer scope
+        switch e.outer {
+            case Some(outerEnv) {
+                return outerEnv.GetBinding(name)
+            }
+            case None {
+                return None
+            }
+        }
+    }
+    
+    // Set creates or updates a binding in the current scope
+    mut func Set(name: string, value: obj.Object, mutable: bool) -> (void) {
+        // Check if it exists in current scope and update
+        for i in 0..e.store.len() {
+            if e.store[i].Name == name {
+                e.store[i] = Binding{
+                    Name: name,
+                    Value: value,
+                    Mutable: mutable,
+                    Constant: false,
+                }
+                return void
+            }
+        }
+        
+        // Otherwise add new binding
+        e.store.push(Binding{
+            Name: name,
+            Value: value,
+            Mutable: mutable,
+            Constant: false,
+        })
+    }
+    
+    // SetConstant creates or updates a constant binding
+    mut func SetConstant(name: string, value: obj.Object) -> (void) {
+        // Check if it exists in current scope and update
+        for i in 0..e.store.len() {
+            if e.store[i].Name == name {
+                e.store[i] = Binding{
+                    Name: name,
+                    Value: value,
+                    Mutable: false,
+                    Constant: true,
+                }
+                return void
+            }
+        }
+        
+        // Otherwise add new binding
+        e.store.push(Binding{
+            Name: name,
+            Value: value,
+            Mutable: false,
+            Constant: true,
+        })
+    }
+    
+    // Update updates an existing binding (for assignment)
+    // Returns an error message if the variable doesn't exist or is immutable
+    mut func Update(name: string, value: obj.Object) -> (Option<string>) {
+        for i in 0..e.store.len() {
+            if e.store[i].Name == name {
+                var binding: Binding = e.store[i]
+                if binding.Constant {
+                    return Some("cannot assign to constant '" + name + "'")
+                }
+                if !binding.Mutable {
+                    return Some("cannot assign to immutable variable '" + name + "'")
+                }
+                
+                e.store[i] = Binding{
+                    Name: name,
+                    Value: value,
+                    Mutable: true,
+                    Constant: false,
+                }
+                return None
+            }
+        }
+        
+        // Check outer scope
+        switch e.outer {
+            case Some(outerEnv) {
+                return outerEnv.Update(name, value)
+            }
+            case None {
+                return Some("undefined variable '" + name + "'")
+            }
+        }
+    }
+    
+    // IsMutable checks if a variable is mutable
+    pub func IsMutable(name: string) -> (bool) {
+        switch e.GetBinding(name) {
+            case Some(binding) {
+                return binding.Mutable
+            }
+            case None {
+                return false
+            }
+        }
+    }
+    
+    // IsConstant checks if a variable is a constant
+    pub func IsConstant(name: string) -> (bool) {
+        switch e.GetBinding(name) {
+            case Some(binding) {
+                return binding.Constant
+            }
+            case None {
+                return false
+            }
+        }
+    }
+    
+    // Exists checks if a variable is defined in any scope
+    pub func Exists(name: string) -> (bool) {
+        switch e.Get(name) {
+            case Some(_) { return true }
+            case None { return false }
+        }
+    }
+}

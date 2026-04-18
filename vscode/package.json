@@ -1,0 +1,85 @@
+{
+  "name": "bak",
+  "displayName": "Bak Language",
+  "description": "Bak language support with LSP",
+  "version": "0.1.0",
+  "publisher": "bak",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:bak",
+    "onStartupFinished",
+    "onCommand:bak.showOutput"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "bak",
+        "aliases": [
+          "Bak",
+          "bak"
+        ],
+        "extensions": [
+          ".bak"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bak.showOutput",
+        "title": "Bak: Show Language Server Output"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bak",
+        "scopeName": "source.bak",
+        "path": "./syntaxes/bak.tmLanguage.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Bak Dark+",
+        "uiTheme": "vs-dark",
+        "path": "./themes/bak-go-dark.json"
+      }
+    ],
+    "themes": [
+      {
+        "label": "Bak Go Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/bak-go-dark.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Bak",
+      "properties": {
+        "bak.lspPath": {
+          "type": "string",
+          "default": "bak-lsp",
+          "description": "Path to the bak language server executable"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -w -p ./",
+    "package": "sh ./scripts/package-vsix.sh"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  }
+}

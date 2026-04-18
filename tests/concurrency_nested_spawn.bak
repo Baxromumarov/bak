@@ -1,0 +1,24 @@
+package main
+
+import "src/std/thread/thread.bak" as thread
+
+func child(id: int) -> (void) {
+    println("Child", id, "running")
+}
+
+func parent(id: int) -> (void) {
+    println("Parent", id, "spawning children")
+    var c1 = thread.spawn(child, id * 10 + 1)
+    var c2 = thread.spawn(child, id * 10 + 2)
+    c1.join()
+    c2.join()
+    println("Parent", id, "done")
+}
+
+func main() -> (void) {
+    var p1 = thread.spawn(parent, 1)
+    var p2 = thread.spawn(parent, 2)
+    p1.join()
+    p2.join()
+    println("Main done")
+}

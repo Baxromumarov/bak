@@ -1,0 +1,24 @@
+package thread
+
+import "src/std/time/time.bak" as time
+
+pub struct Thread {
+}
+
+impl Thread as t {
+    pub func join() -> (void) {
+        __builtin_join(t)
+    }
+}
+
+pub func spawn<T>(f: func(T)->(void), arg: T) -> (Thread) {
+    return __builtin_spawn(f, arg)
+}
+
+pub func sleep(d: time.Duration) -> (void) {
+    __builtin_sleep(d.as_millis())
+}
+
+pub func current_id() -> (int) {
+    return __builtin_thread_id()
+}

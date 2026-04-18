@@ -1,0 +1,8 @@
+package main
+
+func main() -> (void) {
+    var x: int = 1234
+    var y: float64 = float64(x) / 100.0
+
+    println(y)
+}

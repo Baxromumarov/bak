@@ -1,0 +1,40 @@
+package sync
+
+import "src/std/thread/thread.bak" as thread
+import "src/std/time/time.bak" as time
+
+pub struct CancelToken {
+    handle: int
+}
+
+pub func new_cancel_token() -> (CancelToken) {
+    return CancelToken{handle: __builtin_cancel_new()}
+}
+
+impl CancelToken as t {
+    pub func cancel() -> (void) {
+        __builtin_cancel(t.handle)
+    }
+
+    pub func is_cancelled() -> (bool) {
+        return __builtin_is_cancelled(t.handle)
+    }
+}
+
+struct CancelAfterArgs {
+    token: CancelToken
+    d: time.Duration
+}
+
+func cancel_after_worker(args: CancelAfterArgs) -> (void) {
+    thread.sleep(args.d)
+    args.token.cancel()
+    return void
+}
+
+pub func cancel_after(d: time.Duration) -> (CancelToken) {
+    var token: CancelToken = new_cancel_token()
+    var args: CancelAfterArgs = CancelAfterArgs{token: token, d: d}
+    thread.spawn(cancel_after_worker, args)
+    return token
+}

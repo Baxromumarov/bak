@@ -1,0 +1,11 @@
+package main
+
+func main() -> (int) {
+    var a: Option<int> = None
+    mut var result: int = 0
+    switch a {
+        case Some(x) { result = x }
+        case None { result = 99 }
+    }
+    return result
+}

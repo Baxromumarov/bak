@@ -1,0 +1,26 @@
+package main
+
+import "std/http" as http
+
+func main() -> (void) {
+    var params: Vec<http.QueryParam, _> = Vec.from([
+        http.QueryParam{name: "q", value: "bak"},
+        http.QueryParam{name: "page", value: "1"},
+    ])
+
+    var url: string = http.append_query("http://example.com/search", params)
+    var headers: Vec<http.Header, _> = Vec.from([
+        http.Header{name: "User-Agent", value: "bak-client/0.1"},
+    ])
+
+    var res = http.get_with_headers(url, headers)
+    switch res {
+        case Ok(resp) {
+            println("status:", resp.status.toString())
+            println("body:", resp.body_string())
+        }
+        case Err(e) {
+            println("request failed:", e)
+        }
+    }
+}

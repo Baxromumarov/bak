@@ -1,0 +1,12 @@
+// Test: Result Err with wrong error type - should FAIL
+// Expected error: cannot return Result<_, int> from function expecting Result<int, string>
+package main
+
+func parseValue(_s: string) -> (Result<int, string>) {
+    // ERROR: 42 is int, but Result error type expects string
+    return Err(42)
+}
+
+func main() -> (void) {
+    return void
+}

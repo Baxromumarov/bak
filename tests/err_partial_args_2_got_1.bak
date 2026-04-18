@@ -1,0 +1,12 @@
+package main
+
+func twoParams(a: int, b: string) -> (void) { 
+    println(a, b)
+    return void 
+}
+
+func main() -> (void) {
+    // ERROR: twoParams expects 2, got 1
+    twoParams(42)
+    return void
+}

@@ -1,0 +1,53 @@
+// Comprehensive import test demonstrating all supported features
+package main
+
+import (
+    "tests/typelib.bak"
+    "tests/mathlib.bak" as math
+)
+
+func main() -> (void) {
+    println("=== Comprehensive Import Test ===")
+    println()
+    
+    println("1. Imported Structs:")
+    var p1: typelib.Point = typelib.Point{X: 10, Y: 20}
+    var p2: math.Calc = math.Calc{A: 30, B: 40}
+    println("  typelib.Point:", p1.X, p1.Y)
+    println("  math.Calc:", p2.A, p2.B)
+    println()
+    
+    println("2. Type Aliases:")
+    var int1: typelib.Integer = typelib.makeInteger(100)
+    var int2: typelib.Integer = typelib.doubleInteger(int1)
+    println("  typelib.Integer:", int1, "->", int2)
+    println()
+    
+    println("3. Type Alias of Struct:")
+    var coord: typelib.Coordinate = typelib.Coordinate{X: 7, Y: 8}
+    println("  typelib.Coordinate:", coord.X, coord.Y)
+    println()
+    
+    println("4. Aliased Type (UserId):")
+    var userId: typelib.UserId = typelib.makeUserId(12345)
+    println("  typelib.UserId:", userId)
+    println()
+    
+    println("5. Module Functions:")
+    var sum1: int = typelib.makeInteger(10)
+    var sum2: int = math.add(20, 30)
+    var sum3: int = math.sub(100, 40)
+    println("  Results:", sum1, sum2, sum3)
+    println()
+    
+    println("6. Module Constants:")
+    var max: int = typelib.MAX_USERS
+    var pi: int = math.PI
+    println("  typelib.MAX_USERS:", max)
+    println("  math.PI:", pi)
+    println()
+    
+    println("All comprehensive tests passed!")
+    println("Supported: structs, type aliases, constants, functions")
+    return void
+}

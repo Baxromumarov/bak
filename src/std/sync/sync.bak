@@ -1,0 +1,21 @@
+package sync
+
+pub struct Mutex {
+    handle: int
+}
+
+pub func NewMutex() -> (Mutex) {
+    return Mutex{
+        handle: __builtin_mutex_new()
+    }
+}
+
+impl Mutex as m {
+    pub func lock() -> (void) {
+        __builtin_mutex_lock(m.handle)
+    }
+
+    pub func unlock() -> (void) {
+        __builtin_mutex_unlock(m.handle)
+    }
+}

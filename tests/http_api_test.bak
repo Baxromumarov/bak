@@ -1,0 +1,62 @@
+package main
+
+import "http"
+
+
+func main() -> (void) {
+    println("=== Comprehensive HTTP API Test ===")
+    
+    var baseUrl: string = "http://httpbin.org" // or https, client supports both
+    
+    // 1. GET
+    println("\n[1] Testing GET...")
+    var getUrl: string = baseUrl + "/get"
+    var getRes = http.get(getUrl)
+    if getRes.is_ok() {
+        var resp = getRes.unwrap()
+        println("GET Success: " + string(resp.status))
+    } else {
+        println("GET Failed: " + getRes.unwrap_err())
+    }
+    
+    // 2. POST
+    println("\n[2] Testing POST...")
+    var postUrl: string = baseUrl + "/post"
+    var postBody: string = "{\"action\": \"create\", \"id\": 123}"
+    var postRes = http.post(postUrl, postBody)
+    if postRes.is_ok() {
+        var resp = postRes.unwrap()
+        println("POST Success: " + string(resp.status))
+        var body: string = __builtin_string_from_bytes(resp.body, 0, resp.body.len())
+        if body.indexOf("create").is_some() {
+            println("Payload verified.")
+        }
+    } else {
+        println("POST Failed: " + postRes.unwrap_err())
+    }
+    
+    // 3. PUT
+    println("\n[3] Testing PUT...")
+    var putUrl: string = baseUrl + "/put"
+    var putBody: string = "{\"action\": \"update\", \"id\": 123}"
+    var putRes = http.put(putUrl, putBody)
+    if putRes.is_ok() {
+        var resp = putRes.unwrap()
+        println("PUT Success: " + string(resp.status))
+    } else {
+        println("PUT Failed: " + putRes.unwrap_err())
+    }
+    
+    // 4. DELETE
+    println("\n[4] Testing DELETE...")
+    var delUrl: string = baseUrl + "/delete"
+    var delRes = http.delete(delUrl)
+    if delRes.is_ok() {
+        var resp = delRes.unwrap()
+        println("DELETE Success: " + string(resp.status))
+    } else {
+        println("DELETE Failed: " + delRes.unwrap_err())
+    }
+    
+    println("\n=== Test Complete ===")
+}

@@ -1,0 +1,77 @@
+package main
+
+// Define a trait for things that can be displayed as strings
+pub trait Displayable {
+    func display() -> (string)
+}
+
+// Define a trait for things that can be compared
+pub trait Comparable {
+    func compare(other: int) -> (int)
+}
+
+// A simple struct
+struct Point {
+    pub x: int
+    pub y: int
+}
+
+// Implement Displayable for Point
+impl Displayable: Point as p {
+    pub func display() -> (string) {
+        return "Point"
+    }
+}
+
+// Implement Comparable for Point
+impl Comparable: Point as p {
+    pub func compare(other: int) -> (int) {
+        var sum: int = p.x + p.y
+        if sum > other {
+            return 1
+        }
+        if sum < other {
+            return -1
+        }
+        return 0
+    }
+}
+
+// A struct with plain impl (no trait)
+struct Counter {
+    pub value: int
+}
+
+impl Counter as c {
+    pub func increment() -> (int) {
+        return c.value + 1
+    }
+
+    pub func get() -> (int) {
+        return c.value
+    }
+}
+
+func main() -> (void) {
+    // Test trait impl methods
+    var p: Point = Point{x: 3, y: 4}
+    var label = p.display()
+    println("Display:", label)
+
+    var cmp = p.compare(5)
+    println("Compare to 5:", cmp)
+
+    var cmp2 = p.compare(7)
+    println("Compare to 7:", cmp2)
+
+    var cmp3 = p.compare(10)
+    println("Compare to 10:", cmp3)
+
+    // Test plain impl methods
+    var c: Counter = Counter{value: 42}
+    println("Counter:", c.get())
+    println("Incremented:", c.increment())
+
+    println("All trait tests passed!")
+    return void
+}

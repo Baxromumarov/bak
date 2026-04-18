@@ -1,0 +1,36 @@
+package main
+
+import "src/std/bytes/bytes.bak" as bytes
+
+func main() -> (int) {
+    mut var score: int = 0
+    mut var b: bytes.Bytes = bytes.from_string("hi")
+
+    {
+        if bytes.length(&b) == 2 {
+            score = score + 1
+        }
+
+        var opt: Option<int> = bytes.get(
+            &b,
+            0,
+        )
+
+        if opt.is_some() && opt.unwrap() == int('h') {
+            score = score + 1
+        }
+    }
+
+    var _ = bytes.set(
+        &mut b,
+        1,
+        int('o'),
+    )
+    var s: string = bytes.to_string(&b)
+
+    if s.len() == 2 && s[0] == 'h' && s[1] == 'o' {
+        score = score + 1
+    }
+
+    return score
+}

@@ -1,0 +1,43 @@
+// Test native fs.* functions - simple version
+package main
+
+import "std/fs"
+
+func main() -> (void) {
+    // Test fs.exists
+    var exists: bool = fs.exists("tests/native_fs_simple.bak")
+
+    if exists {
+        println("PASS: fs.exists returns true for existing file")
+    } else {
+        println("FAIL: fs.exists returned false for existing file")
+    }
+
+    var not_exists: bool = fs.exists("this_file_does_not_exist_12345.txt")
+
+    if !not_exists {
+        println("PASS: fs.exists returns false for non-existing file")
+    } else {
+        println("FAIL: fs.exists returned true for non-existing file")
+    }
+
+    // Test fs.isFile
+    var is_file: bool = fs.isFile("tests/native_fs_simple.bak")
+
+    if is_file {
+        println("PASS: fs.isFile returns true for file")
+    } else {
+        println("FAIL: fs.isFile returned false for file")
+    }
+
+    // Test fs.isDir
+    var is_dir: bool = fs.isDir("tests")
+
+    if is_dir {
+        println("PASS: fs.isDir returns true for directory")
+    } else {
+        println("FAIL: fs.isDir returned false for directory")
+    }
+
+    println("=== Native fs simple tests complete ===")
+}

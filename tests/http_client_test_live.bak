@@ -1,0 +1,36 @@
+package main
+
+import "http"
+
+
+func main() -> (void) {
+    println("Testing HTTP Client...")
+    
+    var url: string = "http://example.com"
+    println("Fetching " + url + "...")
+    
+    var res = http.get(url)
+    
+    switch res {
+        case Ok(response) {
+            println("Status: " + string(response.status))
+            println("Reason: " + response.reason)
+            println("Headers:")
+            for header in response.headers {
+                println("  " + header.name + ": " + header.value)
+            }
+            println("Body length: " + string(response.body.len()))
+             // Print body preview
+             var bodyStr = __builtin_string_from_bytes(response.body, 0, response.body.len())
+             if bodyStr.len() > 100 {
+                 println("Body preview: " + bodyStr.substring(0, 100) + "...")
+             } else {
+                 println("Body: " + bodyStr)
+             }
+        }
+        case Err(e) {
+            println("Error: " + e)
+            os.exit(1)
+        }
+    }
+}

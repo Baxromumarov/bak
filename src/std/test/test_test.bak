@@ -1,0 +1,298 @@
+package test_test
+
+import "src/std/test/test.bak" as test
+
+// Tests for the standard test package helpers.
+
+func test_fail_and_fail_now() -> (void) {
+    mut var t: test.T = test.new("test_fail_and_fail_now")
+
+    mut var inner: test.T = test.new("inner")
+    inner.fail("oops")
+    if !inner.has_failed() {
+        t.fail("fail should set failed=true")
+    }
+    if inner.failure_count() != 1 {
+        t.fail("fail should record one failure")
+    } else {
+        var msg: string = inner.get_failures().get(0).unwrap()
+        if msg != "oops" {
+            t.fail("unexpected failure message: " + msg)
+        }
+    }
+
+    mut var inner2: test.T = test.new("inner2")
+    inner2.fail_now("nope")
+    if !inner2.has_failed() {
+        t.fail("fail_now should set failed=true")
+    }
+    if inner2.failure_count() != 1 {
+        t.fail("fail_now should record one failure")
+    } else {
+        var msg2: string = inner2.get_failures().get(0).unwrap()
+        if msg2 != "nope" {
+            t.fail("unexpected failure message: " + msg2)
+        }
+    }
+
+    t.finish()
+}
+
+func test_case_desc_prefix() -> (void) {
+    mut var t: test.T = test.new("test_case_desc_prefix")
+
+    mut var inner: test.T = test.new("inner")
+    inner.set_case("case-1")
+    inner.fail("boom")
+    if inner.failure_count() != 1 {
+        t.fail("expected one failure with case prefix")
+    } else {
+        var msg: string = inner.get_failures().get(0).unwrap()
+        if msg != "  case: case-1\nboom" {
+            t.fail("case prefix mismatch: " + msg)
+        }
+    }
+    inner.clear_case()
+    inner.fail("plain")
+    if inner.failure_count() != 2 {
+        t.fail("expected two failures after clear_case")
+    } else {
+        var msg2: string = inner.get_failures().get(1).unwrap()
+        if msg2 != "plain" {
+            t.fail("unexpected plain failure: " + msg2)
+        }
+    }
+
+    t.finish()
+}
+
+func test_eq_and_ne() -> (void) {
+    mut var t: test.T = test.new("test_eq_and_ne")
+
+    mut var inner: test.T = test.new("inner")
+    inner.eq(1, 1)
+    if inner.has_failed() {
+        t.fail("eq should not fail for equal values")
+    }
+    inner.eq(1, 2)
+    if !inner.has_failed() {
+        t.fail("eq should fail for different values")
+    } else {
+        var msg: string = inner.get_failures().get(0).unwrap()
+        if msg != "  expected: 2\n  actual:   1" {
+            t.fail("eq message mismatch: " + msg)
+        }
+    }
+
+    mut var inner2: test.T = test.new("inner2")
+    inner2.ne(1, 2)
+    if inner2.has_failed() {
+        t.fail("ne should not fail for different values")
+    }
+    inner2.ne(1, 1)
+    if !inner2.has_failed() {
+        t.fail("ne should fail for equal values")
+    } else {
+        var msg2: string = inner2.get_failures().get(0).unwrap()
+        if msg2 != "  expected: not 1\n  actual:   1" {
+            t.fail("ne message mismatch: " + msg2)
+        }
+    }
+
+    t.finish()
+}
+
+func test_eq_string_and_char() -> (void) {
+    mut var t: test.T = test.new("test_eq_string_and_char")
+
+    mut var s: test.T = test.new("string")
+    s.eq_string("a", "b")
+    if !s.has_failed() {
+        t.fail("eq_string should fail for different values")
+    } else {
+        var msg: string = s.get_failures().get(0).unwrap()
+        if msg != "  expected: \"b\"\n  actual:   \"a\"" {
+            t.fail("eq_string message mismatch: " + msg)
+        }
+    }
+
+    mut var c: test.T = test.new("char")
+    c.eq_char('a', 'b')
+    if !c.has_failed() {
+        t.fail("eq_char should fail for different values")
+    } else {
+        var msg2: string = c.get_failures().get(0).unwrap()
+        if msg2 != "  expected: 'b'\n  actual:   'a'" {
+            t.fail("eq_char message mismatch: " + msg2)
+        }
+    }
+
+    t.finish()
+}
+
+func test_eq_float() -> (void) {
+    mut var t: test.T = test.new("test_eq_float")
+
+    mut var f: test.T = test.new("float")
+    f.eq_float(1.0, 1.0000004)
+    if f.has_failed() {
+        t.fail("eq_float should accept small epsilon differences")
+    }
+    f.eq_float(1.0, 1.00001)
+    if !f.has_failed() {
+        t.fail("eq_float should fail for larger differences")
+    }
+
+    t.finish()
+}
+
+func test_bool_helpers() -> (void) {
+    mut var t: test.T = test.new("test_bool_helpers")
+
+    mut var a: test.T = test.new("a")
+    a.is_true(true)
+    if a.has_failed() {
+        t.fail("is_true should pass when condition is true")
+    }
+    a.is_true(false)
+    if !a.has_failed() {
+        t.fail("is_true should fail when condition is false")
+    }
+
+    mut var b: test.T = test.new("b")
+    b.is_false(false)
+    if b.has_failed() {
+        t.fail("is_false should pass when condition is false")
+    }
+    b.is_false(true)
+    if !b.has_failed() {
+        t.fail("is_false should fail when condition is true")
+    }
+
+    t.finish()
+}
+
+func test_compare_helpers() -> (void) {
+    mut var t: test.T = test.new("test_compare_helpers")
+
+    mut var a: test.T = test.new("a")
+    a.gt(3, 2)
+    if a.has_failed() {
+        t.fail("gt should pass when got > want")
+    }
+    a.gt(1, 2)
+    if !a.has_failed() {
+        t.fail("gt should fail when got <= want")
+    }
+
+    mut var b: test.T = test.new("b")
+    b.gte(2, 2)
+    if b.has_failed() {
+        t.fail("gte should pass when got >= want")
+    }
+    b.gte(1, 2)
+    if !b.has_failed() {
+        t.fail("gte should fail when got < want")
+    }
+
+    mut var c: test.T = test.new("c")
+    c.lt(1, 2)
+    if c.has_failed() {
+        t.fail("lt should pass when got < want")
+    }
+    c.lt(3, 2)
+    if !c.has_failed() {
+        t.fail("lt should fail when got >= want")
+    }
+
+    mut var d: test.T = test.new("d")
+    d.lte(2, 2)
+    if d.has_failed() {
+        t.fail("lte should pass when got <= want")
+    }
+    d.lte(3, 2)
+    if !d.has_failed() {
+        t.fail("lte should fail when got > want")
+    }
+
+    t.finish()
+}
+
+func test_option_helpers() -> (void) {
+    mut var t: test.T = test.new("test_option_helpers")
+
+    mut var a: test.T = test.new("a")
+    var none_val: Option<int> = None
+    a.is_none(none_val)
+    if a.has_failed() {
+        t.fail("is_none should pass for None")
+    }
+    var some_val1: Option<int> = Some(1)
+    a.is_none(some_val1)
+    if !a.has_failed() {
+        t.fail("is_none should fail for Some")
+    }
+
+    mut var b: test.T = test.new("b")
+    var some_val2: Option<int> = Some(1)
+    b.is_some(some_val2)
+    if b.has_failed() {
+        t.fail("is_some should pass for Some")
+    }
+    var none_val2: Option<int> = None
+    b.is_some(none_val2)
+    if !b.has_failed() {
+        t.fail("is_some should fail for None")
+    }
+
+    t.finish()
+}
+
+func test_contains() -> (void) {
+    mut var t: test.T = test.new("test_contains")
+
+    mut var inner: test.T = test.new("inner")
+    inner.contains("abc", "b")
+    if inner.has_failed() {
+        t.fail("contains should pass when substring exists")
+    }
+    inner.contains("abc", "z")
+    if !inner.has_failed() {
+        t.fail("contains should fail when substring is missing")
+    }
+
+    t.finish()
+}
+
+func test_prefix_and_results() -> (void) {
+    mut var t: test.T = test.new("test_prefix_and_results")
+
+    test.clear_prefix()
+    test.set_prefix("pkg")
+    mut var pref: test.T = test.new("name")
+    if pref.get_name() != "pkg:name" {
+        t.fail("set_prefix should add prefix when missing colon")
+    }
+    mut var already: test.T = test.new("x:y")
+    if already.get_name() != "x:y" {
+        t.fail("set_prefix should not modify names with colon")
+    }
+    test.clear_prefix()
+
+    mut var inner: test.T = test.new("inner_finish")
+    inner.finish()
+    switch test.take_last_result() {
+        case Some(_) {}
+        case None {
+            t.fail("expected last result to be available")
+        }
+    }
+    switch test.take_last_result() {
+        case Some(_) { t.fail("take_last_result should clear stored result") }
+        case None {}
+    }
+
+    test.fail_result("oops", "bad")
+
+    t.finish()
+}

@@ -1,0 +1,25 @@
+// Import example in bak
+// Demonstrates Go-like import syntax with aliases
+
+package main
+
+// Import block with aliases (Go-like syntax)
+// Note: These imports are parsed but not yet functional
+// as the module system is not yet implemented
+import (
+    "fmt" as f
+    "github.com/baxromumarov/bak/utils" as utils
+    "strings"
+)
+
+func main() -> (void) {
+    println("Import syntax demonstration")
+    println("The bak language supports Go-like imports:")
+    println("  import (")
+    println("      \"fmt\" as f")
+    println("      \"github.com/user/pkg\" as pkg")
+    println("  )")
+    println("")
+    println("Package declaration: package main")
+    println("Entry point: func main() -> (void)")
+}

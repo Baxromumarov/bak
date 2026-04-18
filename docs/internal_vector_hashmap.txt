@@ -1,0 +1,104 @@
+
+# Vec and HashMap Internals in bak
+
+## Vec<T> (Vector)
+
+### Core Representation
+```
+struct Vec[T] {
+    ptr: *T        // contiguous allocation
+    len: usize
+    cap: usize
+}
+```
+No references or lifetimes; just raw memory and invariants.
+
+### Invariants
+- 0 <= len <= cap
+- ptr points to cap * sizeof(T) bytes
+- Elements [0 .. len) are initialized
+- Elements [len .. cap) are uninitialized
+- T is dropped exactly once
+
+### Allocation & Growth
+- Initial: cap = 0, ptr = null
+- First push allocates cap = 4 or 8
+- Growth: geometric (new_cap = max(1, cap * 2))
+- Amortized O(1) push, minimal reallocations, cache-friendly
+
+### Push Algorithm
+If len == cap:
+  - Allocate new buffer, move elements, free old buffer
+  - Write value at ptr[len], increment len
+  - Moves, not copies; safe by construction
+
+### Pop & Remove
+- Pop: decrement len, move out value
+- Remove (preserve order): move out value, shift elements
+- Swap-remove (O(1)): move out value, fill with last element
+
+### Drop
+Drop all initialized elements, then free buffer.
+
+### Shrinking
+Optional; can be skipped in v1 for simplicity.
+
+---
+
+## HashMap<K, V>
+
+### Representation
+```
+struct Bucket[K, V] {
+    hash: u64
+    key: K
+    value: V
+    state: BucketState  // EMPTY | OCCUPIED | TOMBSTONE
+}
+struct HashMap[K, V] {
+    buckets: *Bucket[K,V]
+    cap: usize          // always power of 2
+    len: usize
+}
+```
+
+### Invariants
+- cap is power of 2
+- len <= cap * LOAD_FACTOR (e.g., 0.7)
+- Hashes are stable
+- No duplicate keys
+
+### Open Addressing (Linear Probing)
+- Fast, simple, cache-efficient
+- Avoids pointers and recursion
+
+### Insert
+If load exceeded, grow and rehash.
+Probe for empty/tombstone or matching key, insert or update.
+
+### Lookup
+Probe for matching key or empty bucket.
+
+### Remove
+Find bucket, drop key/value, mark tombstone, decrement len.
+
+### Rehash
+Double capacity, move all occupied buckets to new table.
+
+### Drop
+Drop all occupied keys/values, free buckets.
+
+---
+
+## Rationale & Language Fit
+
+| Constraint           | How this design fits           |
+|----------------------|-------------------------------|
+| No refs in structs   | Uses raw pointers only         |
+| No escaping refs     | No internal refs exposed       |
+| Move-only values     | All ops are moves              |
+| Lexical borrows      | No runtime borrow tracking     |
+| Simple compiler      | Invariants local to stdlib     |
+| No GC                | Explicit allocation & drop     |
+
+Mutating a Vec or HashMap invalidates all active borrows of it. This prevents reallocation during borrow, iterator invalidation, and aliasing bugs.

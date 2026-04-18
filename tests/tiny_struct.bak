@@ -1,0 +1,17 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+func main() -> (int) {
+    println("creating entry")
+
+    var e: Entry = Entry{Alias: "h", Path: "hello"}
+
+    println("accessing path")
+    println(e.Path)
+
+    return 0
+}

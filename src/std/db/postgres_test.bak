@@ -1,0 +1,40 @@
+package test
+
+import "std/db/postgres"
+import "std/db/db" as db
+import "std/test"
+
+// Test PostgreSQL native driver
+// Requires PostgreSQL running locally with:
+// DATABASE_URL=host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable
+
+pub func test_postgres_connect() -> (void) {
+    mut var t: test.T = test.new("test_postgres_connect")
+    // Connection string for PostgreSQL (native driver format)
+    var conn_str: string = "host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable"
+    
+    var conn_result = postgres.connect(conn_str)
+    if conn_result.is_ok() {
+        println("Connected successfully!")
+
+        var conn: db.Connection = conn_result.unwrap()
+        // Test a simple query
+        var query_result = postgres.query(&conn, "SELECT 1 as test")
+        if query_result.is_ok() {
+            var result: db.QueryResult = query_result.unwrap()
+            println("Query returned ", result.Rows.len(), " rows")
+            println("Columns: ", result.Columns.len())
+        } else {
+            println("Query failed: ", query_result.unwrap_err())
+        }
+
+        // Close connection
+        var _ = postgres.close(conn)
+        println("Connection closed")
+    } else {
+        println("Skipping: no local DB available: ", conn_result.unwrap_err())
+        t.finish()
+        return void
+    }
+    t.finish()
+}

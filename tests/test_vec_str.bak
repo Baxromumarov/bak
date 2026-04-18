@@ -1,0 +1,28 @@
+package main
+
+func main() -> (int) {
+    mut var v: Vec<string, _> = Vec.new()
+
+    v.push("hello")
+    v.push("world")
+
+    var a: string = v[0]
+    var b: string = v[1]
+
+    println("a=" + a)
+    println("b=" + b)
+
+    if a == "hello" {
+        println("a ok")
+    } else {
+        println("a WRONG")
+    }
+
+    if b == "world" {
+        println("b ok")
+    } else {
+        println("b WRONG")
+    }
+
+    return 0
+}

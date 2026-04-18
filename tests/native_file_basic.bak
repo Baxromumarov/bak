@@ -1,0 +1,117 @@
+package main
+
+// Test native file system syscalls (Phase 10).
+// This test opens a file, reads its contents, and returns the number of bytes read.
+// Expected: Creates a test file, reads it, returns byte count as exit code.
+// O_RDONLY = 0, O_WRONLY = 1, O_RDWR = 2, O_CREAT = 64, O_TRUNC = 512
+const O_RDONLY: int = 0
+const O_WRONLY: int = 1
+const O_CREAT: int = 64
+const O_TRUNC: int = 512
+
+func main() -> (int) {
+    // First, create a test file with known content
+    var path: string = "/tmp/bak_test_file.txt"
+    var content: string = "Hello from Bak!"
+    // Open file for writing (O_WRONLY | O_CREAT | O_TRUNC = 1 + 64 + 512 = 577)
+    var write_flags: int = O_WRONLY + O_CREAT + O_TRUNC
+    var mode: int = 420
+    // 0644 in octal
+    // Get null-terminated path pointer
+    var path_ptr: int = __builtin_string_ptr(path)
+    var fd: int = __rt_open(
+        path_ptr,
+        write_flags,
+        mode,
+    )
+
+    if fd < 0 {
+        return 1
+    }
+
+    // Error opening file for write
+    // Write content
+    var content_ptr: int = __builtin_string_ptr(content)
+    var content_len: int = content.len()
+    var written: int = __rt_write(
+        fd,
+        content_ptr,
+        content_len,
+    )
+
+    if written < 0 {
+        __rt_close(fd)
+
+        return 2
+    }
+
+    // Error writing
+    // Close file
+    var close_res: int = __rt_close(fd)
+
+    if close_res < 0 {
+        return 3
+    }
+
+    // Error closing
+    // Now open file for reading
+    var read_fd: int = __rt_open(
+        path_ptr,
+        O_RDONLY,
+        0,
+    )
+
+    if read_fd < 0 {
+        return 4
+    }
+
+    // Error opening file for read
+    // Read content into buffer (allocate 256 bytes on heap)
+    var buf_size: int = 256
+    var buf: int = __rt_alloc(buf_size)
+    var bytes_read: int = __rt_read(
+        read_fd,
+        buf,
+        buf_size,
+    )
+
+    if bytes_read < 0 {
+        __rt_close(read_fd)
+
+        return 5
+    }
+
+    // Error reading
+    // Close file
+    __rt_close(read_fd)
+    // Clean up: delete the test file
+    __rt_unlink(path_ptr)
+
+    // Return bytes read (should be 15 for "Hello from Bak!")
+    return bytes_read
+}
+
+// Declare runtime functions (these are registered by backend.bak)
+pub func __rt_open(_path: int, _flags: int, _mode: int) -> (int) {
+    return 0
+}
+
+pub func __rt_read(_fd: int, _buf: int, _count: int) -> (int) {
+    return 0
+}
+
+pub func __rt_write(_fd: int, _buf: int, _count: int) -> (int) {
+    return 0
+}
+
+pub func __rt_close(_fd: int) -> (int) {
+    return 0
+}
+
+pub func __rt_alloc(_size: int) -> (int) {
+    return 0
+}
+
+pub func __rt_unlink(_path: int) -> (int) {
+    return 0
+}

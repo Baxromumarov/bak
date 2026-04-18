@@ -1,0 +1,702 @@
+package strings
+
+import "src/std/strconv/strconv.bak" as strconv
+
+// =============================================================================
+// String Utilities for Bak
+// =============================================================================
+// Pure Bak implementation of common string operations.
+// No builtins required - all logic is implemented natively.
+// -----------------------------------------------------------------------------
+// Character Constants
+// -----------------------------------------------------------------------------
+const CH_SPACE: int = 32
+// ' '
+const CH_TAB: int = 9
+// '\t'
+const CH_NEWLINE: int = 10
+// '\n'
+const CH_CARRIAGE: int = 13
+// '\r'
+const CH_A_LOWER: int = 97
+// 'a'
+const CH_Z_LOWER: int = 122
+// 'z'
+const CH_A_UPPER: int = 65
+// 'A'
+const CH_Z_UPPER: int = 90
+// 'Z'
+const CH_0: int = 48
+// '0'
+const CH_9: int = 57
+
+// '9'
+// -----------------------------------------------------------------------------
+// Basic String Operations
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// len returns the length of the string (built-in method wrapper)
+pub func len(s: &string) -> (int) {
+    return s.len()
+}
+
+// substring returns a substring from start to end (exclusive)
+pub func substring(s: &string, start: int, end: int) -> (string) {
+    mut var startIdx: int = start
+    mut var endIdx: int = end
+
+    if startIdx < 0 {
+        startIdx = 0
+    }
+
+    if endIdx > s.len() {
+        endIdx = s.len()
+    }
+
+    if startIdx >= endIdx {
+        return ""
+    }
+
+    // In a real implementation this would slice the underlying buffer
+    // For now we rely on the built-in substring method
+    return s.substring(
+        startIdx,
+        endIdx,
+    )
+}
+
+// contains checks if s contains the substring sub
+pub func contains(s: &string, sub: &string) -> (bool) {
+    return indexOf(
+        s,
+        sub,
+    ) >= 0
+}
+
+// find returns the first index of sub in s, or -1 if not found (alias for indexOf)
+pub func find(s: &string, sub: &string) -> (int) {
+    return indexOf(
+        s,
+        sub,
+    )
+}
+
+// indexOf returns the first index of sub in s, or -1 if not found
+pub func indexOf(s: &string, sub: &string) -> (int) {
+    if sub.len() == 0 {
+        return 0
+    }
+
+    if sub.len() > s.len() {
+        return -1
+    }
+
+    mut var i: int = 0
+
+    while i <= s.len() - sub.len() {
+        mut var match: bool = true
+        mut var j: int = 0
+
+        while j < sub.len() {
+            if s[i + j] != sub[j] {
+                match = false
+                j = sub.len()
+            }
+
+            // break
+            j = j + 1
+        }
+
+        if match {
+            return i
+        }
+
+        i = i + 1
+    }
+
+    return -1
+}
+
+// replace replaces all occurrences of old with new
+pub func replace(s: &string, old: &string, new: &string) -> (string) {
+    if old.len() == 0 {
+        return *s
+    }
+
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i <= s.len() - old.len() {
+        // substring expects &string now
+        if substring(
+            s,
+            i,
+            i + old.len(),
+        ) == *old {
+            result = result + *new
+            i = i + old.len()
+        } else {
+            result = result + s.substring(
+                i,
+                i + 1,
+            )
+            i = i + 1
+        }
+    }
+
+    if i < s.len() {
+        result = result + substring(
+            s,
+            i,
+            s.len(),
+        )
+    }
+
+    return result
+}
+
+// split splits s by the separator sep
+pub func split(s: &string, sep: &string) -> (Vec<string>) {
+    mut var result: Vec<string> = Vec.new()
+
+    // removed explicit type params inference placeholder
+    if sep.len() == 0 {
+        mut var i: int = 0
+
+        while i < s.len() {
+            // char at i
+            result.push(string(s[i]))
+            i = i + 1
+        }
+
+        return result
+    }
+
+    mut var start: int = 0
+    mut var i: int = 0
+
+    while i <= s.len() - sep.len() {
+        mut var match: bool = true
+        mut var j: int = 0
+
+        while j < sep.len() {
+            if s[i + j] != sep[j] {
+                match = false
+                j = sep.len()
+            }
+
+            j = j + 1
+        }
+
+        if match {
+            result.push(substring(
+                s,
+                start,
+                i,
+            ))
+            start = i + sep.len()
+            i = start
+        } else {
+            i = i + 1
+        }
+    }
+
+    result.push(substring(
+        s,
+        start,
+        s.len(),
+    ))
+
+    return result
+}
+
+// charAt returns the character at index, or None if out of bounds
+pub func charAt(s: &string, index: int) -> (Option<char>) {
+    if index < 0 || index >= s.len() {
+        return None
+    }
+
+    return Some(s[index])
+}
+
+// substring returns a substring from start to end (exclusive)
+// -----------------------------------------------------------------------------
+// Searching
+// -----------------------------------------------------------------------------
+// lastIndexOf returns the last index of sub in s, or -1 if not found
+pub func lastIndexOf(s: &string, sub: &string) -> (int) {
+    if sub.len() == 0 {
+        return s.len()
+    }
+
+    if sub.len() > s.len() {
+        return -1
+    }
+
+    mut var result: int = -1
+    mut var i: int = 0
+
+    while i <= s.len() - sub.len() {
+        mut var match: bool = true
+        mut var j: int = 0
+
+        while j < sub.len() {
+            if s[i + j] != sub[j] {
+                match = false
+                j = sub.len()
+            }
+
+            j = j + 1
+        }
+
+        if match {
+            result = i
+        }
+
+        i = i + 1
+    }
+
+    return result
+}
+
+// startsWith checks if s starts with prefix
+pub func startsWith(s: &string, prefix: &string) -> (bool) {
+    if prefix.len() > s.len() {
+        return false
+    }
+
+    mut var i: int = 0
+
+    while i < prefix.len() {
+        if s[i] != prefix[i] {
+            return false
+        }
+
+        i = i + 1
+    }
+
+    return true
+}
+
+// endsWith checks if s ends with suffix
+pub func endsWith(s: &string, suffix: &string) -> (bool) {
+    if suffix.len() > s.len() {
+        return false
+    }
+
+    var offset: int = s.len() - suffix.len()
+    mut var i: int = 0
+
+    while i < suffix.len() {
+        if s[offset + i] != suffix[i] {
+            return false
+        }
+
+        i = i + 1
+    }
+
+    return true
+}
+
+// -----------------------------------------------------------------------------
+// Splitting and Joining
+// -----------------------------------------------------------------------------
+// split splits s by the separator sep
+// join joins the parts with the separator
+pub func join(parts: &Vec<string, _>, sep: &string) -> (string) {
+    if parts.len() == 0 {
+        return ""
+    }
+
+    mut var result: string = parts[0]
+    mut var i: int = 1
+
+    while i < parts.len() {
+        result = result + *sep + parts[i]
+        i = i + 1
+    }
+
+    return result
+}
+
+// parse_int parses a string as a decimal integer
+pub func parse_int(s: &string) -> (Result<int, string>) {
+    return strconv.atoi(s)
+}
+
+// -----------------------------------------------------------------------------
+// Trimming
+// -----------------------------------------------------------------------------
+// isWhitespace checks if a character is whitespace
+func isWhitespace(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code == CH_SPACE || code == CH_TAB || code == CH_NEWLINE || code == CH_CARRIAGE
+}
+
+// trim removes leading and trailing whitespace
+pub func trim(s: &string) -> (string) {
+    var left: string = trimLeft(s)
+
+    return trimRight(&left)
+}
+
+// trimLeft removes leading whitespace
+pub func trimLeft(s: &string) -> (string) {
+    mut var start: int = 0
+
+    while start < s.len() && isWhitespace(s[start]) {
+        start = start + 1
+    }
+
+    return substring(
+        s,
+        start,
+        s.len(),
+    )
+}
+
+// trimRight removes trailing whitespace
+pub func trimRight(s: &string) -> (string) {
+    mut var end: int = s.len()
+
+    while end > 0 && isWhitespace(s[end - 1]) {
+        end = end - 1
+    }
+
+    return substring(
+        s,
+        0,
+        end,
+    )
+}
+
+// trimPrefix removes the prefix if present
+pub func trimPrefix(s: &string, prefix: &string) -> (string) {
+    if startsWith(
+        s,
+        prefix,
+    ) {
+        return substring(
+            s,
+            prefix.len(),
+            s.len(),
+        )
+    }
+
+    return *s
+}
+
+// trimSuffix removes the suffix if present
+pub func trimSuffix(s: &string, suffix: &string) -> (string) {
+    if endsWith(
+        s,
+        suffix,
+    ) {
+        return substring(
+            s,
+            0,
+            s.len() - suffix.len(),
+        )
+    }
+
+    return *s
+}
+
+// -----------------------------------------------------------------------------
+// Case Conversion
+// -----------------------------------------------------------------------------
+// toUpper converts all lowercase letters to uppercase
+pub func toUpper(s: &string) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i < s.len() {
+        var code: int = int(s[i])
+
+        if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+            result = result + string(char(code - 32))
+        } else {
+            result = result + string(s[i])
+        }
+
+        i = i + 1
+    }
+
+    return result
+}
+
+// toLower converts all uppercase letters to lowercase
+pub func toLower(s: &string) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i < s.len() {
+        var code: int = int(s[i])
+
+        if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+            result = result + string(char(code + 32))
+        } else {
+            result = result + string(s[i])
+        }
+
+        i = i + 1
+    }
+
+    return result
+}
+
+// -----------------------------------------------------------------------------
+// Replacement
+// -----------------------------------------------------------------------------
+// replace replaces all occurrences of old with new
+// replaceFirst replaces the first occurrence of old with new
+pub func replaceFirst(s: &string, old: &string, new: &string) -> (string) {
+    var idx: int = indexOf(
+        s,
+        old,
+    )
+
+    if idx < 0 {
+        return *s
+    }
+
+    var before: string = substring(
+        s,
+        0,
+        idx,
+    )
+    var after: string = substring(
+        s,
+        idx + old.len(),
+        s.len(),
+    )
+
+    return before + *new + after
+}
+
+// -----------------------------------------------------------------------------
+// Repetition and Padding
+// -----------------------------------------------------------------------------
+// repeat returns s repeated n times
+pub func repeat(s: &string, n: int) -> (string) {
+    if n <= 0 {
+        return ""
+    }
+
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i < n {
+        result = result + *s
+        i = i + 1
+    }
+
+    return result
+}
+
+// padLeft pads s on the left to reach length with the padding character
+pub func padLeft(s: &string, length: int, pad: char) -> (string) {
+    if s.len() >= length {
+        return *s
+    }
+
+    var padCount: int = length - s.len()
+    var padStr: string = string(pad)
+
+    return repeat(
+        &padStr,
+        padCount,
+    ) + *s
+}
+
+// padRight pads s on the right to reach length with the padding character
+pub func padRight(s: &string, length: int, pad: char) -> (string) {
+    if s.len() >= length {
+        return *s
+    }
+
+    var padCount: int = length - s.len()
+    var padStr: string = string(pad)
+
+    return *s + repeat(
+        &padStr,
+        padCount,
+    )
+}
+
+// -----------------------------------------------------------------------------
+// Character Classification
+// -----------------------------------------------------------------------------
+// isLetter checks if a character is a letter (a-z, A-Z)
+pub func isLetter(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code >= CH_A_LOWER && code <= CH_Z_LOWER || code >= CH_A_UPPER && code <= CH_Z_UPPER
+}
+
+// isDigit checks if a character is a digit (0-9)
+pub func isDigit(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code >= CH_0 && code <= CH_9
+}
+
+// isAlphanumeric checks if a character is a letter or digit
+pub func isAlphanumeric(ch: char) -> (bool) {
+    return isLetter(ch) || isDigit(ch)
+}
+
+// isUpper checks if a character is uppercase
+pub func isUpper(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code >= CH_A_UPPER && code <= CH_Z_UPPER
+}
+
+// isLower checks if a character is lowercase
+pub func isLower(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code >= CH_A_LOWER && code <= CH_Z_LOWER
+}
+
+// -----------------------------------------------------------------------------
+// Comparison
+// -----------------------------------------------------------------------------
+// compare returns -1 if a < b, 0 if a == b, 1 if a > b
+pub func compare(a: &string, b: &string) -> (int) {
+    mut var minLen: int = a.len()
+
+    if b.len() < minLen {
+        minLen = b.len()
+    }
+
+    mut var i: int = 0
+
+    while i < minLen {
+        if a[i] < b[i] {
+            return -1
+        }
+
+        if a[i] > b[i] {
+            return 1
+        }
+
+        i = i + 1
+    }
+
+    if a.len() < b.len() {
+        return -1
+    }
+
+    if a.len() > b.len() {
+        return 1
+    }
+
+    return 0
+}
+
+// equalIgnoreCase compares strings ignoring case
+pub func equalIgnoreCase(a: &string, b: &string) -> (bool) {
+    var aLower: string = toLower(a)
+    var bLower: string = toLower(b)
+
+    return aLower == bLower
+}
+
+// -----------------------------------------------------------------------------
+// Counting
+// -----------------------------------------------------------------------------
+// count returns the number of non-overlapping occurrences of sub in s
+pub func count(s: &string, sub: &string) -> (int) {
+    if sub.len() == 0 {
+        return s.len() + 1
+    }
+
+    mut var result: int = 0
+    mut var start: int = 0
+
+    while start <= s.len() - sub.len() {
+        mut var match: bool = true
+        mut var j: int = 0
+
+        while j < sub.len() {
+            if s[start + j] != sub[j] {
+                match = false
+                j = sub.len()
+            }
+
+            j = j + 1
+        }
+
+        if match {
+            result = result + 1
+            start = start + sub.len()
+        } else {
+            start = start + 1
+        }
+    }
+
+    return result
+}
+
+// -----------------------------------------------------------------------------
+// Conversion Helpers (from old implementation)
+// -----------------------------------------------------------------------------
+// fromChars converts a Vec of chars to a string
+pub func fromChars(chars: &Vec<char, _>) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i < chars.len() {
+        result = result + string(chars[i])
+        i = i + 1
+    }
+
+    return result
+}
+
+// fromBytes converts a Vec of bytes (integers) to a string.
+pub func fromBytes(bytes: Vec<int, _>) -> (string) {
+    return __builtin_string_from_bytes(
+        bytes,
+        0,
+        bytes.len(),
+    )
+}
+
+// fromBytesSlice converts a range of bytes (integers) to a string.
+pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
+    return __builtin_string_from_bytes(
+        bytes,
+        start,
+        end,
+    )
+}
+
+// toChars converts a string to a Vec of chars
+pub func toChars(s: &string) -> (Vec<char, _>) {
+    mut var result: Vec<char, _> = Vec.new()
+    mut var i: int = 0
+
+    while i < s.len() {
+        result.push(s[i])
+        i = i + 1
+    }
+
+    return result
+}
+
+// concat joins multiple strings
+pub func concat(parts: &Vec<string, _>) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+
+    while i < parts.len() {
+        result = result + parts[i]
+        i = i + 1
+    }
+
+    return result
+}

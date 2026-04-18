@@ -1,0 +1,104 @@
+package main
+
+// File searching functionality
+import "src/std/fs/fs.bak" as fs
+import "example-projects/cli-tool/types.bak" as types
+import "example-projects/cli-tool/strings.bak" as str
+
+// Search a single file for the pattern
+pub func search_file(filepath: &string, config: &types.Config) -> (Vec<types.SearchResult, _>, int) {
+    mut var results: Vec<types.SearchResult, _> = Vec.new()
+    mut var match_count: int = 0
+    
+    // Read the file
+    // Clone filepath for fs.read
+    var path_clone: string = "" + *filepath
+    var content_result: Result<string, string> = fs.read(path_clone)
+    switch content_result {
+        case Err(e) {
+            println("Error reading ", filepath, ": ", e)
+            return results, match_count
+        }
+        case Ok(content) {
+            // Split into lines and search
+            var lines: Vec<string, _> = str.split_lines(content)
+            mut var line_num: int = 1
+            
+            mut var i: int = 0
+            while i < lines.len() {
+                var line: string = lines[i]
+                mut var matches: bool = str.match_pattern(line, config.pattern, config.ignore_case)
+                
+                // Handle inverted match
+                if config.invert_match {
+                    matches = !matches
+                }
+                
+                if matches {
+                    match_count = match_count + 1
+                    
+                    if !config.count_only {
+                        var result: types.SearchResult = types.SearchResult{
+                            file: "" + *filepath,
+                            line_number: line_num,
+                            line_content: line
+                        }
+                        results.push(result)
+                    }
+                }
+                
+                line_num = line_num + 1
+                i = i + 1
+            }
+        }
+    }
+    return results, match_count
+}
+
+// Format and print a search result
+pub func print_result(result: &types.SearchResult, show_line_numbers: bool, show_filename: bool) -> (void) {
+    mut var output: string = ""
+    
+    if show_filename {
+        output = output + result.file + ":"
+    }
+    
+    if show_line_numbers {
+        output = output + result.line_number.toString() + ":"
+    }
+    
+    output = output + result.line_content
+    println(output)
+    return void
+}
+
+// Search multiple files
+pub func search_files(config: &types.Config, stats: &mut types.Stats) -> (void) {
+    mut var i: int = 0
+    var show_filename: bool = config.files.len() > 1
+    
+    while i < config.files.len() {
+        var filepath: string = config.files[i]
+        stats.add_file()
+        
+        var (results, count) = search_file(&filepath, config)
+        stats.add_matches(count)
+        
+        if config.count_only {
+            if show_filename {
+                println(filepath, ":", count)
+            } else {
+                println(count)
+            }
+        } else {
+            mut var j: int = 0
+            while j < results.len() {
+                print_result(&results[j], config.line_numbers, show_filename)
+                j = j + 1
+            }
+        }
+        
+        i = i + 1
+    }
+    return void
+}

@@ -1,0 +1,23 @@
+package main
+
+func main() -> (void) {
+    var outer: func(int) -> (int) = func(x: int) -> (int) {
+        var inner: func(int) -> (int) = func(y: int) -> (int) {
+            return y + 1
+        }
+        return inner(x)
+    }
+    println(outer(100))
+
+    // Deeply nested
+    var deep: func() -> (void) = func() -> (void) {
+        var d2: func() -> (void) = func() -> (void) {
+            var d3: func() -> (void) = func() -> (void) {
+                println("deeply nested")
+            }
+            d3()
+        }
+        d2()
+    }
+    deep()
+}

@@ -1,0 +1,20 @@
+package main
+
+import "thread"
+
+func main() -> (void) {
+    var mainId = thread.current_id()
+    println("Main thread ID: " + mainId.toString())
+    
+    var t1 = thread.spawn(worker, 1)
+    var t2 = thread.spawn(worker, 2)
+    
+    t1.join()
+    t2.join()
+    println("Main thread done")
+}
+
+func worker(id: int) -> (void) {
+    var tid = thread.current_id()
+    println("Worker " + id.toString() + " has thread ID: " + tid.toString())
+}

@@ -1,0 +1,14 @@
+package main
+
+func main() -> (int) {
+    var a: int = 5
+    var b: int = 3
+
+    if a == b {
+        println("equal")
+    } else {
+        println("not equal")
+    }
+
+    return 0
+}

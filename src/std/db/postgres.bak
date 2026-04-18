@@ -1,0 +1,59 @@
+package postgres
+
+import "std/db/db" as db
+
+pub alias Connection = db.Connection
+pub alias QueryResult = db.QueryResult
+pub alias Row = db.Row
+
+pub func connection_from_handle(handle: int) -> (Connection) {
+    return db.Connection{Handle: handle}
+}
+
+pub func empty_query_result() -> (QueryResult) {
+    return db.QueryResult{Columns: Vec.new(), Rows: Vec.new()}
+}
+
+// Native PostgreSQL driver using built-in database connection.
+// Connection string format: "host=localhost port=5432 user=postgres password=secret dbname=test sslmode=disable"
+
+// connect opens a PostgreSQL connection and returns a Connection handle.
+pub func connect(conn_str: string) -> (Result<Connection, string>) {
+    var result = __builtin_pg_connect(conn_str)
+    if result.is_ok() {
+        return Ok(db.Connection{Handle: result.unwrap()})
+    }
+    return Err(result.unwrap_err())
+}
+
+// query executes a SQL query and returns a QueryResult.
+pub func query(conn: &Connection, sql: string) -> (Result<QueryResult, string>) {
+    return __builtin_pg_query(conn.Handle, sql)
+}
+
+// query_params executes a SQL query with parameters and returns a QueryResult.
+// Parameters are passed as a Vec<string> to prevent SQL injection.
+pub func query_params(conn: &Connection, sql: string, params: Vec<string, _>) -> (Result<QueryResult, string>) {
+    return __builtin_pg_query(conn.Handle, sql, params)
+}
+
+// close closes the database connection.
+pub func close(conn: Connection) -> (Result<void, string>) {
+    return __builtin_pg_close(conn.Handle)
+}
+
+pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
+    return db.rows(qr)
+}
+
+pub func row_get(row: &Row, name: string) -> (Option<string>) {
+    return row.get(name)
+}
+
+pub func row_get_index(row: &Row, idx: int) -> (Option<string>) {
+    return row.get_index(idx)
+}
+
+pub func query_result(columns: Vec<string, _>, rows: Vec<Vec<string, _>, _>) -> (QueryResult) {
+    return db.QueryResult{Columns: columns, Rows: rows}
+}

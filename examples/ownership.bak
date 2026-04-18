@@ -1,0 +1,30 @@
+// Ownership and Borrowing in bak
+// Every value has exactly one owner
+// Borrowing allows temporary access without ownership transfer
+
+package main
+
+func main() -> (void) {
+    // Every value has one owner
+    var original = [1, 2, 3]
+    println("Original:", original)
+    
+    // Borrowing with & creates an immutable reference
+    // The original is still valid because we borrowed, not moved
+    var borrowed = &original
+    println("Borrowed (immutable):", *borrowed)
+    
+    // Mutable borrowing with &mut
+    mut var mutableVec = [10, 20, 30]
+    var mutBorrowed = &mut mutableVec
+    println("Mutable borrowed:", *mutBorrowed)
+    
+    // Demonstrating explicit ownership
+    println("\n-- Ownership Rules --")
+    println("1. Each value has exactly one owner")
+    println("2. When owner goes out of scope, value is dropped")
+    println("3. Borrowing allows temporary access")
+    println("4. Multiple immutable borrows are allowed")
+    println("5. Only one mutable borrow at a time")
+    println("6. Cannot mix mutable and immutable borrows")
+}

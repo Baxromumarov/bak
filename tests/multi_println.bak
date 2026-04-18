@@ -1,0 +1,9 @@
+package main
+
+func main() -> (int) {
+    println("one")
+    println("two")
+    println("three")
+
+    return 0
+}

@@ -1,0 +1,1492 @@
+package native
+
+// x86_64 instruction encoder helpers.
+// All functions emit bytes into a Vec<int, _> byte buffer.
+// Register encoding constants (SysV x86_64 ABI).
+pub const RAX: int = 0
+pub const RCX: int = 1
+pub const RDX: int = 2
+pub const RBX: int = 3
+pub const RSP: int = 4
+pub const RBP: int = 5
+pub const RSI: int = 6
+pub const RDI: int = 7
+pub const R8: int = 8
+pub const R9: int = 9
+pub const R10: int = 10
+pub const R11: int = 11
+pub const R12: int = 12
+pub const R13: int = 13
+pub const R14: int = 14
+pub const R15: int = 15
+
+// --- REX prefix helpers ---
+// rex computes a REX prefix byte. w=1 for 64-bit operand size.
+// r=1 if ModRM reg field encodes r8-r15, b=1 if ModRM r/m or opcode reg encodes r8-r15.
+func rex(w: int, r: int, x: int, b: int) -> (int) {
+    return 0x40 | w << 3 | r << 2 | x << 1 | b
+}
+
+// needsRex returns 1 if the register number is >= 8, else 0.
+func needsRex(reg: int) -> (int) {
+    if reg >= 8 {
+        return 1
+    }
+
+    return 0
+}
+
+// modRM builds a ModRM byte. mod is 2 bits, reg is 3 bits, rm is 3 bits.
+func modRM(mod: int, reg: int, rm: int) -> (int) {
+    return (mod & 3) << 6 | (reg & 7) << 3 | rm & 7
+}
+
+// sib builds a SIB byte. scale is 2 bits, index is 3 bits, base is 3 bits.
+func sib(scale: int, index: int, base: int) -> (int) {
+    return (scale & 3) << 6 | (index & 7) << 3 | base & 7
+}
+
+// --- Data emission helpers ---
+pub func emit_u8(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+}
+
+pub func emit_u32(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+    out.push(v >> 8 & 0xff)
+    out.push(v >> 16 & 0xff)
+    out.push(v >> 24 & 0xff)
+}
+
+pub func emit_u64(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+    out.push(v >> 8 & 0xff)
+    out.push(v >> 16 & 0xff)
+    out.push(v >> 24 & 0xff)
+    out.push(v >> 32 & 0xff)
+    out.push(v >> 40 & 0xff)
+    out.push(v >> 48 & 0xff)
+    out.push(v >> 56 & 0xff)
+}
+
+// --- Move instructions ---
+// mov reg, imm32 (sign-extended to 64-bit).
+pub func emit_mov_reg_imm32(
+    mut out: &mut Vec<int, _>,
+    reg: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xc7)
+    out.push(
+        modRM(
+            3,
+            0,
+            reg,
+        ),
+    )
+    emit_u32(
+        out,
+        imm,
+    )
+}
+
+// mov rax, imm32 (convenience wrapper).
+pub func emit_mov_rax_imm32(mut out: &mut Vec<int, _>, imm: int) -> (void) {
+    emit_mov_reg_imm32(
+        out,
+        RAX,
+        imm,
+    )
+}
+
+// mov rdi, imm32 (convenience wrapper).
+pub func emit_mov_rdi_imm32(mut out: &mut Vec<int, _>, imm: int) -> (void) {
+    emit_mov_reg_imm32(
+        out,
+        RDI,
+        imm,
+    )
+}
+
+// mov rsi, imm32 (convenience wrapper).
+pub func emit_mov_rsi_imm32(mut out: &mut Vec<int, _>, imm: int) -> (void) {
+    emit_mov_reg_imm32(
+        out,
+        RSI,
+        imm,
+    )
+}
+
+// mov rdi, rax.
+pub func emit_mov_rdi_rax(mut out: &mut Vec<int, _>) -> (void) {
+    emit_mov_reg_reg(
+        out,
+        RDI,
+        RAX,
+    )
+}
+
+// movabs reg, imm64 (full 64-bit immediate).
+pub func emit_mov_reg_imm64(
+    mut out: &mut Vec<int, _>,
+    reg: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xb8 + (reg & 7))
+    emit_u64(
+        out,
+        imm,
+    )
+}
+
+// mov dst, src (register to register, 64-bit).
+pub func emit_mov_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x89)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// mov [rbp+offset], src (store register to stack).
+// offset is a signed value (negative for locals).
+pub func emit_mov_mem_rbp_reg(
+    mut out: &mut Vec<int, _>,
+    offset: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            0,
+        ),
+    )
+    out.push(0x89)
+
+    if offset >= -128 && offset <= 127 {
+        out.push(
+            modRM(
+                1,
+                src,
+                RBP,
+            ),
+        )
+        emit_u8(
+            out,
+            offset & 0xff,
+        )
+    } else {
+        out.push(
+            modRM(
+                2,
+                src,
+                RBP,
+            ),
+        )
+        emit_u32(
+            out,
+            offset,
+        )
+    }
+}
+
+// mov dst, [base+disp32]
+pub func emit_mov_reg_mem_base_disp(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    disp: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x8b)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// mov [base+disp32], src (64-bit store)
+pub func emit_mov_mem_base_disp_reg(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    disp: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x89)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// mov [base+disp32], src (32-bit store)
+pub func emit_mov_mem_base_disp_reg32(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    disp: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            0,
+            needsRex(src),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x89)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// mov [base+disp32], src (8-bit store)
+pub func emit_mov_mem_base_disp_reg8(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    disp: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            0,
+            needsRex(src),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x88)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// mov dst (32-bit), [base+disp32]
+pub func emit_mov_reg_mem_base_disp32(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    disp: int,
+) -> (void) {
+    out.push(
+        rex(
+            0,
+            needsRex(dst),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x8b)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// mov dst, [base + index*scale] (disp32=0)
+pub func emit_mov_reg_mem_base_index(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    index: int,
+    scale: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x8b)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// mov dst (32-bit), [base + index*scale] (disp32=0)
+pub func emit_mov_reg_mem_base_index32(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    index: int,
+    scale: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            0,
+            needsRex(dst),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x8b)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// mov [base + index*scale], src (disp32=0)
+pub func emit_mov_mem_base_index_reg(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    index: int,
+    scale: int,
+    src: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x89)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// mov [base + index*scale], src (disp32=0, 32-bit store)
+pub func emit_mov_mem_base_index_reg32(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    index: int,
+    scale: int,
+    src: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            0,
+            needsRex(src),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x89)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// mov [base + index*scale], src (disp32=0, 8-bit store)
+pub func emit_mov_mem_base_index_reg8(
+    mut out: &mut Vec<int, _>,
+    base: int,
+    index: int,
+    scale: int,
+    src: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            0,
+            needsRex(src),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x88)
+    out.push(
+        modRM(
+            2,
+            src,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// movzx dst, byte ptr [base+disp32]
+pub func emit_movzx_reg_mem_base_disp(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    disp: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            0,
+            needsRex(base),
+        ),
+    )
+    out.push(0x0f)
+    out.push(0xb6)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            0,
+            4,
+            base,
+        ),
+    )
+    // no index
+    emit_u32(
+        out,
+        disp,
+    )
+}
+
+// movzx dst, byte ptr [base + index*scale] (disp32=0)
+pub func emit_movzx_reg_mem_base_index(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    base: int,
+    index: int,
+    scale: int,
+) -> (void) {
+    mut var scale_bits: int = 0
+
+    if scale == 1 {
+        scale_bits = 0
+    } else if scale == 2 {
+        scale_bits = 1
+    } else if scale == 4 {
+        scale_bits = 2
+    } else {
+        scale_bits = 3
+    }
+
+    // 8
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            needsRex(index),
+            needsRex(base),
+        ),
+    )
+    out.push(0x0f)
+    out.push(0xb6)
+    out.push(
+        modRM(
+            2,
+            dst,
+            4,
+        ),
+    )
+    // SIB
+    out.push(
+        sib(
+            scale_bits,
+            index,
+            base,
+        ),
+    )
+    emit_u32(
+        out,
+        0,
+    )
+}
+
+// --- Control flow / misc ---
+pub func emit_call_rel32(mut out: &mut Vec<int, _>, rel: int) -> (void) {
+    out.push(0xe8)
+    emit_u32(
+        out,
+        rel,
+    )
+}
+
+pub func emit_ret(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0xc3)
+}
+
+pub func emit_syscall(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x05)
+}
+
+// rep movsb (copy rcx bytes from [rsi] to [rdi])
+pub func emit_rep_movsb(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0xf3)
+    out.push(0xa4)
+}
+
+// repe cmpsb (compare rcx bytes at [rsi] and [rdi], updating flags)
+pub func emit_repe_cmpsb(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0xf3)
+    out.push(0xa6)
+}
+
+// mov dst, [rbp+offset] (load register from stack).
+pub func emit_mov_reg_mem_rbp(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    offset: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            0,
+            0,
+        ),
+    )
+    out.push(0x8b)
+
+    if offset >= -128 && offset <= 127 {
+        out.push(
+            modRM(
+                1,
+                dst,
+                RBP,
+            ),
+        )
+        emit_u8(
+            out,
+            offset & 0xff,
+        )
+    } else {
+        out.push(
+            modRM(
+                2,
+                dst,
+                RBP,
+            ),
+        )
+        emit_u32(
+            out,
+            offset,
+        )
+    }
+}
+
+// lea dst, [rbp + offset]
+pub func emit_lea_reg_mem_rbp(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    offset: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            0,
+            0,
+        ),
+    )
+    out.push(0x8d)
+
+    // LEA opcode
+    if offset >= -128 && offset <= 127 {
+        out.push(
+            modRM(
+                1,
+                dst,
+                RBP,
+            ),
+        )
+        emit_u8(
+            out,
+            offset & 0xff,
+        )
+    } else {
+        out.push(
+            modRM(
+                2,
+                dst,
+                RBP,
+            ),
+        )
+        emit_u32(
+            out,
+            offset,
+        )
+    }
+}
+
+// --- Push/Pop ---
+// push reg
+pub func emit_push_reg(mut out: &mut Vec<int, _>, reg: int) -> (void) {
+    if reg >= 8 {
+        out.push(0x41)
+    }
+
+    // REX.B
+    out.push(0x50 + (reg & 7))
+}
+
+// pop reg
+pub func emit_pop_reg(mut out: &mut Vec<int, _>, reg: int) -> (void) {
+    if reg >= 8 {
+        out.push(0x41)
+    }
+
+    // REX.B
+    out.push(0x58 + (reg & 7))
+}
+
+// --- Arithmetic ---
+// add dst, src (64-bit register add).
+pub func emit_add_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x01)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// add dst, imm8 (64-bit register add immediate byte).
+pub func emit_add_reg_imm8(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x83)
+    out.push(
+        modRM(
+            3,
+            0,
+            dst,
+        ),
+    )
+    emit_u8(
+        out,
+        imm & 0xff,
+    )
+}
+
+// sub dst, src (64-bit register sub).
+pub func emit_sub_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x29)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// imul dst, src (signed multiply, 64-bit, result in dst).
+pub func emit_imul_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(dst),
+            0,
+            needsRex(src),
+        ),
+    )
+    out.push(0x0f)
+    out.push(0xaf)
+    out.push(
+        modRM(
+            3,
+            dst,
+            src,
+        ),
+    )
+}
+
+// cqo (sign-extend rax into rdx:rax for division).
+pub func emit_cqo(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x48)
+    out.push(0x99)
+}
+
+// idiv reg (signed divide rdx:rax by reg, quotient in rax, remainder in rdx).
+pub func emit_idiv_reg(mut out: &mut Vec<int, _>, reg: int) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xf7)
+    out.push(
+        modRM(
+            3,
+            7,
+            reg,
+        ),
+    )
+}
+
+// neg reg (two's complement negate).
+pub func emit_neg_reg(mut out: &mut Vec<int, _>, reg: int) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xf7)
+    out.push(
+        modRM(
+            3,
+            3,
+            reg,
+        ),
+    )
+}
+
+// shl reg, imm8 (shift left by immediate).
+pub func emit_shl_reg_imm8(
+    mut out: &mut Vec<int, _>,
+    reg: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xc1)
+    out.push(
+        modRM(
+            3,
+            4,
+            reg,
+        ),
+    )
+    out.push(imm)
+}
+
+// shr reg, imm8 (logical shift right by immediate).
+pub func emit_shr_reg_imm8(
+    mut out: &mut Vec<int, _>,
+    reg: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xc1)
+    out.push(
+        modRM(
+            3,
+            5,
+            reg,
+        ),
+    )
+    out.push(imm)
+}
+
+// sar reg, imm8 (arithmetic shift right by immediate).
+pub func emit_sar_reg_imm8(
+    mut out: &mut Vec<int, _>,
+    reg: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(reg),
+        ),
+    )
+    out.push(0xc1)
+    out.push(
+        modRM(
+            3,
+            7,
+            reg,
+        ),
+    )
+    out.push(imm)
+}
+
+// sub rsp, imm8 (allocate stack space).
+pub func emit_sub_rsp_imm8(mut out: &mut Vec<int, _>, n: int) -> (void) {
+    out.push(0x48)
+    out.push(0x83)
+    out.push(0xec)
+    emit_u8(
+        out,
+        n & 0xff,
+    )
+}
+
+// add rsp, imm8 (deallocate stack space).
+pub func emit_add_rsp_imm8(mut out: &mut Vec<int, _>, n: int) -> (void) {
+    out.push(0x48)
+    out.push(0x83)
+    out.push(0xc4)
+    emit_u8(
+        out,
+        n & 0xff,
+    )
+}
+
+// sub rsp, imm32 (allocate large stack space).
+pub func emit_sub_rsp_imm32(mut out: &mut Vec<int, _>, n: int) -> (void) {
+    out.push(0x48)
+    out.push(0x81)
+    out.push(0xec)
+    emit_u32(
+        out,
+        n,
+    )
+}
+
+// add rsp, imm32 (deallocate large stack space).
+pub func emit_add_rsp_imm32(mut out: &mut Vec<int, _>, n: int) -> (void) {
+    out.push(0x48)
+    out.push(0x81)
+    out.push(0xc4)
+    emit_u32(
+        out,
+        n,
+    )
+}
+
+// --- Bitwise Operations ---
+// and dst, imm32 (64-bit register AND immediate).
+pub func emit_and_reg_imm32(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x81)
+    out.push(
+        modRM(
+            3,
+            4,
+            dst,
+        ),
+    )
+    emit_u32(
+        out,
+        imm,
+    )
+}
+
+// or dst, imm32 (64-bit register OR immediate).
+pub func emit_or_reg_imm32(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x81)
+    out.push(
+        modRM(
+            3,
+            1,
+            dst,
+        ),
+    )
+    emit_u32(
+        out,
+        imm,
+    )
+}
+
+// xor dst, imm32 (64-bit register XOR immediate).
+pub func emit_xor_reg_imm32(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    imm: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            0,
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x81)
+    out.push(
+        modRM(
+            3,
+            6,
+            dst,
+        ),
+    )
+    emit_u32(
+        out,
+        imm,
+    )
+}
+
+// and dst, src (64-bit register AND register).
+pub func emit_and_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x21)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// or dst, src (64-bit register OR register).
+pub func emit_or_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x09)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// xor dst, src (64-bit register XOR register).
+pub func emit_xor_reg_reg(
+    mut out: &mut Vec<int, _>,
+    dst: int,
+    src: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(src),
+            0,
+            needsRex(dst),
+        ),
+    )
+    out.push(0x31)
+    out.push(
+        modRM(
+            3,
+            src,
+            dst,
+        ),
+    )
+}
+
+// --- Comparison ---
+// cmp a, b (sets flags based on a - b).
+pub func emit_cmp_reg_reg(mut out: &mut Vec<int, _>, a: int, b: int) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(b),
+            0,
+            needsRex(a),
+        ),
+    )
+    out.push(0x39)
+    out.push(
+        modRM(
+            3,
+            b,
+            a,
+        ),
+    )
+}
+
+// test reg, reg (AND without storing result, sets ZF if reg == 0).
+pub func emit_test_reg_reg(
+    mut out: &mut Vec<int, _>,
+    a: int,
+    b: int,
+) -> (void) {
+    out.push(
+        rex(
+            1,
+            needsRex(b),
+            0,
+            needsRex(a),
+        ),
+    )
+    out.push(0x85)
+    out.push(
+        modRM(
+            3,
+            b,
+            a,
+        ),
+    )
+}
+
+// sete al (set al to 1 if ZF=1, i.e. equal).
+pub func emit_sete(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x94)
+    out.push(0xc0)
+}
+
+// setne al (not equal).
+pub func emit_setne(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x95)
+    out.push(0xc0)
+}
+
+// setl al (signed less than).
+pub func emit_setl(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x9c)
+    out.push(0xc0)
+}
+
+// setle al (signed less or equal).
+pub func emit_setle(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x9e)
+    out.push(0xc0)
+}
+
+// setg al (signed greater).
+pub func emit_setg(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x9f)
+    out.push(0xc0)
+}
+
+// setge al (signed greater or equal).
+pub func emit_setge(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x9d)
+    out.push(0xc0)
+}
+
+// movzx rax, al (zero-extend byte in al to 64-bit rax).
+pub func emit_movzx_rax_al(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x48)
+    out.push(0x0f)
+    out.push(0xb6)
+    out.push(0xc0)
+}
+
+// --- Control Flow ---
+// call rel32 (relative call, offset is from end of instruction).
+pub func emit_call_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0xe8)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// jmp rel32 (unconditional jump).
+pub func emit_jmp_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0xe9)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// jz rel32 (jump if zero / equal).
+pub func emit_jz_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0x0f)
+    out.push(0x84)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// jnz rel32 (jump if not zero / not equal).
+pub func emit_jnz_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0x0f)
+    out.push(0x85)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// jge rel32 (jump if greater or equal, signed).
+pub func emit_jge_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0x0f)
+    out.push(0x8d)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// jl rel32 (jump if less, signed).
+pub func emit_jl_rel32(mut out: &mut Vec<int, _>, offset: int) -> (void) {
+    out.push(0x0f)
+    out.push(0x8c)
+    emit_u32(
+        out,
+        offset,
+    )
+}
+
+// ret (return from function).
+pub func emit_ret(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0xc3)
+}
+
+// nop (no operation).
+pub func emit_nop(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x90)
+}
+
+// syscall
+pub func emit_syscall(mut out: &mut Vec<int, _>) -> (void) {
+    out.push(0x0f)
+    out.push(0x05)
+}

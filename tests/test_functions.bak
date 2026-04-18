@@ -1,0 +1,103 @@
+// Test file for functions
+package main
+
+// Simple function
+func add(a: int, b: int) -> (int) {
+    return a + b
+}
+
+// Function with multiple parameters
+func greet(name: string, times: int) -> (string) {
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < times {
+        result = result + "Hello, " + name + "! "
+        i = i + 1
+    }
+    return result
+}
+
+// Recursive function
+func factorial(n: int) -> (int) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+// Recursive fibonacci
+func fibonacci(n: int) -> (int) {
+    if n <= 1 {
+        return n
+    }
+    return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// Function returning bool
+func isEven(n: int) -> (bool) {
+    return n % 2 == 0
+}
+
+// Function with string processing
+func countVowels(s: string) -> (int) {
+    mut var count: int = 0
+    var vowels: string = "aeiouAEIOU"
+    var chars: Vec<string, _> = s.chars()
+    for c in chars {
+        if vowels.contains(c.toString()) {
+            count = count + 1
+        }
+    }
+    return count
+}
+
+// Higher-order function simulation
+func applyTwice(x: int) -> (int) {
+    return double(double(x))
+}
+
+func double(x: int) -> (int) {
+    return x * 2
+}
+
+// Function with Vec
+func sum(numbers: Vec<int, _>) -> (int) {
+    mut var total: int = 0
+    for n in numbers {
+        total = total + n
+    }
+    return total
+}
+
+func main() -> (void) {
+    println("=== Testing Functions ===")
+    
+    println("\n1. Simple function:")
+    println("  add(3, 5):", add(3, 5))
+    println("  add(10, 20):", add(10, 20))
+    
+    println("\n2. Multi-parameter function:")
+    println("  greet('Alice', 2):", greet("Alice", 2))
+    
+    println("\n3. Recursive functions:")
+    println("  factorial(5):", factorial(5))
+    println("  factorial(10):", factorial(10))
+    println("  fibonacci(10):", fibonacci(10))
+    
+    println("\n4. Boolean function:")
+    println("  isEven(4):", isEven(4))
+    println("  isEven(7):", isEven(7))
+    
+    println("\n5. String processing function:")
+    println("  countVowels('Hello World'):", countVowels("Hello World"))
+    println("  countVowels('AEIOUaeiou'):", countVowels("AEIOUaeiou"))
+    
+    println("\n6. Function composition:")
+    println("  applyTwice(5):", applyTwice(5))
+    
+    println("\n7. Function with Vec:")
+    var nums: Vec<int, 5> = Vec.from([1, 2, 3, 4, 5])
+    println("  sum([1,2,3,4,5]):", sum(nums))
+    
+    println("\n=== Function tests complete ===")
+}

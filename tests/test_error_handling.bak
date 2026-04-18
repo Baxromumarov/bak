@@ -1,0 +1,201 @@
+// Test file for error handling with Result and Option
+package main
+
+func divide(a: int, b: int) -> (Result<int, string>) {
+    if b == 0 {
+        return Err("Division by zero")
+    }
+    return Ok(a / b)
+}
+
+func findIndex(arr: Vec<string, _>, target: string) -> (Option<int>) {
+    mut var i: int = 0
+    for item in arr {
+        if item == target {
+            return Some(i)
+        }
+        i = i + 1
+    }
+    return None
+}
+
+func parseNumber(s: string) -> (Result<int, string>) {
+    var result: Result<int, string> = s.parseInt()
+    switch result {
+        case Ok(n) {
+            return Ok(n)
+        }
+        case Err(e) {
+            return Err("Invalid number: " + s)
+        }
+    }
+    return Err("Failed to parse")
+}
+
+func safeSqrt(n: float64) -> (Option<float64>) {
+    if n < 0.0 {
+        return None
+    }
+    // Simple approximation
+    return Some(n)
+}
+
+func main() -> (void) {
+    println("=== Testing Error Handling ===")
+    
+    println("\n1. Result - Ok case:")
+    var result1: Result<int, string> = divide(10, 2)
+    switch result1 {
+        case Ok(val) {
+            println("  10 / 2 =", val)
+        }
+        case Err(e) {
+            println("  Error:", e)
+        }
+    }
+    
+    println("\n2. Result - Err case:")
+    var result2: Result<int, string> = divide(10, 0)
+    switch result2 {
+        case Ok(val) {
+            println("  10 / 0 =", val)
+        }
+        case Err(e) {
+            println("  Error:", e)
+        }
+    }
+    
+    println("\n3. Result matching:")
+    switch result1 {
+        case Ok(v) {
+            println("  divide(10, 2) is Ok:", true)
+        }
+        case Err(e) {
+            println("  divide(10, 2) is Ok:", false)
+        }
+    }
+    switch result2 {
+        case Ok(v) {
+            println("  divide(10, 0) is Err:", false)
+        }
+        case Err(e) {
+            println("  divide(10, 0) is Err:", true)
+        }
+    }
+    
+    println("\n4. Result unwrap_or:")
+    switch result1 {
+        case Ok(v) {
+            println("  divide(10, 2).unwrap():", v)
+        }
+        case Err(e) {
+            println("  Error")
+        }
+    }
+    switch result2 {
+        case Ok(v) {
+            println("  divide(10, 0) value:", v)
+        }
+        case Err(e) {
+            println("  divide(10, 0) default: -1")
+        }
+    }
+    
+    println("\n5. Option - Some case:")
+    var names: Vec<string, 3> = Vec.from(["Alice", "Bob", "Charlie"])
+    var found: Option<int> = findIndex(names, "Bob")
+    switch found {
+        case Some(idx) {
+            println("  'Bob' found at index:", idx)
+        }
+        case None {
+            println("  'Bob' not found")
+        }
+    }
+    
+    println("\n6. Option - None case:")
+    var notFound: Option<int> = findIndex(names, "David")
+    switch notFound {
+        case Some(idx) {
+            println("  'David' found at index:", idx)
+        }
+        case None {
+            println("  'David' not found")
+        }
+    }
+    
+    println("\n7. Option matching:")
+    switch found {
+        case Some(v) {
+            println("  findIndex(names, 'Bob').is_some():", true)
+        }
+        case None {
+            println("  findIndex(names, 'Bob').is_some():", false)
+        }
+    }
+    switch notFound {
+        case Some(v) {
+            println("  findIndex(names, 'David').is_none():", false)
+        }
+        case None {
+            println("  findIndex(names, 'David').is_none():", true)
+        }
+    }
+    
+    println("\n8. Option unwrap_or:")
+    switch found {
+        case Some(v) {
+            println("  found.unwrap_or(-1):", v)
+        }
+        case None {
+            println("  found.unwrap_or(-1):", -1)
+        }
+    }
+    switch notFound {
+        case Some(v) {
+            println("  notFound.unwrap_or(-1):", v)
+        }
+        case None {
+            println("  notFound.unwrap_or(-1):", -1)
+        }
+    }
+    
+    println("\n9. Chaining results:")
+    var parseResult: Result<int, string> = parseNumber("42")
+    switch parseResult {
+        case Ok(n) {
+            println("  Parsed '42':", n)
+        }
+        case Err(e) {
+            println("  Parse error:", e)
+        }
+    }
+    
+    var badParse: Result<int, string> = parseNumber("abc")
+    switch badParse {
+        case Ok(n) {
+            println("  Parsed 'abc':", n)
+        }
+        case Err(e) {
+            println("  Parse error:", e)
+        }
+    }
+    
+    println("\n10. Multiple error handling:")
+    var values: Vec<string, 4> = Vec.from(["10", "20", "bad", "40"])
+    print("  Parsing values: ")
+    for v in values {
+        var parsed: Result<int, string> = parseNumber(v)
+        switch parsed {
+            case Ok(n) {
+                print(n, " ")
+            }
+            case Err(e) {
+                print("ERR ")
+            }
+        }
+    }
+    println()
+    
+    println("\n=== Error handling tests complete ===")
+}

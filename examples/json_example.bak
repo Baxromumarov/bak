@@ -1,0 +1,18 @@
+package main
+
+import "src/std/encoding/json/json.bak" as json
+
+func main() -> (void) {
+    var entries: Vec<json.JsonEntry, _> = Vec.from([
+        json.entry("name", json.String("bak")),
+        json.entry("version", json.Number(1.0)),
+        json.entry("ok", json.Boolean(true)),
+    ])
+
+    var obj: json.Json = json.object(entries)
+    println("compact:")
+    println(json.marshal(obj))
+    println("")
+    println("pretty:")
+    println(json.pretty(obj))
+}

@@ -1,0 +1,29 @@
+package main
+
+func apply(f: func(int) -> (int), x: int) -> (int) {
+    return f(x)
+}
+
+func main() -> (void) {
+    var inc: func(int) -> (int) = func(x: int) -> (int) {
+        return x + 1
+    }
+
+    println(inc(5))
+    // Expected: 6
+    println(
+        apply(
+            func(x: int) -> (int) {
+                return x * 2
+            },
+            10,
+        ),
+    )
+
+    // Expected: 20
+    var f: func() -> (void) = func() -> (void) {
+        println("hello from anon")
+    }
+
+    f()
+}

@@ -1,0 +1,45 @@
+package json
+
+import "src/std/test/test.bak" as test
+import "src/std/encoding/json/json.bak" as j
+
+func test_object_getters() -> (void) {
+    mut var t: test.T = test.new("test_object_getters")
+    var entries: Vec<j.JsonEntry, _> = Vec.from([j.entry("name", j.Json.String("bak")), j.entry("age", j.Json.Int(3)), j.entry("ok", j.Json.Boolean(true))])
+    var obj: j.Json = j.object(entries)
+    switch j.get_string(&obj, "name") {
+        case Some(v) {
+            t.eq_string(v, "bak")
+        }
+        case None {
+            t.fail("missing name")
+        }
+    }
+    switch j.get_number(&obj, "age") {
+        case Some(v) {
+            t.eq_float(v, 3.0)
+        }
+        case None {
+            t.fail("missing age")
+        }
+    }
+    switch j.get_bool(&obj, "ok") {
+        case Some(v) {
+            t.eq(v, true)
+        }
+        case None {
+            t.fail("missing ok")
+        }
+    }
+    switch j.get(&obj, "missing") {
+        case Some(_) {
+            t.fail("expected missing key to be None")
+        }
+        case None {
+        }
+    }
+    var pretty: string = j.pretty(obj)
+    t.contains(pretty, "
+")
+    t.finish()
+}

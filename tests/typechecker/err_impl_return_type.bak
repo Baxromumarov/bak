@@ -1,0 +1,18 @@
+// Test: Method return type - should FAIL
+// Error: method returns wrong type
+package main
+
+struct Counter {
+    pub value: int
+}
+
+impl Counter as c {
+    func get() -> (string) {
+        // ERROR: c.value is int, but method expects string return
+        return c.value
+    }
+}
+
+func main() -> (void) {
+    return void
+}

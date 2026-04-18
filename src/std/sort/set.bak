@@ -1,0 +1,58 @@
+package sort
+
+import "src/std/collections/set.bak" as collections
+import "src/std/sort/vector.bak" as vector
+
+// Sort Set<T> values and return a sorted Vec.
+pub func sort_set<T>(set: &collections.Set<T>, asc: bool, cmp: func(&T, &T) -> (int)) -> (Vec<T, _>) {
+    mut var items: Vec<T, _> = set.values()
+    vector.sort(&mut items, asc, cmp)
+    return items
+}
+
+// Sort Set<T> values with a custom less function.
+pub func sort_set_by<T>(
+    set: &collections.Set<T>,
+    asc: bool,
+    less: func(&T, &T) -> (bool)
+) -> (Vec<T, _>) {
+    mut var items: Vec<T, _> = set.values()
+    vector.sort_by(&mut items, asc, less)
+    return items
+}
+
+// Sort StringSet values and return a sorted Vec.
+pub func sort_string_set(set: &collections.StringSet, asc: bool) -> (Vec<string, _>) {
+    mut var items: Vec<string, _> = set.values()
+    vector.sort_strings(&mut items, asc)
+    return items
+}
+
+// Sort StringSet values with a custom less function.
+pub func sort_string_set_by(
+    set: &collections.StringSet,
+    asc: bool,
+    less: func(&string, &string) -> (bool)
+) -> (Vec<string, _>) {
+    mut var items: Vec<string, _> = set.values()
+    vector.sort_by(&mut items, asc, less)
+    return items
+}
+
+// Sort IntSet values and return a sorted Vec.
+pub func sort_int_set(set: &collections.IntSet, asc: bool) -> (Vec<int, _>) {
+    mut var items: Vec<int, _> = set.values()
+    vector.sort_ints(&mut items, asc)
+    return items
+}
+
+// Sort IntSet values with a custom less function.
+pub func sort_int_set_by(
+    set: &collections.IntSet,
+    asc: bool,
+    less: func(&int, &int) -> (bool)
+) -> (Vec<int, _>) {
+    mut var items: Vec<int, _> = set.values()
+    vector.sort_by(&mut items, asc, less)
+    return items
+}

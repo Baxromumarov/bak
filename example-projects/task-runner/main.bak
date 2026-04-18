@@ -1,0 +1,80 @@
+package main
+
+// bake - Task runner main entry point
+import "example-projects/task-runner/types.bak" as types
+import "example-projects/task-runner/runner.bak" as runner
+import "example-projects/task-runner/cli.bak" as cli
+
+func main() -> (void) {
+    println("=== Bake Task Runner ===")
+    println("")
+    
+    // Create a sample config
+    var config: types.Config = create_sample_config()
+    
+    // Display available tasks
+    println("--- Available Tasks ---")
+    cli.print_task_list(&config)
+    println("")
+    
+    // Run the build task
+    println("--- Running: build ---")
+    println("")
+    
+    var result: Result<int, string> = runner.run_tasks(&config, "build")
+    switch result {
+        case Ok(count) {
+            println("--- Summary ---")
+            println("Tasks completed: ", count)
+            println("✓ All tasks completed successfully!")
+        }
+        case Err(e) {
+            println("Error: ", e)
+        }
+    }
+    
+    return void
+}
+
+// Create a sample configuration
+func create_sample_config() -> (types.Config) {
+    mut var config: types.Config = types.Config.new()
+    
+    // clean task
+    mut var clean: types.TaskDef = types.TaskDef.new("clean")
+    clean.set_description("Remove build artifacts")
+    clean.add_command("rm -rf ./build")
+    config.add_task(clean)
+    
+    // deps task
+    mut var deps: types.TaskDef = types.TaskDef.new("deps")
+    deps.set_description("Install dependencies")
+    deps.add_command("bak check ./src")
+    config.add_task(deps)
+    
+    // compile task
+    mut var compile: types.TaskDef = types.TaskDef.new("compile")
+    compile.set_description("Compile the project")
+    compile.add_dep("deps")
+    compile.add_command("bak compile ./src -o ./build/app")
+    config.add_task(compile)
+    
+    // test task
+    mut var test: types.TaskDef = types.TaskDef.new("test")
+    test.set_description("Run tests")
+    test.add_dep("compile")
+    test.add_command("bak test ./tests")
+    config.add_task(test)
+    
+    // build task (main)
+    mut var build: types.TaskDef = types.TaskDef.new("build")
+    build.set_description("Full build with tests")
+    build.add_dep("clean")
+    build.add_dep("test")
+    build.add_command("echo 'Build complete!'")
+    config.add_task(build)
+    
+    config.set_default("build")
+    
+    return config
+}

@@ -1,0 +1,16 @@
+package main
+
+struct Entry {
+    Path:  string
+    Alias: string
+}
+
+func main() -> (int) {
+    mut var entries: Vec<Entry, _> = Vec.new()
+
+    entries.push(Entry{Alias: "aa", Path: "a"})
+    entries.push(Entry{Alias: "bb", Path: "b"})
+    println("done")
+
+    return 0
+}

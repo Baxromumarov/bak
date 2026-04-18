@@ -1,0 +1,11 @@
+package main
+
+func get_val() -> (int) {
+    return 10
+}
+
+func main() -> (void) {
+    var x = get_val()
+    println(x)
+    return void
+}

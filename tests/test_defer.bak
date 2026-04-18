@@ -1,0 +1,61 @@
+package main
+
+// Test basic defer
+func test_basic() -> (void) {
+    println("start")
+    defer {
+        println("deferred")
+    }
+    println("end")
+    return void
+}
+
+// Test LIFO ordering of multiple defers
+func test_lifo() -> (void) {
+    println("begin")
+    defer {
+        println("first defer (should print last)")
+    }
+    defer {
+        println("second defer (should print middle)")
+    }
+    defer {
+        println("third defer (should print first)")
+    }
+    println("done")
+    return void
+}
+
+// Test defer with variable access
+func test_variable_access() -> (void) {
+    mut var x: int = 42
+    defer {
+        println(x)
+    }
+    return void
+}
+
+// Test defer with return value (defer should not affect return)
+func test_with_return() -> (int) {
+    defer {
+        println("cleanup after return")
+    }
+    return 99
+}
+
+func main() -> (void) {
+    println("=== basic defer ===")
+    test_basic()
+
+    println("=== LIFO ordering ===")
+    test_lifo()
+
+    println("=== variable access ===")
+    test_variable_access()
+
+    println("=== defer with return value ===")
+    var result: int = test_with_return()
+    println(result)
+
+    return void
+}

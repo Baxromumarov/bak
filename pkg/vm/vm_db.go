@@ -1,0 +1,241 @@
+package vm
+
+import (
+	"database/sql"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/baxromumarov/bak/pkg/compiler"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
+)
+
+// callBuiltinDB bridges VM database builtin calls to the Go implementations.
+func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value, error) {
+	if !vm.permissions.AllowNet {
+		return makeResultErr(vm, runtimecap.PermissionError("db."+strings.ReplaceAll(name, "_", "."), runtimecap.FlagAllowNet)), nil
+	}
+
+	switch name {
+	case "pg_connect":
+		connStr := args[0].AsString
+		db, err := dbConnect("postgres", connStr)
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, compiler.NewInt(int64(db))), nil
+
+	case "pg_query":
+		handle := int(args[0].AsInt)
+		sql := args[1].AsString
+		result, err := dbQuery(vm, handle, sql)
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, result), nil
+
+	case "pg_close":
+		handle := int(args[0].AsInt)
+		if err := dbClose(handle); err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, compiler.NewNil()), nil
+
+	case "mysql_connect":
+		connStr := args[0].AsString
+		db, err := dbConnect("mysql", connStr)
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, compiler.NewInt(int64(db))), nil
+
+	case "mysql_query":
+		handle := int(args[0].AsInt)
+		sql := args[1].AsString
+		result, err := dbQuery(vm, handle, sql)
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, result), nil
+
+	case "mysql_close":
+		handle := int(args[0].AsInt)
+		if err := dbClose(handle); err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, compiler.NewNil()), nil
+
+	case "db_config":
+		handle := int(args[0].AsInt)
+		maxOpen := int(args[1].AsInt)
+		maxIdle := int(args[2].AsInt)
+		maxLife := int(args[3].AsInt) // seconds
+		if err := dbConfig(handle, maxOpen, maxIdle, maxLife); err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		return makeResultOk(vm, compiler.NewNil()), nil
+
+	default:
+		return compiler.NewNil(), fmt.Errorf("unknown db builtin: %s", name)
+	}
+}
+
+// Database connection management (shared with builtins)
+var (
+	vmDBMu     sync.Mutex
+	vmDBConns  = make(map[int]*sql.DB)
+	vmNextDBID = 1
+)
+
+func dbConnect(driver, connStr string) (int, error) {
+	db, err := sql.Open(driver, connStr)
+	if err != nil {
+		return 0, err
+	}
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return 0, err
+	}
+	vmDBMu.Lock()
+	id := vmNextDBID
+	vmNextDBID++
+	vmDBConns[id] = db
+	vmDBMu.Unlock()
+	return id, nil
+}
+
+func dbConfig(handle, maxOpen, maxIdle, maxLifeSeconds int) error {
+	vmDBMu.Lock()
+	db, exists := vmDBConns[handle]
+	vmDBMu.Unlock()
+	if !exists {
+		return fmt.Errorf("invalid database handle")
+	}
+	db.SetMaxOpenConns(maxOpen)
+	db.SetMaxIdleConns(maxIdle)
+	db.SetConnMaxLifetime(time.Duration(maxLifeSeconds) * time.Second)
+	return nil
+}
+
+func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
+	vmDBMu.Lock()
+	db, exists := vmDBConns[handle]
+	vmDBMu.Unlock()
+	if !exists {
+		return compiler.NewNil(), fmt.Errorf("invalid database handle")
+	}
+
+	rows, err := db.Query(sqlStr)
+	if err != nil {
+		return compiler.NewNil(), err
+	}
+	defer rows.Close()
+
+	columns, _ := rows.Columns()
+	colElements := make([]compiler.Value, len(columns))
+	for i, col := range columns {
+		colElements[i] = compiler.NewString(col)
+	}
+	columnsVec := &compiler.ArrayInstance{Elements: colElements}
+
+	var rowElements []compiler.Value
+	for rows.Next() {
+		values := make([]any, len(columns))
+		valuePtrs := make([]any, len(columns))
+		for i := range values {
+			valuePtrs[i] = &values[i]
+		}
+		rows.Scan(valuePtrs...)
+
+		rowCells := make([]compiler.Value, len(columns))
+		for i, val := range values {
+			var strVal string
+			if val == nil {
+				strVal = "NULL"
+			} else if b, ok := val.([]byte); ok {
+				strVal = string(b)
+			} else {
+				strVal = fmt.Sprintf("%v", val)
+			}
+			rowCells[i] = compiler.NewString(strVal)
+		}
+		rowVec := &compiler.ArrayInstance{Elements: rowCells}
+		rowElements = append(rowElements, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: rowVec})
+	}
+
+	rowsVec := &compiler.ArrayInstance{Elements: rowElements}
+	typeName := "db.QueryResult"
+	typeID := 0
+	if def, ok := vm.module.StructDefs[typeName]; ok {
+		typeID = def.TypeID
+	} else if def, ok := vm.module.StructDefs["QueryResult"]; ok {
+		typeName = "QueryResult"
+		typeID = def.TypeID
+	}
+	return compiler.Value{
+		Type: compiler.VAL_STRUCT,
+		AsObject: &compiler.StructInstance{
+			TypeID:   typeID,
+			TypeName: typeName,
+			Fields: []compiler.Value{
+				{Type: compiler.VAL_ARRAY, AsObject: columnsVec}, // Columns at index 0
+				{Type: compiler.VAL_ARRAY, AsObject: rowsVec},    // Rows at index 1
+			},
+		},
+	}, nil
+}
+
+func dbClose(handle int) error {
+	vmDBMu.Lock()
+	db, exists := vmDBConns[handle]
+	if exists {
+		delete(vmDBConns, handle)
+	}
+	vmDBMu.Unlock()
+	if !exists {
+		return fmt.Errorf("invalid database handle")
+	}
+	return db.Close()
+}
+
+func makeResultOk(vm *VM, val compiler.Value) compiler.Value {
+	result := &compiler.ResultInstance{
+		IsErr: false,
+		Value: val,
+	}
+	return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
+}
+
+func makeResultErr(vm *VM, msg string) compiler.Value {
+	result := &compiler.ResultInstance{
+		IsErr: true,
+		Value: compiler.NewString(msg),
+	}
+	return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
+}
+
+func vecArrayFromStruct(inst *compiler.StructInstance) (*compiler.ArrayInstance, bool) {
+	if !isVecTypeName(inst.TypeName) {
+		return nil, false
+	}
+	if len(inst.Fields) == 0 {
+		return nil, false
+	}
+
+	data := inst.Fields[0]
+	if data.Type != compiler.VAL_ARRAY {
+		return nil, false
+	}
+
+	arr, ok := data.AsObject.(*compiler.ArrayInstance)
+	if !ok {
+		return nil, false
+	}
+
+	return arr, true
+}
+
+func isVecTypeName(name string) bool {
+	return name == "Vec" || strings.HasSuffix(name, ".Vec")
+}

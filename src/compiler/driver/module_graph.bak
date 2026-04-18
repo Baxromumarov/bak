@@ -1,0 +1,1533 @@
+package driver
+
+import "src/compiler/ast/ast.bak" as ast
+import "src/compiler/lexer/lexer.bak" as lexer
+import "src/compiler/native/backend.bak" as native
+import "src/compiler/parser/parser.bak" as parser
+import "src/compiler/token/token.bak" as token
+import "src/std/fs/fs.bak" as fs
+
+pub struct ImportEntry {
+    Path:  string
+    Alias: string
+}
+
+struct ScannedImportEntry {
+    Entry:   ImportEntry
+    NextPos: int
+    Found:   bool
+}
+
+pub struct Module {
+    Path:    string
+    Program: ast.Program
+    Imports: Vec<ImportEntry, _>
+}
+
+pub struct ModuleGraph {
+    Modules: Vec<Module, _>
+    Order:   Vec<string, _>
+}
+
+struct GraphCollectState {
+    VisitedHashes: Vec<int, _>
+    Funcs:         Vec<ast.FunctionDecl, _>
+    Structs:       Vec<ast.StructDecl, _>
+    Consts:        Vec<ast.ConstStatement, _>
+    Enums:         Vec<ast.EnumDecl, _>
+}
+
+func copyStatementVec(
+    src: &Vec<ast.Statement, _>,
+    trace: bool,
+) -> (Vec<ast.Statement, _>) {
+    var _trace: bool = trace
+
+    return *src
+}
+
+func qualifyDeclName(pkg: &string, name: &string) -> (string) {
+    mut var out: string = copyString(pkg)
+
+    out = out + "."
+    out = out + copyString(name)
+
+    return out
+}
+
+func setFunctionDeclName(
+    mut decl: &mut ast.FunctionDecl,
+    name: string,
+) -> (void) {
+    decl.Name.Value = name
+}
+
+func setStructDeclName(mut decl: &mut ast.StructDecl, name: string) -> (void) {
+    decl.Name.Value = name
+}
+
+func setConstDeclName(
+    mut decl: &mut ast.ConstStatement,
+    name: string,
+) -> (void) {
+    decl.Name.Value = name
+}
+
+func setEnumDeclName(mut decl: &mut ast.EnumDecl, name: string) -> (void) {
+    decl.Name.Value = name
+}
+
+func copyBlockStatement(
+    src: ast.BlockStatement,
+    trace: bool,
+) -> (ast.BlockStatement) {
+    var _trace: bool = trace
+
+    return src
+}
+
+pub func BuildModuleGraphParts(
+    entryPath: string,
+    bootstrapNative: bool,
+    mut modulesOut: &mut Vec<Module, _>,
+    mut _orderOut: &mut Vec<string, _>,
+) -> (Result<void, string>) {
+    var _entryPath: string = entryPath
+    var _bootstrapNative: bool = bootstrapNative
+    var _modulesLen: int = modulesOut.len()
+
+    return Err("module graph build path disabled")
+}
+
+pub func BuildSingleModule(
+    entryPath: string,
+    mut _modulesOut: &mut Vec<Module, _>,
+    mut _orderOut: &mut Vec<string, _>,
+) -> (Result<void, string>) {
+    var _entryPath: string = entryPath
+
+    return Err("single module build path disabled")
+}
+
+pub func CollectSingleModuleItems(
+    entryPath: string,
+    mut funcsOut: &mut Vec<ast.FunctionDecl, _>,
+    mut structsOut: &mut Vec<ast.StructDecl, _>,
+    mut constsOut: &mut Vec<ast.ConstStatement, _>,
+    mut enumsOut: &mut Vec<ast.EnumDecl, _>,
+) -> (Result<void, string>) {
+    var _entryPath: string = entryPath
+    var _funcsLen: int = funcsOut.len()
+    var _structsLen: int = structsOut.len()
+    var _constsLen: int = constsOut.len()
+    var _enumsLen: int = enumsOut.len()
+
+    return Ok(void)
+}
+
+func collectParsedImplMethodsInto(
+    pkg: string,
+    id: &ast.ImplDecl,
+    mut funcsOut: &mut Vec<ast.FunctionDecl, _>,
+) -> (void) {
+    mut var mi: int = 0
+
+    while mi < id.Methods.len() {
+        var md: ast.MethodDecl = id.Methods[mi]
+        var lowered: ast.FunctionDecl = ast.LowerImplMethod(
+            copyString(&pkg),
+            id.TypeName,
+            id.Receiver,
+            id.Token,
+            md,
+        )
+
+        funcsOut.push(lowered)
+        mi = mi + 1
+    }
+
+    return
+}
+
+func tokenFunctionNameByIndex(index: int) -> (string) {
+    if index == 0 { return "token.TypeEq" }
+    if index == 1 { return "token.typeEqRef" }
+    if index == 2 { return "token.MakeToken" }
+    if index == 3 { return "token.SetToken" }
+    if index == 4 { return "token.TokenTypeString" }
+    if index == 5 { return "token.LookupIdent" }
+    if index == 6 { return "token.IsKeywordRef" }
+    if index == 7 { return "token.IsKeyword" }
+    if index == 8 { return "token.IsTypeRef" }
+    if index == 9 { return "token.IsType" }
+
+    return "token.fn_" + index.toString()
+}
+
+func collectParsedProgramItemsInto(
+    pkg: string,
+    parsedProgram: &ast.Program,
+    mut funcsOut: &mut Vec<ast.FunctionDecl, _>,
+    mut structsOut: &mut Vec<ast.StructDecl, _>,
+    mut constsOut: &mut Vec<ast.ConstStatement, _>,
+    mut enumsOut: &mut Vec<ast.EnumDecl, _>,
+) -> (void) {
+    mut var si: int = 0
+
+    while si < parsedProgram.Statements.len() {
+        var stmt: &ast.Statement = &parsedProgram.Statements[si]
+
+        switch *stmt {
+            case ast.Statement.FunctionDecl(fd) {
+                mut var fnName: string = fd.Name.Value
+
+                if pkg != "main" {
+                    fnName = qualifyDeclName(
+                        &pkg,
+                        &fnName,
+                    )
+                }
+
+                mut var fnDecl: ast.FunctionDecl = fd
+
+                fnDecl.Name.Value = fnName
+                funcsOut.push(fnDecl)
+            }
+            case ast.Statement.StructDecl(sd) {
+                mut var sDecl: ast.StructDecl = sd
+
+                if pkg != "main" {
+                    sDecl.Name.Value = qualifyDeclName(
+                        &pkg,
+                        &sDecl.Name.Value,
+                    )
+                }
+
+                structsOut.push(sDecl)
+            }
+            case ast.Statement.EnumDecl(ed) {
+                mut var eDecl: ast.EnumDecl = ed
+
+                if pkg != "main" {
+                    eDecl.Name.Value = qualifyDeclName(
+                        &pkg,
+                        &eDecl.Name.Value,
+                    )
+                }
+
+                enumsOut.push(eDecl)
+            }
+            case ast.Statement.Const(cs) {
+                mut var cDecl: ast.ConstStatement = cs
+
+                if pkg != "main" {
+                    cDecl.Name.Value = qualifyDeclName(
+                        &pkg,
+                        &cDecl.Name.Value,
+                    )
+                }
+
+                constsOut.push(cDecl)
+            }
+            case ast.Statement.ConstBlock(cb) {
+                mut var ci: int = 0
+
+                while ci < cb.Constants.len() {
+                    mut var cDecl2: ast.ConstStatement = cb.Constants[ci]
+
+                    if pkg != "main" {
+                        cDecl2.Name.Value = qualifyDeclName(
+                            &pkg,
+                            &cDecl2.Name.Value,
+                        )
+                    }
+
+                    constsOut.push(cDecl2)
+                    ci = ci + 1
+                }
+            }
+            case ast.Statement.ImplDecl(id) {
+                collectParsedImplMethodsInto(
+                    pkg,
+                    &id,
+                    funcsOut,
+                )
+            }
+            default {
+            }
+        }
+
+        si = si + 1
+    }
+
+    return
+}
+
+func parseSourceCollectItemsInline(
+    source: string,
+    pkg: string,
+    mut funcsOut: &mut Vec<ast.FunctionDecl, _>,
+    mut structsOut: &mut Vec<ast.StructDecl, _>,
+    mut constsOut: &mut Vec<ast.ConstStatement, _>,
+    mut enumsOut: &mut Vec<ast.EnumDecl, _>,
+) -> (void) {
+    if pkg != "token" {
+        parser.ParseSourceCollectItemsForPkgUnchecked(
+            copyString(&source),
+            copyString(&pkg),
+            funcsOut,
+            structsOut,
+            constsOut,
+            enumsOut,
+        )
+
+        return
+    }
+
+    mut var parsedProgram: ast.Program = ast.ProgramFromStatements(
+        Vec.with_cap(0),
+    )
+    parser.ParseSourceIntoUnchecked(
+        copyString(&source),
+        copyString(&pkg) + ".bak",
+        &mut parsedProgram,
+    )
+
+    collectParsedProgramItemsInto(
+        copyString(&pkg),
+        &parsedProgram,
+        funcsOut,
+        structsOut,
+        constsOut,
+        enumsOut,
+    )
+
+    return
+}
+
+pub func CollectGraphProgramItems(
+    entryPath: string,
+    mut funcsOut: &mut Vec<ast.FunctionDecl, _>,
+    mut structsOut: &mut Vec<ast.StructDecl, _>,
+    mut constsOut: &mut Vec<ast.ConstStatement, _>,
+    mut enumsOut: &mut Vec<ast.EnumDecl, _>,
+) -> (Result<void, string>) {
+    mut var visitedHashes: Vec<int, _> = Vec.with_cap(64)
+
+    return collectGraphItemsRecursive(
+        copyString(&entryPath),
+        &mut visitedHashes,
+        funcsOut,
+        structsOut,
+        constsOut,
+        enumsOut,
+    )
+}
+
+func parentDirName(path: &string) -> (string) {
+    mut var lastSlash: int = -1
+    mut var i: int = 0
+
+    while i < path.len() {
+        if (*path)[i] == 47 {
+            lastSlash = i
+        }
+
+        i = i + 1
+    }
+
+    if lastSlash <= 0 {
+        return ""
+    }
+
+    mut var prevSlash: int = -1
+
+    i = 0
+
+    while i < lastSlash {
+        if (*path)[i] == 47 {
+            prevSlash = i
+        }
+
+        i = i + 1
+    }
+
+    if prevSlash < 0 {
+        return (*path).substring(
+            0,
+            lastSlash,
+        )
+    }
+
+    return (*path).substring(
+        prevSlash + 1,
+        lastSlash,
+    )
+}
+
+func isCompilerOrStdModule(path: &string) -> (bool) {
+    var compilerNeedle: string = "src/compiler/"
+    var stdNeedle: string = "src/std/"
+
+    return findSubstring(
+        path,
+        &compilerNeedle,
+    ) >= 0 || findSubstring(
+        path,
+        &stdNeedle,
+    ) >= 0
+}
+
+func defaultAlias(path: &string) -> (string) {
+    mut var start: int = 0
+    mut var i: int = 0
+
+    while i < path.len() {
+        if int((*path)[i]) == lexer.CH_SLASH {
+            start = i + 1
+        }
+        i = i + 1
+    }
+
+    var base: string = (*path).substring(
+        start,
+        path.len(),
+    )
+
+    if base.endsWith(".bak") {
+        return base.substring(
+            0,
+            base.len() - 4,
+        )
+    }
+
+    return base
+}
+
+func packageNameFromPath(path: &string) -> (string) {
+    // For non-compiler/std source files, keep user modules in main package.
+    if !isCompilerOrStdModule(path) {
+        return "main"
+    }
+
+    var parent: string = parentDirName(path)
+    var base: string = defaultAlias(path)
+
+    if parent == "std" || parent == "compiler" || parent == "cmd" || parent == "" {
+        return base
+    }
+
+    return parent
+}
+
+func should_skip_bootstrap_module(path: &string) -> (bool) {
+    var _path: string = copyString(path)
+    return false
+}
+
+func resolveImportPath(basePath: &string, importPath: string) -> (string) {
+    if importPath.startsWith("src/") {
+        return importPath
+    }
+
+    if importPath.startsWith("/") {
+        return importPath
+    }
+
+    mut var slash: int = -1
+    mut var i: int = 0
+
+    while i < basePath.len() {
+        if int((*basePath)[i]) == lexer.CH_SLASH {
+            slash = i
+        }
+        i = i + 1
+    }
+
+    if slash < 0 {
+        return importPath
+    }
+
+    var dir: string = (*basePath).substring(
+        0,
+        slash + 1,
+    )
+
+    return dir + importPath
+}
+
+func scanImportEntriesFromSource(source: &string) -> (Vec<ImportEntry, _>) {
+    mut var imports: Vec<ImportEntry, _> = Vec.with_cap(8)
+    mut var pos: int = 0
+
+    while pos < source.len() {
+        pos = skipImportTrivia(
+            source,
+            pos,
+        )
+
+        if pos >= source.len() {
+            break
+        }
+
+        if int((*source)[pos]) == lexer.CH_QUOTE {
+            pos = skipImportStringLiteral(
+                source,
+                pos,
+            )
+            continue
+        }
+
+        if importKeywordAt(
+            source,
+            pos,
+        ) {
+            mut var nextPos: int = skipImportTrivia(
+                source,
+                pos + 6,
+            )
+
+            if nextPos < source.len() && int((*source)[nextPos]) == lexer.CH_LPAREN {
+                nextPos = nextPos + 1
+
+                while nextPos < source.len() {
+                    nextPos = skipImportTrivia(
+                        source,
+                        nextPos,
+                    )
+
+                    if nextPos >= source.len() {
+                        break
+                    }
+
+                    if int((*source)[nextPos]) == lexer.CH_RPAREN {
+                        nextPos = nextPos + 1
+                        break
+                    }
+
+                    mut var entry: ImportEntry = ImportEntry{
+                        Alias: "",
+                        Path:  "",
+                    }
+                    var scanRes: ScannedImportEntry = scanImportEntryAt(
+                        source,
+                        nextPos,
+                    )
+
+                    if scanRes.Found {
+                        entry = scanRes.Entry
+                        imports.push(entry)
+                    }
+
+                    mut var entryNext: int = scanRes.NextPos
+
+                    if entryNext <= nextPos {
+                        entryNext = nextPos + 1
+                    }
+
+                    nextPos = entryNext
+                }
+            } else {
+                mut var entry: ImportEntry = ImportEntry{
+                    Alias: "",
+                    Path:  "",
+                }
+                var scanRes: ScannedImportEntry = scanImportEntryAt(
+                    source,
+                    nextPos,
+                )
+
+                if scanRes.Found {
+                    entry = scanRes.Entry
+                    imports.push(entry)
+                }
+
+                mut var entryNext: int = scanRes.NextPos
+
+                if entryNext <= nextPos {
+                    entryNext = nextPos + 1
+                }
+
+                nextPos = entryNext
+            }
+
+            pos = nextPos
+            continue
+        }
+
+        pos = pos + 1
+    }
+
+    return imports
+}
+
+func scanImportEntriesFallback(source: &string) -> (Vec<ImportEntry, _>) {
+    mut var imports: Vec<ImportEntry, _> = Vec.with_cap(4)
+    mut var pos: int = 0
+    mut var inBlock: bool = false
+
+    while pos < source.len() {
+        var lineStart: int = pos
+
+        while pos < source.len() && int((*source)[pos]) != lexer.CH_NEWLINE {
+            pos = pos + 1
+        }
+
+        var line: string = (*source).substring(
+            lineStart,
+            pos,
+        )
+        var linePos: int = skipImportTrivia(
+            &line,
+            0,
+        )
+
+        if linePos < line.len() && int(line[linePos]) == lexer.CH_RPAREN {
+            inBlock = false
+        } else {
+            if !inBlock && importKeywordAt(
+                &line,
+                linePos,
+            ) {
+                var afterImport: int = skipImportTrivia(
+                    &line,
+                    linePos + 6,
+                )
+
+                if afterImport < line.len() && int(line[afterImport]) == lexer.CH_LPAREN {
+                    inBlock = true
+                } else {
+                    var oneRes: ScannedImportEntry = scanImportEntryAt(
+                        &line,
+                        afterImport,
+                    )
+
+                    if oneRes.Found {
+                        imports.push(oneRes.Entry)
+                    }
+                }
+            } else if inBlock {
+                var blockRes: ScannedImportEntry = scanImportEntryAt(
+                    &line,
+                    linePos,
+                )
+
+                if blockRes.Found {
+                    imports.push(blockRes.Entry)
+                }
+            }
+        }
+
+        if pos < source.len() {
+            pos = pos + 1
+        }
+    }
+
+    return imports
+}
+
+func stripImportDeclsFromSource(source: &string) -> (string) {
+    mut var out: string = ""
+    mut var pos: int = 0
+    mut var chunkStart: int = 0
+    mut var inBlock: bool = false
+
+    while pos < source.len() {
+        var lineStart: int = pos
+
+        while pos < source.len() && int((*source)[pos]) != lexer.CH_NEWLINE {
+            pos = pos + 1
+        }
+
+        var lineEnd: int = pos
+        var line: string = (*source).substring(
+            lineStart,
+            lineEnd,
+        )
+        var linePos: int = skipImportTrivia(
+            &line,
+            0,
+        )
+        mut var skipLine: bool = false
+
+        if inBlock {
+            skipLine = true
+            if linePos < line.len() && int(line[linePos]) == lexer.CH_RPAREN {
+                inBlock = false
+            }
+        } else {
+            if importKeywordAt(
+                &line,
+                linePos,
+            ) {
+                skipLine = true
+                var afterImport: int = skipImportTrivia(
+                    &line,
+                    linePos + 6,
+                )
+
+                if afterImport < line.len() && int(line[afterImport]) == lexer.CH_LPAREN {
+                    inBlock = true
+                }
+            }
+        }
+
+        mut var nextPos: int = lineEnd
+
+        if nextPos < source.len() {
+            nextPos = nextPos + 1
+        }
+
+        if skipLine {
+            if chunkStart < lineStart {
+                out = out + (*source).substring(
+                    chunkStart,
+                    lineStart,
+                )
+            }
+            chunkStart = nextPos
+        }
+
+        pos = nextPos
+    }
+
+    if chunkStart < source.len() {
+        out = out + (*source).substring(
+            chunkStart,
+            source.len(),
+        )
+    }
+
+    return out
+}
+
+func scanImportEntryAt(source: &string, start: int) -> (ScannedImportEntry) {
+    mut var pos: int = skipImportTrivia(
+        source,
+        start,
+    )
+
+    if pos >= source.len() {
+        return ScannedImportEntry{
+            Entry:   ImportEntry{Alias: "", Path: ""},
+            Found:   false,
+            NextPos: pos,
+        }
+    }
+
+    if int((*source)[pos]) != lexer.CH_QUOTE {
+        return ScannedImportEntry{
+            Entry:   ImportEntry{Alias: "", Path: ""},
+            Found:   false,
+            NextPos: pos,
+        }
+    }
+
+    mut var entry: ImportEntry = ImportEntry{
+        Alias: "",
+        Path:  "",
+    }
+    mut var pathEnd: int = pos + 1
+
+    while pathEnd < source.len() {
+        if int((*source)[pathEnd]) == lexer.CH_BACKSLASH {
+            pathEnd = pathEnd + 2
+        } else if int((*source)[pathEnd]) == lexer.CH_QUOTE {
+            entry.Path = (*source).substring(
+                pos + 1,
+                pathEnd,
+            )
+            entry.Alias = ""
+            pos = skipImportTrivia(
+                source,
+                pathEnd + 1,
+            )
+
+            if asKeywordAt(
+                source,
+                pos,
+            ) {
+                pos = skipImportTrivia(
+                    source,
+                    pos + 2,
+                )
+
+                var aliasStart: int = pos
+
+                if pos < source.len() && isImportIdentStart((*source)[pos]) {
+                    pos = pos + 1
+
+                    while pos < source.len() && isImportIdent((*source)[pos]) {
+                        pos = pos + 1
+                    }
+
+                    entry.Alias = (*source).substring(
+                        aliasStart,
+                        pos,
+                    )
+                }
+            }
+
+            return ScannedImportEntry{
+                Entry:   entry,
+                Found:   true,
+                NextPos: pos,
+            }
+        } else {
+            pathEnd = pathEnd + 1
+        }
+    }
+
+    return ScannedImportEntry{
+        Entry:   entry,
+        Found:   false,
+        NextPos: source.len(),
+    }
+}
+
+func skipImportTrivia(source: &string, start: int) -> (int) {
+    mut var pos: int = start
+
+    while pos < source.len() {
+        if isImportWhitespace((*source)[pos]) {
+            pos = pos + 1
+            continue
+        }
+
+        if int((*source)[pos]) == lexer.CH_SLASH && pos + 1 < source.len() {
+            if int((*source)[pos + 1]) == lexer.CH_SLASH {
+                pos = pos + 2
+
+                while pos < source.len() && int((*source)[pos]) != lexer.CH_NEWLINE {
+                    pos = pos + 1
+                }
+
+                continue
+            }
+
+            if int((*source)[pos + 1]) == lexer.CH_ASTERISK {
+                pos = pos + 2
+
+                while pos + 1 < source.len() {
+                    if int((*source)[pos]) == lexer.CH_ASTERISK && int((*source)[pos + 1]) == lexer.CH_SLASH {
+                        pos = pos + 2
+                        break
+                    }
+
+                    pos = pos + 1
+                }
+
+                continue
+            }
+        }
+
+        break
+    }
+
+    return pos
+}
+
+func skipImportStringLiteral(source: &string, start: int) -> (int) {
+    mut var pos: int = start + 1
+
+    while pos < source.len() {
+        if int((*source)[pos]) == lexer.CH_BACKSLASH {
+            pos = pos + 2
+        } else if int((*source)[pos]) == lexer.CH_QUOTE {
+            return pos + 1
+        } else {
+            pos = pos + 1
+        }
+    }
+
+    return source.len()
+}
+
+func stripTokenConstDeclLines(source: &string) -> (string) {
+    mut var out: string = ""
+    mut var pos: int = 0
+
+    while pos < source.len() {
+        var lineStart: int = pos
+
+        while pos < source.len() && int((*source)[pos]) != lexer.CH_NEWLINE {
+            pos = pos + 1
+        }
+
+        var line: string = (*source).substring(
+            lineStart,
+            pos,
+        )
+
+        if !line.startsWith("pub const ") {
+            out = out + line
+        }
+
+        if pos < source.len() {
+            out = out + "\n"
+            pos = pos + 1
+        }
+    }
+
+    return out
+}
+
+func rewriteTokenPackageHeader(source: &string) -> (string) {
+    var needle: string = "package token"
+    var idx: int = findSubstring(
+        source,
+        &needle,
+    )
+
+    if idx < 0 {
+        return *source
+    }
+
+    var prefix: string = (*source).substring(
+        0,
+        idx,
+    )
+    var suffix: string = (*source).substring(
+        idx + needle.len(),
+        source.len(),
+    )
+
+    return prefix + "package tokboot" + suffix
+}
+
+func findSubstring(source: &string, needle: &string) -> (int) {
+    if needle.len() == 0 {
+        return 0
+    }
+
+    if source.len() < needle.len() {
+        return -1
+    }
+
+    mut var i: int = 0
+
+    while i + needle.len() <= source.len() {
+        mut var matched: bool = true
+        mut var j: int = 0
+
+        while j < needle.len() {
+            if (*source)[i + j] != (*needle)[j] {
+                matched = false
+                j = needle.len()
+            } else {
+                j = j + 1
+            }
+        }
+
+        if matched {
+            return i
+        }
+
+        i = i + 1
+    }
+
+    return -1
+}
+
+func literalAt(source: &string, start: int, literal: &string) -> (bool) {
+    if start < 0 || start + literal.len() > source.len() {
+        return false
+    }
+
+    mut var i: int = 0
+
+    while i < literal.len() {
+        if (*source)[start + i] != (*literal)[i] {
+            return false
+        }
+
+        i = i + 1
+    }
+
+    return true
+}
+
+func stripTokenConstDeclBlock(source: &string) -> (string) {
+    var constNeedle: string = "pub const "
+    var structNeedle: string = "pub struct "
+    var constStart: int = findSubstring(
+        source,
+        &constNeedle,
+    )
+    var structStart: int = findSubstring(
+        source,
+        &structNeedle,
+    )
+
+    if constStart < 0 || structStart < 0 || structStart <= constStart {
+        return *source
+    }
+
+    var prefix: string = (*source).substring(
+        0,
+        constStart,
+    )
+    var suffix: string = (*source).substring(
+        structStart,
+        source.len(),
+    )
+
+    return prefix + suffix
+}
+
+func trimTokenConstValue(value: &string) -> (string) {
+    mut var start: int = 0
+    mut var end: int = value.len()
+
+    while start < end && (int((*value)[start]) == lexer.CH_SPACE || int((*value)[start]) == lexer.CH_TAB || int((*value)[start]) == lexer.CH_CR) {
+        start = start + 1
+    }
+
+    while end > start && (int((*value)[end - 1]) == lexer.CH_SPACE || int((*value)[end - 1]) == lexer.CH_TAB || int((*value)[end - 1]) == lexer.CH_CR) {
+        end = end - 1
+    }
+
+    if start == 0 && end == value.len() {
+        return *value
+    }
+
+    return (*value).substring(
+        start,
+        end,
+    )
+}
+
+func parseTokenConstDecimal(value: &string) -> (int) {
+    if value.len() == 0 {
+        return -1
+    }
+
+    mut var out: int = 0
+    mut var i: int = 0
+
+    while i < value.len() {
+        var ch: int = int((*value)[i])
+
+        if ch < lexer.CH_0 || ch > lexer.CH_9 {
+            return -1
+        }
+
+        out = out * 10 + (ch - lexer.CH_0)
+        i = i + 1
+    }
+
+    return out
+}
+
+func makeTokenConstDecl(
+    name: &string,
+    valueLiteral: &string,
+    valueInt: int,
+) -> (ast.ConstStatement) {
+    var constTok: token.Token = token.MakeToken(
+        token.CONST,
+        "const",
+        0,
+        0,
+    )
+    var nameTok: token.Token = token.MakeToken(
+        token.IDENT,
+        copyString(name),
+        0,
+        0,
+    )
+    var nameIdent: ast.Identifier = ast.IdentifierFromTokenValue(
+        nameTok,
+        copyString(name),
+    )
+    var intTypeTok: token.Token = token.MakeToken(
+        token.TYPE_INT,
+        "int",
+        0,
+        0,
+    )
+    var intTypeExpr: ast.TypeExpression = ast.TypeExpressionSimpleByName(
+        intTypeTok,
+        "int",
+    )
+    var intLitTok: token.Token = token.MakeToken(
+        token.INT,
+        copyString(valueLiteral),
+        0,
+        0,
+    )
+    var intLit: ast.IntegerLiteral = ast.IntegerLiteralFromParts(
+        intLitTok,
+        valueInt,
+    )
+
+    return ast.ConstStatementFromParts(
+        constTok,
+        nameIdent,
+        ast.Visibility.Public,
+        Some(intTypeExpr),
+        ast.Expression.IntegerLiteral(intLit),
+    )
+}
+
+func appendTokenConstDeclsFromSource(
+    source: &string,
+    pkg: &string,
+    mut consts: &mut Vec<ast.ConstStatement, _>,
+) -> (void) {
+    var prefix: string = "pub const "
+    var marker: string = ": int = "
+    mut var pos: int = 0
+
+    while pos < source.len() {
+        if literalAt(
+            source,
+            pos,
+            &prefix,
+        ) {
+            var nameStart: int = pos + prefix.len()
+            mut var nameEnd: int = nameStart
+
+            while nameEnd < source.len() && int((*source)[nameEnd]) != lexer.CH_COLON && int((*source)[nameEnd]) != lexer.CH_NEWLINE {
+                nameEnd = nameEnd + 1
+            }
+
+            if nameEnd < source.len() && int((*source)[nameEnd]) == lexer.CH_COLON {
+                if literalAt(
+                    source,
+                    nameEnd,
+                    &marker,
+                ) {
+                    var valueStart: int = nameEnd + marker.len()
+                    mut var valueEnd: int = valueStart
+
+                    while valueEnd < source.len() && int((*source)[valueEnd]) >= lexer.CH_0 && int((*source)[valueEnd]) <= lexer.CH_9 {
+                        valueEnd = valueEnd + 1
+                    }
+
+                    if valueEnd > valueStart {
+                        var name: string = (*source).substring(
+                            nameStart,
+                            nameEnd,
+                        )
+                        var valueLiteral: string = (*source).substring(
+                            valueStart,
+                            valueEnd,
+                        )
+                        var valueInt: int = parseTokenConstDecimal(&valueLiteral)
+
+                        if valueInt >= 0 {
+                            mut var constDecl: ast.ConstStatement = makeTokenConstDecl(
+                                &name,
+                                &valueLiteral,
+                                valueInt,
+                            )
+
+                            if *pkg != "main" {
+                                constDecl.Name.Value = copyString(pkg) + "." + constDecl.Name.Value
+                            }
+
+                            consts.push(constDecl)
+                        }
+                    }
+                }
+            }
+        }
+
+        while pos < source.len() && int((*source)[pos]) != lexer.CH_NEWLINE {
+            pos = pos + 1
+        }
+
+        if pos < source.len() {
+            pos = pos + 1
+        }
+    }
+
+    return
+}
+
+func importKeywordAt(source: &string, start: int) -> (bool) {
+    return keywordAt(
+        source,
+        start,
+        "import",
+    )
+}
+
+func asKeywordAt(source: &string, start: int) -> (bool) {
+    return keywordAt(
+        source,
+        start,
+        "as",
+    )
+}
+
+func keywordAt(source: &string, start: int, keyword: string) -> (bool) {
+    if start < 0 || start + keyword.len() > source.len() {
+        return false
+    }
+
+    if start > 0 && isImportIdent((*source)[start - 1]) {
+        return false
+    }
+
+    mut var i: int = 0
+
+    while i < keyword.len() {
+        if (*source)[start + i] != keyword[i] {
+            return false
+        }
+
+        i = i + 1
+    }
+
+    var end: int = start + keyword.len()
+
+    if end < source.len() && isImportIdent((*source)[end]) {
+        return false
+    }
+
+    return true
+}
+
+func isImportWhitespace(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code == lexer.CH_SPACE || code == lexer.CH_TAB || code == lexer.CH_NEWLINE || code == lexer.CH_CR
+}
+
+func isImportIdentStart(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return code >= lexer.CH_A && code <= 90 || code >= lexer.CH_a && code <= 122 || code == lexer.CH_UNDERSCORE
+}
+
+func isImportIdent(ch: char) -> (bool) {
+    var code: int = int(ch)
+
+    return isImportIdentStart(ch) || code >= lexer.CH_0 && code <= lexer.CH_9
+}
+
+func stableReadFile(path: string) -> (Result<string, string>) {
+    return fs.readFile(path)
+}
+
+func graphDebugEnabled() -> (bool) {
+    return false
+}
+
+pub func CompileSingleModuleNative(
+    entryPath: string,
+    outPath: string,
+) -> (Result<void, string>) {
+    var debugGraph: bool = graphDebugEnabled()
+    mut var funcs: Vec<ast.FunctionDecl, _> = Vec.with_cap(32)
+    mut var structs: Vec<ast.StructDecl, _> = Vec.with_cap(16)
+    mut var consts: Vec<ast.ConstStatement, _> = Vec.with_cap(16)
+    mut var enums: Vec<ast.EnumDecl, _> = Vec.with_cap(8)
+    var pathValue: string = copyString(&entryPath)
+    var data: Result<string, string> = stableReadFile(copyString(&pathValue))
+
+    switch data {
+        case Err(err) {
+            return Err("error reading file " + pathValue + ": " + err)
+        }
+        case Ok(source) {
+            mut var pkg: string = packageNameFromPath(&pathValue)
+
+            if pkg == "" {
+                pkg = "main"
+            }
+            var parseRes: Result<ast.Program, string> = parser.ParseSource(
+                source,
+                copyString(&pathValue),
+            )
+
+            switch parseRes {
+                case Err(msg) {
+                    return Err(msg)
+                }
+                case Ok(parsedProgram) {
+                    mut var si: int = 0
+
+                    while si < parsedProgram.Statements.len() {
+                        var stmt: &ast.Statement = &parsedProgram.Statements[si]
+
+                        switch *stmt {
+                            case ast.Statement.FunctionDecl(fd) {
+                                mut var fnName: string = copyString(&fd.Name.Value)
+
+                                if pkg != "main" {
+                                    fnName = copyString(&pkg) + "." + copyString(&fnName)
+                                }
+
+                                mut var fnDecl: ast.FunctionDecl = fd
+
+                                fnDecl.Name.Value = fnName
+                                funcs.push(fnDecl)
+                            }
+                            case ast.Statement.StructDecl(sd) {
+                                mut var sDecl: ast.StructDecl = sd
+
+                                sDecl.Name.Value = copyString(&sDecl.Name.Value)
+
+                                if pkg != "main" {
+                                    sDecl.Name.Value = copyString(&pkg) + "." + copyString(&sDecl.Name.Value)
+                                }
+
+                                structs.push(sDecl)
+                            }
+                            case ast.Statement.EnumDecl(ed) {
+                                mut var eDecl: ast.EnumDecl = ed
+
+                                eDecl.Name.Value = copyString(&eDecl.Name.Value)
+
+                                if pkg != "main" {
+                                    eDecl.Name.Value = copyString(&pkg) + "." + copyString(&eDecl.Name.Value)
+                                }
+
+                                enums.push(eDecl)
+                            }
+                            case ast.Statement.Const(cs) {
+                                mut var cDecl: ast.ConstStatement = cs
+
+                                cDecl.Name.Value = copyString(&cDecl.Name.Value)
+
+                                if pkg != "main" {
+                                    cDecl.Name.Value = copyString(&pkg) + "." + copyString(&cDecl.Name.Value)
+                                }
+
+                                consts.push(cDecl)
+                            }
+                            case ast.Statement.ConstBlock(cb) {
+                                mut var ci: int = 0
+
+                                while ci < cb.Constants.len() {
+                                    mut var cDecl2: ast.ConstStatement = cb.Constants[ci]
+
+                                    cDecl2.Name.Value = copyString(&cDecl2.Name.Value)
+
+                                    if pkg != "main" {
+                                        cDecl2.Name.Value = copyString(&pkg) + "." + copyString(&cDecl2.Name.Value)
+                                    }
+
+                                    consts.push(cDecl2)
+                                    ci = ci + 1
+                                }
+                            }
+                            case ast.Statement.ImplDecl(id) {
+                                collectParsedImplMethodsInto(
+                                    pkg,
+                                    &id,
+                                    &mut funcs,
+                                )
+                            }
+                            default {
+                            }
+                        }
+
+                        si = si + 1
+                    }
+
+                    if debugGraph {
+                    }
+                }
+            }
+        }
+    }
+
+    mut var statements: Vec<ast.Statement, _> = Vec.with_cap(funcs.len() + structs.len() + consts.len() + enums.len())
+    mut var ci: int = 0
+
+    while ci < consts.len() {
+        statements.push(ast.Statement.Const(consts[ci]))
+        ci = ci + 1
+    }
+
+    mut var si: int = 0
+
+    while si < structs.len() {
+        statements.push(ast.Statement.StructDecl(structs[si]))
+        si = si + 1
+    }
+
+    mut var ei: int = 0
+
+    while ei < enums.len() {
+        statements.push(ast.Statement.EnumDecl(enums[ei]))
+        ei = ei + 1
+    }
+
+    mut var fi: int = 0
+
+    while fi < funcs.len() {
+        statements.push(ast.Statement.FunctionDecl(funcs[fi]))
+        fi = fi + 1
+    }
+
+    var program: ast.Program = ast.ProgramFromStatements(statements)
+
+    return native.WriteProgram(
+        &program,
+        outPath,
+    )
+}
+
+func path_visit_hash(path: &string) -> (int) {
+    mut var h: int = 2166136261
+    mut var i: int = 0
+
+    while i < path.len() {
+        h = h ^ int((*path)[i])
+        h = h * 16777619
+        i = i + 1
+    }
+
+    if h < 0 {
+        return -h
+    }
+
+    return h
+}
+
+func path_visit_seen(visitedHashes: &mut Vec<int, _>, path: &string) -> (bool) {
+    var targetHash: int = path_visit_hash(path)
+    mut var i: int = 0
+
+    while i < visitedHashes.len() {
+        if (*visitedHashes)[i] == targetHash {
+            return true
+        }
+
+        i = i + 1
+    }
+
+    return false
+}
+
+func collectGraphItemsRecursive(
+    pathValue: string,
+    mut visitedHashes: &mut Vec<int, _>,
+    mut funcs: &mut Vec<ast.FunctionDecl, _>,
+    mut structs: &mut Vec<ast.StructDecl, _>,
+    mut consts: &mut Vec<ast.ConstStatement, _>,
+    mut enums: &mut Vec<ast.EnumDecl, _>,
+) -> (Result<void, string>) {
+    if should_skip_bootstrap_module(&pathValue) {
+        return Ok(void)
+    }
+
+    if path_visit_seen(
+        visitedHashes,
+        &pathValue,
+    ) {
+        return Ok(void)
+    }
+
+    visitedHashes.push(path_visit_hash(&pathValue))
+    var srcRes: Result<string, string> = stableReadFile(copyString(&pathValue))
+
+    switch srcRes {
+        case Err(err) {
+            return Err("error reading file " + pathValue + ": " + err)
+        }
+        case Ok(moduleSource) {
+            var parseSourceAll: string = moduleSource
+            mut var moduleImports: Vec<ImportEntry, _> = scanImportEntriesFallback(&parseSourceAll)
+            mut var parseSourceNoImports: string = stripImportDeclsFromSource(&parseSourceAll)
+
+            mut var pkg: string = packageNameFromPath(&pathValue)
+
+            if pkg == "" {
+                pkg = "main"
+            }
+
+            parseSourceCollectItemsInline(
+                parseSourceNoImports,
+                copyString(&pkg),
+                funcs,
+                structs,
+                consts,
+                enums,
+            )
+
+            mut var ii: int = 0
+
+            while ii < moduleImports.len() {
+                var impRef: &ImportEntry = &moduleImports[ii]
+                var importPathValue: string = copyString(&(*impRef).Path)
+                var resolvedPath: string = resolveImportPath(
+                    &pathValue,
+                    copyString(&importPathValue),
+                )
+                var depRes: Result<void, string> = collectGraphItemsRecursive(
+                    copyString(&resolvedPath),
+                    visitedHashes,
+                    funcs,
+                    structs,
+                    consts,
+                    enums,
+                )
+
+                switch depRes {
+                    case Err(msg) {
+                        return Err(msg)
+                    }
+                    case Ok(_) {
+                    }
+                }
+
+                ii = ii + 1
+            }
+            return Ok(void)
+        }
+    }
+}
+
+pub func CompileGraphNative(
+    entryPath: string,
+    bootstrapNative: bool,
+    outPath: string,
+) -> (Result<void, string>) {
+    var _bootstrapNative: bool = bootstrapNative
+    // Keep bootstrap-front allocations modest to avoid stageB cgroup OOM spikes.
+    mut var funcs: Vec<ast.FunctionDecl, _> = Vec.with_cap(8)
+    mut var structs: Vec<ast.StructDecl, _> = Vec.with_cap(8)
+    mut var consts: Vec<ast.ConstStatement, _> = Vec.with_cap(8)
+    mut var enums: Vec<ast.EnumDecl, _> = Vec.with_cap(8)
+    var collectRes: Result<void, string> = CollectGraphProgramItems(
+        copyString(&entryPath),
+        &mut funcs,
+        &mut structs,
+        &mut consts,
+        &mut enums,
+    )
+
+    switch collectRes {
+        case Err(msg) {
+            return Err(msg)
+        }
+        case Ok(_) {
+        }
+    }
+
+    return native.WriteProgramItemsRef(
+        &mut funcs,
+        &mut structs,
+        &mut consts,
+        &mut enums,
+        outPath,
+    )
+}
+
+pub struct GraphBuilder {
+    BootstrapNative: bool
+    Modules:         Vec<Module, _>
+    Order:           Vec<string, _>
+    Visiting:        Vec<string, _>
+    Visited:         Vec<string, _>
+}
+
+func copyString(value: &string) -> (string) {
+    return *value
+}

@@ -1,0 +1,179 @@
+package native
+
+// ELF writer utilities (Phase 1).
+
+import "src/std/fs/fs.bak" as fs
+import "src/std/strconv/strconv.bak" as strconv
+import "src/compiler/native/x86_64.bak" as x86
+
+const ELF_MAGIC0: int = 0x7f
+const ELF_MAGIC1: int = 69  // E
+const ELF_MAGIC2: int = 76  // L
+const ELF_MAGIC3: int = 70  // F
+
+const ELF_CLASS_64: int = 2
+const ELF_DATA_LE: int = 1
+const ELF_VERSION: int = 1
+const ELF_OSABI_SYSV: int = 0
+
+const ELF_TYPE_EXEC: int = 2
+const ELF_MACHINE_X86_64: int = 0x3e
+
+const PT_LOAD: int = 1
+const PF_X: int = 1
+const PF_W: int = 2
+const PF_R: int = 4
+
+const BASE_ADDR: int = 0x400000
+const ELF_HDR_SIZE: int = 64
+const PHDR_SIZE: int = 56
+const PHDR_COUNT: int = 1
+const CODE_OFFSET: int = ELF_HDR_SIZE + PHDR_SIZE * PHDR_COUNT
+const PAGE_ALIGN: int = 0x1000
+
+// BuildELF emits an ELF64 binary for the given code buffer.
+// entry_offset is the offset (in bytes) from the start of code where execution begins.
+// text_size is the number of bytes at the start of code that should be mapped RX.
+pub func BuildELF(code: &Vec<int, _>, entry_offset: int, text_size: int) -> (Result<Vec<int, _>, string>) {
+    var _textSize: int = text_size
+    var file_size: int = CODE_OFFSET + code.len()
+    mut var out: Vec<int, _> = Vec.new()
+
+    // e_ident
+    out.push(ELF_MAGIC0)
+    out.push(ELF_MAGIC1)
+    out.push(ELF_MAGIC2)
+    out.push(ELF_MAGIC3)
+    out.push(ELF_CLASS_64)
+    out.push(ELF_DATA_LE)
+    out.push(ELF_VERSION)
+    out.push(ELF_OSABI_SYSV)
+    out.push(0) // ABI version
+
+    mut var i: int = 0
+
+    while i < 7 {
+        out.push(0)
+        i = i + 1
+    }
+
+    append_u16(&mut out, ELF_TYPE_EXEC)
+    append_u16(&mut out, ELF_MACHINE_X86_64)
+    append_u32(&mut out, ELF_VERSION)
+    append_u64(&mut out, BASE_ADDR + CODE_OFFSET + entry_offset) // e_entry
+    append_u64(&mut out, ELF_HDR_SIZE)            // e_phoff
+    append_u64(&mut out, 0)                       // e_shoff
+    append_u32(&mut out, 0)                       // e_flags
+    append_u16(&mut out, ELF_HDR_SIZE)
+    append_u16(&mut out, PHDR_SIZE)
+    append_u16(&mut out, PHDR_COUNT)              // e_phnum
+    append_u16(&mut out, 0)                       // e_shentsize
+    append_u16(&mut out, 0)                       // e_shnum
+    append_u16(&mut out, 0)                       // e_shstrndx
+
+    // Single PT_LOAD segment (RWX, covers entire file)
+    append_u32(&mut out, PT_LOAD)
+    append_u32(&mut out, PF_R | PF_W | PF_X)
+    append_u64(&mut out, 0)                 // p_offset
+    append_u64(&mut out, BASE_ADDR)         // p_vaddr
+    append_u64(&mut out, BASE_ADDR)         // p_paddr
+    append_u64(&mut out, file_size)         // p_filesz
+    append_u64(&mut out, file_size)         // p_memsz
+    append_u64(&mut out, PAGE_ALIGN)        // p_align
+
+    for b in *code {
+        out.push(b)
+    }
+
+    if out.len() != file_size {
+        return Err("unexpected ELF size: got " + strconv.intToString(out.len()) + ", want " + strconv.intToString(file_size))
+    }
+
+    return Ok(out)
+}
+
+// BuildMinimalELF emits a minimal ELF64 that exits with the given code.
+pub func BuildMinimalELF(exit_code: int) -> (Result<Vec<int, _>, string>) {
+    if exit_code < 0 || exit_code > 255 {
+        return Err("exit code out of range: " + strconv.intToString(exit_code))
+    }
+
+    var code: Vec<int, _> = build_exit_code(exit_code)
+    var code_len: int = code.len()
+
+    return BuildELF(
+        &code,
+        0,
+        code_len,
+    )
+}
+
+pub func WriteELF(
+    path: string,
+    code: Vec<int, _>,
+    entry_offset: int,
+    text_size: int,
+) -> (Result<void, string>) {
+    var res: Result<Vec<int, _>, string> = BuildELF(
+        &code,
+        entry_offset,
+        text_size,
+    )
+
+    switch res {
+        case Ok(bytes) {
+            return fs.writeFileBytes(
+                &path,
+                bytes,
+            )
+        }
+        case Err(msg) {
+            return Err(msg)
+        }
+    }
+}
+
+// WriteMinimalELF writes a minimal ELF binary to disk.
+pub func WriteMinimalELF(path: string, exit_code: int) -> (Result<void, string>) {
+    var res: Result<Vec<int, _>, string> = BuildMinimalELF(exit_code)
+
+    switch res {
+        case Ok(bytes) {
+            return fs.writeFileBytes(&path, bytes)
+        }
+        case Err(msg) {
+            return Err(msg)
+        }
+    }
+}
+
+func build_exit_code(exit_code: int) -> (Vec<int, _>) {
+    mut var code: Vec<int, _> = Vec.new()
+    x86.emit_mov_rax_imm32(&mut code, 60)
+    x86.emit_mov_rdi_imm32(&mut code, exit_code)
+    x86.emit_syscall(&mut code)
+    return code
+}
+
+func append_u16(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+    out.push((v >> 8) & 0xff)
+}
+
+func append_u32(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+    out.push((v >> 8) & 0xff)
+    out.push((v >> 16) & 0xff)
+    out.push((v >> 24) & 0xff)
+}
+
+func append_u64(mut out: &mut Vec<int, _>, v: int) -> (void) {
+    out.push(v & 0xff)
+    out.push((v >> 8) & 0xff)
+    out.push((v >> 16) & 0xff)
+    out.push((v >> 24) & 0xff)
+    out.push((v >> 32) & 0xff)
+    out.push((v >> 40) & 0xff)
+    out.push((v >> 48) & 0xff)
+    out.push((v >> 56) & 0xff)
+}

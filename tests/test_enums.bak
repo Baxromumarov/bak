@@ -1,0 +1,135 @@
+// Test file for enums and pattern matching
+package main
+
+// Simple enum
+enum Color {
+    Red
+    Green
+    Blue
+}
+
+// Enum with associated data
+enum Message {
+    Quit
+    Move(int, int)
+    Write(string)
+    ChangeColor(int, int, int)
+}
+
+// Generic enum (Option-like)
+enum Maybe<T> {
+    Just(T)
+    Nothing
+}
+
+// Result-like enum
+enum Status<T, E> {
+    Success(T)
+    Failure(E)
+}
+
+func describeColor(c: Color) -> (string) {
+    switch c {
+        case Red {
+            return "The color is red"
+        }
+        case Green {
+            return "The color is green"
+        }
+        case Blue {
+            return "The color is blue"
+        }
+    }
+    return "Unknown color"
+}
+
+func processMessage(msg: Message) -> (string) {
+    switch msg {
+        case Quit {
+            return "Quitting..."
+        }
+        case Move(x, y) {
+            return "Moving to (" + x.toString() + ", " + y.toString() + ")"
+        }
+        case Write(text) {
+            return "Writing: " + text
+        }
+        case ChangeColor(r, g, b) {
+            return "Color: RGB(" + r.toString() + ", " + g.toString() + ", " + b.toString() + ")"
+        }
+    }
+    return "Unknown message"
+}
+
+func main() -> (void) {
+    println("=== Testing Enums and Pattern Matching ===")
+    
+    println("\n1. Simple enum:")
+    var red: Color = Red
+    var green: Color = Green
+    var blue: Color = Blue
+    println("  red:", red)
+    println("  green:", green)
+    println("  blue:", blue)
+    
+    println("\n2. Enum switch:")
+    println("  ", describeColor(red))
+    println("  ", describeColor(green))
+    println("  ", describeColor(blue))
+    
+    println("\n3. Enum with associated data:")
+    var quit: Message = Quit
+    var move: Message = Move(10, 20)
+    var write: Message = Write("Hello!")
+    var color: Message = ChangeColor(255, 128, 0)
+    
+    println("  ", processMessage(quit))
+    println("  ", processMessage(move))
+    println("  ", processMessage(write))
+    println("  ", processMessage(color))
+    
+    println("\n4. Built-in Option enum:")
+    var some: Option<int> = Some(42)
+    var none: Option<int> = None
+    println("  Some(42):", some)
+    println("  None:", none)
+    
+    switch some {
+        case Some(val) {
+            println("  Unwrapped:", val)
+        }
+        case None {
+            println("  No value")
+        }
+    }
+    
+    println("\n5. Built-in Result enum:")
+    var ok: Result<string, string> = Ok("Success!")
+    var err: Result<string, string> = Err("Something went wrong")
+    println("  Ok:", ok)
+    println("  Err:", err)
+    
+    switch ok {
+        case Ok(val) {
+            println("  Success value:", val)
+        }
+        case Err(e) {
+            println("  Error:", e)
+        }
+    }
+    
+    println("\n6. Custom generic enum:")
+    var just: Maybe<int> = Just(100)
+    var nothing: Maybe<int> = Nothing
+    println("  Just(100):", just)
+    println("  Nothing:", nothing)
+    
+    println("\n7. Enum comparison:")
+    var c1: Color = Red
+    var c2: Color = Red
+    var c3: Color = Blue
+    println("  Red == Red:", c1 == c2)
+    println("  Red == Blue:", c1 == c3)
+    
+    println("\n=== Enum tests complete ===")
+}

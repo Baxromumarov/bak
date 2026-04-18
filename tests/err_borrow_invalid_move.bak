@@ -1,0 +1,16 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func consume(d: Data) -> (void) {
+    println("consumed")
+}
+
+func main() -> (void) {
+    var d: Data = Data{id: 1}
+
+    consume(d)
+    consume(d)
+} // Error: Use after move

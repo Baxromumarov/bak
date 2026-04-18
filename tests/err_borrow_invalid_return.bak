@@ -1,0 +1,15 @@
+package main
+
+struct Data {
+    id: int
+}
+
+func get_borrow(d: &Data) -> (&Data) {
+    return d
+}
+
+// Error: Borrowed values cannot be returned (v1)
+func main() -> (void) {
+    var d: Data = Data{id: 1}
+    var b: &Data = get_borrow(&d)
+}

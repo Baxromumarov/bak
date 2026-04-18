@@ -1,0 +1,47 @@
+package main
+
+struct SimpleType {
+    Name: string
+}
+
+enum TypeExpr {
+    Simple(SimpleType)
+    Generic(SimpleType)
+}
+
+struct EnumVariant {
+    Name:   string
+    Fields: Vec<TypeExpr, _>
+}
+
+func score(expr: TypeExpr) -> (int) {
+    switch expr {
+        case TypeExpr.Simple(st) {
+            if st.Name == "ok" {
+                return 42
+            }
+            return 1
+        }
+        case TypeExpr.Generic(gt) {
+            if gt.Name == "ok" {
+                return 2
+            }
+            return 3
+        }
+        default {
+            return 4
+        }
+    }
+}
+
+func main() -> (int) {
+    mut var fields: Vec<TypeExpr, _> = Vec.new()
+    fields.push(TypeExpr.Simple(SimpleType{Name: "ok"}))
+
+    var v: EnumVariant = EnumVariant{
+        Fields: fields,
+        Name:   "test",
+    }
+
+    return score(v.Fields[0])
+}

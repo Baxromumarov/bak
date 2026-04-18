@@ -1,0 +1,30 @@
+package main
+
+import "std/test"
+
+func test_implicit_hashmap() -> (void) {
+    mut var t: test.T = test.new("implicit_hashmap_test")
+    println("Running HashMap Test");
+    // HashMap should be available without import
+    mut var m: HashMap<string, string> = HashMap.new();
+    
+    // Use explicit borrow to avoid moving/consuming m
+    { (&mut m).insert("hello", "world"); }
+    
+    // Verify string map
+    switch (&m).get(&"hello") {
+        case Some(val) { t.eq_string(val, "world"); }
+        case None { t.fail("expected key 'hello' to exist"); }
+    }
+    
+    // Test capacity constructor
+    mut var m2: HashMap<int, int> = HashMap.with_cap(10);
+    
+    { (&mut m2).insert(1, 100); }
+    
+    switch (&m2).get(&1) {
+        case Some(val) { t.eq(val, 100); }
+        case None { t.fail("expected key 1 to exist"); }
+    }
+    println("HashMap Test Finished");
+}

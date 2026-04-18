@@ -1,0 +1,20 @@
+package main
+
+import "src/std/db/db.bak" as db
+import "src/std/encoding/json/json.bak" as json
+
+pub struct user {
+    pub id: int
+    pub name: string
+    pub balance: float64
+}
+
+impl user as u {
+    pub func to_json() -> (json.Json) {
+        mut var entries: Vec<json.JsonEntry, _> = Vec.new()
+        entries.push(json.entry("id", json.Json.Int(u.id)))
+        entries.push(json.entry("name", json.Json.String(u.name)))
+        entries.push(json.entry("balance", json.Json.Float(u.balance)))
+        return json.object(entries)
+    }
+}

@@ -1,0 +1,29 @@
+package main
+
+import "src/std/thread/thread.bak" as thread
+
+struct Shared {
+    val: int
+}
+
+func modifier(b: &Box<Shared>) -> (void) {
+    // Note: unbox() allows mutation of the heap value
+    mut var s = b.unbox()
+    s.val = s.val + 1
+}
+
+func main() -> (void) {
+    var s: Shared = Shared{val: 42}
+    var b: Box<Shared> = Box(s)
+    
+    var t1 = thread.spawn(modifier, &b)
+    var t2 = thread.spawn(modifier, &b)
+    
+    t1.join()
+    t2.join()
+    
+    println("Final Box value:", b.unbox().val)
+    if b.unbox().val > 42 {
+        println("SUCCESS: Box is shared and mutable across threads")
+    }
+}

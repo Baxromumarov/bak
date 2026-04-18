@@ -1,0 +1,30 @@
+package lexer
+
+// Test helper function usage from impl blocks
+
+pub struct Parser {
+    input: string
+    pos: int
+}
+
+impl Parser as p {
+    func isEnd() -> (bool) {
+        return isAtEnd(p.pos, p.input.len())
+    }
+    
+    mut func advance() -> (void) {
+        if !isAtEnd(p.pos, p.input.len()) {
+            p.pos = p.pos + 1
+        }
+        return void
+    }
+}
+
+// Helper function defined OUTSIDE impl block
+func isAtEnd(pos: int, len: int) -> (bool) {
+    return pos >= len
+}
+
+pub func Create(s: string) -> (Parser) {
+    return Parser { input: s, pos: 0 }
+}

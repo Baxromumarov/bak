@@ -1,0 +1,74 @@
+package main
+
+import "std/os"
+
+func main() -> (void) {
+    // Test os.cwd
+    var cwd_result: Result<string, string> = os.cwd()
+
+    switch cwd_result {
+        case Ok(cwd) {
+            println(
+                "Current directory:",
+                cwd,
+            )
+        }
+        case Err(e) {
+            println(
+                "cwd error:",
+                e,
+            )
+        }
+    }
+
+    // Test os.getenv  
+    var home: Option<string> = os.getenv("HOME")
+
+    switch home {
+        case Some(h) {
+            println(
+                "HOME:",
+                h,
+            )
+        }
+        case None {
+            println("HOME not set")
+        }
+    }
+
+    var path: Option<string> = os.getenv("PATH")
+
+    switch path {
+        case Some(p) {
+            println(
+                "PATH exists (length",
+                len(p),
+                ")",
+            )
+        }
+        case None {
+            println("PATH not set")
+        }
+    }
+
+    // Test non-existent env var
+    var nonexistent: Option<string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
+
+    switch nonexistent {
+        case Some(v) {
+            println(
+                "ERROR: Found non-existent var:",
+                v,
+            )
+        }
+        case None {
+            println("Non-existent var correctly returns None")
+        }
+    }
+
+    println("All os tests passed!")
+    // Test os.exit (should exit with code 0)
+    os.exit(0)
+    // This should never print
+    println("ERROR: Should have exited!")
+}

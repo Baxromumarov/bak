@@ -1,0 +1,34 @@
+// tests/unused_checks/unused_params_and_fields.bak
+// Expected: warning for unused parameter `b` in `param_unused`, and for unused field `B` in `UnusedStruct`.
+package main
+
+struct UnusedStruct {
+    A: int
+    B: int
+}
+
+func useA(s: UnusedStruct) -> (void) {
+    println(s.A)
+    return void
+}
+
+func param_used(a: int, b: int) -> (void) {
+    println(a)
+    return void
+}
+
+func param_unused(a: int, b: int) -> (void) {
+    // b is intentionally unused here
+    println(a)
+    return void
+}
+
+func main() -> (void) {
+    var s: UnusedStruct = UnusedStruct{A: 10, B: 20}
+    useA(s)
+
+    param_used(1, 2)
+    param_unused(3, 4)
+
+    return void
+}

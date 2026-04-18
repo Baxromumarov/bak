@@ -1,0 +1,13 @@
+// Test: Result type mismatch in struct field - should FAIL
+// Expected error: cannot assign Result<int, _> to field of type Result<float64, string>
+package main
+
+struct Container {
+    value: Result<float64, string>
+}
+
+func main() -> (void) {
+    // ERROR: Ok(42) produces Result<int, _> but field expects Result<float64, string>
+    var _c = Container{value: Ok(42)}
+    return void
+}

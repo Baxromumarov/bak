@@ -1,0 +1,43 @@
+package main
+
+struct Node {
+    value: int
+    next: Node box?
+}
+
+func main() -> (void) {
+    var n: Node = Node { value: 7, next: None }
+
+    // Box containing an Option(Some(n))
+    var head: Node = Node { value: 1, next: Box(Some(n)) }
+
+    // top-level is_some should be true (box is not nil)
+    if head.next.is_some() {
+        println("top is_some ok")
+    } else {
+        println("ERROR top is_some false")
+    }
+
+    // switch should bind the Box as Some(innerBox)
+    switch head.next {
+        case Some(innerBox) {
+            // innerBox.deref() is an Option
+            if innerBox.deref().is_some() {
+                println("inner is_some ok")
+                switch innerBox.deref() {
+                    case Some(nodeVal) {
+                        var cur: &Node = nodeVal.deref()
+                        println(cur.value)
+                    }
+                    case None { println("ERROR inner None") }
+                }
+            } else {
+                println("ERROR inner is_some false")
+            }
+        }
+        case None { println("ERROR top None") }
+    }
+
+    println("TEST_OK")
+    return void
+}

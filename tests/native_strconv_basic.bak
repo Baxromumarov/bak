@@ -1,0 +1,75 @@
+package main
+
+import "src/std/strconv/strconv.bak" as strconv
+
+func main() -> (int) {
+    mut var score: int = 0
+
+    var s0: string = strconv.intToString(0)
+    if s0.len() == 1 && s0[0] == '0' {
+        score = score + 1
+    }
+
+    var s1: string = strconv.intToString(-12)
+    if s1.len() == 3 && s1[0] == '-' && s1[1] == '1' && s1[2] == '2' {
+        score = score + 1
+    }
+
+    var s2: string = strconv.formatInt(10, 2)
+    if s2.len() == 4 && s2[0] == '1' && s2[1] == '0' && s2[2] == '1' && s2[3] == '0' {
+        score = score + 1
+    }
+
+    var s3: string = strconv.formatHex(255)
+    if s3.len() == 2 && s3[0] == 'f' && s3[1] == 'f' {
+        score = score + 1
+    }
+
+    var s4: string = strconv.formatOctal(9)
+    if s4.len() == 2 && s4[0] == '1' && s4[1] == '1' {
+        score = score + 1
+    }
+
+    var s5: string = strconv.formatBinary(5)
+    if s5.len() == 3 && s5[0] == '1' && s5[1] == '0' && s5[2] == '1' {
+        score = score + 1
+    }
+
+    var p1s: string = "42"
+    var p1: Result<int, string> = strconv.parseInt(&p1s, 10)
+    if p1.is_ok() && p1.unwrap() == 42 {
+        score = score + 1
+    }
+
+    var p2s: string = "ff"
+    var p2: Result<int, string> = strconv.parseHex(&p2s)
+    if p2.is_ok() && p2.unwrap() == 255 {
+        score = score + 1
+    }
+
+    var p3s: string = "1010"
+    var p3: Result<int, string> = strconv.parseBinary(&p3s)
+    if p3.is_ok() && p3.unwrap() == 10 {
+        score = score + 1
+    }
+
+    var p4s: string = "77"
+    var p4: Result<int, string> = strconv.parseOctal(&p4s)
+    if p4.is_ok() && p4.unwrap() == 63 {
+        score = score + 1
+    }
+
+    var p5s: string = "-15"
+    var p5: Result<int, string> = strconv.atoi(&p5s)
+    if p5.is_ok() && p5.unwrap() == -15 {
+        score = score + 1
+    }
+
+    var bads: string = "12g"
+    var bad: Result<int, string> = strconv.parseInt(&bads, 10)
+    if bad.is_err() {
+        score = score + 1
+    }
+
+    return score
+}

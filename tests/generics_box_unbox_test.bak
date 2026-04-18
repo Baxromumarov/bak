@@ -1,0 +1,17 @@
+package main
+
+import "src/std/test/test.bak" as test
+
+struct Pair<T, U> {
+    first: T
+    second: U
+}
+
+func test_unbox_generic_pair() -> (void) {
+    mut var t: test.T = test.new("unbox_generic_pair")
+    var boxed: Pair<int, int> box = box Pair{first: 1, second: 2}
+    var unboxed: Pair<int, int> = unbox(boxed)
+    t.eq(unboxed.first, 1)
+    t.eq(unboxed.second, 2)
+}
+

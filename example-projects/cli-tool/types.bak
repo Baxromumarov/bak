@@ -1,0 +1,53 @@
+package main
+
+// bakgrep - A file search and text processing utility
+// Demonstrates: file I/O, string handling, command-line args, Result types
+
+import "src/std/fs/fs.bak" as fs
+import "src/std/os/os.bak" as os
+
+// Configuration holds the search options
+pub struct Config {
+    pub pattern: string
+    pub files: Vec<string, _>
+    pub ignore_case: bool
+    pub line_numbers: bool
+    pub count_only: bool
+    pub invert_match: bool
+    pub recursive: bool
+}
+
+// SearchResult holds a single match
+pub struct SearchResult {
+    pub file: string
+    pub line_number: int
+    pub line_content: string
+}
+
+// Statistics for the search
+pub struct Stats {
+    files_searched: int
+    total_matches: int
+    errors: int
+}
+
+impl Stats as s {
+    pub func new() -> (Stats) {
+        return Stats{files_searched: 0, total_matches: 0, errors: 0}
+    }
+    
+    pub mut func add_file() -> (void) {
+        s.files_searched = s.files_searched + 1
+        return void
+    }
+    
+    pub mut func add_matches(count: int) -> (void) {
+        s.total_matches = s.total_matches + count
+        return void
+    }
+    
+    pub mut func add_error() -> (void) {
+        s.errors = s.errors + 1
+        return void
+    }
+}
