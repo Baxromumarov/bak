@@ -14,6 +14,12 @@ import (
 	"github.com/baxromumarov/bak/pkg/parser"
 )
 
+func isCompilerInternalImport(path string) bool {
+	normalized := filepath.ToSlash(path)
+	return strings.HasPrefix(normalized, "src/compiler/") ||
+		strings.Contains(normalized, "/src/compiler/")
+}
+
 func (tc *TypeChecker) checkPackageStatement(ps *ast.PackageStatement) {
 	if ps.Name != nil {
 		tc.currentPkgName = ps.Name.Value
@@ -101,7 +107,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		if len(modErrors) > 0 {
 			for _, err := range modErrors {
 				// Suppress printing diagnostics for compiler internal sources
-				if !strings.HasPrefix(importPath, "src/compiler") {
+				if !isCompilerInternalImport(importPath) {
 					log.Printf("Error in module %s: %s\n", importPath, err)
 				}
 			}

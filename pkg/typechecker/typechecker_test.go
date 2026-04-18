@@ -402,6 +402,24 @@ func main() -> (void) {
 	expectError(t, source, "drop immutable borrows of 'nums' before taking '&mut nums'")
 }
 
+func TestIsCompilerInternalImportMatchesAbsoluteAndRelativePaths(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{path: "src/compiler/native/backend.bak", want: true},
+		{path: "/home/user/bak/src/compiler/native/backend.bak", want: true},
+		{path: "src/std/os/os.bak", want: false},
+		{path: "/home/user/bak/src/std/os/os.bak", want: false},
+	}
+
+	for _, tc := range cases {
+		if got := isCompilerInternalImport(tc.path); got != tc.want {
+			t.Fatalf("isCompilerInternalImport(%q) = %v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
 func TestCheck_MoveWhileBorrowedHasCode(t *testing.T) {
 	const source = `
 package main

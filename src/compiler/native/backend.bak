@@ -375,7 +375,7 @@ func build_program(program: &ast.Program) -> (Result<CodeResult, string>) {
 
     switch res {
         case Err(msg) {
-            return Err("epf:emit " + fd_name)
+            return Err("epf:emit " + msg)
         }
         case Ok(items) {
             mut var ownedItems: ProgramItems = items
@@ -408,7 +408,7 @@ pub struct ProgramItems {
     enums:     Vec<ast.EnumDecl, _>
 }
 
-func debug_program_items(items: &ProgramItems) -> (void) {
+func debug_program_items(_items: &ProgramItems) -> (void) {
     return void
 }
 
@@ -433,11 +433,10 @@ func copy_block_statement(src: ast.BlockStatement) -> (ast.BlockStatement) {
 func collect_program_items(
     program: &ast.Program,
 ) -> (Result<ProgramItems, string>) {
-    mut var stmt_cap: int = program.Statements.len() + 64
-    mut var funcs: Vec<ast.FunctionDecl, _> = Vec.with_cap(stmt_cap + stmt_cap)
-    mut var structs: Vec<ast.StructDecl, _> = Vec.with_cap(stmt_cap)
-    mut var consts: Vec<ast.ConstStatement, _> = Vec.with_cap(stmt_cap + stmt_cap)
-    mut var enums: Vec<ast.EnumDecl, _> = Vec.with_cap(stmt_cap)
+    mut var funcs: Vec<ast.FunctionDecl, _> = Vec.with_cap((program.Statements.len() + 64) + (program.Statements.len() + 64))
+    mut var structs: Vec<ast.StructDecl, _> = Vec.with_cap(program.Statements.len() + 64)
+    mut var consts: Vec<ast.ConstStatement, _> = Vec.with_cap((program.Statements.len() + 64) + (program.Statements.len() + 64))
+    mut var enums: Vec<ast.EnumDecl, _> = Vec.with_cap(program.Statements.len() + 64)
     mut var si: int = 0
 
     while si < program.Statements.len() {
@@ -2786,7 +2785,7 @@ func bind_parameters(
             }
             case Some(reg) {
                 var param_name: string = p.Name.Value
-                var is_discard: bool = is_discard_name(param_name)
+                var is_discard: bool = is_discard_name(&param_name)
 
                 if !is_discard {
                     var off: int = declare_local(
@@ -3615,14 +3614,14 @@ func count_locals_stmt(
 ) -> (Result<void, string>) {
     switch *stmt {
         case ast.Statement.Var(vs) {
-            if !is_discard_name(vs.Name.Value) {
+            if !is_discard_name(&vs.Name.Value) {
                 *count = *count + 1
             }
 
             return Ok(void)
         }
         case ast.Statement.Const(cs) {
-            if !is_discard_name(cs.Name.Value) {
+            if !is_discard_name(&cs.Name.Value) {
                 *count = *count + 1
             }
 
@@ -3632,7 +3631,7 @@ func count_locals_stmt(
             mut var i: int = 0
 
             while i < mvs.Names.len() {
-                if !is_discard_name((mvs.Names[i]).Value) {
+                if !is_discard_name(&(mvs.Names[i]).Value) {
                     *count = *count + 1
                 }
 
@@ -3645,7 +3644,7 @@ func count_locals_stmt(
             mut var i: int = 0
 
             while i < vb.Variables.len() {
-                if !is_discard_name((vb.Variables[i]).Name.Value) {
+                if !is_discard_name(&(vb.Variables[i]).Name.Value) {
                     *count = *count + 1
                 }
 
@@ -3658,7 +3657,7 @@ func count_locals_stmt(
             mut var i: int = 0
 
             while i < cb.Constants.len() {
-                if !is_discard_name((cb.Constants[i]).Name.Value) {
+                if !is_discard_name(&(cb.Constants[i]).Name.Value) {
                     *count = *count + 1
                 }
 
@@ -3706,7 +3705,7 @@ func count_locals_stmt(
             )
         }
         case ast.Statement.For(fs) {
-            if !is_discard_name(fs.Variable.Value) {
+            if !is_discard_name(&fs.Variable.Value) {
                 *count = *count + 1
             }
 
@@ -3839,7 +3838,7 @@ func emit_block_in_scope(
     return Ok(void)
 }
 
-func is_trace_main_context(state: &BackendEmitState) -> (bool) {
+func is_trace_main_context(state: &mut BackendEmitState) -> (bool) {
     return !state.bootstrap_mode && state.current_pkg == "main" && state.current_function == "main"
 }
 
@@ -3913,7 +3912,7 @@ func emit_stmt_var(
 ) -> (Result<void, string>) {
     var var_name: string = vs.Name.Value
     mut var off: int = -1
-    var is_discard: bool = is_discard_name(var_name)
+    var is_discard: bool = is_discard_name(&var_name)
     mut var declared_float: bool = false
     mut var is_borrow_local: bool = false
 
@@ -6900,8 +6899,8 @@ func declare_for_variable(state: &mut BackendEmitState, name: string) -> (int) {
     )
 }
 
-func is_discard_name(name: string) -> (bool) {
-    return name == "_"
+func is_discard_name(name: &string) -> (bool) {
+    return *name == "_"
 }
 
 func resolve_local(

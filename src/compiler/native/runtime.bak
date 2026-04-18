@@ -746,7 +746,7 @@ pub func emit_runtime_realloc(
 // alloc_offset is the absolute offset of __rt_alloc in the shared code buffer.
 pub func emit_runtime_itoa(
     mut code: &mut Vec<int, _>,
-    alloc_offset: int,
+    _alloc_offset: int,
 ) -> (void) {
     // Full itoa: converts int in RDI to a heap-allocated string {ptr, len}.
     // Uses mmap for allocation (self-contained, no call patches needed).

@@ -258,8 +258,8 @@ func simple_layout(
 
 func generic_layout(
     gt: &ast.GenericType,
-    structs: &Vec<ast.StructDecl, _>,
-    mut visiting: &mut Vec<string, _>,
+    _structs: &Vec<ast.StructDecl, _>,
+    mut _visiting: &mut Vec<string, _>,
 ) -> (Result<TypeLayout, string>) {
     if gt.Name == "Vec" {
         return Ok(TypeLayout{align: VEC_ALIGN, size: VEC_SIZE})
@@ -574,8 +574,8 @@ pub struct EnumLayout {
 }
 
 pub func enum_layout(
-    decl: &ast.EnumDecl,
-    structs: &Vec<ast.StructDecl, _>,
+    _decl: &ast.EnumDecl,
+    _structs: &Vec<ast.StructDecl, _>,
 ) -> (Result<EnumLayout, string>) {
 
     return Ok(
