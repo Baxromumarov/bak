@@ -30,12 +30,51 @@ func TestNativeSmokeMatrix(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit)
+			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, runtimecap.Permissions{})
 		})
 	}
 }
 
-func runNativeSmokeCase(t *testing.T, sourcePath string, expectedExit int) {
+func TestNativePermissionedSmokeMatrix(t *testing.T) {
+	root := findRepoRoot(t)
+
+	tests := []struct {
+		name         string
+		sourcePath   string
+		expectedExit int
+		permissions  runtimecap.Permissions
+	}{
+		{name: "os_getenv_none", sourcePath: filepath.Join(root, "tests", "native_os_getenv_none_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
+		{name: "os_cwd", sourcePath: filepath.Join(root, "tests", "native_os_cwd_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, testCase.permissions)
+		})
+	}
+}
+
+func TestNativeStdlibSmokeMatrix(t *testing.T) {
+	root := findRepoRoot(t)
+
+	tests := []struct {
+		name         string
+		sourcePath   string
+		expectedExit int
+	}{
+		{name: "time_basic", sourcePath: filepath.Join(root, "tests", "native_time_basic.bak"), expectedExit: 13},
+		{name: "strings_std_basic", sourcePath: filepath.Join(root, "tests", "native_strings_std_basic.bak"), expectedExit: 9},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, runtimecap.Permissions{})
+		})
+	}
+}
+
+func runNativeSmokeCase(t *testing.T, sourcePath string, expectedExit int, permissions runtimecap.Permissions) {
 	t.Helper()
 
 	packages.GlobalRegistry.Reset()
@@ -74,7 +113,7 @@ func runNativeSmokeCase(t *testing.T, sourcePath string, expectedExit int) {
 		t.Fatalf("type errors in %s: %v", sourcePath, errs)
 	}
 
-	binary, err := BuildExecutable(program, runtimecap.Permissions{})
+	binary, err := BuildExecutable(program, permissions)
 	if err != nil {
 		t.Fatalf("BuildExecutable failed for %s: %v", sourcePath, err)
 	}

@@ -32,13 +32,15 @@ What has landed already:
 8. Manifest-backed runtime permissions now participate in execution policy.
 9. Destructive filesystem helpers now refuse obviously unsafe targets like empty paths, `.` and `/`.
 10. Native builds now enforce project permission policy at compile time for dangerous builtins.
-11. `go test ./...` was kept green after these changes.
+11. A first native smoke matrix now covers representative no-import `.bak` programs.
+12. A second native smoke matrix now covers imported `std/os` programs under permission flags.
+13. `go test ./...` was kept green after these changes.
 
 What is still open at a high level:
 
 - runtime-side enforcement for native executables beyond compile-time gating,
 - process-execution hardening beyond the package manager and current `os.exec` policy,
-- deeper native backend confidence work and broader smoke coverage,
+- deeper native backend confidence work and broader backend regression coverage,
 - diagnostics/ownership polish beyond the current assignment improvements,
 - built-in observability implementation.
 
@@ -336,7 +338,6 @@ Deliverables:
 1. Test and CI
    - keep `go test ./...` green,
    - add CI coverage for formatter, linter, parser, typechecker, compiler, VM,
-   - add a first native smoke matrix for representative `.bak` programs.
 
 2. Native backend confidence
    - add focused tests for `pkg/backend/native`,
@@ -366,13 +367,14 @@ Completed:
    - `cmd/dump_bc` now uses normal CLI-grade error handling instead of panic paths.
 2. Regression coverage added for new package-management helpers.
 3. Native backend regression coverage added for ELF output/determinism.
-4. `go test ./...` was kept green after each landed tranche.
+4. A first native smoke matrix now covers representative no-import programs.
+5. A second native smoke matrix now covers imported `std/os` programs under permission flags.
+6. `go test ./...` was kept green after each landed tranche.
 
 Remaining:
 
 1. Test and CI
    - add explicit CI coverage for formatter, linter, parser, typechecker, compiler, and VM,
-   - add a native smoke matrix for representative `.bak` programs.
 2. Native backend confidence
    - add focused tests for `pkg/backend/native`,
    - encode known native regressions as direct tests.
@@ -671,7 +673,7 @@ Bak is in a strong Go-first release state when all of these are true:
 If work resumes from this roadmap immediately, the next concrete sequence should be:
 
 1. Decide whether native backend runtime-side enforcement is needed beyond the current compile-time permission gate.
-2. Expand native backend regression coverage and add a smoke matrix.
+2. Expand native backend regression coverage beyond the smoke matrices.
 3. Finish the remaining CLI/tooling cleanup outside `cmd/dump_bc`.
 4. Continue ownership/type diagnostic quality work.
 5. Decide whether filesystem destructive APIs need stronger guardrails than the current denylist.
