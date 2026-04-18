@@ -2,6 +2,8 @@ package runtimecap
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -57,6 +59,9 @@ func (p Permissions) EffectiveExecMaxOutputBytes() int64 {
 var (
 	currentMu sync.RWMutex
 	current   Permissions
+
+	featureMu       sync.RWMutex
+	currentFeatures []string
 )
 
 func Current() Permissions {
@@ -75,5 +80,53 @@ func SetCurrent(p Permissions) func() {
 		currentMu.Lock()
 		current = prev
 		currentMu.Unlock()
+	}
+}
+
+func normalizeFeatures(features []string) []string {
+	seen := make(map[string]struct{}, len(features))
+	normalized := make([]string, 0, len(features))
+	for _, feature := range features {
+		feature = strings.TrimSpace(feature)
+		if feature == "" {
+			continue
+		}
+		if _, ok := seen[feature]; ok {
+			continue
+		}
+		seen[feature] = struct{}{}
+		normalized = append(normalized, feature)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func CurrentFeatures() []string {
+	featureMu.RLock()
+	defer featureMu.RUnlock()
+	return append([]string(nil), currentFeatures...)
+}
+
+func CurrentFeatureEnabled(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	featureMu.RLock()
+	defer featureMu.RUnlock()
+	idx := sort.SearchStrings(currentFeatures, name)
+	return idx < len(currentFeatures) && currentFeatures[idx] == name
+}
+
+func SetCurrentFeatures(features []string) func() {
+	featureMu.Lock()
+	prev := append([]string(nil), currentFeatures...)
+	currentFeatures = normalizeFeatures(features)
+	featureMu.Unlock()
+
+	return func() {
+		featureMu.Lock()
+		currentFeatures = prev
+		featureMu.Unlock()
 	}
 }

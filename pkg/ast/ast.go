@@ -792,6 +792,7 @@ type FunctionDecl struct {
 	Span       Span
 	Token      token.Token
 	Visibility Visibility
+	Traced     bool
 	Name       *Identifier
 	TypeParams []*TypeParameter // Generic type parameters like <T: Trait>
 	Parameters []*Parameter
@@ -804,6 +805,9 @@ func (fd *FunctionDecl) TokenLiteral() string { return fd.Token.Literal }
 func (fd *FunctionDecl) String() string {
 	var out bytes.Buffer
 	out.WriteString(fd.Visibility.String())
+	if fd.Traced {
+		out.WriteString("trace ")
+	}
 	out.WriteString("func ")
 	out.WriteString(fd.Name.String())
 	if len(fd.TypeParams) > 0 {

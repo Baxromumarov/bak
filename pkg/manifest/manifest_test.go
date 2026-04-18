@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -10,6 +11,7 @@ func TestManifestPermissionRoundTrip(t *testing.T) {
 	path := filepath.Join(tmpDir, "bak.toml")
 
 	m := DefaultManifest("demo")
+	m.Features = []string{"experimental-cfg", "fast-path"}
 	m.Permissions = &RuntimePermissions{
 		AllowExec:     true,
 		AllowNet:      true,
@@ -38,8 +40,10 @@ func TestManifestPermissionRoundTrip(t *testing.T) {
 	if loaded.Permissions.ExecMaxOutput != 4096 {
 		t.Fatalf("unexpected exec max output: %d", loaded.Permissions.ExecMaxOutput)
 	}
+	if !reflect.DeepEqual(loaded.Features, []string{"experimental-cfg", "fast-path"}) {
+		t.Fatalf("unexpected features: %#v", loaded.Features)
+	}
 }
-
 
 func TestValidateSourceAllowed(t *testing.T) {
 	cases := []struct {

@@ -18,6 +18,7 @@ func Serialize(mod *compiler.BytecodeModule) ([]byte, error) {
 		fnJSON := functionJSON{
 			Name:      fn.Name,
 			Arity:     fn.Arity,
+			Traced:    fn.Traced,
 			NumLocals: fn.NumLocals,
 			Code:      make([]int, len(fn.Code)),
 			Constants: convertValuesToJSON(fn.Constants),

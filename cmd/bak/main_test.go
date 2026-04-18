@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,6 +95,16 @@ func TestParseRuntimePermissionsRejectsInvalidExecTimeout(t *testing.T) {
 	_, _, err := parseRuntimePermissions([]string{runtimecap.FlagExecTimeout, "later"})
 	if err == nil {
 		t.Fatalf("expected invalid exec timeout to fail")
+	}
+}
+
+func TestStripTraceFlag(t *testing.T) {
+	args, enabled := stripTraceFlag([]string{"run", "--trace", "main.bak"})
+	if !enabled {
+		t.Fatalf("expected trace flag to be enabled")
+	}
+	if len(args) != 2 || args[0] != "run" || args[1] != "main.bak" {
+		t.Fatalf("unexpected remaining args: %#v", args)
 	}
 }
 
@@ -224,5 +235,42 @@ func TestMergeRuntimePermissions(t *testing.T) {
 	}
 	if merged.ExecMaxOutput != 4096 {
 		t.Fatalf("expected manifest exec max output to apply, got %d", merged.ExecMaxOutput)
+	}
+}
+
+func TestInitProjectCreatesStarterFiles(t *testing.T) {
+	root := t.TempDir()
+	projectDir := filepath.Join(root, "demo-app")
+
+	if err := initProject(projectDir); err != nil {
+		t.Fatalf("initProject returned error: %v", err)
+	}
+
+	manifestPath := filepath.Join(projectDir, "bak.toml")
+	m, err := manifest.Load(manifestPath)
+	if err != nil {
+		t.Fatalf("loading manifest: %v", err)
+	}
+	if m.Package.Name != "demo_app" {
+		t.Fatalf("unexpected package name: %q", m.Package.Name)
+	}
+	if m.Package.Version != "0.1.0" {
+		t.Fatalf("unexpected package version: %q", m.Package.Version)
+	}
+
+	readme, err := os.ReadFile(filepath.Join(projectDir, "README.md"))
+	if err != nil {
+		t.Fatalf("reading README.md: %v", err)
+	}
+	if !strings.Contains(string(readme), "bak new") {
+		t.Fatalf("README.md does not mention bak new")
+	}
+
+	gitignore, err := os.ReadFile(filepath.Join(projectDir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("reading .gitignore: %v", err)
+	}
+	if !strings.Contains(string(gitignore), ".bak-cache/") || !strings.Contains(string(gitignore), "a.out") {
+		t.Fatalf("unexpected .gitignore contents: %q", string(gitignore))
 	}
 }

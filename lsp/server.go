@@ -20,6 +20,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/builtins"
 	"github.com/baxromumarov/bak/pkg/formatter"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/linter"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typechecker"
@@ -4140,6 +4141,26 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 		}
 	}
 
+	for _, finding := range linter.LintSource(filePath, text, nil) {
+		diagnostics = append(diagnostics, lintFindingToDiagnostic(finding))
+	}
+
+	sort.SliceStable(diagnostics, func(i, j int) bool {
+		if diagnostics[i].Range.Start.Line != diagnostics[j].Range.Start.Line {
+			return diagnostics[i].Range.Start.Line < diagnostics[j].Range.Start.Line
+		}
+		if diagnostics[i].Range.Start.Character != diagnostics[j].Range.Start.Character {
+			return diagnostics[i].Range.Start.Character < diagnostics[j].Range.Start.Character
+		}
+		if diagnostics[i].Severity != diagnostics[j].Severity {
+			return diagnostics[i].Severity < diagnostics[j].Severity
+		}
+		if diagnostics[i].Source != diagnostics[j].Source {
+			return diagnostics[i].Source < diagnostics[j].Source
+		}
+		return diagnostics[i].Message < diagnostics[j].Message
+	})
+
 	// Publish
 	notification := Notification{
 		BaseMessage: BaseMessage{JSONRPC: "2.0"},
@@ -4156,6 +4177,37 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 
 	msg := EncodeMessage(notification)
 	os.Stdout.Write(msg)
+}
+
+func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
+	severity := 4
+	switch strings.ToLower(finding.Level) {
+	case "error":
+		severity = 1
+	case "warning":
+		severity = 2
+	case "style":
+		severity = 4
+	}
+
+	line := finding.Line - 1
+	if line < 0 {
+		line = 0
+	}
+	column := finding.Column - 1
+	if column < 0 {
+		column = 0
+	}
+
+	return Diagnostic{
+		Range: Range{
+			Start: Position{Line: line, Character: column},
+			End:   Position{Line: line, Character: column + 1},
+		},
+		Severity: severity,
+		Source:   "bak-linter",
+		Message:  finding.Message,
+	}
 }
 
 func uriToPath(uri string) string {

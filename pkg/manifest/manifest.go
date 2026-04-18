@@ -14,6 +14,7 @@ import (
 type Manifest struct {
 	Package        PackageInfo           `toml:"package"`
 	Dependencies   map[string]Dependency `toml:"dependencies"`
+	Features       []string              `toml:"features,omitempty"`
 	Permissions    *RuntimePermissions   `toml:"permissions,omitempty"`
 	TrustedSources []string              `toml:"trusted_sources,omitempty"`
 }
@@ -102,7 +103,6 @@ func (m *Manifest) HasDependency(name string) bool {
 	_, exists := m.Dependencies[name]
 	return exists
 }
-
 
 // ValidateSourceAllowed checks if a package source matches the trusted source list.
 // An empty trusted list means all sources are allowed (backward compatible).

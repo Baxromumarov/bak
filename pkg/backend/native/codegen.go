@@ -67,6 +67,8 @@ type EmitState struct {
 	TimeCounterDataIndex int
 	// Data index for runtime permission flags (defense-in-depth beyond compile-time gating)
 	PermissionsDataIndex int
+	// Data index for current trace depth counter
+	TraceDepthDataIndex int
 
 	// Track variables with integer type for print dispatch
 	IntVariables map[string]bool
@@ -96,7 +98,8 @@ type EmitState struct {
 	RefVariables map[string]bool
 
 	// Permissions controls which dangerous builtins native codegen may emit.
-	Permissions runtimecap.Permissions
+	Permissions  runtimecap.Permissions
+	TraceEnabled bool
 
 	// Track functions that return int
 	IntFunctions map[string]bool
@@ -105,7 +108,9 @@ type EmitState struct {
 	StringFunctions map[string]bool
 
 	// Track function return types for ABI (large struct support)
-	FunctionReturnTypes map[string]ast.TypeExpression
+	FunctionReturnTypes      map[string]ast.TypeExpression
+	CurrentFunctionTraced    bool
+	CurrentFunctionTraceName string
 
 	// Import alias to package name mapping (e.g., "driver" -> "driver")
 	// Used to resolve module.function calls
@@ -119,7 +124,7 @@ type EmitState struct {
 }
 
 // newEmitState creates a fresh EmitState.
-func newEmitState(permissions runtimecap.Permissions) *EmitState {
+func newEmitState(options BuildOptions) *EmitState {
 	return &EmitState{
 		Code:                 make([]byte, 0, 4096),
 		Scopes:               make([]Scope, 0, 8),
@@ -131,6 +136,7 @@ func newEmitState(permissions runtimecap.Permissions) *EmitState {
 		HeapEndDataIndex:     -1,
 		TimeCounterDataIndex: -1,
 		PermissionsDataIndex: -1,
+		TraceDepthDataIndex:  -1,
 		IntVariables:         make(map[string]bool),
 		CharVariables:        make(map[string]bool),
 		StringVariables:      make(map[string]bool),
@@ -145,7 +151,8 @@ func newEmitState(permissions runtimecap.Permissions) *EmitState {
 		RefVariables:         make(map[string]bool),
 		IntFunctions:         make(map[string]bool),
 		StringFunctions:      make(map[string]bool),
-		Permissions:          permissions,
+		Permissions:          options.Permissions,
+		TraceEnabled:         options.TraceEnabled,
 		FunctionReturnTypes:  make(map[string]ast.TypeExpression),
 		ImportAliases:        make(map[string]string),
 	}
@@ -542,13 +549,13 @@ func (s *EmitState) isCharExpression(expr ast.Expression) bool {
 
 // CompileProgram compiles a single AST Program to machine code and returns ELF bytes.
 func CompileProgram(program *ast.Program) ([]byte, error) {
-	return CompilePrograms([]ProgramWithPath{{Program: program, PathName: "main"}}, program, runtimecap.Permissions{})
+	return CompilePrograms([]ProgramWithPath{{Program: program, PathName: "main"}}, program, BuildOptions{})
 }
 
 // CompilePrograms compiles multiple AST Programs (main + imported modules) to machine code.
 // mainProgram is the entry point program that contains main().
-func CompilePrograms(programs []ProgramWithPath, mainProgram *ast.Program, permissions runtimecap.Permissions) ([]byte, error) {
-	s := newEmitState(permissions)
+func CompilePrograms(programs []ProgramWithPath, mainProgram *ast.Program, options BuildOptions) ([]byte, error) {
+	s := newEmitState(options)
 
 	// First pass: collect import aliases from ALL programs
 	// This ensures that when compiling any module, we know how its imports map to package names
@@ -1018,6 +1025,8 @@ func (s *EmitState) emitEntryStub() {
 func (s *EmitState) emitFunction(fd *ast.FunctionDecl) error {
 	s.resetFunctionState()
 	s.CurrentFunc = fd.Name.Value // For debug messages
+	s.CurrentFunctionTraced = s.TraceEnabled && fd.Traced
+	s.CurrentFunctionTraceName = s.traceFunctionName(fd)
 
 	// Check return type size for ABI
 	retSize := s.getTypeSize(fd.ReturnType)
@@ -1042,6 +1051,14 @@ func (s *EmitState) emitFunction(fd *ast.FunctionDecl) error {
 
 	s.bindParameters(fd.Parameters, skipRegs)
 
+	if s.CurrentFunctionTraced {
+		traceStartOffset := s.declareLocal("__trace_start", 8)
+		callSite := emitCallRel32(&s.Code, 0)
+		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_clock_now_ns"})
+		emitMovMemRbpReg(&s.Code, traceStartOffset, RAX)
+		s.emitTraceEnter()
+	}
+
 	// Emit function body
 	if fd.Body != nil {
 		if err := s.emitBlock(fd.Body); err != nil {
@@ -1056,6 +1073,7 @@ func (s *EmitState) emitFunction(fd *ast.FunctionDecl) error {
 
 	// Default return 0
 	emitMovRegImm32(&s.Code, RAX, 0)
+	s.emitTraceExit("ok")
 
 	// Epilogue
 	emitMovRegReg(&s.Code, RSP, RBP)
@@ -1663,6 +1681,7 @@ func (s *EmitState) emitReturnStatement(st *ast.ReturnStatement) error {
 	if err := s.emitDeferredBodies(); err != nil {
 		return err
 	}
+	s.emitTraceExit("ok")
 
 	// Epilogue
 	emitMovRegReg(&s.Code, RSP, RBP)
@@ -2152,6 +2171,7 @@ func (s *EmitState) emitPanic(st *ast.PanicStatement) error {
 	if s.isRefExpression(st.Message) {
 		s.emitSafeRefDeref()
 	}
+	s.emitTraceExit("panic")
 	// rax now holds pointer to string header
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)
@@ -3399,6 +3419,22 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		funcName = fn.Value
 	default:
 		return fmt.Errorf("native: unsupported call target %T at line %d col %d, source=%v", e.Function, e.Token.Line, e.Token.Column, e.Function)
+	}
+
+	if funcName == "cfg" {
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: cfg expects 1 argument")
+		}
+		featureName, ok := e.Arguments[0].(*ast.StringLiteral)
+		if !ok {
+			return fmt.Errorf("native: cfg requires a string literal feature name")
+		}
+		if runtimecap.CurrentFeatureEnabled(featureName.Value) {
+			emitFoldedInt(&s.Code, 1)
+		} else {
+			emitFoldedInt(&s.Code, 0)
+		}
+		return nil
 	}
 
 	// Handle built-in println
@@ -5929,9 +5965,9 @@ func (s *EmitState) emitEmptyString() error {
 	return nil
 }
 
-// emitResultErr creates a Result::Err(msg) struct where msg is a string
+// emitResultErr creates a Result::Err(msg) struct where msg is a string.
 // Result layout: [tag: 8 bytes][value: 8 bytes]
-// Err has tag = 0
+// Err has tag = 1.
 func (s *EmitState) emitResultErrStr(msg string) error {
 	// First create the error message string
 	msgIdx := s.addStringLiteral(msg)
@@ -5949,8 +5985,8 @@ func (s *EmitState) emitResultErrStr(msg string) error {
 	// Pop result struct ptr
 	emitPopReg(&s.Code, RAX)
 
-	// Store tag = 0 (Err)
-	emitMovRegImm32(&s.Code, RDX, 0)
+	// Store tag = 1 (Err)
+	emitMovRegImm32(&s.Code, RDX, 1)
 	emitMovMemReg(&s.Code, RAX, RDX)
 	// Store error string at offset 8
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, RCX)

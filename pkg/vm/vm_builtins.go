@@ -55,6 +55,13 @@ func (vm *VM) registerBuiltins() {
 			return compiler.NewNil()
 		}
 	}
+
+	vm.builtins["cfg"] = func(args []compiler.Value) compiler.Value {
+		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
+			return compiler.NewBool(false)
+		}
+		return compiler.NewBool(runtimecap.CurrentFeatureEnabled(args[0].AsString))
+	}
 }
 
 func validateVMDestructivePath(pathValue, op string) error {
@@ -244,6 +251,15 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		newArr := &compiler.ArrayInstance{Elements: newElements}
 		return compiler.Value{Type: compiler.VAL_ARRAY, AsObject: newArr}, nil
+
+	case compiler.BUILTIN_CFG:
+		if len(args) != 1 {
+			return compiler.NewNil(), fmt.Errorf("cfg requires 1 argument")
+		}
+		if args[0].Type != compiler.VAL_STRING {
+			return compiler.NewNil(), fmt.Errorf("cfg requires a string feature name")
+		}
+		return compiler.NewBool(runtimecap.CurrentFeatureEnabled(args[0].AsString)), nil
 
 	case compiler.BUILTIN_PRINT:
 		for i, arg := range args {
@@ -1247,6 +1263,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		newVM := New(vm.module)
 		tid := int(atomic.AddInt64(&threadIDCounter, 1))
 		newVM.threadID = tid
+		newVM.SetTracer(vm.tracer)
 
 		// Share globals for shared-memory concurrency
 		newVM.globals = vm.globals

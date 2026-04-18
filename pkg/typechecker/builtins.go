@@ -30,6 +30,7 @@ func (tc *TypeChecker) isBuiltin(name string) bool {
 		"is_ok",
 		"is_err",
 		"unwrap_err",
+		"cfg",
 		"Vec",
 		"__alloc_array",
 		"__alloc_array_zeroed",
@@ -421,6 +422,11 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 		return &ast.FunctionType{
 			Params:     nil,
 			ReturnType: &ast.SimpleType{Name: "int"},
+		}
+	case "cfg":
+		return &ast.FunctionType{
+			Params:     []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
+			ReturnType: &ast.SimpleType{Name: "bool"},
 		}
 	case "__builtin_time_parts":
 		return &ast.FunctionType{

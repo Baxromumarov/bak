@@ -9,6 +9,11 @@ import (
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
+type BuildOptions struct {
+	Permissions  runtimecap.Permissions
+	TraceEnabled bool
+}
+
 // ProgramWithPath holds a program along with its path-derived name
 type ProgramWithPath struct {
 	Program  *ast.Program
@@ -18,6 +23,10 @@ type ProgramWithPath struct {
 // BuildExecutable compiles the AST into a native ELF64 binary.
 // It also compiles all imported modules from the package registry.
 func BuildExecutable(program *ast.Program, permissions runtimecap.Permissions) ([]byte, error) {
+	return BuildExecutableWithOptions(program, BuildOptions{Permissions: permissions})
+}
+
+func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]byte, error) {
 	// Collect all programs from imported packages
 	allPrograms := make([]ProgramWithPath, 0)
 	allPrograms = append(allPrograms, ProgramWithPath{Program: program, PathName: "main"})
@@ -36,7 +45,7 @@ func BuildExecutable(program *ast.Program, permissions runtimecap.Permissions) (
 		}
 	}
 
-	return CompilePrograms(allPrograms, program, permissions)
+	return CompilePrograms(allPrograms, program, options)
 }
 
 // extractPathName gets the module name from a file path

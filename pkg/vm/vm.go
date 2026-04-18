@@ -13,6 +13,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/trace"
 )
 
 const (
@@ -30,6 +31,7 @@ type CallFrame struct {
 	returnValue   compiler.Value
 	returnVoid    bool
 	discardReturn bool
+	traceScope    trace.Scope
 }
 
 // DeferAction represents a deferred function call.
@@ -95,6 +97,7 @@ type VM struct {
 	moduleAliases map[string]string                   // Alias -> resolved path
 
 	permissions runtimecap.Permissions
+	tracer      *trace.Runtime
 }
 
 // RuntimeError wraps a runtime error with source position info.
@@ -175,6 +178,10 @@ func NewWithProfileAndPermissions(module *compiler.BytecodeModule, profile bool,
 	// Register built-in functions
 	vm.registerBuiltins()
 	return vm
+}
+
+func (vm *VM) SetTracer(tracer *trace.Runtime) {
+	vm.tracer = tracer
 }
 
 // PrintProfile outputs profiling statistics.
@@ -280,12 +287,16 @@ func (vm *VM) Run() (compiler.Value, error) {
 		base:     0,
 	}
 	vm.fp = 1
+	vm.startFrameTrace(&vm.frames[0], 0)
 
 	return vm.run()
 }
 
 func (vm *VM) run() (result compiler.Value, err error) {
 	defer func() {
+		if err != nil {
+			vm.failActiveTraceScopes(err)
+		}
 		if err != nil {
 			err = vm.wrapRuntimeError(err)
 		}
@@ -636,6 +647,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 						base:          base,
 						discardReturn: false,
 					}
+					vm.startFrameTrace(&vm.frames[vm.fp], vm.fp)
 					vm.fp++
 					continue
 				}
@@ -730,6 +742,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 			// Fast path: no defers and not panicking
 			if len(frame.defers) == 0 && !vm.panicking {
+				vm.finishFrameTrace(frame, "ok", nil)
 				vm.fp--
 				if vm.fp == 0 {
 					return result, nil
@@ -1663,6 +1676,7 @@ func (vm *VM) callWithFlags(fn *compiler.FunctionObj, argc int, discardReturn bo
 		base:          base,
 		discardReturn: discardReturn,
 	}
+	vm.startFrameTrace(&vm.frames[vm.fp], vm.fp)
 	vm.fp++
 
 	// Allocate space for locals (args are already in place)
@@ -2248,6 +2262,11 @@ func (vm *VM) resumeReturn(frame *CallFrame, fnName string, ip int) (bool, compi
 		result = compiler.NewNil()
 	}
 
+	status := "ok"
+	if vm.panicking {
+		status = "panic"
+	}
+	vm.finishFrameTrace(frame, status, nil)
 	vm.fp--
 	if vm.fp == 0 {
 		if vm.panicking {
@@ -2262,4 +2281,29 @@ func (vm *VM) resumeReturn(frame *CallFrame, fnName string, ip int) (bool, compi
 	}
 
 	return false, compiler.NewNil(), nil
+}
+
+func (vm *VM) startFrameTrace(frame *CallFrame, depth int) {
+	if vm.tracer == nil || frame == nil || frame.function == nil || !frame.function.Traced {
+		return
+	}
+	frame.traceScope = vm.tracer.Enter(frame.function.Name, depth, vm.threadID)
+}
+
+func (vm *VM) finishFrameTrace(frame *CallFrame, status string, err error) {
+	if frame == nil {
+		return
+	}
+	frame.traceScope.Exit(status, err)
+}
+
+func (vm *VM) failActiveTraceScopes(err error) {
+	for i := vm.fp - 1; i >= 0; i-- {
+		frame := &vm.frames[i]
+		if vm.panicking {
+			vm.finishFrameTrace(frame, "panic", err)
+			continue
+		}
+		vm.finishFrameTrace(frame, "error", err)
+	}
 }

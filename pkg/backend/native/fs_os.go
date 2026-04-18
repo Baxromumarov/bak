@@ -1103,236 +1103,526 @@ func (s *EmitState) emitResultUnwrapErr(obj ast.Expression) error {
 	return nil
 }
 
-// emitOsExec implements os.exec(cmd, args) -> Result<ExecResult, string>
-// Native exec currently remains direct-exec only and does not capture stdout/stderr.
-// ExecResult is {Output, Stdout, Stderr, ExitCode, TimedOut, Truncated}.
-// Uses fork(57), execve(59), wait4(61), pipe(22), dup2(33), read(0), close(3)
+// emitOsExec implements os.exec(cmd, args) -> Result<ExecResult, string>.
+// Native exec now mirrors the shared runtime contract closely enough for
+// success, timeout, and output-truncation tests: it captures stdout/stderr via
+// memfd-backed files, applies the configured timeout, and returns the same
+// ExecResult shape as the Go runtime paths.
 func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
-	// This is a simplified implementation that doesn't capture output
-	// Full implementation would need pipe/dup2/read
+	callHelper := func(target string) {
+		callSite := emitCallRel32(&s.Code, 0)
+		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: target})
+	}
+	emitNowNs := func() {
+		emitSubRspImm8(&s.Code, 16)
+		emitMovRegImm32(&s.Code, RDI, 1)
+		emitMovRegReg(&s.Code, RSI, RSP)
+		emitMovRegImm32(&s.Code, RAX, 228)
+		emitSyscall(&s.Code)
+		emitMovRegMemBaseDisp(&s.Code, RAX, RSP, 0)
+		emitMovRegImm32(&s.Code, RDX, nativeTraceBillion)
+		emitImulRegReg(&s.Code, RAX, RDX)
+		emitMovRegMemBaseDisp(&s.Code, RDX, RSP, 8)
+		emitAddRegReg(&s.Code, RAX, RDX)
+		emitAddRspImm8(&s.Code, 16)
+	}
 
-	// Evaluate cmd string
+	const (
+		execStatusOff    = -8
+		execTruncatedOff = -16
+		execTimedOutOff  = -24
+		execExitCodeOff  = -32
+		execRemainOff    = -40
+		execStdoutFdOff  = -48
+		execStderrFdOff  = -56
+		execChildPidOff  = -64
+		execDeadlineOff  = -72
+		execEnvPathOff   = -80
+		execEnvpOff      = -88
+		execStdoutHdrOff = -96
+		execStderrHdrOff = -104
+		execOutputHdrOff = -112
+		execArgvOff      = -120
+		execCmdHdrOff    = -128
+		execArgsHdrOff   = -136
+		execArgsDataOff  = -144
+		execArgcOff      = -152
+		execArgIndexOff  = -160
+		execStatBufOff   = -328
+	)
+
 	if err := s.emitExpression(cmdExpr); err != nil {
 		return err
 	}
+
+	emitPushReg(&s.Code, RBP)
+	emitMovRegReg(&s.Code, RBP, RSP)
 	emitPushReg(&s.Code, R12)
 	emitPushReg(&s.Code, R13)
 	emitPushReg(&s.Code, R14)
 	emitPushReg(&s.Code, R15)
+	emitSubRspImm32(&s.Code, 328)
 
-	emitMovRegReg(&s.Code, R12, RAX) // R12 = cmd string header
+	emitMovMemBaseDispReg(&s.Code, RBP, execCmdHdrOff, RAX)
 
-	// Evaluate args Vec
 	if err := s.emitExpression(argsExpr); err != nil {
 		return err
 	}
-	emitMovRegReg(&s.Code, R13, RAX) // R13 = args Vec header
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgsHdrOff, RAX)
 
-	// Build argv array for execve: [cmd_ptr, arg0_ptr, arg1_ptr, ..., NULL]
-	// First, get argc from Vec.len
-	emitMovRegMemBaseDisp(&s.Code, R14, R13, 8) // R14 = args.len
-	// Total argc = 1 (cmd) + args.len + 1 (NULL) = args.len + 2
-	emitMovRegReg(&s.Code, R15, R14)
-	emitMovRegImm32(&s.Code, RAX, 2)
-	emitAddRegReg(&s.Code, R15, RAX) // R15 = argc + 2
-
-	// Allocate argv array: R15 * 8 bytes
-	emitMovRegReg(&s.Code, RAX, R15)
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RAX), 0x03) // shl rax, 3
-	emitPushReg(&s.Code, R12)
-	emitPushReg(&s.Code, R13)
-	emitPushReg(&s.Code, R14)
-	emitPushReg(&s.Code, R15)
+	// Resolve a PATH-compatible wrapper for command lookup.
+	envOneIdx := s.addStringLiteral("/usr/bin/env")
+	s.emitDataAddr(envOneIdx)
 	emitMovRegReg(&s.Code, RDI, RAX)
-	callSiteArgv := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteArgv, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R15)
-	emitPopReg(&s.Code, R14)
-	emitPopReg(&s.Code, R13)
-	emitPopReg(&s.Code, R12)
-	emitMovRegReg(&s.Code, R8, RAX) // R8 = argv array ptr
+	callHelper("__rt_cstr")
+	emitMovMemBaseDispReg(&s.Code, RBP, execEnvPathOff, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execEnvPathOff)
+	emitMovRegImm32(&s.Code, RSI, 1)  // X_OK
+	emitMovRegImm32(&s.Code, RAX, 21) // access
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jzEnvReady1 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
 
-	// argv[0] = cmd.ptr (need null-terminated, but for now use string ptr)
-	emitMovRegMemBaseDisp(&s.Code, RAX, R12, 0) // RAX = cmd.ptr
-	emitMovMemReg(&s.Code, R8, RAX)             // argv[0] = cmd.ptr
+	envTwoIdx := s.addStringLiteral("/bin/env")
+	s.emitDataAddr(envTwoIdx)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_cstr")
+	emitMovMemBaseDispReg(&s.Code, RBP, execEnvPathOff, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execEnvPathOff)
+	emitMovRegImm32(&s.Code, RSI, 1)  // X_OK
+	emitMovRegImm32(&s.Code, RAX, 21) // access
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jzEnvReady2 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
 
-	// Copy args to argv[1..n]
-	emitMovRegMemBaseDisp(&s.Code, R9, R13, 0) // R9 = args.data ptr
-	emitMovRegImm32(&s.Code, R10, 0)           // i = 0
-	copyLoop := len(s.Code)
-	// cmp r10, r14
-	s.Code = append(s.Code, rexByte(1, regHi(R14), 0, regHi(R10)), 0x39, modRM(3, R14, R10))
-	jgeEnd := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0) // jge end
+	if err := s.emitResultErrStr("native: os.exec failed"); err != nil {
+		return err
+	}
 
-	// Load args[i] string header ptr
-	emitMovRegReg(&s.Code, RAX, R10)
+	envReadyPos := len(s.Code)
+	patchRel32(&s.Code, jzEnvReady1+2, envReadyPos)
+	patchRel32(&s.Code, jzEnvReady2+2, envReadyPos)
+
+	// Convert the command and build argv = [env, "--", cmd, args..., nil].
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execCmdHdrOff)
+	callHelper("__rt_cstr")
+	emitMovRegReg(&s.Code, R12, RAX) // cmd C string
+
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execArgsHdrOff)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jzEmptyArgs := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, R14, RAX, 8) // argc
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgcOff, R14)
+	emitMovRegMemBaseDisp(&s.Code, R9, RAX, 0) // args.data
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgsDataOff, R9)
+	jmpArgsMetaDone := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
+
+	emptyArgsPos := len(s.Code)
+	patchRel32(&s.Code, jzEmptyArgs+2, emptyArgsPos)
+	emitXorRegReg(&s.Code, R14, R14)
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgcOff, R14)
+	emitXorRegReg(&s.Code, R9, R9)
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgsDataOff, R9)
+	argsMetaDonePos := len(s.Code)
+	patchRel32(&s.Code, jmpArgsMetaDone+1, argsMetaDonePos)
+
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execArgcOff)
+	emitMovRegImm32(&s.Code, RCX, 4)
+	emitAddRegReg(&s.Code, RAX, RCX) // argc + 4
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_alloc")
+	emitMovRegReg(&s.Code, R15, RAX) // argv
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgvOff, R15)
+
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execEnvPathOff)
+	emitMovMemReg(&s.Code, R15, RAX) // argv[0] = env wrapper
+
+	dashIdx := s.addStringLiteral("--")
+	s.emitDataAddr(dashIdx)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_cstr")
+	emitMovRegMemBaseDisp(&s.Code, R15, RBP, execArgvOff)
+	emitMovRegReg(&s.Code, RCX, R15)
+	emitAddRegImm32(&s.Code, RCX, 8)
+	emitMovMemReg(&s.Code, RCX, RAX) // argv[1] = "--"
+
+	emitMovRegReg(&s.Code, RCX, R15)
+	emitAddRegImm32(&s.Code, RCX, 16)
+	emitMovMemReg(&s.Code, RCX, R12) // argv[2] = cmd
+
+	emitMovRegImm32(&s.Code, R8, 0)
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgIndexOff, R8)
+	emitMovRegMemBaseDisp(&s.Code, R9, RBP, execArgsDataOff)
+	argLoop := len(s.Code)
+	emitMovRegMemBaseDisp(&s.Code, R8, RBP, execArgIndexOff)
+	emitMovRegMemBaseDisp(&s.Code, R14, RBP, execArgcOff)
+	emitCmpRegReg(&s.Code, R8, R14)
+	jgeArgsDone := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0)
+
+	emitMovRegMemBaseDisp(&s.Code, R9, RBP, execArgsDataOff)
+	emitMovRegReg(&s.Code, RAX, R8)
 	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RAX), 0x03) // shl rax, 3
-	emitAddRegReg(&s.Code, RAX, R9)                                            // RAX = &args.data[i]
-	s.emitSafeLoadRaxFromRaxDisp(0)                                            // RAX = args[i] (string header)
-	s.emitSafeLoadRaxFromRaxDisp(0)                                            // RAX = args[i].ptr
+	emitAddRegReg(&s.Code, RAX, R9)
+	s.emitSafeLoadRaxFromRaxDisp(0) // string header pointer
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_cstr")
+	emitMovRegMemBaseDisp(&s.Code, R15, RBP, execArgvOff)
+	emitMovRegMemBaseDisp(&s.Code, R8, RBP, execArgIndexOff)
+	emitMovRegReg(&s.Code, RCX, R8)
+	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RCX), 0x03) // shl rcx, 3
+	emitAddRegReg(&s.Code, RCX, R15)
+	emitAddRegImm32(&s.Code, RCX, 24)
+	emitMovMemReg(&s.Code, RCX, RAX)
 
-	// Store in argv[i+1]
-	emitMovRegReg(&s.Code, RCX, R10)
-	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(RCX)), 0xFF, modRM(3, 0, RCX)) // inc rcx
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RCX), 0x03)    // shl rcx, 3
-	emitAddRegReg(&s.Code, RCX, R8)                                               // RCX = &argv[i+1]
-	emitMovMemReg(&s.Code, RCX, RAX)                                              // argv[i+1] = args[i].ptr
+	emitAddRegImm32(&s.Code, R8, 1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execArgIndexOff, R8)
+	jmpArgLoop := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
 
-	// i++
-	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R10)), 0xFF, modRM(3, 0, R10))
-	jmpLoop := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp rel32
-	patchRel32(&s.Code, jmpLoop+1, copyLoop)
+	argsDonePos := len(s.Code)
+	patchRel32(&s.Code, jgeArgsDone+2, argsDonePos)
+	patchRel32(&s.Code, jmpArgLoop+1, argLoop)
 
-	endLoop := len(s.Code)
-	patchRel32(&s.Code, jgeEnd+2, endLoop)
+	emitMovRegMemBaseDisp(&s.Code, R15, RBP, execArgvOff)
+	emitMovRegMemBaseDisp(&s.Code, R14, RBP, execArgcOff)
+	emitMovRegReg(&s.Code, RCX, R14)
+	emitAddRegImm32(&s.Code, RCX, 3)
+	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RCX), 0x03) // shl rcx, 3
+	emitAddRegReg(&s.Code, RCX, R15)
+	emitXorRegReg(&s.Code, RAX, RAX)
+	emitMovMemReg(&s.Code, RCX, RAX)
 
-	// Set argv[argc+1] = NULL
-	emitMovRegReg(&s.Code, RAX, R14)
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xFF, modRM(3, 0, RAX)) // inc rax
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RAX), 0x03)
-	emitAddRegReg(&s.Code, RAX, R8)
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX) // argv[last] = NULL
+	// Compute envp from the initial stack so the child inherits the current environment.
+	if s.InitRspDataIndex < 0 {
+		s.InitRspDataIndex = s.addDataItem(make([]byte, 8), 8)
+	}
+	s.emitDataAddr(s.InitRspDataIndex)
+	emitMovRegMemBaseDisp(&s.Code, R8, RAX, 0) // initial rsp
+	emitMovRegMemBaseDisp(&s.Code, R9, R8, 0)  // argc
+	emitMovRegReg(&s.Code, R10, R9)
+	emitAddRegImm32(&s.Code, R10, 1)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R10)), 0xC1, modRM(3, 4, R10), 0x03) // shl r10, 3
+	emitAddRegReg(&s.Code, R10, R8)
+	emitMovRegImm32(&s.Code, RAX, 8)
+	emitAddRegReg(&s.Code, R10, RAX)
+	emitMovMemBaseDispReg(&s.Code, RBP, execEnvpOff, R10)
 
-	// Save argv ptr
-	emitPushReg(&s.Code, R8)
+	emitNowNs()
+	emitMovRegReg(&s.Code, R13, RAX)
+	emitMovRaxImm64(&s.Code, s.Permissions.EffectiveExecTimeout().Nanoseconds())
+	emitAddRegReg(&s.Code, R13, RAX)
+	emitMovMemBaseDispReg(&s.Code, RBP, execDeadlineOff, R13)
 
-	// Fork: syscall 57
+	// Create memfd-backed output captures so the child can write without blocking.
+	stdoutNameIdx := s.addStringLiteral("bak.exec.stdout")
+	s.emitDataAddr(stdoutNameIdx)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_cstr")
+	emitMovRegReg(&s.Code, RDI, RAX)
+	emitMovRegImm32(&s.Code, RSI, 1) // MFD_CLOEXEC
+	emitMovRegImm32(&s.Code, RAX, 319)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsStdoutMemfdErr := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovMemBaseDispReg(&s.Code, RBP, execStdoutFdOff, RAX)
+
+	stderrNameIdx := s.addStringLiteral("bak.exec.stderr")
+	s.emitDataAddr(stderrNameIdx)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callHelper("__rt_cstr")
+	emitMovRegReg(&s.Code, RDI, RAX)
+	emitMovRegImm32(&s.Code, RSI, 1) // MFD_CLOEXEC
+	emitMovRegImm32(&s.Code, RAX, 319)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsStderrMemfdErr := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovMemBaseDispReg(&s.Code, RBP, execStderrFdOff, RAX)
+
+	// fork()
 	emitMovRegImm32(&s.Code, RAX, 57)
-	s.Code = append(s.Code, 0x0F, 0x05) // syscall
-
-	// Check if child (rax == 0) or parent (rax > 0) or error (rax < 0)
-	// test rax, rax
-	s.Code = append(s.Code, rexByte(1, regHi(RAX), 0, regHi(RAX)), 0x85, modRM(3, RAX, RAX))
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
 	jzChild := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz child
-	jsError := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0) // js error
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	jsForkErr := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovMemBaseDispReg(&s.Code, RBP, execChildPidOff, RAX)
 
-	// Parent path: wait for child
-	emitMovRegReg(&s.Code, RDI, RAX) // rdi = child pid
-	// Allocate space for status on stack
-	emitSubRspImm8(&s.Code, 8)
-	emitMovRegReg(&s.Code, RSI, RSP)  // rsi = &status
-	emitMovRegImm32(&s.Code, RDX, 0)  // options = 0
-	emitMovRegImm32(&s.Code, R10, 0)  // rusage = NULL
-	emitMovRegImm32(&s.Code, RAX, 61) // syscall 61 = wait4
-	s.Code = append(s.Code, 0x0F, 0x05)
+	// Parent: wait until the child exits, killing it on timeout.
+	waitLoop := len(s.Code)
+	emitNowNs()
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execDeadlineOff)
+	emitCmpRegReg(&s.Code, RAX, RCX)
+	jlWait := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, RDX, RBP, execTimedOutOff)
+	emitTestRegReg(&s.Code, RDX, RDX)
+	jnzSkipKill := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execChildPidOff)
+	emitMovRegImm32(&s.Code, RSI, 9)
+	emitMovRegImm32(&s.Code, RAX, 62)
+	emitSyscall(&s.Code)
+	emitMovRegImm32(&s.Code, RAX, 1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execTimedOutOff, RAX)
+	skipKillPos := len(s.Code)
+	patchRel32(&s.Code, jnzSkipKill+2, skipKillPos)
+	waitAfterTimeoutPos := len(s.Code)
+	patchRel32(&s.Code, jlWait+2, waitAfterTimeoutPos)
 
-	// Get exit status: WEXITSTATUS = (status >> 8) & 0xFF
-	emitMovRegMemBaseDisp(&s.Code, RAX, RSP, 0)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execChildPidOff)
+	emitLeaRegMemRbp(&s.Code, RSI, execStatusOff)
+	emitMovRegImm32(&s.Code, RDX, 1) // WNOHANG
+	emitMovRegImm32(&s.Code, R10, 0)
+	emitMovRegImm32(&s.Code, RAX, 61) // wait4
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jzWaitAgain := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	jsWaitErr := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execTimedOutOff)
+	emitTestRegReg(&s.Code, RCX, RCX)
+	jnzTimedOut := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0)
+
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execStatusOff)
+	emitMovRegReg(&s.Code, RCX, RAX)
+	emitMovRegImm32(&s.Code, RDX, 0x7F)
+	s.Code = append(s.Code, rexByte(1, regHi(RDX), 0, regHi(RAX)), 0x21, modRM(3, RDX, RAX)) // and rax, rdx
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jzNormalExit := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+
+	emitMovRegImm32(&s.Code, RAX, -1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execExitCodeOff, RAX)
+	jmpOutput1 := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
+
+	normalExitPos := len(s.Code)
+	patchRel32(&s.Code, jzNormalExit+2, normalExitPos)
+	emitMovRegReg(&s.Code, RAX, RCX)
 	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 5, RAX), 0x08) // shr rax, 8
-	emitMovRegImm32(&s.Code, RCX, 0xFF)
-	// and rax, rcx
-	s.Code = append(s.Code, rexByte(1, regHi(RCX), 0, regHi(RAX)), 0x21, modRM(3, RCX, RAX))
-	emitMovRegReg(&s.Code, R9, RAX) // R9 = exit code
+	emitMovRegImm32(&s.Code, RDX, 0xFF)
+	s.Code = append(s.Code, rexByte(1, regHi(RDX), 0, regHi(RAX)), 0x21, modRM(3, RDX, RAX)) // and rax, rdx
+	emitMovMemBaseDispReg(&s.Code, RBP, execExitCodeOff, RAX)
+	jmpOutput2 := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
 
-	emitAddRspImm8(&s.Code, 8)
-	emitAddRspImm8(&s.Code, 8) // pop saved argv
+	timedOutPos := len(s.Code)
+	patchRel32(&s.Code, jnzTimedOut+2, timedOutPos)
+	emitMovRegImm32(&s.Code, RAX, -1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execExitCodeOff, RAX)
 
-	// Build ExecResult with empty output fields.
-	// Layout follows src/std/os/os.bak:
-	// Output, Stdout, Stderr, ExitCode, TimedOut, Truncated.
-	// Each field is represented as one 8-byte slot in native structs here.
-	emitPushReg(&s.Code, R9)
-	emitMovRegImm32(&s.Code, RDI, 48)
-	callSiteExec := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteExec, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R9)
-	emitMovRegReg(&s.Code, R10, RAX) // R10 = ExecResult ptr
+	outputPos := len(s.Code)
+	patchRel32(&s.Code, jmpOutput1+1, outputPos)
+	patchRel32(&s.Code, jmpOutput2+1, outputPos)
+	patchRel32(&s.Code, jzWaitAgain+2, waitLoop)
 
-	// Create empty string for Output/Stdout/Stderr.
-	emitPushReg(&s.Code, R9)
-	emitPushReg(&s.Code, R10)
+	// Capture stdout/stderr from the memfds and build the ExecResult payload.
+	emitMovRaxImm64(&s.Code, s.Permissions.EffectiveExecMaxOutputBytes())
+	emitMovMemBaseDispReg(&s.Code, RBP, execRemainOff, RAX)
+	emitXorRegReg(&s.Code, RAX, RAX)
+	emitMovMemBaseDispReg(&s.Code, RBP, execTruncatedOff, RAX)
+
+	// stdout
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStdoutFdOff)
+	emitLeaRegMemRbp(&s.Code, RSI, execStatBufOff)
+	emitMovRegImm32(&s.Code, RAX, 5)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsCaptureErr1 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, R14, RBP, execStatBufOff+48)
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execRemainOff)
+	emitCmpRegReg(&s.Code, R14, RCX)
+	jleStdoutFits := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8E, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, R14, RCX)
+	emitMovRegImm32(&s.Code, RAX, 1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execTruncatedOff, RAX)
+	stdoutFitsPos := len(s.Code)
+	patchRel32(&s.Code, jleStdoutFits+2, stdoutFitsPos)
+
+	emitTestRegReg(&s.Code, R14, R14)
+	jzStdoutNoBuf := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, RDI, R14)
+	callHelper("__rt_alloc")
+	emitMovRegReg(&s.Code, R12, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStdoutFdOff)
+	emitMovRegReg(&s.Code, RSI, R12)
+	emitMovRegReg(&s.Code, RDX, R14)
+	emitXorRegReg(&s.Code, R10, R10)
+	emitMovRegImm32(&s.Code, RAX, 17) // pread64
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsCaptureErr2 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, R14, RAX) // actual bytes read
+	jmpStdoutHeader := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
+
+	stdoutNoBufPos := len(s.Code)
+	patchRel32(&s.Code, jzStdoutNoBuf+2, stdoutNoBufPos)
+	emitXorRegReg(&s.Code, R12, R12)
+
+	stdoutHeaderPos := len(s.Code)
 	emitMovRegImm32(&s.Code, RDI, 16)
-	callSiteStr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteStr, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R10)
-	emitPopReg(&s.Code, R9)
-	// rax = empty string header
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX)            // str.ptr = NULL
-	emitMovMemBaseDispReg(&s.Code, RAX, 8, RCX) // str.len = 0
+	callHelper("__rt_alloc")
+	emitMovMemReg(&s.Code, RAX, R12)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R14)
+	emitMovMemBaseDispReg(&s.Code, RBP, execStdoutHdrOff, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execRemainOff)
+	emitSubRegReg(&s.Code, RCX, R14)
+	emitMovMemBaseDispReg(&s.Code, RBP, execRemainOff, RCX)
+	patchRel32(&s.Code, jmpStdoutHeader+1, stdoutHeaderPos)
 
-	// Store in ExecResult
-	emitMovMemReg(&s.Code, R10, RAX)             // result.Output = str
-	emitMovMemBaseDispReg(&s.Code, R10, 8, RAX)  // result.Stdout = str
-	emitMovMemBaseDispReg(&s.Code, R10, 16, RAX) // result.Stderr = str
-	emitMovMemBaseDispReg(&s.Code, R10, 24, R9)  // result.ExitCode = exit_code
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemBaseDispReg(&s.Code, R10, 32, RCX) // result.TimedOut = false
-	emitMovMemBaseDispReg(&s.Code, R10, 40, RCX) // result.Truncated = false
+	// stderr
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStderrFdOff)
+	emitLeaRegMemRbp(&s.Code, RSI, execStatBufOff)
+	emitMovRegImm32(&s.Code, RAX, 5)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsCaptureErr3 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, R15, RBP, execStatBufOff+48)
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execRemainOff)
+	emitCmpRegReg(&s.Code, R15, RCX)
+	jleStderrFits := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8E, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, R15, RCX)
+	emitMovRegImm32(&s.Code, RAX, 1)
+	emitMovMemBaseDispReg(&s.Code, RBP, execTruncatedOff, RAX)
+	stderrFitsPos := len(s.Code)
+	patchRel32(&s.Code, jleStderrFits+2, stderrFitsPos)
 
-	// Build Result Ok
-	emitPushReg(&s.Code, R10)
+	emitTestRegReg(&s.Code, R15, R15)
+	jzStderrNoBuf := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, RDI, R15)
+	callHelper("__rt_alloc")
+	emitMovRegReg(&s.Code, R13, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStderrFdOff)
+	emitMovRegReg(&s.Code, RSI, R13)
+	emitMovRegReg(&s.Code, RDX, R15)
+	emitXorRegReg(&s.Code, R10, R10)
+	emitMovRegImm32(&s.Code, RAX, 17) // pread64
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jsCaptureErr4 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x88, 0, 0, 0, 0)
+	emitMovRegReg(&s.Code, R15, RAX) // actual bytes read
+	jmpStderrHeader := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
+
+	stderrNoBufPos := len(s.Code)
+	patchRel32(&s.Code, jzStderrNoBuf+2, stderrNoBufPos)
+	emitXorRegReg(&s.Code, R13, R13)
+
+	stderrHeaderPos := len(s.Code)
+	emitMovRegImm32(&s.Code, RDI, 16)
+	callHelper("__rt_alloc")
+	emitMovMemReg(&s.Code, RAX, R13)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R15)
+	emitMovMemBaseDispReg(&s.Code, RBP, execStderrHdrOff, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RCX, RBP, execRemainOff)
+	emitSubRegReg(&s.Code, RCX, R15)
+	emitMovMemBaseDispReg(&s.Code, RBP, execRemainOff, RCX)
+	patchRel32(&s.Code, jmpStderrHeader+1, stderrHeaderPos)
+
+	// Output is stdout + stderr, matching the Go runtime contract.
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStdoutHdrOff)
+	emitMovRegMemBaseDisp(&s.Code, RSI, RBP, execStderrHdrOff)
+	callHelper("__rt_string_concat")
+	emitMovMemBaseDispReg(&s.Code, RBP, execOutputHdrOff, RAX)
+
+	// Build ExecResult { Output, Stdout, Stderr, ExitCode, TimedOut, Truncated }
+	emitMovRegImm32(&s.Code, RDI, 48)
+	callHelper("__rt_alloc")
+	emitMovRegReg(&s.Code, RCX, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execOutputHdrOff)
+	emitMovMemReg(&s.Code, RCX, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execStdoutHdrOff)
+	emitMovMemBaseDispReg(&s.Code, RCX, 8, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execStderrHdrOff)
+	emitMovMemBaseDispReg(&s.Code, RCX, 16, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execExitCodeOff)
+	emitMovMemBaseDispReg(&s.Code, RCX, 24, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execTimedOutOff)
+	emitMovMemBaseDispReg(&s.Code, RCX, 32, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execTruncatedOff)
+	emitMovMemBaseDispReg(&s.Code, RCX, 40, RAX)
+
+	emitPushReg(&s.Code, RCX)
 	emitMovRegImm32(&s.Code, RDI, 24)
-	callSiteRes := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteRes, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R10)
-	// rax = Result ptr
-	emitMovRegImm32(&s.Code, RCX, 1)
-	emitMovMemReg(&s.Code, RAX, RCX)            // tag = 1 (Ok)
-	emitMovMemBaseDispReg(&s.Code, RAX, 8, R10) // value = ExecResult
+	callHelper("__rt_alloc")
+	emitPopReg(&s.Code, RCX)
+	emitMovRegImm32(&s.Code, RDX, 0)
+	emitMovMemReg(&s.Code, RAX, RDX)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, RCX)
 
-	jmpDone := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
+	jmpSuccessDone := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
 
-	// Child path: execve
+	// Error path shared by setup, wait, and read failures.
+	errPos := len(s.Code)
+	if err := s.emitResultErrStr("native: os.exec failed"); err != nil {
+		return err
+	}
+	jmpErrDone := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
+
+	patchRel32(&s.Code, jsStdoutMemfdErr+2, errPos)
+	patchRel32(&s.Code, jsStderrMemfdErr+2, errPos)
+	patchRel32(&s.Code, jsForkErr+2, errPos)
+	patchRel32(&s.Code, jsWaitErr+2, errPos)
+	patchRel32(&s.Code, jsCaptureErr1+2, errPos)
+	patchRel32(&s.Code, jsCaptureErr2+2, errPos)
+	patchRel32(&s.Code, jsCaptureErr3+2, errPos)
+	patchRel32(&s.Code, jsCaptureErr4+2, errPos)
+
+	// Child path: point stdout/stderr at the memfds and exec the wrapper.
 	childPos := len(s.Code)
 	patchRel32(&s.Code, jzChild+2, childPos)
-
-	emitPopReg(&s.Code, R8) // R8 = argv
-	// execve(filename, argv, envp)
-	emitMovRegMemBaseDisp(&s.Code, RDI, R8, 0) // filename = argv[0]
-	emitMovRegReg(&s.Code, RSI, R8)            // argv
-	emitMovRegImm32(&s.Code, RDX, 0)           // envp = NULL (simplified)
-	emitMovRegImm32(&s.Code, RAX, 59)          // syscall 59 = execve
-	s.Code = append(s.Code, 0x0F, 0x05)
-	// If execve returns, it failed - exit with error
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStdoutFdOff)
+	emitMovRegImm32(&s.Code, RSI, 1)
+	emitMovRegImm32(&s.Code, RAX, 33)
+	emitSyscall(&s.Code)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStderrFdOff)
+	emitMovRegImm32(&s.Code, RSI, 2)
+	emitMovRegImm32(&s.Code, RAX, 33)
+	emitSyscall(&s.Code)
+	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execEnvPathOff)
+	emitMovRegMemBaseDisp(&s.Code, RSI, RBP, execArgvOff)
+	emitMovRegMemBaseDisp(&s.Code, RDX, RBP, execEnvpOff)
+	emitMovRegImm32(&s.Code, RAX, 59)
+	emitSyscall(&s.Code)
 	emitMovRegImm32(&s.Code, RDI, 127)
-	emitMovRegImm32(&s.Code, RAX, 60) // exit
-	s.Code = append(s.Code, 0x0F, 0x05)
+	emitMovRegImm32(&s.Code, RAX, 60)
+	emitSyscall(&s.Code)
 
-	// Error path: fork failed
-	errorPos := len(s.Code)
-	patchRel32(&s.Code, jsError+2, errorPos)
-
-	emitAddRspImm8(&s.Code, 8) // pop argv
-
-	// Build Result Err
-	errMsg := "fork failed"
-	errIdx := s.addDataItem([]byte(errMsg), 1)
-
-	emitMovRegImm32(&s.Code, RDI, 16)
-	callSiteErrStr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteErrStr, Target: "__rt_alloc"})
-	emitMovRegReg(&s.Code, R10, RAX) // R10 = string header
-
-	s.emitDataAddr(errIdx)
-	emitMovMemReg(&s.Code, R10, RAX)
-	emitMovRegImm32(&s.Code, RCX, int32(len(errMsg)))
-	emitMovMemBaseDispReg(&s.Code, R10, 8, RCX)
-
-	// Allocate Result
-	emitPushReg(&s.Code, R10)
-	emitMovRegImm32(&s.Code, RDI, 24)
-	callSiteErrRes := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteErrRes, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R10)
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX)             // tag = 0 (Err)
-	emitMovMemBaseDispReg(&s.Code, RAX, 16, R10) // error = string
-
-	// Done label
-	donePos := len(s.Code)
-	patchRel32(&s.Code, jmpDone+1, donePos)
-
+	// Restore and return.
+	emitAddRspImm32(&s.Code, 328)
 	emitPopReg(&s.Code, R15)
 	emitPopReg(&s.Code, R14)
 	emitPopReg(&s.Code, R13)
 	emitPopReg(&s.Code, R12)
+	emitMovRegReg(&s.Code, RSP, RBP)
+	emitPopReg(&s.Code, RBP)
+	emitRet(&s.Code)
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpSuccessDone+1, donePos)
+	patchRel32(&s.Code, jmpErrDone+1, donePos)
 
 	return nil
 }

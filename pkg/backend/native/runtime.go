@@ -27,6 +27,12 @@ func (s *EmitState) emitRuntimeStubs() {
 	s.emitRuntimeStringConcat()
 	s.emitRuntimePrintFloat()
 	s.emitRuntimeCheckPerm()
+	if s.TraceEnabled {
+		s.ensureTraceDepthData()
+		s.emitRuntimeClockNowNS()
+		s.emitRuntimeTraceEnter()
+		s.emitRuntimeTraceExit()
+	}
 }
 
 // emitRuntimePrintFloat: __rt_print_float(bits: rdi)

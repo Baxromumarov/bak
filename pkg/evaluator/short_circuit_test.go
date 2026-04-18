@@ -6,6 +6,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -52,5 +53,24 @@ func main() -> (void) {
 	}
 	if result.Type() == object.ERROR_OBJ || result.Type() == object.PANIC_OBJ {
 		t.Fatalf("unexpected runtime error: %s", result.Inspect())
+	}
+}
+
+func TestEvaluatorCfgReturnsFalseWhenFeatureMissing(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures(nil)
+	t.Cleanup(restore)
+
+	result := evalSource(t, `package main
+
+func main() -> (bool) {
+	return cfg("missing-feature")
+}
+`)
+	boolResult, ok := result.(*object.Boolean)
+	if !ok {
+		t.Fatalf("expected boolean result, got %T (%s)", result, result.Inspect())
+	}
+	if boolResult.Value {
+		t.Fatalf("expected cfg to return false when the feature is absent")
 	}
 }

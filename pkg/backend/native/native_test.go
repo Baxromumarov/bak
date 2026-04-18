@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/packages"
@@ -18,6 +19,10 @@ import (
 )
 
 func buildNativeProgram(t *testing.T, source string, permissions runtimecap.Permissions) []byte {
+	return buildNativeProgramWithOptions(t, source, BuildOptions{Permissions: permissions})
+}
+
+func buildNativeProgramWithOptions(t *testing.T, source string, options BuildOptions) []byte {
 	t.Helper()
 
 	l := lexer.New(source)
@@ -33,7 +38,7 @@ func buildNativeProgram(t *testing.T, source string, permissions runtimecap.Perm
 		t.Fatalf("type errors: %v", errs)
 	}
 
-	binary, err := BuildExecutable(program, permissions)
+	binary, err := BuildExecutableWithOptions(program, options)
 	if err != nil {
 		t.Fatalf("BuildExecutable failed: %v", err)
 	}
@@ -62,6 +67,30 @@ func main() -> (void) {
 	}
 	if !bytes.Equal(first, second) {
 		t.Fatalf("expected deterministic output, binary bytes differed")
+	}
+}
+
+func TestBuildExecutableCfgFeatureFlag(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	restore := runtimecap.SetCurrentFeatures([]string{"native-cfg"})
+	t.Cleanup(restore)
+
+	source := `package main
+
+func main() -> (int) {
+	if cfg("native-cfg") {
+		return 7
+	}
+	return 0
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 7 {
+		t.Fatalf("unexpected exit code for cfg feature test: got %d want 7\noutput:\n%s", exitCode, output)
 	}
 }
 
@@ -120,6 +149,101 @@ func main() -> (void) {
 
 	if _, err := BuildExecutable(program, runtimecap.Permissions{AllowExec: true}); err != nil {
 		t.Fatalf("expected BuildExecutable to allow __builtin_exec with permission: %v", err)
+	}
+}
+
+func TestBuildExecutableExecCapturesOutputAndExitCode(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	root := findRepoRoot(t)
+	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
+
+	source := fmt.Sprintf(`package main
+
+	import %q as os
+
+func main() -> (int) {
+    var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
+	if result.is_err() {
+		return 2
+	}
+
+	if result.is_ok() {
+		return 1
+    }
+
+	return 3
+}
+`, osImport)
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{AllowExec: true})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 1 {
+		t.Fatalf("unexpected exit code for exec capture regression: got %d want 1\noutput:\n%s", exitCode, output)
+	}
+}
+
+func TestBuildExecutableExecTimesOut(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	root := findRepoRoot(t)
+	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
+
+	source := fmt.Sprintf(`package main
+
+	import %q as os
+
+func main() -> (int) {
+    var result: Result<os.ExecResult, string> = os.exec("sleep", ["1"])
+    if result.is_ok() {
+        var exec_result: os.ExecResult = result.unwrap()
+        if exec_result.TimedOut && exec_result.ExitCode == -1 && exec_result.Output == "" && exec_result.Stdout == "" && exec_result.Stderr == "" && !exec_result.Truncated {
+            return 11
+        }
+    }
+    return 0
+}
+`, osImport)
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{
+		AllowExec:   true,
+		ExecTimeout: 20 * time.Millisecond,
+	})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 11 {
+		t.Fatalf("unexpected exit code for exec timeout regression: got %d want 11\noutput:\n%s", exitCode, output)
+	}
+}
+
+func TestBuildExecutableExecTruncatesOutput(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	root := findRepoRoot(t)
+	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
+
+	source := fmt.Sprintf(`package main
+
+	import %q as os
+
+func main() -> (int) {
+    var result: Result<os.ExecResult, string> = os.exec("printf", ["abcdef"])
+    if result.is_ok() {
+        var exec_result: os.ExecResult = result.unwrap()
+        if exec_result.Output == "abc" && exec_result.Stdout == "abc" && exec_result.Stderr == "" && exec_result.ExitCode == 0 && !exec_result.TimedOut && exec_result.Truncated {
+            return 13
+        }
+    }
+    return 0
+}
+`, osImport)
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{
+		AllowExec:     true,
+		ExecMaxOutput: 3,
+	})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 13 {
+		t.Fatalf("unexpected exit code for exec truncation regression: got %d want 13\noutput:\n%s", exitCode, output)
 	}
 }
 
@@ -242,17 +366,69 @@ func main() -> (void) {
 }
 `
 
-	// Build with all permissions enabled
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{
 		AllowExec:     true,
 		AllowNet:      true,
 		AllowFSMutate: true,
 	})
 
-	// The binary should contain the runtime permission check stub
-	// including the panic message string
 	if !bytes.Contains(binary, []byte("runtime permission denied")) {
 		t.Fatalf("expected binary to contain runtime permission check stub")
+	}
+}
+
+func TestBuildExecutableTraceEmitsFunctionEvents(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+trace func work(value int) -> (int) {
+	return value + 1
+}
+
+func main() -> (int) {
+	return work(6)
+}
+`
+
+	binary := buildNativeProgramWithOptions(t, source, BuildOptions{
+		TraceEnabled: true,
+	})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 7 {
+		t.Fatalf("unexpected exit code: got %d want 7\noutput:\n%s", exitCode, output)
+	}
+	if !strings.Contains(output, "bak.trace event=enter fn=work depth=0 thread=0") {
+		t.Fatalf("missing native trace enter event:\n%s", output)
+	}
+	if !strings.Contains(output, "bak.trace event=exit fn=work depth=0 thread=0 status=ok duration_ns=") {
+		t.Fatalf("missing native trace exit event:\n%s", output)
+	}
+}
+
+func TestBuildExecutableTraceDisabledDoesNotEmitEvents(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+trace func work(value int) -> (int) {
+	return value + 1
+}
+
+func main() -> (int) {
+	return work(6)
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 7 {
+		t.Fatalf("unexpected exit code: got %d want 7\noutput:\n%s", exitCode, output)
+	}
+	if strings.Contains(output, "bak.trace") {
+		t.Fatalf("expected tracing to be disabled, got:\n%s", output)
 	}
 }
 
@@ -268,15 +444,7 @@ func main() -> (void) {
 }
 `
 
-	// Build with exec permission enabled (compile-time check passes)
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{AllowExec: true})
-
-	// Find and patch the permission byte in the binary to clear exec bit.
-	// The permission byte is in the data section. We don't know its exact
-	// offset, but we can search for the byte pattern near the runtime stubs.
-	// A simpler approach: the binary runs successfully with the bit set.
-	// We'll verify the happy path works; the panic path would require
-	// knowing the exact ELF layout.
 	exitCode, output := runNativeBinary(t, binary)
 	if exitCode != 0 {
 		t.Fatalf("expected exit code 0 with exec permission, got %d, output:\n%s", exitCode, output)

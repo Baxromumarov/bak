@@ -543,7 +543,7 @@ Goal:
 
 Status:
 
-- Not started yet.
+- Completed on April 18, 2026.
 
 Deliverables:
 
@@ -566,6 +566,14 @@ Deliverables:
     - opt-out overhead checks,
     - native and VM behavior checks.
 
+Implemented in this phase:
+
+- `trace func` and `pub trace func` syntax for opt-in function tracing,
+- VM trace emission with enter/exit events, duration, and panic/error outcomes,
+- native `--trace` builds that emit enter/exit events with low disabled-path overhead,
+- CLI plumbing for `bak run --trace`, `bak --vm --trace`, `bak --bc --trace`, and native build paths,
+- parser, CLI, VM, native, and metadata serialization coverage.
+
 Done when:
 
 - a user can debug program flow with built-in tracing without reaching for a custom logging framework first.
@@ -578,7 +586,26 @@ Goal:
 
 Status:
 
-- Not started in a focused way yet, beyond early `bakfmt`/`baklint` existence.
+- Complete on April 18, 2026.
+
+Implemented in this phase:
+
+1. `bakfmt`
+    - formatter idempotence is pinned by tests,
+    - coverage now includes additional syntax edges around impl blocks and comments.
+
+2. `baklint`
+    - source-based linting is shared between the CLI and LSP diagnostics paths,
+    - rule configuration remains flag-driven and test-covered.
+
+3. Project UX
+    - `bak new` now scaffolds a starter project,
+    - generated projects include `README.md`, `.gitignore`, `bak.toml`, and `src/main.bak`,
+    - package metadata is normalized for generated project names.
+
+4. LSP/editor workflow
+    - editor diagnostics now include linter findings alongside parser/typechecker diagnostics,
+    - formatting, definition, completion, and code-action hooks remain available.
 
 Deliverables:
 
@@ -614,6 +641,10 @@ Status:
 
 - Deferred until earlier phases are stronger.
 
+Implemented so far:
+
+- compile-time configuration via manifest features and `cfg("feature")`.
+
 Priority order:
 
 1. observability expansion,
@@ -646,8 +677,7 @@ Admission rule for major features:
 1. Structured logging API.
 2. Cancellation and timeout primitives integrated with process/network APIs.
 3. Better module/package ergonomics.
-4. `bak new` project scaffolding.
-5. Compile-time configuration and stronger constant evaluation.
+4. Project scaffolding polish beyond `bak new`.
 
 ### Do not start yet
 
@@ -720,7 +750,6 @@ If work resumes from this roadmap immediately, the next concrete sequence should
 4. If a feature makes the language more powerful but the tooling worse, it is not done.
 5. If self-hosting work does not improve the actual product in the next release window, it is a side quest.
 
-
 ## Future Feature: Foreign Function Interface (FFI)
 
 Status: **Not started. Scheduled after Phase 5 (tooling polish).**
@@ -738,67 +767,67 @@ Goal: allow Bak programs to call functions from compiled C-ABI libraries, with R
 #### Phase A: C ABI foundation (2-3 weeks)
 
 1. **Syntax**
-   - Add `extern "C" fn symbol_name(arg: Type, ...) -> Type` declarations at module scope.
-   - No body is provided; the symbol is resolved at link time.
+    - Add `extern "C" fn symbol_name(arg: Type, ...) -> Type` declarations at module scope.
+    - No body is provided; the symbol is resolved at link time.
 
 2. **Parser/typechecker**
-   - Parse extern blocks into a new `ast.ExternDecl` node.
-   - Type-check against a restricted FFI type palette:
-     - `int` / `float` / `bool` / `char` → scalar C types
-     - `&T` / `&mut T` → raw pointers
-     - `string` → `*const c_char` (null-terminated, borrowed)
-     - `Vec<T, _>` → pointer + length pair (or later, a C slice struct)
-   - Reject returning Bak-owned types (like `Option` or `Result`) across the FFI boundary unless explicitly marshalled.
+    - Parse extern blocks into a new `ast.ExternDecl` node.
+    - Type-check against a restricted FFI type palette:
+        - `int` / `float` / `bool` / `char` → scalar C types
+        - `&T` / `&mut T` → raw pointers
+        - `string` → `*const c_char` (null-terminated, borrowed)
+        - `Vec<T, _>` → pointer + length pair (or later, a C slice struct)
+    - Reject returning Bak-owned types (like `Option` or `Result`) across the FFI boundary unless explicitly marshalled.
 
 3. **Native backend**
-   - Treat extern symbols like any other function symbol in `EmitState.Functions`.
-   - Emit a standard `call rel32` to the extern name; the linker resolves it.
-   - Add a `--link` CLI flag to `bak build` that forwards extra object files / static libraries to the linker.
+    - Treat extern symbols like any other function symbol in `EmitState.Functions`.
+    - Emit a standard `call rel32` to the extern name; the linker resolves it.
+    - Add a `--link` CLI flag to `bak build` that forwards extra object files / static libraries to the linker.
 
 4. **Build system**
-   - `bak build main.bak --link=librust_crypto.a`
-   - The backend invokes `ld` (or `gcc` as linker driver) with the user-supplied objects.
+    - `bak build main.bak --link=librust_crypto.a`
+    - The backend invokes `ld` (or `gcc` as linker driver) with the user-supplied objects.
 
 5. **Tests**
-   - A companion C file exports `int bak_test_add(int, int)`.
-   - A Bak program declares `extern "C" fn bak_test_add(a: int, b: int) -> int` and asserts the result.
-   - CI builds the C object, links it, and runs the binary.
+    - A companion C file exports `int bak_test_add(int, int)`.
+    - A Bak program declares `extern "C" fn bak_test_add(a: int, b: int) -> int` and asserts the result.
+    - CI builds the C object, links it, and runs the binary.
 
 #### Phase B: Rust ergonomics (2-3 weeks)
 
 1. **Rust crate conventions**
-   - Document a standard `bak-ffi` Cargo template:
-     - `#[no_mangle] pub extern "C"` for exported functions.
-     - `cbindgen`-style header generation (or manual) so Bak knows the symbol names.
-   - Support `cargo build --release` as a pre-link step via a `build.rs`-like hook in `bak.toml`.
+    - Document a standard `bak-ffi` Cargo template:
+        - `#[no_mangle] pub extern "C"` for exported functions.
+        - `cbindgen`-style header generation (or manual) so Bak knows the symbol names.
+    - Support `cargo build --release` as a pre-link step via a `build.rs`-like hook in `bak.toml`.
 
 2. **Type helpers**
-   - A small Rust crate `bak-ffi` that provides:
-     - `BakString { ptr: *const c_char, len: usize }`
-     - `BakVec<T> { ptr: *const T, len: usize }`
-   - Symmetric helpers in Bak's standard library for converting to/from foreign slice types.
+    - A small Rust crate `bak-ffi` that provides:
+        - `BakString { ptr: *const c_char, len: usize }`
+        - `BakVec<T> { ptr: *const T, len: usize }`
+    - Symmetric helpers in Bak's standard library for converting to/from foreign slice types.
 
 3. **Memory contract**
-   - Who allocates, who frees?
-   - Default rule: caller allocates, caller frees. Rust functions receiving Bak data must not hold pointers past the call return unless a separate ownership-transfer API is used.
-   - Document the contract clearly; violating it is UB.
+    - Who allocates, who frees?
+    - Default rule: caller allocates, caller frees. Rust functions receiving Bak data must not hold pointers past the call return unless a separate ownership-transfer API is used.
+    - Document the contract clearly; violating it is UB.
 
 #### Phase C: Go interop (3-4 weeks, deferred)
 
 1. **Go buildmode integration**
-   - Teach `bak build` to invoke `go build -buildmode=c-archive` for referenced Go packages.
-   - Extract the generated `.h` to know symbol names, or require manual `extern "C"` declarations.
+    - Teach `bak build` to invoke `go build -buildmode=c-archive` for referenced Go packages.
+    - Extract the generated `.h` to know symbol names, or require manual `extern "C"` declarations.
 
 2. **Runtime initialization**
-   - The Go runtime must be initialized before any Go function is called.
-   - Emit a one-time init check in the native `_start` stub or lazily before the first Go extern call.
+    - The Go runtime must be initialized before any Go function is called.
+    - Emit a one-time init check in the native `_start` stub or lazily before the first Go extern call.
 
 3. **Goroutine / GC awareness**
-   - Go functions that spawn goroutines are allowed, but Bak cannot wait on them directly.
-   - Document that Go-allocated memory is managed by the Go GC; Bak must copy data out if it needs long-lived access.
+    - Go functions that spawn goroutines are allowed, but Bak cannot wait on them directly.
+    - Document that Go-allocated memory is managed by the Go GC; Bak must copy data out if it needs long-lived access.
 
 4. **Panic safety**
-   - A Go panic aborts the process. Document that recoverable panics must be handled inside the Go layer.
+    - A Go panic aborts the process. Document that recoverable panics must be handled inside the Go layer.
 
 ### Admission checklist
 

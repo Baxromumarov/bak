@@ -39,6 +39,16 @@ func DefaultConfig() *Config {
 	}
 }
 
+func normalizeConfig(config *Config) *Config {
+	if config == nil {
+		config = DefaultConfig()
+	}
+	if config.DisabledRules == nil {
+		config.DisabledRules = make(map[string]bool)
+	}
+	return config
+}
+
 // Rule is the interface all lint rules implement.
 type Rule interface {
 	Name() string
@@ -65,13 +75,22 @@ func LintFile(path string, config *Config) []Finding {
 	if err != nil {
 		return []Finding{{Rule: "io", Level: "error", Message: err.Error(), File: path}}
 	}
-	source := string(data)
+	return LintSource(path, string(data), config)
+}
+
+// LintSource parses and lints an in-memory source string.
+func LintSource(path, source string, config *Config) []Finding {
+	config = normalizeConfig(config)
 	l := lexer.New(source)
 	p := parser.New(l)
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		return nil // skip files with parse errors
 	}
+	return lintProgram(path, source, program, config)
+}
+
+func lintProgram(path, source string, program *ast.Program, config *Config) []Finding {
 
 	var findings []Finding
 	for _, rule := range allRules {

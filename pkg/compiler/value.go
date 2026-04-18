@@ -266,6 +266,7 @@ func (v Value) String() string {
 type FunctionObj struct {
 	Name      string
 	Arity     int // Number of parameters
+	Traced    bool
 	Code      []byte
 	Constants []Value
 	NumLocals int

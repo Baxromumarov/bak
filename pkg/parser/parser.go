@@ -463,6 +463,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	switch p.curToken.Type {
 	case token.PUB:
 		return p.parsePubDecl()
+	case token.TRACE:
+		return p.parseTraceDecl()
 	case token.PACKAGE:
 		if s := p.parsePackageStatement(); s != nil {
 			return s
@@ -643,6 +645,19 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		}
 		decl.Visibility = ast.Public
 		return decl
+	case token.TRACE:
+		stmt := p.parseTraceDecl()
+		if stmt == nil {
+			return nil
+		}
+		decl, ok := stmt.(*ast.FunctionDecl)
+		if !ok {
+			msg := fmt.Sprintf("line %d: 'pub trace' can only be used before func declarations", pubToken.Line)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+		decl.Visibility = ast.Public
+		return decl
 	case token.TRAIT:
 		decl := p.parseTraitDefinition()
 		if decl == nil {
@@ -700,6 +715,39 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		return decl
 	default:
 		msg := fmt.Sprintf("line %d: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", pubToken.Line)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+}
+
+func (p *Parser) parseTraceDecl() ast.Statement {
+	traceToken := p.curToken
+
+	p.nextToken() // consume 'trace'
+
+	switch p.curToken.Type {
+	case token.FUNC:
+		decl := p.parseFunctionDecl()
+		if decl == nil {
+			return nil
+		}
+		decl.Traced = true
+		return decl
+	case token.PUB:
+		stmt := p.parsePubDecl()
+		if stmt == nil {
+			return nil
+		}
+		decl, ok := stmt.(*ast.FunctionDecl)
+		if !ok {
+			msg := fmt.Sprintf("line %d: 'trace pub' can only be used before func declarations", traceToken.Line)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+		decl.Traced = true
+		return decl
+	default:
+		msg := fmt.Sprintf("line %d: 'trace' can only be used before func declarations", traceToken.Line)
 		p.errors = append(p.errors, msg)
 		return nil
 	}

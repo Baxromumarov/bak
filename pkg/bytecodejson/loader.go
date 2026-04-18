@@ -34,6 +34,7 @@ type valueJSON struct {
 type functionJSON struct {
 	Name      string               `json:"name"`
 	Arity     int                  `json:"arity"`
+	Traced    bool                 `json:"traced,omitempty"`
 	NumLocals int                  `json:"num_locals"`
 	Code      []int                `json:"code"`
 	Constants []valueJSON          `json:"constants"`
@@ -192,6 +193,7 @@ func convertFunction(fn functionJSON) (*compiler.FunctionObj, error) {
 	return &compiler.FunctionObj{
 		Name:      fn.Name,
 		Arity:     fn.Arity,
+		Traced:    fn.Traced,
 		Code:      code,
 		Constants: constants,
 		NumLocals: fn.NumLocals,

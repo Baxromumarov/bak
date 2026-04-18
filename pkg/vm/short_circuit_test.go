@@ -6,6 +6,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -54,5 +55,27 @@ func main() -> (void) {
 	v := New(module)
 	if _, err := v.Run(); err != nil {
 		t.Fatalf("runtime error: %v", err)
+	}
+}
+
+func TestVMCfgReturnsTrueWhenFeatureEnabled(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures([]string{"fast-path"})
+	t.Cleanup(restore)
+
+	src := `package main
+
+func main() -> (bool) {
+	return cfg("fast-path")
+}
+`
+
+	module := compileModule(t, src)
+	v := New(module)
+	val, err := v.Run()
+	if err != nil {
+		t.Fatalf("runtime error: %v", err)
+	}
+	if val.Type != compiler.VAL_BOOL || !val.AsBool {
+		t.Fatalf("expected cfg to return true, got %#v", val)
 	}
 }

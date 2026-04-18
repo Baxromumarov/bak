@@ -153,6 +153,56 @@ struct Point {
 	}
 }
 
+func TestParseTraceFunctionDecl(t *testing.T) {
+	input := `
+package main
+
+trace func work(value int) -> (int) {
+	return value
+}
+`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	fd, ok := program.Statements[1].(*ast.FunctionDecl)
+	if !ok {
+		t.Fatalf("expected FunctionDecl, got %T", program.Statements[1])
+	}
+	if !fd.Traced {
+		t.Fatalf("expected function to be marked traced")
+	}
+	if got := fd.String(); !strings.Contains(got, "trace func work") {
+		t.Fatalf("expected traced function string, got %q", got)
+	}
+}
+
+func TestParsePubTraceFunctionDecl(t *testing.T) {
+	input := `
+package main
+
+pub trace func work() -> (void) {
+	return void
+}
+`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	fd, ok := program.Statements[1].(*ast.FunctionDecl)
+	if !ok {
+		t.Fatalf("expected FunctionDecl, got %T", program.Statements[1])
+	}
+	if !fd.Traced {
+		t.Fatalf("expected function to be marked traced")
+	}
+	if fd.Visibility != ast.Public {
+		t.Fatalf("expected function to be public")
+	}
+}
+
 func TestParseEnumDecl(t *testing.T) {
 	input := `
 package main

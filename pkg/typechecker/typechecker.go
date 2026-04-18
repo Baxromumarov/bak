@@ -1545,6 +1545,13 @@ func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 	case *ast.CallExpression:
 		// Allow type constructor calls like ValueType(0) if the argument is constant
 		if ident, ok := e.Function.(*ast.Identifier); ok {
+			if ident.Value == "cfg" {
+				if len(e.Arguments) != 1 {
+					return false
+				}
+				_, ok := e.Arguments[0].(*ast.StringLiteral)
+				return ok
+			}
 			// Check if this is a type constructor (type definition)
 			if _, found := tc.env.LookupTypeDef(ident.Value); found {
 				// All arguments must be compile-time constants
@@ -3960,6 +3967,15 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	if sig != nil {
 		// Skip arity/type check for builtins
 		if tc.isBuiltin(funcName) {
+			if funcName == "cfg" {
+				if len(ce.Arguments) != 1 {
+					tc.addError(ce.Token.Line, ce.Token.Column,
+						"cfg requires exactly 1 string literal argument")
+				} else if _, ok := ce.Arguments[0].(*ast.StringLiteral); !ok {
+					tc.addError(ce.Token.Line, ce.Token.Column,
+						"cfg() requires a string literal feature name")
+				}
+			}
 			for _, arg := range ce.Arguments {
 				tc.inferType(arg)
 			}

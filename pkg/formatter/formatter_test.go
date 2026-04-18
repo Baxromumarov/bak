@@ -124,3 +124,19 @@ func TestFormatImplMethodComments(t *testing.T) {
 		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
 	}
 }
+
+func TestFormatIdempotent(t *testing.T) {
+	input := "package main\n\nfunc main() -> (void) {\n    return void\n}\n"
+
+	first, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors on second format: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent\nfirst:\n%q\nsecond:\n%q", first, second)
+	}
+}

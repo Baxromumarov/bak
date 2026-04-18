@@ -79,6 +79,7 @@ const (
 	CONST    TokenType = "CONST"
 	MUT      TokenType = "MUT"
 	FUNC     TokenType = "FUNC"
+	TRACE    TokenType = "TRACE"
 	RETURN   TokenType = "RETURN"
 	STRUCT   TokenType = "STRUCT"
 	ENUM     TokenType = "ENUM"
@@ -151,6 +152,7 @@ var keywords = map[string]TokenType{
 	"const":    CONST,
 	"mut":      MUT,
 	"func":     FUNC,
+	"trace":    TRACE,
 	"return":   RETURN,
 	"struct":   STRUCT,
 	"enum":     ENUM,
@@ -223,6 +225,7 @@ func IsKeyword(t TokenType) bool {
 		CONST,
 		MUT,
 		FUNC,
+		TRACE,
 		RETURN,
 		STRUCT,
 		ENUM,

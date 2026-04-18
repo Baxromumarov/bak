@@ -5,6 +5,8 @@
 //
 //	bak <file.bak>           Run a bak program
 //	bak                      Start the REPL
+//	bak new <name>           Create a new project
+//	bak init <name>          Alias for bak new
 //	bak --version            Show version information
 //	bak --help               Show help
 package main
@@ -36,6 +38,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/trace"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
@@ -83,6 +86,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+	interpreterArgs, traceEnabled := stripTraceFlag(interpreterArgs)
 
 	if len(interpreterArgs) == 0 {
 		startREPL(permissions)
@@ -108,12 +112,16 @@ func main() {
 		return
 	}
 
-	// Support simple subcommands: run/check/build
+	// Support simple subcommands: run/check/build/new/init
 	switch args[0] {
 	case "run":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "Error: 'run' requires a file argument")
 			os.Exit(1)
+		}
+		if traceEnabled {
+			runFileVM(args[1], scriptArgs, traceEnabled, permissions)
+			return
 		}
 		runFile(args[1], scriptArgs, permissions)
 		return
@@ -140,7 +148,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error: 'native' requires a file argument")
 			os.Exit(1)
 		}
-		buildFile(sourceFile, outputFile, true, permissions)
+		buildFile(sourceFile, outputFile, true, traceEnabled, permissions)
 		return
 	case "build":
 		// bak build works like go build: produces a native executable by default.
@@ -174,14 +182,17 @@ func main() {
 				outputFile = "a.out"
 			}
 		}
-		buildFile(sourceFile, outputFile, true, permissions)
+		buildFile(sourceFile, outputFile, true, traceEnabled, permissions)
 		return
-	case "init":
+	case "new", "init":
 		projectName := "my-project"
 		if len(args) >= 2 {
 			projectName = args[1]
 		}
-		initProject(projectName)
+		if err := initProject(projectName); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		return
 	case "get":
 		opts, rest, err := parsePackageCommandOptions(args[1:])
@@ -237,18 +248,18 @@ func main() {
 		if !explicitArgs {
 			programArgs = append([]string{modulePath}, programArgs...)
 		}
-		runBytecodeFile(modulePath, programArgs, profileEnabled, permissions)
+		runBytecodeFile(modulePath, programArgs, profileEnabled, traceEnabled, permissions)
 	case "--vm":
 		if len(args) > 1 && strings.HasSuffix(args[1], ".bak") {
-			runFileVM(args[1], permissions)
+			runFileVM(args[1], scriptArgs, traceEnabled, permissions)
 		} else {
 			fmt.Fprintf(os.Stderr, "Error: --vm requires a .bak file\n")
 			os.Exit(1)
 		}
 	default:
 		if filename != "" {
-			if useVM {
-				runFileVM(filename, permissions)
+			if useVM || traceEnabled {
+				runFileVM(filename, scriptArgs, traceEnabled, permissions)
 			} else {
 				runFile(filename, scriptArgs, permissions)
 			}
@@ -275,6 +286,7 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("Build flags:")
 	fmt.Println("  -o <file>              Output file name")
+	fmt.Println("  --trace                Enable built-in function tracing")
 	fmt.Println()
 	fmt.Println("Runtime permission flags:")
 	fmt.Println("  --allow-exec           Allow subprocess execution via os.exec")
@@ -342,12 +354,22 @@ func runFile(filename string, scriptArgs []string, permissions runtimecap.Permis
 	}
 }
 
-func runFileVM(filename string, permissions runtimecap.Permissions) {
+func runFileVM(filename string, scriptArgs []string, traceEnabled bool, permissions runtimecap.Permissions) {
 	permissions = loadProjectRuntimePermissions(permissions)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
 		os.Exit(1)
+	}
+
+	oldArgs := os.Args
+	defer func() {
+		os.Args = oldArgs
+	}()
+	if len(scriptArgs) > 0 {
+		os.Args = append([]string{filename}, scriptArgs...)
+	} else {
+		os.Args = []string{filename}
 	}
 
 	// Parse the source code
@@ -388,6 +410,7 @@ func runFileVM(filename string, permissions runtimecap.Permissions) {
 
 	// Run the VM
 	v := vm.NewWithPermissions(module, permissions)
+	v.SetTracer(trace.New(traceEnabled, os.Stderr))
 	_, vmErr := v.Run()
 	if vmErr != nil {
 		fmt.Fprintf(os.Stderr, "Runtime error: %s\n", vmErr)
@@ -424,7 +447,7 @@ func checkFile(filename string) {
 	fmt.Println("Typecheck: OK")
 }
 
-func buildFile(filename string, outputFile string, nativeBuild bool, permissions runtimecap.Permissions) {
+func buildFile(filename string, outputFile string, nativeBuild bool, traceEnabled bool, permissions runtimecap.Permissions) {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
@@ -454,7 +477,10 @@ func buildFile(filename string, outputFile string, nativeBuild bool, permissions
 	}
 
 	if nativeBuild {
-		exe, err := native.BuildExecutable(program, permissions)
+		exe, err := native.BuildExecutableWithOptions(program, native.BuildOptions{
+			Permissions:  permissions,
+			TraceEnabled: traceEnabled,
+		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Native build error: %s\n", err)
 			os.Exit(1)
@@ -786,7 +812,7 @@ func splitBytecodeArgs(args []string) (string, []string, bool, bool, error) {
 	return modulePath, programArgs, explicitArgs, profileEnabled, nil
 }
 
-func runBytecodeFile(filename string, programArgs []string, profileEnabled bool, permissions runtimecap.Permissions) {
+func runBytecodeFile(filename string, programArgs []string, profileEnabled bool, traceEnabled bool, permissions runtimecap.Permissions) {
 	permissions = loadProjectRuntimePermissions(permissions)
 	oldArgs := os.Args
 	if len(programArgs) > 0 {
@@ -805,6 +831,7 @@ func runBytecodeFile(filename string, programArgs []string, profileEnabled bool,
 	}
 
 	v := vm.NewWithProfileAndPermissions(module, profileEnabled, permissions)
+	v.SetTracer(trace.New(traceEnabled, os.Stderr))
 	_, vmErr := v.Run()
 	if profileEnabled {
 		v.PrintProfile()
@@ -813,6 +840,19 @@ func runBytecodeFile(filename string, programArgs []string, profileEnabled bool,
 		fmt.Fprintf(os.Stderr, "Runtime error: %s\n", vmErr)
 		os.Exit(1)
 	}
+}
+
+func stripTraceFlag(args []string) ([]string, bool) {
+	filtered := make([]string, 0, len(args))
+	traceEnabled := false
+	for _, arg := range args {
+		if arg == "--trace" {
+			traceEnabled = true
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+	return filtered, traceEnabled
 }
 
 func startREPL(permissions runtimecap.Permissions) {
@@ -933,12 +973,36 @@ func parseRuntimePermissions(args []string) (runtimecap.Permissions, []string, e
 }
 
 func loadProjectRuntimePermissions(base runtimecap.Permissions) runtimecap.Permissions {
-	manifestPermissions, err := loadRuntimePermissionsFromManifest(".")
+	m, err := manifest.LoadFromDir(".")
 	if err != nil {
+		if os.IsNotExist(err) {
+			runtimecap.SetCurrentFeatures(nil)
+			return base
+		}
+		runtimecap.SetCurrentFeatures(nil)
 		fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", err)
 		os.Exit(1)
 	}
-	return mergeRuntimePermissions(base, manifestPermissions)
+	runtimecap.SetCurrentFeatures(m.Features)
+	if m == nil || m.Permissions == nil {
+		return base
+	}
+
+	permissions := runtimecap.Permissions{
+		AllowExec:     m.Permissions.AllowExec,
+		AllowNet:      m.Permissions.AllowNet,
+		AllowFSMutate: m.Permissions.AllowFSMutate,
+		ExecMaxOutput: m.Permissions.ExecMaxOutput,
+	}
+	if m.Permissions.ExecTimeout != "" {
+		dur, err := time.ParseDuration(m.Permissions.ExecTimeout)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", fmt.Errorf("invalid permissions.exec_timeout %q: %w", m.Permissions.ExecTimeout, err))
+			os.Exit(1)
+		}
+		permissions.ExecTimeout = dur
+	}
+	return mergeRuntimePermissions(base, permissions)
 }
 
 func loadRuntimePermissionsFromManifest(dir string) (runtimecap.Permissions, error) {
@@ -1043,53 +1107,93 @@ func printTypeErrors(errors []string) {
 }
 
 // initProject creates a new Bak project with bak.toml and starter files.
-func initProject(name string) {
-	fmt.Printf("Initializing project '%s'...\n", name)
+func initProject(name string) error {
+	projectDir := filepath.Clean(name)
+	projectTitle := projectDisplayName(projectDir)
+	packageName := sanitizeProjectName(projectTitle)
 
-	// Create directory
-	if err := os.MkdirAll(name, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating directory: %v\n", err)
-		os.Exit(1)
+	fmt.Printf("Initializing project %q...\n", projectDir)
+
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
+		return fmt.Errorf("create project directory: %w", err)
 	}
 
-	// Create src directory
-	srcDir := filepath.Join(name, "src")
+	srcDir := filepath.Join(projectDir, "src")
 	if err := os.MkdirAll(srcDir, 0755); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating src directory: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("create src directory: %w", err)
 	}
 
-	// Create main.bak
 	mainPath := filepath.Join(srcDir, "main.bak")
 	mainContent := "package main\n\nfunc main() -> (void) {\n    println(\"Hello, world!\")\n}\n"
 	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating main.bak: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("create main.bak: %w", err)
 	}
 
-	// Create .gitignore
-	gitIgnorePath := filepath.Join(name, ".gitignore")
-	gitIgnoreContent := ".bak-cache/\n*.bakc\n"
+	readmePath := filepath.Join(projectDir, "README.md")
+	readmeContent := fmt.Sprintf("# %s\n\nStarter Bak project generated with bak new.\n\n## Layout\n\n- src/main.bak: entry point\n- bak.toml: package metadata and permissions\n- .gitignore: local build and cache ignores\n\n## Run\n\n```bash\nbak run src/main.bak\n```\n\n## Format and lint\n\n```bash\nbakfmt src\nbaklint src\n```\n", projectTitle)
+	if err := os.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
+		return fmt.Errorf("create README.md: %w", err)
+	}
+
+	gitIgnorePath := filepath.Join(projectDir, ".gitignore")
+	gitIgnoreContent := ".bak-cache/\n*.bakc\na.out\nbin/\nbuild/\n"
 	if err := os.WriteFile(gitIgnorePath, []byte(gitIgnoreContent), 0644); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating .gitignore: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("create .gitignore: %w", err)
 	}
 
-	// Create bak.toml
-	m := manifest.DefaultManifest(name)
-	m.Package.Authors = []string{"Me <me@example.com>"}
-	if err := m.SaveToDir(name); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating bak.toml: %v\n", err)
-		os.Exit(1)
+	m := manifest.DefaultManifest(packageName)
+	if err := m.SaveToDir(projectDir); err != nil {
+		return fmt.Errorf("create bak.toml: %w", err)
 	}
 
-	fmt.Printf("Project '%s' initialized!\n", name)
+	fmt.Printf("Project %q created!\n", projectDir)
 	fmt.Println("Created files:")
 	fmt.Println("  bak.toml")
+	fmt.Println("  README.md")
 	fmt.Println("  src/main.bak")
 	fmt.Println("  .gitignore")
 	fmt.Println()
-	fmt.Printf("To run: cd %s && bak run src/main.bak\n", name)
+	fmt.Printf("To run: cd %s && bak run src/main.bak\n", projectDir)
+	return nil
+}
+
+func projectDisplayName(path string) string {
+	base := filepath.Base(filepath.Clean(path))
+	if base == "." || base == string(filepath.Separator) || base == "" {
+		return "my-project"
+	}
+	return base
+}
+
+func sanitizeProjectName(name string) string {
+	var builder strings.Builder
+	lastUnderscore := false
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+			lastUnderscore = false
+		case r >= '0' && r <= '9':
+			if builder.Len() == 0 {
+				builder.WriteString("project_")
+			}
+			builder.WriteRune(r)
+			lastUnderscore = false
+		default:
+			if builder.Len() > 0 && !lastUnderscore {
+				builder.WriteByte('_')
+				lastUnderscore = true
+			}
+		}
+	}
+	result := strings.Trim(builder.String(), "_")
+	if result == "" {
+		return "project"
+	}
+	if result[0] >= '0' && result[0] <= '9' {
+		result = "project_" + result
+	}
+	return result
 }
 
 func parsePackageCommandOptions(args []string) (packageCommandOptions, []string, error) {

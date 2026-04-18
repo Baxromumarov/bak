@@ -68,6 +68,7 @@ i = i + 1
 - Ignore unused vars by prefixing with `_`.
 
 ### Multiple Return Values
+
 Bak supports multiple return values and destructuring assignments using `var (...)`.
 
 ```bak
@@ -96,6 +97,7 @@ func add(a: int, b: int) -> (int) {
 - Borrow with `&T`, mutable borrow with `&mut T`.
 
 **v1 Restrictions:**
+
 - Functions **cannot** return borrowed values (lifetime analysis is strictly lexical).
 - Structs **cannot** contain borrowed references as fields.
 
@@ -153,6 +155,7 @@ switch value {
 ```
 
 ### Defer
+
 Use `defer` to schedule a block to run when the surrounding function returns.
 
 ```bak
@@ -166,6 +169,7 @@ func process() -> (void) {
 `panic("message")` aborts execution after running deferred blocks.
 
 ## Pattern Matching
+
 Switch statements support simple value matching and destructuring of `Option`/`Result` types.
 
 ```bak
@@ -182,6 +186,7 @@ switch opt {
 ```
 
 ## Standard Library
+
 Selected std packages and examples:
 
 - `path` / `filepath`: path utilities. Example: `examples/path_example.bak`.
@@ -209,7 +214,6 @@ Selected std packages and examples:
 - Prefer borrows (`&T`) for read-only access to large structures.
 - Export only the minimal `pub` API surface.
 
-
 ## Project Direction
 
 Bak is currently developed with a Go-first strategy:
@@ -218,6 +222,14 @@ Bak is currently developed with a Go-first strategy:
 - use `bakc-stage0` for normal compilation work,
 - treat `src/` as experimental or supplemental,
 - do not treat full self-hosting as a release blocker.
+
+## Tooling
+
+- `bak new <name>` creates a starter project with `bak.toml`, `README.md`, `src/main.bak`, and `.gitignore`.
+- `bak init <name>` remains available as a compatibility alias for `bak new`.
+- `bakfmt` formats Bak source files.
+- `baklint` reports style and correctness findings.
+- `bak.toml` can declare `features = ["..."]`; `cfg("...")` checks those feature flags during compilation.
 
 See:
 

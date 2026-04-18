@@ -75,6 +75,7 @@ var Builtins = map[string]*object.Builtin{
 	"__builtin_socket_set_timeout": {Fn: builtinSocketSetTimeout},
 	"__builtin_socket_bind":        {Fn: builtinSocketBind},
 	"__builtin_socket_accept":      {Fn: builtinSocketAccept},
+	"cfg":                          {Fn: builtinCfg},
 	"__builtin_sleep":              {Fn: builtinSleep},
 	"__builtin_time_now":           {Fn: builtinTimeNow},
 	"__builtin_time_parts":         {Fn: builtinTimeParts},
@@ -115,6 +116,17 @@ func builtinConcat(args ...object.Object) object.Object {
 	}
 
 	return &object.String{Value: out.String()}
+}
+
+func builtinCfg(args ...object.Object) object.Object {
+	if len(args) != 1 {
+		return newError("cfg: wrong number of arguments. got=%d, want=1", len(args))
+	}
+	featureName, ok := args[0].(*object.String)
+	if !ok {
+		return newError("cfg: argument must be string, got %s", args[0].Type())
+	}
+	return &object.Boolean{Value: runtimecap.CurrentFeatureEnabled(featureName.Value)}
 }
 
 // builtinFromChars: primitive to convert Vec<char,_> to string

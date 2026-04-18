@@ -100,3 +100,70 @@ func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
 		}
 	}
 }
+
+func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func BadName() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	tmpFile, err := os.CreateTemp("", "bak-lsp-lint-*.bak")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	if _, err := tmpFile.WriteString(src); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		t.Fatalf("close temp file: %v", err)
+	}
+
+	path, err := filepath.Abs(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("abs path: %v", err)
+	}
+	uri := pathToURI(path)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	if notification.Method != "textDocument/publishDiagnostics" {
+		t.Fatalf("unexpected method: %s", notification.Method)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	foundLint := false
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-linter" {
+			foundLint = true
+			if !strings.Contains(diag.Message, "snake_case") {
+				t.Fatalf("unexpected lint diagnostic message: %s", diag.Message)
+			}
+		}
+	}
+	if !foundLint {
+		t.Fatalf("expected at least one linter diagnostic, got %#v", params.Diagnostics)
+	}
+}

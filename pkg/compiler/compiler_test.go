@@ -1,10 +1,12 @@
 package compiler
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 // helper: parse and compile, fail on any error
@@ -20,6 +22,25 @@ func compileSource(t *testing.T, source string) {
 	if _, err := c.Compile(program); err != nil {
 		t.Fatalf("compile failed: %v", err)
 	}
+}
+
+func compileSourceWithFeatures(t *testing.T, source string, features []string) *BytecodeModule {
+	t.Helper()
+	restore := runtimecap.SetCurrentFeatures(features)
+	t.Cleanup(restore)
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+	c := New()
+	module, err := c.Compile(program)
+	if err != nil {
+		t.Fatalf("compile failed: %v", err)
+	}
+	return module
 }
 
 // =============================================================================
@@ -49,6 +70,31 @@ func main() -> (void) {
 	println(a, b, c, d)
 }
 `)
+}
+
+func TestCompileCfgFoldsToBooleanLiteral(t *testing.T) {
+	module := compileSourceWithFeatures(t, `
+package main
+
+const feature_enabled bool = cfg("experimental-cfg")
+`, []string{"experimental-cfg"})
+
+	var initFn *FunctionObj
+	for _, fn := range module.Functions {
+		if fn.Name == "__bak_init" {
+			initFn = fn
+			break
+		}
+	}
+	if initFn == nil {
+		t.Fatalf("expected init function to be generated")
+	}
+	if bytes.Contains(initFn.Code, []byte{byte(OP_BUILTIN), byte(BUILTIN_CFG)}) {
+		t.Fatalf("expected cfg() to fold to a boolean constant, got builtin opcode in init function")
+	}
+	if len(initFn.Constants) != 1 || initFn.Constants[0].Type != VAL_BOOL || !initFn.Constants[0].AsBool {
+		t.Fatalf("expected one folded true boolean constant, got %#v", initFn.Constants)
+	}
 }
 
 // =============================================================================

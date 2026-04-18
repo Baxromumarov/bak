@@ -12,6 +12,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 // Compiler compiles bak AST to bytecode.
@@ -422,6 +423,7 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 
 	// Initialize function object fields
 	fn.Arity = len(fd.Parameters)
+	fn.Traced = fd.Traced
 	fn.Code = []byte{}
 	fn.Constants = []Value{}
 	fn.SourceMap = make(map[int]SourcePos)
@@ -2059,6 +2061,7 @@ const (
 	BUILTIN_VEC_GET            BuiltinID = 87
 	BUILTIN_VEC_SET            BuiltinID = 88
 	BUILTIN_VEC_GROW           BuiltinID = 89
+	BUILTIN_CFG                BuiltinID = 90
 )
 
 // builtinNames maps builtin names to their IDs.
@@ -2123,6 +2126,7 @@ var builtinNames = map[string]BuiltinID{
 	"__vec_get":                    BUILTIN_VEC_GET,
 	"__vec_set":                    BUILTIN_VEC_SET,
 	"__vec_grow":                   BUILTIN_VEC_GROW,
+	"cfg":                          BUILTIN_CFG,
 	"__builtin_print":              BUILTIN_PRINT,
 	"__builtin_println":            BUILTIN_PRINTLN,
 	"__builtin_eprint":             BUILTIN_EPRINT,
@@ -2160,6 +2164,17 @@ func BuiltinNames() map[string]BuiltinID {
 func (c *Compiler) compileCallExpression(ce *ast.CallExpression) error {
 	// Check if callee is a builtin
 	if ident, ok := ce.Function.(*ast.Identifier); ok {
+		if ident.Value == "cfg" {
+			if len(ce.Arguments) != 1 {
+				return fmt.Errorf("cfg() expects exactly 1 string literal argument")
+			}
+			featureName, ok := ce.Arguments[0].(*ast.StringLiteral)
+			if !ok {
+				return fmt.Errorf("cfg() requires a string literal feature name")
+			}
+			c.emitConstant(NewBool(runtimecap.CurrentFeatureEnabled(featureName.Value)))
+			return nil
+		}
 		if builtinID, isBuiltin := builtinNames[ident.Value]; isBuiltin {
 			// Compile arguments
 			for _, arg := range ce.Arguments {
