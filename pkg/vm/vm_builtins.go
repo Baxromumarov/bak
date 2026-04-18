@@ -589,6 +589,29 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		return makeResult(true, compiler.NewNil()), nil
 
+	case compiler.BUILTIN_WRITE_FILE_BYTES:
+		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_ARRAY {
+			return compiler.NewNil(), fmt.Errorf("__builtin_write_file_bytes() requires path (string) and data (Vec<int>)")
+		}
+		if !vm.permissions.AllowFSMutate {
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.writeFileBytes", runtimecap.FlagAllowFSMutate))), nil
+		}
+		if err := validateVMDestructivePath(args[0].AsString, "fs.writeFileBytes"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
+		}
+		data := args[1].AsObject.(*compiler.ArrayInstance)
+		bytes := make([]byte, len(data.Elements))
+		for i, elem := range data.Elements {
+			if elem.Type != compiler.VAL_INT {
+				return compiler.NewNil(), fmt.Errorf("__builtin_write_file_bytes() element %d is %s, want int", i, elem.Type.String())
+			}
+			bytes[i] = byte(elem.AsInt)
+		}
+		if err := os.WriteFile(args[0].AsString, bytes, 0644); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
+		}
+		return makeResult(true, compiler.NewNil()), nil
+
 	case compiler.BUILTIN_APPEND_FILE:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_append_file() requires path and content strings")
@@ -1278,7 +1301,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("sleep() requires an integer (ms)")
 		}
 		time.Sleep(time.Duration(args[0].AsInt) * time.Millisecond)
-		return compiler.NewNil(), nil
+		return makeResult(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_THREAD_ID:
 		return compiler.NewInt(int64(vm.threadID)), nil

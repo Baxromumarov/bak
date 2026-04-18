@@ -331,12 +331,13 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	// If type is not specified, infer it from value (strict mode)
 	if vs.Type == nil {
 		if vs.Value == nil {
-			tc.addError(
-				vs.Token.Line,
-				vs.Token.Column,
-				"variable '%s' requires a type annotation or an initial value",
-				vs.Name.Value,
-			)
+			tc.addFatalError(TypeError{
+				Code:    diagnostics.ErrMissingType,
+				Line:    vs.Token.Line,
+				Column:  vs.Token.Column,
+				Message: fmt.Sprintf("variable '%s' requires a type annotation or an initial value", vs.Name.Value),
+				Help:    "add an explicit type or initialize the variable from a function or method call",
+			})
 			return
 		}
 
@@ -349,6 +350,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 		if !canInfer {
 			tc.addFatalError(TypeError{
+				Code:    diagnostics.ErrMissingType,
 				Line:    vs.Token.Line,
 				Column:  vs.Token.Column,
 				Message: fmt.Sprintf("missing type annotation for variable '%s'", vs.Name.Value),

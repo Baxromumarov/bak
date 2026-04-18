@@ -136,6 +136,7 @@ type MoveInfo struct {
 
 // TypeError represents a type error with rich context
 type TypeError struct {
+	Code    diagnostics.DiagnosticCode
 	Tier    ErrorTier
 	Line    int
 	Column  int
@@ -854,6 +855,7 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 			t = TierWarning
 		}
 		result = append(result, TypeError{
+			Code:    d.Code,
 			Tier:    t,
 			Line:    d.Line,
 			Column:  d.Column,

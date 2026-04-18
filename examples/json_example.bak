@@ -1,14 +1,12 @@
-// NOTE: This example needs updating for the current bak API and may not compile.
-
 package main
 
-import "src/std/encoding/json/json.bak" as json
+import "std/encoding/json" as json
 
 func main() -> (void) {
     var entries: Vec<json.JsonEntry, _> = Vec.from([
-        json.entry("name", json.String("bak")),
-        json.entry("version", json.Number(1.0)),
-        json.entry("ok", json.Boolean(true)),
+        json.entry("name", json.Json.String("bak")),
+        json.entry("version", json.Json.Int(1)),
+        json.entry("ok", json.Json.Boolean(true)),
     ])
 
     var obj: json.Json = json.object(entries)
@@ -16,5 +14,5 @@ func main() -> (void) {
     println(json.marshal(obj))
     println("")
     println("pretty:")
-    println(json.pretty(obj))
+    println(json.marshal_pretty(obj, 2))
 }

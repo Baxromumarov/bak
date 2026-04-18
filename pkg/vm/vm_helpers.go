@@ -1,9 +1,9 @@
 package vm
 
 import (
-"fmt"
+	"fmt"
 
-"github.com/baxromumarov/bak/pkg/compiler"
+	"github.com/baxromumarov/bak/pkg/compiler"
 )
 
 // Arithmetic operations
@@ -102,6 +102,15 @@ func (vm *VM) compare(a, b compiler.Value) (int, error) {
 			return -1, nil
 		}
 		if a.AsString > b.AsString {
+			return 1, nil
+		}
+		return 0, nil
+	}
+	if a.Type == compiler.VAL_CHAR && b.Type == compiler.VAL_CHAR {
+		if a.AsChar < b.AsChar {
+			return -1, nil
+		}
+		if a.AsChar > b.AsChar {
 			return 1, nil
 		}
 		return 0, nil

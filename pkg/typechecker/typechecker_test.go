@@ -209,6 +209,17 @@ func TestCheck_MissingPackage(t *testing.T) {
 	expectError(t, `func main() -> (void) {}`, "package declaration")
 }
 
+func TestCheck_MissingTypeAnnotationHasCode(t *testing.T) {
+	const source = `
+package main
+func main() -> (void) {
+	var x
+}
+`
+	expectError(t, source, "requires a type annotation")
+	expectError(t, source, "E0502")
+}
+
 func TestCheck_TypeMismatchVarDecl(t *testing.T) {
 	expectError(t, `
 package main
@@ -278,6 +289,15 @@ func main() -> (void) {
 	add(1)
 }
 `, "argument")
+	expectError(t, `
+package main
+func add(a int, b int) -> (int) {
+	return a + b
+}
+func main() -> (void) {
+	add(1)
+}
+`, "declared here")
 }
 
 func TestCheck_AssignToImmutable(t *testing.T) {
@@ -320,7 +340,7 @@ func main() -> (void) {}
 // =============================================================================
 
 func TestCheck_UseAfterMove(t *testing.T) {
-	expectError(t, `
+	const source = `
 package main
 struct Data {
 	value: string
@@ -333,7 +353,42 @@ func main() -> (void) {
 	consume(d)
 	consume(d)
 }
-`, "moved")
+`
+	expectError(t, source, "moved")
+	expectError(t, source, "E0100")
+}
+
+func TestCheck_BorrowConflictHasCode(t *testing.T) {
+	const source = `
+package main
+func main() -> (void) {
+	mut var nums: Vec<int, _> = Vec.from([1])
+	var borrowed = &nums
+	var mutable_borrow = &mut nums
+}
+`
+	expectError(t, source, "borrow as mutable")
+	expectError(t, source, "E0104")
+}
+
+func TestCheck_MoveWhileBorrowedHasCode(t *testing.T) {
+	const source = `
+package main
+struct Data {
+	value: string
+}
+func consume(d Data) -> (void) {
+	println(d.value)
+}
+func main() -> (void) {
+	mut var d: Data = Data{value: "hello"}
+	var borrowed = &mut d
+	println(borrowed.value)
+	consume(d)
+}
+`
+	expectError(t, source, "mutably borrowed")
+	expectError(t, source, "E0102")
 }
 
 func TestCheck_CopyTypeNoMove(t *testing.T) {
@@ -395,6 +450,26 @@ func main() -> (void) {
 	foo()
 }
 `, "return")
+}
+
+func TestCheck_UndefinedMethodSuggestion(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var result: Result<int, string> = Ok(1)
+	result.unwrap_er()
+}
+`, "did you mean 'unwrap_err'")
+}
+
+func TestCheck_UndefinedTypeSuggestion(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var text: stirng = "bak"
+	println(text)
+}
+`, "did you mean 'string'")
 }
 
 // =============================================================================

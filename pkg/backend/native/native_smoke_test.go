@@ -63,14 +63,16 @@ func TestNativeStdlibSmokeMatrix(t *testing.T) {
 		name         string
 		sourcePath   string
 		expectedExit int
+		permissions  runtimecap.Permissions
 	}{
-		{name: "time_basic", sourcePath: filepath.Join(root, "tests", "native_time_basic.bak"), expectedExit: 13},
-		{name: "strings_std_basic", sourcePath: filepath.Join(root, "tests", "native_strings_std_basic.bak"), expectedExit: 9},
+		{name: "time_basic", sourcePath: filepath.Join(root, "tests", "native_time_basic.bak"), expectedExit: 13, permissions: runtimecap.Permissions{}},
+		{name: "strings_std_basic", sourcePath: filepath.Join(root, "tests", "native_strings_std_basic.bak"), expectedExit: 9, permissions: runtimecap.Permissions{}},
+		{name: "stdlib_surface", sourcePath: filepath.Join(root, "tests", "native_stdlib_surface.bak"), expectedExit: 5, permissions: runtimecap.AllPermissions()},
 	}
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, runtimecap.Permissions{})
+			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, testCase.permissions)
 		})
 	}
 }

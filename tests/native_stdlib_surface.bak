@@ -1,0 +1,53 @@
+package main
+
+import "std/crypto" as crypto
+import "std/fs" as fs
+import "std/os" as os
+
+func main() -> (int) {
+    mut var score: int = 0
+    mut var file_path: string = ""
+
+    if crypto.fnv1a("hello") == 1335831723 {
+        score = score + 1
+    }
+
+    switch os.cwd() {
+        case Ok(cwd) {
+            if cwd.len() > 0 {
+                file_path = cwd + "/bak_phase3_stdlib.txt"
+                score = score + 1
+            }
+        }
+        case Err(_) {
+        }
+    }
+
+    if file_path.len() > 0 {
+        switch fs.writeFile(file_path, "phase3") {
+            case Ok(_) {
+                score = score + 1
+            }
+            case Err(_) {
+            }
+        }
+    }
+
+    if file_path.len() > 0 && fs.exists(file_path) {
+        score = score + 1
+    }
+
+    if file_path.len() > 0 {
+        switch fs.readFile(file_path) {
+            case Ok(contents) {
+                if contents == "phase3" {
+                    score = score + 1
+                }
+            }
+            case Err(_) {
+            }
+        }
+    }
+
+    return score
+}

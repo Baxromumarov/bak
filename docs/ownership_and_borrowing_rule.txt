@@ -1,79 +1,97 @@
-
 # Borrowing and Ownership in bak v1
 
-Borrowing in bak v1 is a simple, lexical model: read-only vs mutable access, with no escaping, lifetimes, or counters.
+Bak's ownership model is intentionally small: moves are explicit through by-value use, borrows are lexical, and diagnostics should tell you whether a value was moved or is still borrowed.
 
-## Supported Borrows
-- `&T` — read-only borrow
-- `&mut T` — mutable borrow
+## Supported borrows
+- `&T`: shared read-only borrow
+- `&mut T`: exclusive mutable borrow
 
-## Core Rules
-1. **Passing by value moves:**
-    - `consume(nums)` moves `nums`; it cannot be used after.
-2. **Borrowing does not move:**
-    - `inspect(&nums)` leaves `nums` valid.
-3. **At most one mutable user at a time:**
-    - Only one `&mut` allowed; no simultaneous borrows or moves.
+## Core rules
+1. Passing a non-copy value by value moves it.
+   Example:
+   ```bak
+   func consume(data Data) -> (void) {}
 
-## Not Supported in v1
+   func main() -> (void) {
+       var data: Data = Data{value: "bak"}
+       consume(data)
+       consume(data) // error: use of moved value 'data'
+   }
+   ```
+2. Borrowing does not move the owner.
+   Example:
+   ```bak
+   func inspect(nums: &Vec<int, _>) -> (int) {
+       return nums.len()
+   }
+
+   func main() -> (void) {
+       var nums: Vec<int, _> = Vec.from([1, 2, 3])
+       inspect(&nums)
+       inspect(&nums) // OK
+   }
+   ```
+3. A mutable borrow is exclusive.
+   Example:
+   ```bak
+   func grow(nums: &mut Vec<int, _>) -> (void) {
+       nums.push(4)
+   }
+
+   func main() -> (void) {
+       mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+       var shared = &nums
+       grow(&mut nums) // error: cannot borrow 'nums' as mutable because it is already immutably borrowed
+       println(shared.len())
+   }
+   ```
+4. Block boundaries end temporary borrows.
+   Example:
+   ```bak
+   func grow(nums: &mut Vec<int, _>) -> (void) {
+       nums.push(4)
+   }
+
+   func inspect(nums: &Vec<int, _>) -> (int) {
+       return nums.len()
+   }
+
+   func main() -> (void) {
+       mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+       {
+           grow(&mut nums)
+       }
+       inspect(&nums) // OK
+   }
+   ```
+
+## What v1 rejects
 - Returning borrowed values
-- Storing borrows in structs
-- Borrowing fields independently
-- Nested/reborrowed borrows
-- Lifetime inference
-- Borrowing across function boundaries
-All are compile-time errors.
+- Storing borrows inside structs or enums
+- Reborrowing through another borrow
+- Field-level independent borrow tracking
+- Lifetime inference or non-lexical borrows
 
-## Compiler Logic
-- Each variable is: Owned, Moved, or BorrowedMut
-- No need for borrow counters or lifetime tracking
+These are compile-time errors by design in v1.
 
-**Checker logic:**
-- Use: must be Owned
-- `consume(x)`: require Owned, mark as Moved
-- `&x`: require Owned
-- `&mut x`: require Owned, mark as BorrowedMut, clear at end of scope
-- While BorrowedMut: forbid `&x`, `&mut x`, `consume(x)`
+## What the checker tracks
+- Owned values that are still usable
+- Values moved by assignment, return, or call
+- Active immutable borrows
+- Active mutable borrows
 
-## Guarantees
-- No use-after-move
-- No mutable aliasing
-- No mutation through shared access
-- No dangling references
+That is enough to catch:
+- use-after-move
+- move-while-borrowed
+- double mutable borrow
+- mutable-vs-immutable borrow conflicts
 
-## Examples
-**Must fail:**
-```
-var v Vec<int,_> = Vec.from([1,2,3])
-consume(v)
-consume(v)
-```
-**Must pass:**
-```
-var v Vec<int,_> = Vec.from([1,2,3])
-inspect(&v)
-inspect(&v)
-```
-**Must fail:**
-```
-mut var v Vec<int,_> = Vec.from([1,2,3])
-modify(&mut v)
-inspect(&v)
-```
-**Must pass:**
-```
-mut var v Vec<int,_> = Vec.from([1,2,3])
-{
-     modify(&mut v)
-}
-inspect(&v)
-```
+## Diagnostic expectations
+- Move errors should explain where the move happened.
+- Borrow errors should explain the conflicting state.
+- Mutability errors should suggest `mut var` or `mut func` when that is the actual fix.
 
-## Rationale
-- Simple, easy to reason about and implement
-- No need for Rust-level complexity in v1
-- Can be extended in future versions without breaking v1 code
-
----
-**Summary:**
-Implement this minimal borrowing model now. Lock the rules, write tests, and move on.
+## Reference files
+- Positive example: `examples/ownership.bak`
+- Targeted regression tests: `pkg/typechecker/typechecker_test.go`
+- End-to-end borrow coverage: `tests/test_borrow_rules.bak`

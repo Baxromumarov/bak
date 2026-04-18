@@ -1,5 +1,3 @@
-// NOTE: This example needs updating for the current bak API and may not compile.
-
 package main
 
 import "std/http" as http
@@ -15,14 +13,20 @@ func main() -> (void) {
         http.Header{name: "User-Agent", value: "bak-client/0.1"},
     ])
 
-    var res = http.get_with_headers(url, headers)
-    switch res {
-        case Ok(resp) {
-            println("status:", resp.status.toString())
-            println("body:", resp.body_string())
+    var raw: string = "GET /search?q=bak&page=1 HTTP/1.1\r\nHost: example.com\r\nUser-Agent: bak-client/0.1\r\n\r\n"
+
+    switch http.parse_request(raw) {
+        case Ok(req) {
+            println("url:", url)
+            println("path:", req.path)
+            println("user-agent header present:", req.header("User-Agent").is_some())
+            println("query count:", req.query_params().len())
+            println("example response:", http.text(200, "ok").body_string())
         }
         case Err(e) {
-            println("request failed:", e)
+            println("request parse failed:", e)
         }
     }
+
+    println("default headers configured:", headers.len())
 }

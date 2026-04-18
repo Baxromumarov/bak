@@ -1805,6 +1805,67 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
+	case compiler.VAL_OPTION:
+		opt := receiver.AsObject.(*compiler.OptionInstance)
+		args := make([]compiler.Value, argc-1)
+		for i := argc - 2; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+		vm.pop() // pop receiver
+
+		if len(args) != 0 {
+			return fmt.Errorf("%s() requires 0 arguments", methodName)
+		}
+
+		var result compiler.Value
+		switch methodName {
+		case "is_some":
+			result = compiler.NewBool(opt.IsSome)
+		case "is_none":
+			result = compiler.NewBool(!opt.IsSome)
+		case "unwrap":
+			if !opt.IsSome {
+				return fmt.Errorf("unwrap called on None")
+			}
+			result = opt.Value
+		default:
+			return fmt.Errorf("undefined method: Option.%s", methodName)
+		}
+		vm.pushMethodResult(result, discardReturn)
+		return nil
+	case compiler.VAL_RESULT:
+		res := receiver.AsObject.(*compiler.ResultInstance)
+		args := make([]compiler.Value, argc-1)
+		for i := argc - 2; i >= 0; i-- {
+			args[i] = vm.pop()
+		}
+		vm.pop() // pop receiver
+
+		if len(args) != 0 {
+			return fmt.Errorf("%s() requires 0 arguments", methodName)
+		}
+
+		var result compiler.Value
+		switch methodName {
+		case "is_ok":
+			result = compiler.NewBool(!res.IsErr)
+		case "is_err":
+			result = compiler.NewBool(res.IsErr)
+		case "unwrap":
+			if res.IsErr {
+				return fmt.Errorf("unwrap called on Err result")
+			}
+			result = res.Value
+		case "unwrap_err":
+			if !res.IsErr {
+				return fmt.Errorf("unwrap_err called on Ok result")
+			}
+			result = res.Value
+		default:
+			return fmt.Errorf("undefined method: Result.%s", methodName)
+		}
+		vm.pushMethodResult(result, discardReturn)
+		return nil
 	case compiler.VAL_STRING:
 		str := receiver.AsString
 

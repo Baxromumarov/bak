@@ -493,7 +493,23 @@ Goal:
 
 Status:
 
-- Not started in a meaningful way yet.
+- Complete.
+
+Completed in this phase:
+
+1. Ownership and borrowing pass
+    - ownership diagnostics now carry stable diagnostic codes and move-context notes,
+    - direct typechecker tests now pin use-after-move, move-while-borrowed, borrow conflicts, missing type annotations, and suggestion-bearing errors,
+    - the ownership guide was rewritten around real current-syntax examples (`docs/ownership_and_borrowing_rule.txt`).
+2. Type system and diagnostics pass
+    - missing-type, ownership, mutability, and type-mismatch diagnostics now surface stable codes in the structured error path,
+    - declaration notes and spelling suggestions are covered by unit tests,
+    - multi-diagnostic output now preserves note locations for moved values and declarations.
+3. Stdlib coherence pass
+    - a Phase 3 stdlib contract doc now records the supported surface and current limits across `fs`, `os`, `http`, `json`, `log`, and `crypto` (`docs/STDLIB_PHASE3.md`),
+    - stale examples were updated to match the current `std/http` and `std/encoding/json` APIs.
+4. Native parity pass
+    - a direct VM/native parity matrix now checks representative imported and non-imported programs, including the broad stdlib surface program (`pkg/backend/native/native_parity_test.go`).
 
 Deliverables:
 
@@ -703,3 +719,101 @@ If work resumes from this roadmap immediately, the next concrete sequence should
 3. Every major feature should come with docs, examples, and error-message work.
 4. If a feature makes the language more powerful but the tooling worse, it is not done.
 5. If self-hosting work does not improve the actual product in the next release window, it is a side quest.
+
+
+## Future Feature: Foreign Function Interface (FFI)
+
+Status: **Not started. Scheduled after Phase 5 (tooling polish).**
+
+Goal: allow Bak programs to call functions from compiled C-ABI libraries, with Rust as the primary supported foreign language and Go as a secondary target.
+
+### Why this feature
+
+- Bak is positioned as a pragmatic systems language. Reusing existing native libraries (crypto, compression, parsing, GPU compute) is table stakes for that positioning.
+- Rust is the natural first partner: it exposes C ABI with zero runtime overhead, and its ownership/borrowing model aligns conceptually with Bak's.
+- Go is a secondary target because it requires cgo and a running Go runtime, which complicates linking and memory management.
+
+### Phased design
+
+#### Phase A: C ABI foundation (2-3 weeks)
+
+1. **Syntax**
+   - Add `extern "C" fn symbol_name(arg: Type, ...) -> Type` declarations at module scope.
+   - No body is provided; the symbol is resolved at link time.
+
+2. **Parser/typechecker**
+   - Parse extern blocks into a new `ast.ExternDecl` node.
+   - Type-check against a restricted FFI type palette:
+     - `int` / `float` / `bool` / `char` → scalar C types
+     - `&T` / `&mut T` → raw pointers
+     - `string` → `*const c_char` (null-terminated, borrowed)
+     - `Vec<T, _>` → pointer + length pair (or later, a C slice struct)
+   - Reject returning Bak-owned types (like `Option` or `Result`) across the FFI boundary unless explicitly marshalled.
+
+3. **Native backend**
+   - Treat extern symbols like any other function symbol in `EmitState.Functions`.
+   - Emit a standard `call rel32` to the extern name; the linker resolves it.
+   - Add a `--link` CLI flag to `bak build` that forwards extra object files / static libraries to the linker.
+
+4. **Build system**
+   - `bak build main.bak --link=librust_crypto.a`
+   - The backend invokes `ld` (or `gcc` as linker driver) with the user-supplied objects.
+
+5. **Tests**
+   - A companion C file exports `int bak_test_add(int, int)`.
+   - A Bak program declares `extern "C" fn bak_test_add(a: int, b: int) -> int` and asserts the result.
+   - CI builds the C object, links it, and runs the binary.
+
+#### Phase B: Rust ergonomics (2-3 weeks)
+
+1. **Rust crate conventions**
+   - Document a standard `bak-ffi` Cargo template:
+     - `#[no_mangle] pub extern "C"` for exported functions.
+     - `cbindgen`-style header generation (or manual) so Bak knows the symbol names.
+   - Support `cargo build --release` as a pre-link step via a `build.rs`-like hook in `bak.toml`.
+
+2. **Type helpers**
+   - A small Rust crate `bak-ffi` that provides:
+     - `BakString { ptr: *const c_char, len: usize }`
+     - `BakVec<T> { ptr: *const T, len: usize }`
+   - Symmetric helpers in Bak's standard library for converting to/from foreign slice types.
+
+3. **Memory contract**
+   - Who allocates, who frees?
+   - Default rule: caller allocates, caller frees. Rust functions receiving Bak data must not hold pointers past the call return unless a separate ownership-transfer API is used.
+   - Document the contract clearly; violating it is UB.
+
+#### Phase C: Go interop (3-4 weeks, deferred)
+
+1. **Go buildmode integration**
+   - Teach `bak build` to invoke `go build -buildmode=c-archive` for referenced Go packages.
+   - Extract the generated `.h` to know symbol names, or require manual `extern "C"` declarations.
+
+2. **Runtime initialization**
+   - The Go runtime must be initialized before any Go function is called.
+   - Emit a one-time init check in the native `_start` stub or lazily before the first Go extern call.
+
+3. **Goroutine / GC awareness**
+   - Go functions that spawn goroutines are allowed, but Bak cannot wait on them directly.
+   - Document that Go-allocated memory is managed by the Go GC; Bak must copy data out if it needs long-lived access.
+
+4. **Panic safety**
+   - A Go panic aborts the process. Document that recoverable panics must be handled inside the Go layer.
+
+### Admission checklist
+
+Before starting Phase A, every item must be true:
+
+- [ ] Phase 5 (tooling polish) is complete and stable.
+- [ ] The native backend has a clean symbol-resolution and linking abstraction.
+- [ ] There is a concrete user request or standard-library gap that FFI would solve (e.g., "we need a production-grade TLS library and writing one in Bak is not realistic").
+- [ ] A maintainer has time to own the linker toolchain story across Linux distros.
+
+### Do not start yet
+
+- Automatic Cargo/Go module fetching from `bak.toml`.
+- Cross-language generic types (e.g., passing a Bak `Vec<T>` where Rust sees a `Vec<U>`).
+- Async / callback FFI (function pointers passed across the boundary).
+- Windows or macOS FFI (Linux x86_64 only until the backend matures).
+
+See also: `docs/TRUST_MODEL.md` for security implications of linking untrusted native code.

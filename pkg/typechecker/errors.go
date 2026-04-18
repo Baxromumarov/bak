@@ -9,12 +9,24 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
-// buildNotes creates a Notes slice only if the note message is non-empty
-func buildNotes(note string) []diagnostics.Note {
+// buildNotes creates a Notes slice only if the note message is non-empty.
+func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 	if note == "" {
 		return nil
 	}
-	return []diagnostics.Note{{Message: note, Line: 0}}
+	noteDiag := diagnostics.Note{
+		Message: note,
+		File:    tc.currentPkgPath,
+	}
+	if noteLoc != "" {
+		var line int
+		var col int
+		if _, err := fmt.Sscanf(noteLoc, "line %d:%d", &line, &col); err == nil && line > 0 {
+			noteDiag.Line = line
+			noteDiag.Column = col
+		}
+	}
+	return []diagnostics.Note{noteDiag}
 }
 
 // addError adds a type error (legacy support, treated as fatal)
@@ -50,8 +62,10 @@ func (tc *TypeChecker) addErrorWithHelp(line, col int, help, format string, args
 // addFatalError adds a fatal error and marks the checker to stop
 func (tc *TypeChecker) addFatalError(err TypeError) {
 	// Map to diagnostics
-	code := diagnostics.DiagnosticCode("Error")
-	// Map known error messages to codes if possible, or use generic
+	code := err.Code
+	if code == "" {
+		code = diagnostics.DiagnosticCode("Error")
+	}
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    code,
 		Level:   diagnostics.LevelError,
@@ -60,7 +74,7 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 		Column:  err.Column,
 		File:    tc.currentPkgPath,
 		Help:    err.Help,
-		Notes:   buildNotes(err.Note),
+		Notes:   tc.buildNotes(err.Note, err.NoteLoc),
 	})
 	tc.hasFatalError = true
 }
@@ -69,6 +83,7 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 
 func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo *MoveInfo) {
 	err := TypeError{
+		Code:    diagnostics.ErrUseAfterMove,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,
@@ -87,6 +102,7 @@ func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo
 
 func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason string) {
 	tc.addFatalError(TypeError{
+		Code:    diagnostics.ErrMoveWhileBorrowed,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,
@@ -103,6 +119,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 	existingState string,
 ) {
 	tc.addFatalError(TypeError{
+		Code:   diagnostics.ErrBorrowConflict,
 		Tier:   TierFatal,
 		Line:   line,
 		Column: col,
@@ -127,6 +144,7 @@ func (tc *TypeChecker) errorMutabilityRequired(
 	}
 
 	tc.addFatalError(TypeError{
+		Code:    diagnostics.ErrMutabilityRequired,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,
@@ -155,6 +173,7 @@ func (tc *TypeChecker) errorTypeMismatch(
 	help := tc.suggestTypeFix(expected, got)
 
 	tc.addFatalError(TypeError{
+		Code:    diagnostics.ErrTypeMismatch,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,

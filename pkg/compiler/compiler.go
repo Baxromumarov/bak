@@ -2024,20 +2024,21 @@ const (
 	BUILTIN_SOCKET_SET_TIMEOUT
 	BUILTIN_SOCKET_BIND
 	BUILTIN_SOCKET_ACCEPT
-	BUILTIN_IS_OK         BuiltinID = 51
-	BUILTIN_IS_ERR        BuiltinID = 52
-	BUILTIN_UNWRAP_ERR    BuiltinID = 53
-	BUILTIN_SPAWN         BuiltinID = 61
-	BUILTIN_JOIN          BuiltinID = 62
-	BUILTIN_SLEEP         BuiltinID = 63
-	BUILTIN_THREAD_ID     BuiltinID = 64
-	BUILTIN_TIME_NOW      BuiltinID = 65
-	BUILTIN_TIME_PARTS    BuiltinID = 66
-	BUILTIN_MONOTONIC_NOW BuiltinID = 67
-	BUILTIN_EXECUTABLE    BuiltinID = 68
-	BUILTIN_MUTEX_NEW     BuiltinID = 69
-	BUILTIN_MUTEX_LOCK    BuiltinID = 70
-	BUILTIN_MUTEX_UNLOCK  BuiltinID = 71
+	BUILTIN_IS_OK            BuiltinID = 51
+	BUILTIN_IS_ERR           BuiltinID = 52
+	BUILTIN_UNWRAP_ERR       BuiltinID = 53
+	BUILTIN_WRITE_FILE_BYTES BuiltinID = 54
+	BUILTIN_SPAWN            BuiltinID = 61
+	BUILTIN_JOIN             BuiltinID = 62
+	BUILTIN_SLEEP            BuiltinID = 63
+	BUILTIN_THREAD_ID        BuiltinID = 64
+	BUILTIN_TIME_NOW         BuiltinID = 65
+	BUILTIN_TIME_PARTS       BuiltinID = 66
+	BUILTIN_MONOTONIC_NOW    BuiltinID = 67
+	BUILTIN_EXECUTABLE       BuiltinID = 68
+	BUILTIN_MUTEX_NEW        BuiltinID = 69
+	BUILTIN_MUTEX_LOCK       BuiltinID = 70
+	BUILTIN_MUTEX_UNLOCK     BuiltinID = 71
 
 	// Database builtins
 	BUILTIN_PG_CONNECT         BuiltinID = 72
@@ -2101,6 +2102,7 @@ var builtinNames = map[string]BuiltinID{
 	"__builtin_chdir":              BUILTIN_CHDIR,
 	"__builtin_read_file":          BUILTIN_READ_FILE,
 	"__builtin_write_file":         BUILTIN_WRITE_FILE,
+	"__builtin_write_file_bytes":   BUILTIN_WRITE_FILE_BYTES,
 	"__builtin_append_file":        BUILTIN_APPEND_FILE,
 	"__builtin_file_exists":        BUILTIN_FILE_EXISTS,
 	"__builtin_is_file":            BUILTIN_IS_FILE,
