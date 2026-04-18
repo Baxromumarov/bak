@@ -480,6 +480,69 @@ func (s *EmitState) emitFsWriteFileBytes(pathExpr, dataExpr ast.Expression) erro
 	return nil
 }
 
+// emitFsRemove removes a file or an empty directory.
+func (s *EmitState) emitFsRemove(pathExpr ast.Expression) error {
+	if err := s.emitExpression(pathExpr); err != nil {
+		return err
+	}
+
+	// Convert path to null-terminated C string.
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_cstr"})
+	emitAddRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+
+	// unlink(path)
+	emitMovRegImm32(&s.Code, RAX, 87)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jnsOk1 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x89, 0, 0, 0, 0) // jns rel32
+
+	// rmdir(path)
+	emitMovRegImm32(&s.Code, RAX, 84)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jnsOk2 := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x89, 0, 0, 0, 0) // jns rel32
+
+	// Err path.
+	errPos := len(s.Code)
+	errMsg := "remove failed"
+	errIdx := s.addStringLiteral(errMsg)
+	s.emitDataAddr(errIdx)
+	emitPushReg(&s.Code, RAX)
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegImm32(&s.Code, RDI, 16)
+	callErr := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callErr, Target: "__rt_alloc"})
+	emitAddRspImm8(&s.Code, 8)
+	emitPopReg(&s.Code, R8)
+	emitMovRegImm32(&s.Code, RCX, 1)
+	emitMovMemReg(&s.Code, RAX, RCX)           // tag = 1 (Err)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R8) // error = string ptr
+
+	jmpDone := len(s.Code)
+	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
+
+	// Ok path.
+	okPos := len(s.Code)
+	if err := s.emitResultOkVoid(); err != nil {
+		return err
+	}
+
+	// done.
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jnsOk1+2, okPos)
+	patchRel32(&s.Code, jnsOk2+2, okPos)
+	patchRel32(&s.Code, jmpDone+1, donePos)
+	_ = errPos
+
+	return nil
+}
+
 // emitResultIsOk checks if Result's tag == 0 (Ok)
 func (s *EmitState) emitResultIsOk(obj ast.Expression) error {
 	// Evaluate the Result (pointer to {tag, value})
@@ -623,8 +686,8 @@ func (s *EmitState) emitOsCwd() error {
 	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_alloc"})
 	emitMovRegReg(&s.Code, R9, RAX) // R9 = result ptr
 
-	// Set tag = 0 (Err)
-	emitMovRegImm32(&s.Code, RCX, 0)
+	// Set tag = 1 (Err)
+	emitMovRegImm32(&s.Code, RCX, 1)
 	emitMovMemReg(&s.Code, R9, RCX)
 
 	// Allocate string header for error
@@ -711,8 +774,8 @@ func (s *EmitState) emitOsCwd() error {
 	emitPopReg(&s.Code, R15)
 	// rax = result ptr
 
-	// Set tag = 1 (Ok)
-	emitMovRegImm32(&s.Code, RCX, 1)
+	// Set tag = 0 (Ok)
+	emitMovRegImm32(&s.Code, RCX, 0)
 	emitMovMemReg(&s.Code, RAX, RCX)
 	// Set value = string header ptr at offset 8
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R15)
@@ -721,6 +784,109 @@ func (s *EmitState) emitOsCwd() error {
 	endPos := len(s.Code)
 	patchRel32(&s.Code, jmpEnd+1, endPos)
 
+	return nil
+}
+
+// emitOsChdir implements __builtin_chdir(path) -> Result<void, string>
+// Uses chdir syscall (80).
+func (s *EmitState) emitOsChdir(pathExpr ast.Expression) error {
+	if err := s.emitExpression(pathExpr); err != nil {
+		return err
+	}
+
+	// Convert path to a null-terminated C string.
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_cstr"})
+	emitAddRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+
+	// syscall chdir(path)
+	emitMovRegImm32(&s.Code, RAX, 80)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jnsOk := len(s.Code)
+	s.Code = append(s.Code, 0x79, 0) // jns rel8
+
+	// Err path.
+	errMsg := "chdir failed"
+	errIdx := s.addStringLiteral(errMsg)
+	s.emitDataAddr(errIdx)
+	emitPushReg(&s.Code, RAX)
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegImm32(&s.Code, RDI, 16)
+	callErr := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callErr, Target: "__rt_alloc"})
+	emitAddRspImm8(&s.Code, 8)
+	emitPopReg(&s.Code, R8)
+	emitMovRegImm32(&s.Code, RCX, 1)
+	emitMovMemReg(&s.Code, RAX, RCX)           // tag = 1 (Err)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R8) // error = string ptr
+	jmpDone := len(s.Code)
+	s.Code = append(s.Code, 0xEB, 0) // jmp rel8
+
+	// Ok path.
+	okPos := len(s.Code)
+	s.Code[jnsOk+1] = byte(okPos - jnsOk - 2)
+	if err := s.emitResultOkVoid(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	s.Code[jmpDone+1] = byte(donePos - jmpDone - 2)
+	return nil
+}
+
+// emitOsMkdir implements __builtin_mkdir(path) -> Result<void, string>
+// Uses mkdir syscall (83).
+func (s *EmitState) emitOsMkdir(pathExpr ast.Expression) error {
+	if err := s.emitExpression(pathExpr); err != nil {
+		return err
+	}
+
+	// Convert path to a null-terminated C string.
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_cstr"})
+	emitAddRspImm8(&s.Code, 8)
+	emitMovRegReg(&s.Code, RDI, RAX)
+
+	// syscall mkdir(path, 0755)
+	emitMovRegImm32(&s.Code, RSI, 0o755)
+	emitMovRegImm32(&s.Code, RAX, 83)
+	emitSyscall(&s.Code)
+	emitTestRegReg(&s.Code, RAX, RAX)
+	jnsOk := len(s.Code)
+	s.Code = append(s.Code, 0x79, 0) // jns rel8
+
+	// Err path.
+	errMsg := "mkdir failed"
+	errIdx := s.addStringLiteral(errMsg)
+	s.emitDataAddr(errIdx)
+	emitPushReg(&s.Code, RAX)
+	emitSubRspImm8(&s.Code, 8)
+	emitMovRegImm32(&s.Code, RDI, 16)
+	callErr := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callErr, Target: "__rt_alloc"})
+	emitAddRspImm8(&s.Code, 8)
+	emitPopReg(&s.Code, R8)
+	emitMovRegImm32(&s.Code, RCX, 1)
+	emitMovMemReg(&s.Code, RAX, RCX)           // tag = 1 (Err)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R8) // error = string ptr
+	jmpDone := len(s.Code)
+	s.Code = append(s.Code, 0xEB, 0) // jmp rel8
+
+	// Ok path.
+	okPos := len(s.Code)
+	s.Code[jnsOk+1] = byte(okPos - jnsOk - 2)
+	if err := s.emitResultOkVoid(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	s.Code[jmpDone+1] = byte(donePos - jmpDone - 2)
 	return nil
 }
 

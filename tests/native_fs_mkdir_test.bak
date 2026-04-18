@@ -1,0 +1,37 @@
+package main
+
+import "std/fs"
+
+func main() -> (int) {
+    var dir: string = "tests/native_fs_mkdir_test_dir"
+
+    if fs.exists(dir) {
+        var existing: Result<void, string> = fs.remove(dir)
+
+        if existing.is_err() {
+            return 1
+        }
+    }
+
+    var created: Result<void, string> = fs.mkdir(dir)
+
+    if created.is_err() {
+        return 2
+    }
+
+    if !fs.isDir(dir) {
+        return 3
+    }
+
+    var removed: Result<void, string> = fs.remove(dir)
+
+    if removed.is_err() {
+        return 4
+    }
+
+    if fs.exists(dir) {
+        return 5
+    }
+
+    return 0
+}

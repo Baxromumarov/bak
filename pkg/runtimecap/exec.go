@@ -97,9 +97,6 @@ func ExecuteCommand(cmdName string, cmdArgs []string, permissions Permissions) (
 	case ctx.Err() == context.DeadlineExceeded:
 		result.TimedOut = true
 		result.ExitCode = -1
-		if cmd.ProcessState != nil {
-			result.ExitCode = int64(cmd.ProcessState.ExitCode())
-		}
 		return result, nil
 	default:
 		var exitErr *exec.ExitError

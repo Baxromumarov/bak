@@ -46,6 +46,7 @@ func TestNativePermissionedSmokeMatrix(t *testing.T) {
 	}{
 		{name: "os_getenv_none", sourcePath: filepath.Join(root, "tests", "native_os_getenv_none_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
 		{name: "os_cwd", sourcePath: filepath.Join(root, "tests", "native_os_cwd_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
+		{name: "os_chdir", sourcePath: filepath.Join(root, "tests", "native_os_chdir_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
 	}
 
 	for _, testCase := range tests {
@@ -70,6 +71,27 @@ func TestNativeStdlibSmokeMatrix(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, runtimecap.Permissions{})
+		})
+	}
+}
+
+func TestNativeFsSmokeMatrix(t *testing.T) {
+	root := findRepoRoot(t)
+
+	tests := []struct {
+		name         string
+		sourcePath   string
+		expectedExit int
+		permissions  runtimecap.Permissions
+	}{
+		{name: "fs_predicates", sourcePath: filepath.Join(root, "tests", "native_fs_predicates.bak"), expectedExit: 0, permissions: runtimecap.Permissions{}},
+		{name: "fs_mkdir", sourcePath: filepath.Join(root, "tests", "native_fs_mkdir_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowFSMutate: true}},
+		{name: "fs_stdlib", sourcePath: filepath.Join(root, "tests", "native_fs_simple.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowFSMutate: true}},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			runNativeSmokeCase(t, testCase.sourcePath, testCase.expectedExit, testCase.permissions)
 		})
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/typechecker"
@@ -33,12 +34,12 @@ func main() {
 	passDir := filepath.Join(root, "tests", "pass")
 	failDir := filepath.Join(root, "tests", "fail")
 
-	passFiles, err := collectBakFiles(passDir)
+	passFiles, err := bakfiles.Collect([]string{passDir}, ".git")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	failFiles, err := collectBakFiles(failDir)
+	failFiles, err := bakfiles.Collect([]string{failDir}, ".git")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -110,23 +111,6 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("bakc parity tests: all green")
-}
-
-func collectBakFiles(dir string) ([]string, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	for _, ent := range entries {
-		if ent.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(ent.Name(), ".bak") {
-			out = append(out, filepath.Join(dir, ent.Name()))
-		}
-	}
-	return out, nil
 }
 
 func goTypecheck(path string) ([]diag, error) {

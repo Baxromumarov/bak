@@ -1,6 +1,8 @@
 package vm
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -104,6 +106,131 @@ func main() -> (Result<void, string>) {
 	}
 	if got, want := result.Value.AsString, runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate); got != want {
 		t.Fatalf("unexpected error message: got %q want %q", got, want)
+	}
+}
+
+func TestVMFileMutatorsDeniedWithoutPermission(t *testing.T) {
+	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{})
+	tempDir := t.TempDir()
+
+	cases := []struct {
+		name string
+		id   compiler.BuiltinID
+		args []compiler.Value
+		want string
+	}{
+		{
+			name: "writeFile",
+			id:   compiler.BUILTIN_WRITE_FILE,
+			args: []compiler.Value{compiler.NewString(filepath.Join(tempDir, "write.txt")), compiler.NewString("data")},
+			want: runtimecap.PermissionError("fs.writeFile", runtimecap.FlagAllowFSMutate),
+		},
+		{
+			name: "appendFile",
+			id:   compiler.BUILTIN_APPEND_FILE,
+			args: []compiler.Value{compiler.NewString(filepath.Join(tempDir, "append.txt")), compiler.NewString("data")},
+			want: runtimecap.PermissionError("fs.appendFile", runtimecap.FlagAllowFSMutate),
+		},
+		{
+			name: "mkdir",
+			id:   compiler.BUILTIN_MKDIR,
+			args: []compiler.Value{compiler.NewString(filepath.Join(tempDir, "dir"))},
+			want: runtimecap.PermissionError("fs.mkdir", runtimecap.FlagAllowFSMutate),
+		},
+		{
+			name: "chmod",
+			id:   compiler.BUILTIN_CHMOD,
+			args: []compiler.Value{compiler.NewString(filepath.Join(tempDir, "mode.txt")), compiler.NewInt(0644)},
+			want: runtimecap.PermissionError("os.chmod", runtimecap.FlagAllowFSMutate),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			val, err := vm.callBuiltin(tc.id, tc.args)
+			if err != nil {
+				t.Fatalf("unexpected VM builtin error: %v", err)
+			}
+			result := requireVMResult(t, val)
+			if !result.IsErr {
+				t.Fatalf("expected %s to be denied", tc.name)
+			}
+			if got := result.Value.AsString; got != tc.want {
+				t.Fatalf("unexpected error message for %s: got %q want %q", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestVMFileMutatorsAllowedWithPermission(t *testing.T) {
+	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{AllowFSMutate: true})
+	tempDir := t.TempDir()
+
+	writePath := filepath.Join(tempDir, "write.txt")
+	val, err := vm.callBuiltin(compiler.BUILTIN_WRITE_FILE, []compiler.Value{
+		compiler.NewString(writePath),
+		compiler.NewString("bak"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result := requireVMResult(t, val)
+	if result.IsErr {
+		t.Fatalf("expected write_file to succeed, got %s", result.Value.AsString)
+	}
+	if content, err := os.ReadFile(writePath); err != nil || string(content) != "bak" {
+		t.Fatalf("unexpected written file content: %q, err=%v", string(content), err)
+	}
+
+	appendPath := filepath.Join(tempDir, "append.txt")
+	if err := os.WriteFile(appendPath, []byte("ba"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	val, err = vm.callBuiltin(compiler.BUILTIN_APPEND_FILE, []compiler.Value{
+		compiler.NewString(appendPath),
+		compiler.NewString("k"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result = requireVMResult(t, val)
+	if result.IsErr {
+		t.Fatalf("expected append_file to succeed, got %s", result.Value.AsString)
+	}
+	if content, err := os.ReadFile(appendPath); err != nil || string(content) != "bak" {
+		t.Fatalf("unexpected appended file content: %q, err=%v", string(content), err)
+	}
+
+	dirPath := filepath.Join(tempDir, "dir")
+	val, err = vm.callBuiltin(compiler.BUILTIN_MKDIR, []compiler.Value{compiler.NewString(dirPath)})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result = requireVMResult(t, val)
+	if result.IsErr {
+		t.Fatalf("expected mkdir to succeed, got %s", result.Value.AsString)
+	}
+	if info, err := os.Stat(dirPath); err != nil || !info.IsDir() {
+		t.Fatalf("expected directory to exist, info=%v err=%v", info, err)
+	}
+
+	modePath := filepath.Join(tempDir, "mode.txt")
+	if err := os.WriteFile(modePath, []byte("mode"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	val, err = vm.callBuiltin(compiler.BUILTIN_CHMOD, []compiler.Value{
+		compiler.NewString(modePath),
+		compiler.NewInt(0600),
+	})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result = requireVMResult(t, val)
+	if result.IsErr {
+		t.Fatalf("expected chmod to succeed, got %s", result.Value.AsString)
+	}
+	if info, err := os.Stat(modePath); err != nil || info.Mode().Perm() != 0600 {
+		t.Fatalf("unexpected file mode after chmod: mode=%o err=%v", info.Mode().Perm(), err)
 	}
 }
 

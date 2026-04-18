@@ -40,6 +40,16 @@ var FSModule = &object.Module{
 	},
 }
 
+func requireFSMutatePermission(op string) *object.Result {
+	if runtimecap.Current().AllowFSMutate {
+		return nil
+	}
+	return &object.Result{
+		IsOk:  false,
+		Value: &object.String{Value: runtimecap.PermissionError(op, runtimecap.FlagAllowFSMutate)},
+	}
+}
+
 // fsReadFile reads a file and returns Result<string, string>
 func fsReadFile(args ...object.Object) object.Object {
 	if len(args) != 1 {
@@ -114,6 +124,12 @@ func fsWriteFileBytes(args ...object.Object) object.Object {
 	dataObj, ok := args[1].(*object.Vec)
 	if !ok {
 		return newError("fs.writeFileBytes: second argument must be Vec<int>, got %s", args[1].Type())
+	}
+	if denied := requireFSMutatePermission("fs.writeFileBytes"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "fs.writeFileBytes"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 
 	bytes := make([]byte, len(dataObj.Elements))
@@ -389,6 +405,12 @@ func fsWriteFile(args ...object.Object) object.Object {
 	if !ok {
 		return newError("fs.writeFile: second argument must be STRING, got %s", args[1].Type())
 	}
+	if denied := requireFSMutatePermission("fs.writeFile"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "fs.writeFile"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
 
 	err := os.WriteFile(path.Value, []byte(content.Value), 0644)
 	if err != nil {
@@ -418,6 +440,12 @@ func fsAppendFile(args ...object.Object) object.Object {
 	content, ok := args[1].(*object.String)
 	if !ok {
 		return newError("fs.appendFile: second argument must be STRING, got %s", args[1].Type())
+	}
+	if denied := requireFSMutatePermission("fs.appendFile"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "fs.appendFile"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 
 	f, err := os.OpenFile(path.Value, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -453,6 +481,12 @@ func fsMkdir(args ...object.Object) object.Object {
 	if !ok {
 		return newError("fs.mkdir: argument must be STRING, got %s", args[0].Type())
 	}
+	if denied := requireFSMutatePermission("fs.mkdir"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "fs.mkdir"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
 
 	err := os.Mkdir(path.Value, 0755)
 	if err != nil {
@@ -477,6 +511,12 @@ func fsMkdirAll(args ...object.Object) object.Object {
 	path, ok := args[0].(*object.String)
 	if !ok {
 		return newError("fs.mkdirAll: argument must be STRING, got %s", args[0].Type())
+	}
+	if denied := requireFSMutatePermission("fs.mkdirAll"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "fs.mkdirAll"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 
 	err := os.MkdirAll(path.Value, 0755)
@@ -504,11 +544,8 @@ func fsRemove(args ...object.Object) object.Object {
 		return newError("fs.remove: argument must be STRING, got %s", args[0].Type())
 	}
 
-	if !runtimecap.Current().AllowFSMutate {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate)},
-		}
+	if denied := requireFSMutatePermission("fs.remove"); denied != nil {
+		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.remove"); err != nil {
 		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
@@ -539,11 +576,8 @@ func fsRemoveAll(args ...object.Object) object.Object {
 		return newError("fs.removeAll: argument must be STRING, got %s", args[0].Type())
 	}
 
-	if !runtimecap.Current().AllowFSMutate {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("fs.removeAll", runtimecap.FlagAllowFSMutate)},
-		}
+	if denied := requireFSMutatePermission("fs.removeAll"); denied != nil {
+		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.removeAll"); err != nil {
 		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
@@ -589,6 +623,15 @@ func fsRename(args ...object.Object) object.Object {
 	if !ok {
 		return newError("fs.rename: second argument must be STRING, got %s", args[1].Type())
 	}
+	if denied := requireFSMutatePermission("fs.rename"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(oldPath.Value, "fs.rename"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
+	if err := validateDestructivePath(newPath.Value, "fs.rename"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
 
 	err := os.Rename(oldPath.Value, newPath.Value)
 	if err != nil {
@@ -618,6 +661,15 @@ func fsCopy(args ...object.Object) object.Object {
 	dstPath, ok := args[1].(*object.String)
 	if !ok {
 		return newError("fs.copy: second argument must be STRING, got %s", args[1].Type())
+	}
+	if denied := requireFSMutatePermission("fs.copy"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(srcPath.Value, "fs.copy"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
+	if err := validateDestructivePath(dstPath.Value, "fs.copy"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 
 	// Read source file

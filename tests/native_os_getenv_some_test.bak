@@ -1,0 +1,17 @@
+package main
+
+import "std/os"
+
+func main() -> (int) {
+    var value: Option<string> = os.getenv("BAK_NATIVE_GETENV_SENTINEL")
+
+    if value.is_none() {
+        return 1
+    }
+
+    if value.unwrap() == "from_test" {
+        return 0
+    }
+
+    return 2
+}

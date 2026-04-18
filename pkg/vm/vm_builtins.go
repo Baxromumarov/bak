@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -54,6 +55,17 @@ func (vm *VM) registerBuiltins() {
 			return compiler.NewNil()
 		}
 	}
+}
+
+func validateVMDestructivePath(pathValue, op string) error {
+	cleaned := filepath.Clean(strings.TrimSpace(pathValue))
+	if cleaned == "" || cleaned == "." {
+		return fmt.Errorf("%s: refusing to operate on current directory or empty path", op)
+	}
+	if cleaned == string(filepath.Separator) {
+		return fmt.Errorf("%s: refusing to operate on root directory", op)
+	}
+	return nil
 }
 
 // callBuiltin handles builtin function calls
@@ -566,6 +578,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_write_file() requires path and content strings")
 		}
+		if !vm.permissions.AllowFSMutate {
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.writeFile", runtimecap.FlagAllowFSMutate))), nil
+		}
+		if err := validateVMDestructivePath(args[0].AsString, "fs.writeFile"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
+		}
 		if err := os.WriteFile(args[0].AsString, []byte(args[1].AsString), 0644); err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -574,6 +592,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 	case compiler.BUILTIN_APPEND_FILE:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_append_file() requires path and content strings")
+		}
+		if !vm.permissions.AllowFSMutate {
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.appendFile", runtimecap.FlagAllowFSMutate))), nil
+		}
+		if err := validateVMDestructivePath(args[0].AsString, "fs.appendFile"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
 		f, err := os.OpenFile(args[0].AsString, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -629,6 +653,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if !vm.permissions.AllowFSMutate {
 			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate))), nil
 		}
+		if err := validateVMDestructivePath(args[0].AsString, "fs.remove"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
+		}
 		if err := os.Remove(args[0].AsString); err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -638,6 +665,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_mkdir() requires a string path")
 		}
+		if !vm.permissions.AllowFSMutate {
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.mkdir", runtimecap.FlagAllowFSMutate))), nil
+		}
+		if err := validateVMDestructivePath(args[0].AsString, "fs.mkdir"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
+		}
 		if err := os.Mkdir(args[0].AsString, 0755); err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -646,6 +679,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 	case compiler.BUILTIN_CHMOD:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_chmod() requires path (string) and mode (int)")
+		}
+		if !vm.permissions.AllowFSMutate {
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("os.chmod", runtimecap.FlagAllowFSMutate))), nil
+		}
+		if err := validateVMDestructivePath(args[0].AsString, "os.chmod"); err != nil {
+			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
 		if err := os.Chmod(args[0].AsString, os.FileMode(args[1].AsInt)); err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil

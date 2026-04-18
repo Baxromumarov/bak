@@ -1,0 +1,33 @@
+package main
+
+import "std/os"
+
+func main() -> (int) {
+    var before_result: Result<string, string> = os.cwd()
+
+    if before_result.is_err() {
+        return 1
+    }
+
+    var before: string = before_result.unwrap()
+    var chdir_result: Result<void, string> = os.chdir("tests")
+
+    if chdir_result.is_err() {
+        return 2
+    }
+
+    var after_result: Result<string, string> = os.cwd()
+
+    if after_result.is_err() {
+        return 3
+    }
+
+    var after: string = after_result.unwrap()
+    var expected: string = before + "/tests"
+
+    if after == expected {
+        return 0
+    }
+
+    return 4
+}

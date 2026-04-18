@@ -246,6 +246,12 @@ func osChmod(args ...object.Object) object.Object {
 	if !ok {
 		return newError("os.chmod: second argument must be INTEGER, got %s", args[1].Type())
 	}
+	if denied := requireFSMutatePermission("os.chmod"); denied != nil {
+		return denied
+	}
+	if err := validateDestructivePath(path.Value, "os.chmod"); err != nil {
+		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+	}
 
 	err := os.Chmod(path.Value, os.FileMode(modeInt.Value))
 	if err != nil {

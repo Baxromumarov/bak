@@ -63,6 +63,8 @@ type EmitState struct {
 	// Data indices for bump allocator heap state
 	HeapPosDataIndex int
 	HeapEndDataIndex int
+	// Data index for a deterministic monotonic time counter
+	TimeCounterDataIndex int
 
 	// Track variables with integer type for print dispatch
 	IntVariables map[string]bool
@@ -117,31 +119,32 @@ type EmitState struct {
 // newEmitState creates a fresh EmitState.
 func newEmitState(permissions runtimecap.Permissions) *EmitState {
 	return &EmitState{
-		Code:                make([]byte, 0, 4096),
-		Scopes:              make([]Scope, 0, 8),
-		Functions:           make([]FunctionSymbol, 0, 32),
-		CallPatches:         make([]CallPatch, 0, 32),
-		ArgsCacheDataIndex:  -1,
-		InitRspDataIndex:    -1,
-		HeapPosDataIndex:    -1,
-		HeapEndDataIndex:    -1,
-		IntVariables:        make(map[string]bool),
-		CharVariables:       make(map[string]bool),
-		StringVariables:     make(map[string]bool),
-		FloatVariables:      make(map[string]bool),
-		VecStringElements:   make(map[string]bool),
-		StructVariables:     make(map[string]string),
-		StructDeclModule:    make(map[*ast.StructDecl]string),
-		VecElementTypes:     make(map[string]string),
-		OptionPayloadTypes:  make(map[string]ast.TypeExpression),
-		ResultOkTypes:       make(map[string]ast.TypeExpression),
-		ResultErrTypes:      make(map[string]ast.TypeExpression),
-		RefVariables:        make(map[string]bool),
-		IntFunctions:        make(map[string]bool),
-		StringFunctions:     make(map[string]bool),
-		Permissions:         permissions,
-		FunctionReturnTypes: make(map[string]ast.TypeExpression),
-		ImportAliases:       make(map[string]string),
+		Code:                 make([]byte, 0, 4096),
+		Scopes:               make([]Scope, 0, 8),
+		Functions:            make([]FunctionSymbol, 0, 32),
+		CallPatches:          make([]CallPatch, 0, 32),
+		ArgsCacheDataIndex:   -1,
+		InitRspDataIndex:     -1,
+		HeapPosDataIndex:     -1,
+		HeapEndDataIndex:     -1,
+		TimeCounterDataIndex: -1,
+		IntVariables:         make(map[string]bool),
+		CharVariables:        make(map[string]bool),
+		StringVariables:      make(map[string]bool),
+		FloatVariables:       make(map[string]bool),
+		VecStringElements:    make(map[string]bool),
+		StructVariables:      make(map[string]string),
+		StructDeclModule:     make(map[*ast.StructDecl]string),
+		VecElementTypes:      make(map[string]string),
+		OptionPayloadTypes:   make(map[string]ast.TypeExpression),
+		ResultOkTypes:        make(map[string]ast.TypeExpression),
+		ResultErrTypes:       make(map[string]ast.TypeExpression),
+		RefVariables:         make(map[string]bool),
+		IntFunctions:         make(map[string]bool),
+		StringFunctions:      make(map[string]bool),
+		Permissions:          permissions,
+		FunctionReturnTypes:  make(map[string]ast.TypeExpression),
+		ImportAliases:        make(map[string]string),
 	}
 }
 
@@ -3428,15 +3431,10 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		return s.emitOsCwd()
 	}
 	if funcName == "__builtin_chdir" {
-		// chdir(path) - stub
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: __builtin_chdir expects 1 argument")
 		}
-		if err := s.emitExpression(e.Arguments[0]); err != nil {
-			return err
-		}
-		emitXorRegReg(&s.Code, RAX, RAX) // return 0 (success)
-		return nil
+		return s.emitOsChdir(e.Arguments[0])
 	}
 	if funcName == "__builtin_chmod" {
 		if len(e.Arguments) != 2 {
@@ -3445,18 +3443,13 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		return s.emitOsChmod(e.Arguments[0], e.Arguments[1])
 	}
 	if funcName == "__builtin_mkdir" {
-		// mkdir(path) - stub
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: __builtin_mkdir expects 1 argument")
 		}
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_mkdir", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
-		if err := s.emitExpression(e.Arguments[0]); err != nil {
-			return err
-		}
-		emitXorRegReg(&s.Code, RAX, RAX) // return 0 (success)
-		return nil
+		return s.emitOsMkdir(e.Arguments[0])
 	}
 
 	// File system builtins
@@ -3502,8 +3495,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_remove", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
-		// Native backend does not yet implement recursive removal semantics.
-		return fmt.Errorf("native: __builtin_remove is not implemented yet in the native backend")
+		return s.emitFsRemove(e.Arguments[0])
 	}
 	if funcName == "__builtin_read_dir" {
 		for _, arg := range e.Arguments {
@@ -3513,31 +3505,23 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		}
 		return s.emitNone() // Return None
 	}
-	if funcName == "__builtin_file_exists" || funcName == "__builtin_is_file" {
-		if len(e.Arguments) > 0 {
-			// TODO: revert to emitFsIsFile once inline stat is debugged
-			// Evaluate the arg (consume it) but return true(1)
-			if err := s.emitExpression(e.Arguments[0]); err != nil {
-				return err
-			}
-			emitMovRegImm32(&s.Code, RAX, 1)
-			return nil
+	if funcName == "__builtin_file_exists" {
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: __builtin_file_exists expects 1 argument")
 		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return nil
+		return s.emitFsExists(e.Arguments[0])
+	}
+	if funcName == "__builtin_is_file" {
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: __builtin_is_file expects 1 argument")
+		}
+		return s.emitFsIsFile(e.Arguments[0])
 	}
 	if funcName == "__builtin_is_dir" {
-		if len(e.Arguments) > 0 {
-			// TODO: revert to emitFsIsDir once inline stat is debugged
-			// Evaluate the arg (consume it) but return false(0)
-			if err := s.emitExpression(e.Arguments[0]); err != nil {
-				return err
-			}
-			emitXorRegReg(&s.Code, RAX, RAX)
-			return nil
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: __builtin_is_dir expects 1 argument")
 		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return nil
+		return s.emitFsIsDir(e.Arguments[0])
 	}
 	if funcName == "__builtin_temp_dir" || funcName == "__builtin_user_home_dir" ||
 		funcName == "__builtin_hostname" {
@@ -3572,9 +3556,11 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	}
 
 	// Time builtins
-	if funcName == "__builtin_time_now" || funcName == "__builtin_monotonic_now" {
-		emitXorRegReg(&s.Code, RAX, RAX) // return 0
-		return nil
+	if funcName == "__builtin_time_now" {
+		return s.emitTimeNow(0)
+	}
+	if funcName == "__builtin_monotonic_now" {
+		return s.emitTimeNow(1)
 	}
 	if funcName == "__builtin_time_parts" {
 		for _, arg := range e.Arguments {
@@ -3586,12 +3572,10 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		return nil
 	}
 	if funcName == "__builtin_sleep" {
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: __builtin_sleep expects 1 argument")
 		}
-		return nil
+		return s.emitSleepMs(e.Arguments[0])
 	}
 
 	// Threading/sync builtins - stubs
@@ -4033,22 +4017,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isFile expects 1 argument")
 				}
-				// TODO: revert to emitFsIsFile once inline stat is debugged
-				if err := s.emitExpression(e.Arguments[0]); err != nil {
-					return err
-				}
-				emitMovRegImm32(&s.Code, RAX, 1) // stub: always true
-				return nil
+				return s.emitFsIsFile(e.Arguments[0])
 			case "isDir":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isDir expects 1 argument")
 				}
-				// TODO: revert to emitFsIsDir once inline stat is debugged
-				if err := s.emitExpression(e.Arguments[0]); err != nil {
-					return err
-				}
-				emitXorRegReg(&s.Code, RAX, RAX) // stub: always false
-				return nil
+				return s.emitFsIsDir(e.Arguments[0])
 			case "readFile":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.readFile expects 1 argument")

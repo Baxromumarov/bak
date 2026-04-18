@@ -501,9 +501,10 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 	valType := tc.inferType(vs.Value)
 	if valType != nil && !tc.isErrorType(valType) {
 		if !tc.typesMatch(vs.Type, valType) {
-			tc.addError(
+			tc.addErrorWithHelp(
 				vs.Token.Line,
 				vs.Token.Column,
+				tc.suggestTypeFix(typeToString(vecType), typeToString(valType)),
 				"cannot assign type '%s' to variable of type '%s'",
 				typeToString(valType),
 				typeToString(vs.Type),
@@ -529,7 +530,10 @@ func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 
 	if !tc.fitsInType(cs.Type, cs.Value) {
 		valueType := tc.inferType(cs.Value)
-		tc.addError(cs.Token.Line, cs.Token.Column,
+		tc.addErrorWithHelp(
+			cs.Token.Line,
+			cs.Token.Column,
+			tc.suggestTypeFix(typeToString(cs.Type), typeToString(valueType)),
 			"cannot assign %s to constant '%s' of type %s",
 			typeToString(valueType), cs.Name.Value, typeToString(cs.Type))
 	}

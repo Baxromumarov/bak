@@ -218,6 +218,15 @@ func main() -> (void) {
 `, "cannot assign")
 }
 
+func TestCheck_ConstTypeMismatchShowsHelp(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	const x: int = "hello"
+}
+`, "strconv.atoi")
+}
+
 func TestCheck_ImmutableAssignmentShowsHelp(t *testing.T) {
 	expectError(t, `
 package main
