@@ -41,7 +41,7 @@ func main() -> (void) {
     // Vectors
     mut var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
     println("Numbers:", numbers)
-    println("Length:", len(numbers))
+    println("Length:", numbers.len())
 
     // Push to vector
     numbers.push(6)
@@ -49,7 +49,7 @@ func main() -> (void) {
 
     // Pop from vector
     var popped: Option<int> = numbers.pop()
-    if popped.is_some {
+    if popped.is_some() {
         println("Popped:", popped.value)
     } else {
         println("Popped: None")
@@ -70,7 +70,7 @@ func main() -> (void) {
 
     // For loop with range
     println("For loop over range:")
-    for n in [0,3] {
+    for n in 0..3 {
         println("n =", n)
     }
 
@@ -83,20 +83,20 @@ func main() -> (void) {
     // Result type
     var success: Result<int, string> = Ok(42)
     println("Result:", success)
-    println("Is Ok:", success.is_ok)
+    println("Is Ok:", success.is_ok())
 
     var failure: Result<int, string> = Err("Something went wrong")
     println("Failure:", failure)
-    println("Is Err:", failure.is_err)
+    println("Is Err:", failure.is_err())
 
     // Option type  
     var maybe: Option<int> = Some(100)
     println("Option:", maybe)
-    println("Has value:", maybe.is_some)
+    println("Has value:", maybe.is_some())
 
     var nothing: Option<int> = None()
     println("Nothing:", nothing)
-    println("Is None:", nothing.is_none)
+    println("Is None:", nothing.is_none())
 
     // Struct usage
     var p: Point = Point{ x: 10, y: 20 }

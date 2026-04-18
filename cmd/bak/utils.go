@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -25,24 +26,41 @@ func getStdLibPath() string {
 	}
 
 	// Fallback for dev environment (running from root)
-	cwd, _ := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return filepath.Join(".", "src", "std")
+	}
 	return filepath.Join(cwd, "src", "std")
 }
 
-// injectPrelude injects standard library components (like HashMap) into the user program
-func injectPrelude(program *ast.Program) {
+// injectPrelude injects standard library components (like HashMap) into the user program.
+// Returns a slice of non-fatal warnings (e.g., prelude files that exist but fail to parse).
+// Missing prelude files are silently ignored so that basic usage works without a full stdlib.
+func injectPrelude(program *ast.Program) []string {
 	stdLibPath := getStdLibPath()
+	var warnings []string
 
-	injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "hashmap.bak"), "HashMap")
-	injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "vec.bak"), "Vec")
-	injectImplPrelude(program, filepath.Join(stdLibPath, "option.bak"), "Option")
-	injectImplPrelude(program, filepath.Join(stdLibPath, "result.bak"), "Result")
+	if w := injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "hashmap.bak"), "HashMap"); w != "" {
+		warnings = append(warnings, w)
+	}
+	if w := injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "vec.bak"), "Vec"); w != "" {
+		warnings = append(warnings, w)
+	}
+	if w := injectImplPrelude(program, filepath.Join(stdLibPath, "option.bak"), "Option"); w != "" {
+		warnings = append(warnings, w)
+	}
+	if w := injectImplPrelude(program, filepath.Join(stdLibPath, "result.bak"), "Result"); w != "" {
+		warnings = append(warnings, w)
+	}
+	return warnings
 }
 
-func injectStructPrelude(program *ast.Program, path string, structName string) {
+// injectStructPrelude injects a struct declaration from a prelude file.
+// Returns a warning string if the file exists but cannot be parsed, or "" on success/missing file.
+func injectStructPrelude(program *ast.Program, path string, structName string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return
+		return "" // missing file is OK
 	}
 	src := string(data)
 	l := lexer.New(src)
@@ -50,7 +68,7 @@ func injectStructPrelude(program *ast.Program, path string, structName string) {
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return
+		return fmt.Sprintf("prelude parse errors in %s", path)
 	}
 
 	startIdx := 0
@@ -76,7 +94,7 @@ func injectStructPrelude(program *ast.Program, path string, structName string) {
 	}
 
 	if alreadyDefined {
-		return
+		return ""
 	}
 
 	var newStmts []ast.Statement
@@ -86,12 +104,15 @@ func injectStructPrelude(program *ast.Program, path string, structName string) {
 	newStmts = append(newStmts, prog.Statements[startIdx:]...)
 	newStmts = append(newStmts, program.Statements[insertIdx:]...)
 	program.Statements = newStmts
+	return ""
 }
 
-func injectImplPrelude(program *ast.Program, path string, typeName string) {
+// injectImplPrelude injects an impl block from a prelude file.
+// Returns a warning string if the file exists but cannot be parsed, or "" on success/missing file.
+func injectImplPrelude(program *ast.Program, path string, typeName string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return
+		return "" // missing file is OK
 	}
 	src := string(data)
 	l := lexer.New(src)
@@ -99,7 +120,7 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) {
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return
+		return fmt.Sprintf("prelude parse errors in %s", path)
 	}
 
 	startIdx := 0
@@ -125,7 +146,7 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) {
 	}
 
 	if alreadyDefined {
-		return
+		return ""
 	}
 
 	var newStmts []ast.Statement
@@ -135,4 +156,5 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) {
 	newStmts = append(newStmts, prog.Statements[startIdx:]...)
 	newStmts = append(newStmts, program.Statements[insertIdx:]...)
 	program.Statements = newStmts
+	return ""
 }

@@ -49,11 +49,13 @@ Current CLI/runtime guardrails:
 
 - `os.exec` requires `--allow-exec`,
 - `os.exec` is direct-exec only; it does not invoke a shell for pipes, redirection, or expansion,
-- `os.exec` uses `--exec-timeout` and `--exec-max-output-bytes` to control runtime and captured output size,
+- `os.exec` uses `--exec-timeout` and `--exec-max-output-bytes` to control runtime and captured output size in interpreter and VM paths,
+- native `os.exec` uses direct-exec semantics without timeout or output capture (the same CLI flags are only compile-time gates for native builds),
 - socket and database builtins require `--allow-net`,
 - destructive filesystem operations such as `fs.remove` and `fs.removeAll` require `--allow-fs-mutate`.
-- `fs.remove` and `fs.removeAll` refuse empty paths, `.` and `/` even when mutation is allowed.
-- native builds refuse `os.exec`, socket/database, and destructive filesystem builtins unless the corresponding capability is granted.
+- `fs.remove` and `fs.removeAll` refuse empty paths, `.`, `/`, and paths containing `..` even when mutation is allowed.
+- native builds refuse `os.exec`, socket/database, and destructive filesystem builtins unless the corresponding capability is granted at compile time.
+- native executables now also embed runtime permission flags as defense-in-depth: if a dangerous builtin is somehow reached without compile-time permission, the binary panics with a clear error rather than performing the operation.
 
 ### Package fetching
 
@@ -69,7 +71,6 @@ Current hardening:
 Current limitations:
 
 - there is no signature verification,
-- there is no repository allowlist,
 - there is no sandboxed package build step,
 - fetching a dependency still implies trusting the referenced source.
 
@@ -90,10 +91,10 @@ Until Bak has a stronger permission model, follow these rules:
 
 The active Go-first roadmap calls for additional hardening:
 
-1. Runtime permission model or explicit capability gating for dangerous operations.
-2. Better process controls around external command execution.
-3. More lockfile integrity checks and negative-path tests.
-4. Extend or redesign the permission model and exec hardening story for native executables.
+1. ✅ Runtime permission model v1 baseline is complete (interpreter/VM/native compile-time gating plus native runtime defense-in-depth).
+2. ✅ Native exec policy documented: direct-exec, no timeout/output capture in emitted binaries.
+3. ✅ Filesystem traversal guardrails added.
+4. Source allowlists and stronger lockfile integrity checks are in progress.
 
 See:
 

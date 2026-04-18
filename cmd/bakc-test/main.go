@@ -116,12 +116,12 @@ func main() {
 func goTypecheck(path string) ([]diag, error) {
 	source, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("bakc-test: reading %s: %w", path, err)
 	}
 	p := parser.New(lexer.New(string(source)))
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
-		return nil, fmt.Errorf("parse errors: %s", strings.Join(p.Errors(), "; "))
+		return nil, fmt.Errorf("bakc-test: parse errors in %s: %s", path, strings.Join(p.Errors(), "; "))
 	}
 	tc := typechecker.NewWithPath(path)
 	errs := tc.Check(program)
@@ -245,7 +245,7 @@ func parseBakcDiagnostics(out []byte) []diag {
 func readExpect(path string) (string, string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("bakc-test: reading %s: %w", path, err)
 	}
 	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
@@ -253,12 +253,12 @@ func readExpect(path string) (string, string, error) {
 			rest := strings.TrimSpace(after)
 			parts := strings.SplitN(rest, " ", 2)
 			if len(parts) != 2 {
-				return "", "", fmt.Errorf("invalid expect format")
+				return "", "", fmt.Errorf("bakc-test: invalid expect format in %s", path)
 			}
 			return parts[0], parts[1], nil
 		}
 	}
-	return "", "", fmt.Errorf("missing expect directive")
+	return "", "", fmt.Errorf("bakc-test: missing expect directive in %s", path)
 }
 
 func findGoMatch(diags []diag, prefix string) (diag, bool) {
@@ -280,5 +280,5 @@ func findBakcMatch(diags []diag, code, prefix string) (diag, bool) {
 }
 
 func fail(kind, path, msg string) {
-	fmt.Printf("%s %s: %s\n", kind, filepath.Base(path), msg)
+	fmt.Fprintf(os.Stderr, "bakc-test: %s %s: %s\n", kind, filepath.Base(path), msg)
 }

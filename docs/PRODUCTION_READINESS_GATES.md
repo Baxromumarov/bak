@@ -1,9 +1,17 @@
 # Bak Production Readiness Gates (Linux x86_64)
 
+Status note (2026-04-18):
+
+- These gates cover the native self-hosting release track in `src/`.
+- They are not the primary project success metric anymore.
+- The Go compiler in `pkg/` and `cmd/` remains the compiler of record.
+- See `GO_FIRST_ROADMAP.md` for the active delivery plan.
+
 Last Updated: February 18, 2026
 Scope: Native compiler/runtime on Linux x86_64 only.
 
-This file defines strict release gates. A gate is `PASS` only if every criterion under it passes and evidence is attached.
+This file defines strict release gates for the self-hosting research track.
+A gate is `PASS` only if every criterion under it passes and evidence is attached.
 Live status is tracked in `docs/PRODUCTION_READINESS_TRACKER.md`.
 
 ## Global Release Rules
@@ -143,10 +151,12 @@ Required evidence:
 
 ## Production Readiness Exit Criteria
 
-A release is `PRODUCTION READY` only when:
+A self-hosting release is `PRODUCTION READY` only when:
 - Gate 0..6 are all `PASS`.
 - No open `P0/P1` issues.
 - Deterministic stage2/stage3 hashes verified in CI.
+
+Note: The Go-first compiler release criteria are defined in `GO_FIRST_ROADMAP.md`.
 
 ## Current Blockers (as of February 18, 2026)
 

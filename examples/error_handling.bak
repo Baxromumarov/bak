@@ -15,7 +15,7 @@ func divide(a: int, b: int) -> (Result<int, string>) {
 // Function that might not have a value
 func findFirst(numbers: &Vec<int, _>, target: int) -> (Option<int>) {
     mut var i: int = 0
-    while i < len(numbers) {
+    while i < numbers.len() {
         if numbers[i] == target {
             return Some(i)
         }
@@ -69,14 +69,7 @@ func main() -> (void) {
         }
     }
     
-    // Built-in Result from conversion
-    var parsed: Result<int, string> = int("42")
-    switch parsed {
-        case Ok(n) {
-            println("Parsed number:", n)
-        }
-        case Err(e) {
-            println("Parse error:", e)
-        }
-    }
+    // Built-in conversion
+    var parsed: int = int("42")
+    println("Parsed number:", parsed)
 }

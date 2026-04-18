@@ -605,6 +605,12 @@ func validateDestructivePath(pathValue, op string) error {
 	if cleaned == string(filepath.Separator) {
 		return fmt.Errorf("%s: refusing to operate on root directory", op)
 	}
+	// Reject directory traversal attempts
+	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
+		if part == ".." {
+			return fmt.Errorf("%s: refusing path containing directory traversal (..)", op)
+		}
+	}
 	return nil
 }
 

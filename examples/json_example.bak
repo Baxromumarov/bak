@@ -1,3 +1,5 @@
+// NOTE: This example needs updating for the current bak API and may not compile.
+
 package main
 
 import "src/std/encoding/json/json.bak" as json

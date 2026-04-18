@@ -3,6 +3,7 @@ package builtins
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -195,6 +196,28 @@ func TestFSRemoveAllRejectsUnsafeTargets(t *testing.T) {
 		result := requireResult(t, fsRemoveAll(&object.String{Value: target}))
 		if result.IsOk {
 			t.Fatalf("expected fs.removeAll to reject target %q", target)
+		}
+	}
+}
+
+func TestFSRejectsDirectoryTraversal(t *testing.T) {
+	setBuiltinPermissions(t, runtimecap.Permissions{AllowFSMutate: true})
+
+	traversalPaths := []string{
+		"../secret.txt",
+		"foo/../../secret.txt",
+		"../../etc/passwd",
+		"..",
+	}
+
+	for _, target := range traversalPaths {
+		result := requireResult(t, fsWriteFile(&object.String{Value: target}, &object.String{Value: "data"}))
+		if result.IsOk {
+			t.Fatalf("expected fs.writeFile to reject traversal path %q", target)
+		}
+		msg := requireStringValue(t, result.Value)
+		if !strings.Contains(msg, "directory traversal") {
+			t.Fatalf("expected traversal error for %q, got %q", target, msg)
 		}
 	}
 }

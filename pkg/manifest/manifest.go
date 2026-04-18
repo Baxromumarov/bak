@@ -2,17 +2,20 @@
 package manifest
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 // Manifest represents the bak.toml package manifest.
 type Manifest struct {
-	Package      PackageInfo           `toml:"package"`
-	Dependencies map[string]Dependency `toml:"dependencies"`
-	Permissions  *RuntimePermissions   `toml:"permissions,omitempty"`
+	Package        PackageInfo           `toml:"package"`
+	Dependencies   map[string]Dependency `toml:"dependencies"`
+	Permissions    *RuntimePermissions   `toml:"permissions,omitempty"`
+	TrustedSources []string              `toml:"trusted_sources,omitempty"`
 }
 
 // PackageInfo contains package metadata.
@@ -98,4 +101,51 @@ func (m *Manifest) AddDependency(name string, dep Dependency) {
 func (m *Manifest) HasDependency(name string) bool {
 	_, exists := m.Dependencies[name]
 	return exists
+}
+
+
+// ValidateSourceAllowed checks if a package source matches the trusted source list.
+// An empty trusted list means all sources are allowed (backward compatible).
+// Trusted entries can be exact matches or wildcard prefixes ending with "/*".
+func ValidateSourceAllowed(source string, trusted []string) error {
+	if len(trusted) == 0 {
+		return nil
+	}
+	for _, pattern := range trusted {
+		if pattern == source {
+			return nil
+		}
+		if strings.HasSuffix(pattern, "/*") {
+			prefix := strings.TrimSuffix(pattern, "/*")
+			if strings.HasPrefix(source, prefix+"/") || source == prefix {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("source %q is not in the trusted_sources allowlist", source)
+}
+
+// ValidateLockfileIntegrity performs structural integrity checks on a lockfile.
+// It verifies that every locked package has a non-empty commit and checksum,
+// and that there are no orphaned packages not present in the manifest.
+func ValidateLockfileIntegrity(lock *Lockfile, m *Manifest) error {
+	if lock == nil {
+		return fmt.Errorf("lockfile is nil")
+	}
+	var problems []string
+	for name, pkg := range lock.Packages {
+		if pkg.Commit == "" {
+			problems = append(problems, fmt.Sprintf("package %q has empty commit", name))
+		}
+		if pkg.Checksum == "" {
+			problems = append(problems, fmt.Sprintf("package %q has empty checksum", name))
+		}
+		if m != nil && !m.HasDependency(name) {
+			problems = append(problems, fmt.Sprintf("package %q exists in lockfile but not in manifest", name))
+		}
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("lockfile integrity issues: %s", strings.Join(problems, "; "))
+	}
+	return nil
 }

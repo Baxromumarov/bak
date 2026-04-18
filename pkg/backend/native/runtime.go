@@ -26,6 +26,7 @@ func (s *EmitState) emitRuntimeStubs() {
 	s.emitRuntimeReadFile()
 	s.emitRuntimeStringConcat()
 	s.emitRuntimePrintFloat()
+	s.emitRuntimeCheckPerm()
 }
 
 // emitRuntimePrintFloat: __rt_print_float(bits: rdi)
@@ -1584,6 +1585,57 @@ func (s *EmitState) emitRuntimeStringConcat() {
 	// Restore regs
 	emitPopReg(&s.Code, R15)
 	emitPopReg(&s.Code, R14)
+	emitPopReg(&s.Code, R13)
+	emitPopReg(&s.Code, R12)
+
+	emitMovRegReg(&s.Code, RSP, RBP)
+	emitPopReg(&s.Code, RBP)
+	emitRet(&s.Code)
+}
+
+// emitRuntimeCheckPerm: __rt_check_perm(mask: rdi)
+// Loads the runtime permission byte from the data section and tests the
+// requested bit mask. If the bit is not set, calls __rt_panic with a
+// permission-denied message. This provides defense-in-depth beyond the
+// compile-time permission gate.
+func (s *EmitState) emitRuntimeCheckPerm() {
+	s.addRuntimeFunc("__rt_check_perm", 1)
+	emitPushReg(&s.Code, RBP)
+	emitMovRegReg(&s.Code, RBP, RSP)
+
+	// Save callee-saved registers
+	emitPushReg(&s.Code, R12)
+	emitPushReg(&s.Code, R13)
+
+	// R12 = permission mask (from RDI)
+	emitMovRegReg(&s.Code, R12, RDI)
+
+	// Load permission byte address into RAX
+	if s.PermissionsDataIndex < 0 {
+		// No permissions configured; treat as all denied
+		// Fall through to panic
+	} else {
+		s.emitDataAddr(s.PermissionsDataIndex)
+		// mov r13b, byte [rax]
+		s.Code = append(s.Code, 0x44, 0x8A, 0x28) // mov r13b, [rax]
+		// and r13b, r12b
+		s.Code = append(s.Code, 0x45, 0x20, 0xE5) // and r13b, r12b
+		// jnz allowed
+		jnzAllowed := len(s.Code)
+		s.Code = append(s.Code, 0x75, 0) // jnz rel8
+
+		// Denied path: call __rt_panic("runtime permission denied")
+		msgIdx := s.addStringLiteral("runtime permission denied")
+		s.emitDataAddr(msgIdx)
+		emitMovRegReg(&s.Code, RDI, RAX)
+		callSite := emitCallRel32(&s.Code, 0)
+		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_panic"})
+
+		// allowed:
+		s.Code[jnzAllowed+1] = byte(len(s.Code) - jnzAllowed - 2)
+	}
+
+	// Restore regs
 	emitPopReg(&s.Code, R13)
 	emitPopReg(&s.Code, R12)
 

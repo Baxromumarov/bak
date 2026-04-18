@@ -22,7 +22,7 @@ func main() -> (void) {
     
     // For loop - iterating over a range
     println("For loop with Vec:")
-    var numbers = [1, 2, 3, 4, 5]
+    var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
     for num in numbers {
         println("  num =", num)
     }

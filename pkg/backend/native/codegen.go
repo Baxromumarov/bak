@@ -65,6 +65,8 @@ type EmitState struct {
 	HeapEndDataIndex int
 	// Data index for a deterministic monotonic time counter
 	TimeCounterDataIndex int
+	// Data index for runtime permission flags (defense-in-depth beyond compile-time gating)
+	PermissionsDataIndex int
 
 	// Track variables with integer type for print dispatch
 	IntVariables map[string]bool
@@ -128,6 +130,7 @@ func newEmitState(permissions runtimecap.Permissions) *EmitState {
 		HeapPosDataIndex:     -1,
 		HeapEndDataIndex:     -1,
 		TimeCounterDataIndex: -1,
+		PermissionsDataIndex: -1,
 		IntVariables:         make(map[string]bool),
 		CharVariables:        make(map[string]bool),
 		StringVariables:      make(map[string]bool),
@@ -168,6 +171,18 @@ func (s *EmitState) requirePermission(allowed bool, action string, flag string) 
 		return nil
 	}
 	return fmt.Errorf("native: %s requires %s or a matching [permissions] entry in bak.toml", action, flag)
+}
+
+// emitRuntimePermissionCheck emits a runtime call to __rt_check_perm with the
+// given permission mask. This provides defense-in-depth beyond compile-time gating.
+// Mask bits: 0x01 = AllowExec, 0x02 = AllowNet, 0x04 = AllowFSMutate.
+func (s *EmitState) emitRuntimePermissionCheck(mask int) {
+	if s.PermissionsDataIndex < 0 {
+		return
+	}
+	emitMovRegImm32(&s.Code, RDI, int32(mask))
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_check_perm"})
 }
 
 // inferSwitchExprPayloadTypes tries to determine the Option/Result payload types
@@ -570,6 +585,20 @@ func CompilePrograms(programs []ProgramWithPath, mainProgram *ast.Program, permi
 		// Also register return type under the qualified name
 		s.FunctionReturnTypes[name] = fp.fn.ReturnType
 	}
+
+	// Initialize runtime permission data slot for defense-in-depth checks
+	// Must happen before emitRuntimeStubs so __rt_check_perm can reference it.
+	permByte := byte(0)
+	if s.Permissions.AllowExec {
+		permByte |= 0x01
+	}
+	if s.Permissions.AllowNet {
+		permByte |= 0x02
+	}
+	if s.Permissions.AllowFSMutate {
+		permByte |= 0x04
+	}
+	s.PermissionsDataIndex = s.addDataItem([]byte{permByte}, 1)
 
 	// Emit runtime stubs
 	s.emitRuntimeStubs()
@@ -3449,6 +3478,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_mkdir", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x04)
 		return s.emitOsMkdir(e.Arguments[0])
 	}
 
@@ -3468,6 +3498,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x04)
 		return s.emitFsWriteFile(e.Arguments[0], e.Arguments[1])
 	}
 	if funcName == "__builtin_write_file_bytes" {
@@ -3477,6 +3508,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file_bytes", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x04)
 		return s.emitFsWriteFileBytes(e.Arguments[0], e.Arguments[1])
 	}
 	if funcName == "__builtin_append_file" {
@@ -3486,6 +3518,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_append_file", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x04)
 		return s.emitFsAppendFile(e.Arguments[0], e.Arguments[1])
 	}
 	if funcName == "__builtin_remove" {
@@ -3495,6 +3528,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_remove", runtimecap.FlagAllowFSMutate); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x04)
 		return s.emitFsRemove(e.Arguments[0])
 	}
 	if funcName == "__builtin_read_dir" {
@@ -3611,6 +3645,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x02)
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return err
@@ -3628,6 +3663,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
 			return err
 		}
+		s.emitRuntimePermissionCheck(0x02)
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return err
@@ -3643,6 +3679,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 			if err := s.requirePermission(s.Permissions.AllowExec, "__builtin_exec", runtimecap.FlagAllowExec); err != nil {
 				return err
 			}
+			s.emitRuntimePermissionCheck(0x01)
 			return s.emitOsExec(e.Arguments[0], e.Arguments[1])
 		}
 		emitXorRegReg(&s.Code, RAX, RAX)

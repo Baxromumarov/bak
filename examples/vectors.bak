@@ -4,22 +4,17 @@
 package main
 
 func main() -> (void) {
-    // Fixed-size Vec - stack allocated, size known at compile time
-    var fixedVec: Vec<int, 5> = Vec.from([1, 2, 3, 4, 5])
-    println("Fixed Vec:", fixedVec)
-    println("Length:", len(fixedVec))
-    println("First element:", fixedVec[0])
-    println("Last element:", fixedVec[4])
-    
     // Dynamic Vec - heap backed, can grow
     mut var dynamicVec: Vec<int, _> = Vec.from([10, 20, 30])
     println("Dynamic Vec:", dynamicVec)
-    
+    println("Length:", dynamicVec.len())
+    println("First element:", dynamicVec[0])
+
     // Push to dynamic vec (requires mut)
     dynamicVec.push(40)
     dynamicVec.push(50)
     println("After push:", dynamicVec)
-    
+
     // Pop from dynamic vec
     var popped = dynamicVec.pop()
     switch popped {
@@ -31,16 +26,16 @@ func main() -> (void) {
         }
     }
     println("After pop:", dynamicVec)
-    
+
     // Iteration
-    println("Iterating over fixed vec:")
-    for item in fixedVec {
+    println("Iterating over dynamic vec:")
+    for item in dynamicVec {
         println("  -", item)
     }
-    
+
     // Vec methods
     println("Is dynamic vec empty?", dynamicVec.is_empty())
-    
+
     // Getting elements safely
     var elem = dynamicVec.get(1)
     switch elem {
@@ -51,7 +46,7 @@ func main() -> (void) {
             println("Index out of bounds")
         }
     }
-    
+
     // Index out of bounds
     var outOfBounds = dynamicVec.get(100)
     switch outOfBounds {
@@ -62,8 +57,4 @@ func main() -> (void) {
             println("Index 100 is out of bounds!")
         }
     }
-    
-    // Built-in functions
-    println("first:", first(fixedVec))
-    println("last:", last(fixedVec))
 }

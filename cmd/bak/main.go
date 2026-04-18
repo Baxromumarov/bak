@@ -224,8 +224,10 @@ func main() {
 		return
 	case "--version", "-v":
 		fmt.Printf("bak version %s\n", VERSION)
+		return
 	case "--help", "-h":
 		printHelp()
+		return
 	case "--bc":
 		modulePath, programArgs, explicitArgs, profileEnabled, err := splitBytecodeArgs(args)
 		if err != nil {
@@ -359,7 +361,9 @@ func runFileVM(filename string, permissions runtimecap.Permissions) {
 	}
 
 	// Inject Prelude
-	injectPrelude(program)
+	for _, w := range injectPrelude(program) {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+	}
 
 	// Type check
 	tc := typechecker.NewWithPath(filename)
@@ -516,7 +520,7 @@ func runTests(path string, permissions runtimecap.Permissions) {
 	}
 	if info.IsDir() {
 		var files []string
-		_ = filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
+		walkErr := filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
@@ -528,8 +532,12 @@ func runTests(path string, permissions runtimecap.Permissions) {
 			}
 			return nil
 		})
+		if walkErr != nil {
+			fmt.Fprintf(os.Stderr, "Error walking directory %s: %s\n", path, walkErr)
+			os.Exit(1)
+		}
 		if len(files) == 0 {
-			_ = filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
+			walkErr = filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
 				if walkErr != nil {
 					return walkErr
 				}
@@ -541,6 +549,10 @@ func runTests(path string, permissions runtimecap.Permissions) {
 				}
 				return nil
 			})
+			if walkErr != nil {
+				fmt.Fprintf(os.Stderr, "Error walking directory %s: %s\n", path, walkErr)
+				os.Exit(1)
+			}
 		}
 		sort.Strings(files)
 		if len(files) == 0 {
@@ -641,7 +653,9 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 	program := p.ParseProgram()
 
 	// Inject prelude
-	injectPrelude(program)
+	for _, w := range injectPrelude(program) {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+	}
 
 	if len(p.Errors()) != 0 {
 		fmt.Fprintf(os.Stderr, "Parse errors in generated runner for %s:\n", filename)
@@ -736,7 +750,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 
 func splitBytecodeArgs(args []string) (string, []string, bool, bool, error) {
 	if len(args) < 2 {
-		return "", nil, false, false, fmt.Errorf("Error: --bc requires a .json module path")
+		return "", nil, false, false, fmt.Errorf("--bc requires a .json module path")
 	}
 
 	profileEnabled := false
@@ -767,7 +781,7 @@ func splitBytecodeArgs(args []string) (string, []string, bool, bool, error) {
 	}
 
 	if modulePath == "" {
-		return "", nil, false, false, fmt.Errorf("Error: --bc requires a .json module path")
+		return "", nil, false, false, fmt.Errorf("--bc requires a .json module path")
 	}
 	return modulePath, programArgs, explicitArgs, profileEnabled, nil
 }
@@ -996,7 +1010,9 @@ func run(input string, env *object.Environment, filename string) object.Object {
 	}
 
 	// Inject prelude (HashMap, etc)
-	injectPrelude(program)
+	for _, w := range injectPrelude(program) {
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", w)
+	}
 
 	// Run static type checker before evaluation
 	tc := typechecker.NewWithPath(filename)
@@ -1012,17 +1028,17 @@ func run(input string, env *object.Environment, filename string) object.Object {
 }
 
 func printParserErrors(diags []diagnostics.Diagnostic) {
-	fmt.Println("Parser errors:")
+	fmt.Fprintln(os.Stderr, "Parser errors:")
 	for _, d := range diags {
-		fmt.Print(d.Format())
-		fmt.Println()
+		fmt.Fprint(os.Stderr, d.Format())
+		fmt.Fprintln(os.Stderr)
 	}
 }
 
 func printTypeErrors(errors []string) {
-	fmt.Println("Type errors:")
+	fmt.Fprintln(os.Stderr, "Type errors:")
 	for _, msg := range errors {
-		fmt.Printf("  %s\n", msg)
+		fmt.Fprintf(os.Stderr, "  %s\n", msg)
 	}
 }
 
@@ -1110,7 +1126,12 @@ func getPackage(pkgArg string, opts packageCommandOptions) {
 	m, err := manifest.LoadFromDir(".")
 	if err != nil {
 		// Create new manifest if not exists
-		m = manifest.DefaultManifest(filepath.Base(getCwd()))
+		cwd, cwdErr := getCwd()
+		if cwdErr != nil {
+			fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", cwdErr)
+			os.Exit(1)
+		}
+		m = manifest.DefaultManifest(filepath.Base(cwd))
 	}
 
 	// Parse version: package@version
@@ -1129,6 +1150,12 @@ func getPackage(pkgArg string, opts packageCommandOptions) {
 
 	if !isExplicitURL && !strings.Contains(pkgPath, ".") {
 		fullPath = "github.com/" + pkgPath
+	}
+
+	// Validate against trusted source allowlist
+	if err := manifest.ValidateSourceAllowed(fullPath, m.TrustedSources); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Package name is the last part of the path (ignoring .git extension if present)
@@ -1215,6 +1242,19 @@ func installDependencies(opts packageCommandOptions) {
 		fmt.Fprintf(os.Stderr, "Error loading bak.lock: %v. Run 'bak get' to add dependencies first.\n", err)
 		os.Exit(1)
 	}
+
+	m, err := manifest.LoadFromDir(".")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading bak.toml: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Validate lockfile integrity
+	if err := manifest.ValidateLockfileIntegrity(lock, m); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
 	if opts.FrozenLockfile {
 		if err := validateFrozenLockfile(".", lock); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -1232,6 +1272,11 @@ func installDependencies(opts packageCommandOptions) {
 	lockDirty := false
 	for _, name := range names {
 		pkg := lock.Packages[name]
+		// Validate source against trusted allowlist
+		if err := manifest.ValidateSourceAllowed(pkg.Source, m.TrustedSources); err != nil {
+			fmt.Fprintf(os.Stderr, "Error installing %s: %v\n", pkg.Name, err)
+			os.Exit(1)
+		}
 		normalizedPath := packageCachePath(cacheDir, pkg.Name, pkg.Source, pkg.Commit)
 		if pkg.Path == "" || pkg.Path != normalizedPath {
 			pkg.Path = normalizedPath
@@ -1578,7 +1623,6 @@ func findMainBak(dir string) string {
 	return ""
 }
 
-func getCwd() string {
-	cwd, _ := os.Getwd()
-	return cwd
+func getCwd() (string, error) {
+	return os.Getwd()
 }

@@ -37,7 +37,9 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 			importPath,
 			visited,
 		); err != nil {
-			tc.addError(is.Token.Line, is.Token.Column, "%s", err.Error())
+			tc.addErrorWithHelp(is.Token.Line, is.Token.Column,
+				"check for a circular dependency chain or simplify the module graph",
+				"%s", err.Error())
 			return
 		}
 	}
@@ -71,9 +73,10 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Recursive loading: If package not found, load and check it
 		modProg, err := tc.parseImportProgram(importPath)
 		if err != nil {
-			tc.addError(
+			tc.addErrorWithHelp(
 				is.Token.Line,
 				is.Token.Column,
+				"check the import path exists and is accessible",
 				"cannot read import file: %s", err,
 			)
 			return

@@ -8,6 +8,25 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
+// enum payload error helpers
+func (tc *TypeChecker) errorEnumRequiresPayload(line, col int, variantName string) {
+	tc.addErrorWithHelp(line, col,
+		fmt.Sprintf("provide payload arguments like `%s(value)`", variantName),
+		"enum variant '%s' requires payload", variantName)
+}
+
+func (tc *TypeChecker) errorEnumNoPayload(line, col int, variantName string) {
+	tc.addErrorWithHelp(line, col,
+		fmt.Sprintf("remove the parentheses from `%s()`", variantName),
+		"enum variant '%s' does not accept payload", variantName)
+}
+
+func (tc *TypeChecker) errorEnumPayloadCount(line, col int, variantName string, expected, got int) {
+	tc.addErrorWithHelp(line, col,
+		fmt.Sprintf("provide exactly %d payload field(s) in order", expected),
+		"enum variant '%s' expects %d payload fields, but got %d", variantName, expected, got)
+}
+
 // checkStatement type checks a statement
 func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 	switch s := stmt.(type) {
@@ -85,14 +104,14 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 				if ident, ok := caseValue.(*ast.Identifier); ok {
 					if variant, found := enumDef.Variants[ident.Value]; found {
 						if variant.HasPayload {
-							tc.addError(ident.Token.Line, ident.Token.Column, "enum variant '%s' requires payload", ident.Value)
+							tc.errorEnumRequiresPayload(ident.Token.Line, ident.Token.Column, ident.Value)
 						}
 						isEffected = true
 					}
 				} else if ev, ok := caseValue.(*ast.EnumVariantExpression); ok {
 					if variant, found := enumDef.Variants[ev.Variant.Value]; found {
 						if !variant.HasPayload && len(ev.Values) > 0 {
-							tc.addError(ev.Token.Line, ev.Token.Column, "enum variant '%s' does not accept payload", ev.Variant.Value)
+							tc.errorEnumNoPayload(ev.Token.Line, ev.Token.Column, ev.Variant.Value)
 						} else if variant.HasPayload {
 							if len(ev.Values) == len(variant.Fields) {
 								for i, val := range ev.Values {
@@ -104,7 +123,7 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 									}
 								}
 							} else {
-								tc.addError(ev.Token.Line, ev.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", ev.Variant.Value, len(variant.Fields), len(ev.Values))
+								tc.errorEnumPayloadCount(ev.Token.Line, ev.Token.Column, ev.Variant.Value, len(variant.Fields), len(ev.Values))
 							}
 						}
 						isEffected = true
@@ -123,10 +142,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 										}
 									}
 								} else {
-									tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", ident.Value, len(variant.Fields), len(ce.Arguments))
+									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, ident.Value, len(variant.Fields), len(ce.Arguments))
 								}
 							} else {
-								tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' does not accept payload", ident.Value)
+								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, ident.Value)
 							}
 							isEffected = true
 						}
@@ -144,11 +163,11 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 											}
 										}
 									} else {
-										tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", variantName, len(variant.Fields), len(ce.Arguments))
+										tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, variantName, len(variant.Fields), len(ce.Arguments))
 									}
 								} else {
 									if len(ce.Arguments) > 0 {
-										tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' does not accept payload", variantName)
+										tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, variantName)
 									}
 								}
 								isEffected = true
@@ -170,10 +189,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 										}
 									}
 								} else {
-									tc.addError(mc.Token.Line, mc.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", variantName, len(variant.Fields), len(mc.Arguments))
+									tc.errorEnumPayloadCount(mc.Token.Line, mc.Token.Column, variantName, len(variant.Fields), len(mc.Arguments))
 								}
 							} else if len(mc.Arguments) > 0 {
-								tc.addError(mc.Token.Line, mc.Token.Column, "enum variant '%s' does not accept payload", variantName)
+								tc.errorEnumNoPayload(mc.Token.Line, mc.Token.Column, variantName)
 							}
 							isEffected = true
 						}
@@ -183,7 +202,7 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 						variantName := parts[len(parts)-1]
 						if variant, found := enumDef.Variants[variantName]; found {
 							if variant.HasPayload {
-								tc.addError(fa.Token.Line, fa.Token.Column, "enum variant '%s' requires payload", variantName)
+								tc.errorEnumRequiresPayload(fa.Token.Line, fa.Token.Column, variantName)
 							}
 							isEffected = true
 						}
@@ -205,10 +224,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 										}
 									}
 								} else {
-									tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", ident.Value, len(variant.Fields), len(ce.Arguments))
+									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, ident.Value, len(variant.Fields), len(ce.Arguments))
 								}
 							} else if len(ce.Arguments) > 0 {
-								tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' does not accept payload", ident.Value)
+								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, ident.Value)
 							}
 							isEffected = true
 						}
@@ -234,10 +253,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 										}
 									}
 								} else {
-									tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", fa.Field.Value, len(fieldTypes), len(ce.Arguments))
+									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, fa.Field.Value, len(fieldTypes), len(ce.Arguments))
 								}
 							} else if len(ce.Arguments) > 0 {
-								tc.addError(ce.Token.Line, ce.Token.Column, "enum variant '%s' does not accept payload", fa.Field.Value)
+								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, fa.Field.Value)
 							}
 							isEffected = true
 						}
@@ -265,10 +284,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 									}
 								}
 							} else {
-								tc.addError(mc.Token.Line, mc.Token.Column, "enum variant '%s' expects %d payload fields, but got %d", mc.Method.Value, len(fieldTypes), len(mc.Arguments))
+								tc.errorEnumPayloadCount(mc.Token.Line, mc.Token.Column, mc.Method.Value, len(fieldTypes), len(mc.Arguments))
 							}
 						} else if len(mc.Arguments) > 0 {
-							tc.addError(mc.Token.Line, mc.Token.Column, "enum variant '%s' does not accept payload", mc.Method.Value)
+							tc.errorEnumNoPayload(mc.Token.Line, mc.Token.Column, mc.Method.Value)
 						}
 						isEffected = true
 					}
@@ -600,9 +619,14 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 
 	if !tc.fitsInType(tc.currentFuncRet, rs.ReturnValue) {
 		returnType := tc.inferType(rs.ReturnValue)
-		tc.addError(rs.Token.Line, rs.Token.Column,
+		expectedName := typeToString(tc.currentFuncRet)
+		help := fmt.Sprintf("return a value of type %s or change the function return type", expectedName)
+		if expectedName == "void" {
+			help = "remove the return value or change the function return type"
+		}
+		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help,
 			"cannot return %s from function expecting %s",
-			typeToString(returnType), typeToString(tc.currentFuncRet))
+			typeToString(returnType), expectedName)
 	}
 
 	// Track ownership transfer for returned values

@@ -60,7 +60,7 @@ impl Point as p {
 
 func main() -> (void) {
     // Create a struct instance
-    var student = Student{Name: "Alice", Age: 20, GPA: 3.8}
+    var student: Student = Student{Name: "Alice", Age: 20, GPA: 3.8}
     
     println("Student:", student.getName())
     println("Age:", student.getAge())
@@ -68,6 +68,6 @@ func main() -> (void) {
     println("Honor student:", student.isHonorStudent())
     
     // Create a point
-    var point = Point{X: 3, Y: 4}
+    var point: Point = Point{X: 3, Y: 4}
     println("Point distance from origin:", point.distanceFromOrigin())
 }

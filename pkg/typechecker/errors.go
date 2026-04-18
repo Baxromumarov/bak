@@ -91,6 +91,7 @@ func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason str
 		Line:    line,
 		Column:  col,
 		Message: fmt.Sprintf("cannot move '%s' because it is %s", varName, reason),
+		Help:    fmt.Sprintf("consider borrowing with '&%s' or clone the value first", varName),
 	})
 }
 
@@ -110,6 +111,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 			attemptedBorrow,
 			existingState,
 		),
+		Help: "reorder operations or introduce a new scope to separate borrows",
 	})
 }
 
