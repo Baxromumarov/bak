@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -68,6 +70,9 @@ func Load(path string) (*Manifest, error) {
 	if m.Dependencies == nil {
 		m.Dependencies = make(map[string]Dependency)
 	}
+	if err := m.Validate(); err != nil {
+		return nil, err
+	}
 	return &m, nil
 }
 
@@ -78,6 +83,9 @@ func LoadFromDir(dir string) (*Manifest, error) {
 
 // Save writes the manifest to a file.
 func (m *Manifest) Save(path string) error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
 	f, err := os.Create(path)
 	if err != nil {
 		return err
@@ -96,6 +104,68 @@ func (m *Manifest) SaveToDir(dir string) error {
 // AddDependency adds a dependency to the manifest.
 func (m *Manifest) AddDependency(name string, dep Dependency) {
 	m.Dependencies[name] = dep
+}
+
+// Validate performs structural and semantic validation on a manifest.
+func (m *Manifest) Validate() error {
+	if m == nil {
+		return fmt.Errorf("manifest is nil")
+	}
+	if strings.TrimSpace(m.Package.Name) == "" {
+		return fmt.Errorf("package.name is required")
+	}
+	if strings.TrimSpace(m.Package.Version) == "" {
+		return fmt.Errorf("package.version is required")
+	}
+
+	depNames := make([]string, 0, len(m.Dependencies))
+	for name := range m.Dependencies {
+		depNames = append(depNames, name)
+	}
+	sort.Strings(depNames)
+	for _, name := range depNames {
+		dep := m.Dependencies[name]
+		hasGit := strings.TrimSpace(dep.Git) != ""
+		hasPath := strings.TrimSpace(dep.Path) != ""
+		switch {
+		case hasGit && hasPath:
+			return fmt.Errorf("dependency %q cannot set both git and path", name)
+		case !hasGit && !hasPath:
+			return fmt.Errorf("dependency %q must set either git or path", name)
+		}
+		if hasPath && strings.TrimSpace(dep.Version) != "" {
+			return fmt.Errorf("dependency %q cannot set version for a local path dependency", name)
+		}
+		if hasPath && strings.TrimSpace(dep.Branch) != "" {
+			return fmt.Errorf("dependency %q cannot set branch for a local path dependency", name)
+		}
+	}
+
+	if m.Permissions != nil {
+		if m.Permissions.ExecTimeout != "" {
+			dur, err := time.ParseDuration(m.Permissions.ExecTimeout)
+			if err != nil {
+				return fmt.Errorf("invalid permissions.exec_timeout %q: %w", m.Permissions.ExecTimeout, err)
+			}
+			if dur <= 0 {
+				return fmt.Errorf("permissions.exec_timeout must be greater than zero")
+			}
+		}
+		if m.Permissions.ExecMaxOutput < 0 {
+			return fmt.Errorf("permissions.exec_max_output_bytes must be greater than or equal to zero")
+		}
+	}
+
+	for _, source := range m.TrustedSources {
+		source = strings.TrimSpace(source)
+		if source == "" {
+			return fmt.Errorf("trusted_sources entries must not be empty")
+		}
+		if strings.Contains(source, " ") {
+			return fmt.Errorf("trusted_sources entry %q must not contain spaces", source)
+		}
+	}
+	return nil
 }
 
 // HasDependency checks if a dependency exists.

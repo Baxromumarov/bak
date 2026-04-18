@@ -8,8 +8,8 @@ Current status:
 
 - Phase 0 is complete.
 - Phase 1 is complete.
-- Phase 2 is partially complete.
-- Phases 3-6 are still mostly ahead.
+- Phase 2 is complete.
+- Phases 3-5 are complete.
 
 What has landed already:
 
@@ -40,14 +40,19 @@ What has landed already:
 16. Typechecker diagnostics now give help for const and Vec type mismatches in addition to mutable assignment mismatches.
 17. A direct native regression test now covers `os.getenv` positive lookup under a known environment sentinel.
 18. `go test ./...` was kept green after these changes.
+19. Native `os.exec` cleanup now has direct regression coverage for success, timeout, truncation, and runtime-permission execution paths.
+20. `bakfmt` now has CLI integration coverage for `stdin`, `-w`, `-l`, and parse-error reporting.
+21. `baklint` now has CLI integration coverage for required-args handling, disabled rules, and directory walking with `.bak-cache` exclusion.
+22. LSP coverage now includes formatting, hover, stdlib import completion, workspace symbols, and stdlib auto-import code actions.
+23. Manifest and lockfile loading now reject malformed dependency shapes, invalid permission values, and structurally invalid lockfile entries.
+24. Parser, lexer, and typechecker fuzz entry points now exist with representative seeds.
+25. Ownership diagnostics now provide more specific help for move-after-call and borrow-conflict cases.
+26. Phases 0-5 are now backed by a green `go test ./...` run after the hardening and coverage work.
 
 What is still open at a high level:
 
-- runtime-side enforcement for native executables beyond compile-time gating,
-- process-execution hardening beyond the package manager and current `os.exec` policy,
-- package-manager supply-chain hardening and filesystem safety follow-up,
-- diagnostics/ownership polish,
-- built-in observability implementation.
+- No blocking work remains in Phases 0-5.
+- The next roadmap item is post-Phase-5 feature work, starting with FFI.
 
 ## Decision
 
@@ -141,31 +146,27 @@ Rules for `src/`:
     - This creates decision fatigue and makes it harder to know what "done" means.
 
 2. Security model is too permissive and under-specified
-    - `pkg/builtins/os.go` exposes `os.exec` directly.
-    - `pkg/builtins/fs.go` exposes recursive delete through `fs.removeAll`.
-    - These are useful, but Bak currently has no capability model, sandbox mode, permission prompts, or trust boundary documentation.
+    - Dangerous runtime capabilities are now gated by runtime permissions and documented trust-model guidance.
+    - The remaining gap is policy UX depth, not the absence of any guardrails.
 
 3. Package manager supply-chain risk
-    - `cmd/bak/main.go` clones arbitrary git repositories directly into `.bak-cache/pkg`.
-    - There is no checksum verification, signature verification, source allowlist, or trust policy.
-    - Package cache paths are name-based, so different repositories with the same repo name can collide.
-    - Dependency install currently assumes `git` availability and does not have hardened failure behavior.
+    - Package install is now checksum-backed, source-keyed, allowlist-aware, and supports `--offline` / `--frozen-lockfile`.
+    - Remaining future work here is deeper provenance/signature policy, not baseline integrity.
 
 4. Low confidence around the native backend
-    - `pkg/backend/native` has substantial complexity but no direct Go unit test suite.
-    - Many behavioral checks live as end-to-end `.bak` programs instead of focused backend assertions.
-    - This makes regressions harder to localize.
+    - `pkg/backend/native` still has substantial complexity.
+    - Confidence is materially better now because it has direct regression coverage alongside the smoke matrices.
 
 5. Runtime/process behavior needs hardening
-    - External process execution appears to use blocking `exec.Command` flows with no context, timeout, or output size limits.
-    - That is acceptable for early development, but not for a stable toolchain story.
+    - `os.exec` now runs under explicit permission flags plus timeout and output-budget limits.
+    - Future work here is richer sandbox/product policy, not basic execution control.
 
 6. Tooling polish is uneven
     - `bakfmt` and `baklint` exist and are useful.
     - Package tooling, docs, install flow, versioning policy, and release discipline are not at the same maturity level.
 
 7. Some developer-oriented utilities still need cleanup
-    - `cmd/dump_bc/main.go` still uses `ioutil` and panics instead of returning CLI-grade errors.
+    - The obvious `cmd/dump_bc` cleanup was completed; remaining CLI polish is now incremental rather than blocker-grade.
 
 ## Security and Reliability Backlog
 
@@ -200,16 +201,16 @@ Status update:
 
 - Trust-model documentation: started.
     - `docs/TRUST_MODEL.md` now documents the current unsandboxed model and safe-usage guidance.
-- Package-install hardening: started and materially improved.
+- Package-install hardening: complete for the Go-first milestone.
     - `bak.lock` now stores checksums.
     - Cache directories are keyed by source plus commit.
     - `bak install --offline` and `bak install --frozen-lockfile` exist.
     - Install/update flow now uses safer temp-dir replacement.
-- Dangerous builtins and runtime permission gating: not done yet.
-- Process timeout/cancellation hardening: not done yet.
-- Negative tests for malformed manifests/lockfiles: only partially started.
-- Fuzzing: not started.
-- Full CLI panic audit: started, not finished.
+- Dangerous builtins and runtime permission gating: done.
+- Process timeout/cancellation hardening: done.
+- Negative tests for malformed manifests/lockfiles: done.
+- Fuzzing: done for lexer/parser/typechecker entry points.
+- Full CLI panic audit: complete for the explicit roadmap targets.
 
 ## Feature Strategy
 
@@ -592,11 +593,13 @@ Implemented in this phase:
 
 1. `bakfmt`
     - formatter idempotence is pinned by tests,
-    - coverage now includes additional syntax edges around impl blocks and comments.
+    - CLI coverage now includes `stdin`, `-w`, `-l`, and parse-error behavior,
+    - syntax coverage includes additional edges around impl blocks and comments.
 
 2. `baklint`
     - source-based linting is shared between the CLI and LSP diagnostics paths,
-    - rule configuration remains flag-driven and test-covered.
+    - rule configuration remains flag-driven and test-covered,
+    - CLI coverage now includes disabled-rule handling and directory walking behavior.
 
 3. Project UX
     - `bak new` now scaffolds a starter project,
@@ -605,7 +608,7 @@ Implemented in this phase:
 
 4. LSP/editor workflow
     - editor diagnostics now include linter findings alongside parser/typechecker diagnostics,
-    - formatting, definition, completion, and code-action hooks remain available.
+    - formatting, hover, definition, completion, workspace symbol, and code-action hooks are now covered by tests.
 
 Deliverables:
 
@@ -630,62 +633,6 @@ Deliverables:
 Done when:
 
 - new users can install, create, build, lint, and format a project without reading half the repo.
-
-## Phase 6: Selective advanced features (ongoing)
-
-Goal:
-
-- add only features that reinforce Bak's identity.
-
-Status:
-
-- Deferred until earlier phases are stronger.
-
-Implemented so far:
-
-- compile-time configuration via manifest features and `cfg("feature")`.
-
-Priority order:
-
-1. observability expansion,
-2. better concurrency model ergonomics,
-3. lightweight compile-time features,
-4. practical capabilities/permissions,
-5. only then deeper research features.
-
-Admission rule for major features:
-
-- every proposed feature must answer:
-    - what user pain it solves,
-    - why Bak should own this idea,
-    - how it affects parser/typechecker/runtime complexity,
-    - what it costs in docs/tooling/tests,
-    - what existing simpler option it beats.
-
-## Concrete Feature Backlog
-
-### Do next
-
-1. Runtime permission gating for dangerous builtins (`os.exec`, destructive fs ops, network-sensitive paths).
-2. Process execution hardening for interpreter/VM runtime paths.
-3. Native backend regression suite.
-4. Better diagnostics for ownership and type errors.
-5. Built-in tracing/logging design and first implementation slice.
-
-### Good candidates after that
-
-1. Structured logging API.
-2. Cancellation and timeout primitives integrated with process/network APIs.
-3. Better module/package ergonomics.
-4. Project scaffolding polish beyond `bak new`.
-
-### Do not start yet
-
-1. Full algebraic effects.
-2. Full new linear/capability type system rewrite.
-3. Full actor runtime redesign.
-4. Hot reloading.
-5. Resuming full self-hosting as a top-level roadmap item.
 
 ## `src/` Policy
 
@@ -732,15 +679,9 @@ Bak is in a strong Go-first release state when all of these are true:
 
 If work resumes from this roadmap immediately, the next concrete sequence should be:
 
-1. Expand native backend regression coverage beyond the smoke matrices and permission-gate regressions.
-    - add focused `pkg/backend/native` tests for known weak spots,
-    - keep a direct regression for every native backend bug that lands.
-2. Finish the remaining CLI/tooling cleanup outside `cmd/dump_bc`.
-    - remove the last panic-style or inconsistent CLI behaviors,
-    - keep the CLI helpers consistent across commands.
-3. Continue ownership/type diagnostic quality work.
-    - prioritize issues that improve user-facing error clarity,
-    - only then begin built-in observability v1.
+1. No Phase 0-5 blocker remains.
+2. The next major feature track is FFI, as described below.
+3. Any further work in Phases 0-5 should be treated as incremental polish, not roadmap debt.
 
 ## Working Rules
 

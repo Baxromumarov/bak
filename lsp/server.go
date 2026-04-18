@@ -2829,7 +2829,9 @@ func (s *Server) ensureWorkspaceIndexes() {
 		if strings.HasSuffix(path, ".bak") {
 			uri := pathToURI(path)
 			if _, ok := s.Indexes[uri]; !ok {
-				s.getOrIndexFile(path)
+				if idx := s.getOrIndexFile(path); idx != nil {
+					s.Indexes[uri] = idx
+				}
 			}
 		}
 		return nil

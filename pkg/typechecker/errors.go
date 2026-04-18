@@ -82,13 +82,28 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 // --- Ownership-specific error builders ---
 
 func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo *MoveInfo) {
+	help := fmt.Sprintf("consider borrowing instead: &%s", varName)
+	if moveInfo != nil {
+		switch moveInfo.Reason {
+		case MovedByCall:
+			if moveInfo.Detail != "" {
+				help = fmt.Sprintf("borrow '&%s' if '%s' accepts a reference, or clone '%s' before the call", varName, moveInfo.Detail, varName)
+			} else {
+				help = fmt.Sprintf("borrow '&%s' if the callee accepts a reference, or clone '%s' before the call", varName, varName)
+			}
+		case MovedByAssignment:
+			help = fmt.Sprintf("borrow '&%s' or clone '%s' before assigning it elsewhere", varName, varName)
+		case MovedByReturn:
+			help = fmt.Sprintf("return a borrow if the signature allows it, or clone '%s' before returning", varName)
+		}
+	}
 	err := TypeError{
 		Code:    diagnostics.ErrUseAfterMove,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,
 		Message: fmt.Sprintf("use of moved value '%s'", varName),
-		Help:    fmt.Sprintf("consider borrowing instead: &%s", varName),
+		Help:    help,
 	}
 	if moveInfo != nil {
 		err.Note = fmt.Sprintf("value was %s", moveInfo.Reason)
@@ -118,6 +133,13 @@ func (tc *TypeChecker) errorBorrowConflict(
 	attemptedBorrow,
 	existingState string,
 ) {
+	help := "reorder operations or introduce a new scope to separate borrows"
+	switch {
+	case attemptedBorrow == "borrow as mutable" && existingState == "immutably borrowed":
+		help = fmt.Sprintf("drop immutable borrows of '%s' before taking '&mut %s'", varName, varName)
+	case attemptedBorrow == "borrow as immutable" && existingState == "mutably borrowed":
+		help = fmt.Sprintf("finish the mutable borrow of '%s' before taking '&%s'", varName, varName)
+	}
 	tc.addFatalError(TypeError{
 		Code:   diagnostics.ErrBorrowConflict,
 		Tier:   TierFatal,
@@ -128,7 +150,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 			attemptedBorrow,
 			existingState,
 		),
-		Help: "reorder operations or introduce a new scope to separate borrows",
+		Help: help,
 	})
 }
 

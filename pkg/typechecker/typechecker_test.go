@@ -358,6 +358,25 @@ func main() -> (void) {
 	expectError(t, source, "E0100")
 }
 
+func TestCheck_UseAfterMoveSuggestsBorrowOrCloneForCalls(t *testing.T) {
+	const source = `
+package main
+struct Data {
+	value: string
+}
+func consume(d Data) -> (void) {
+	println(d.value)
+}
+func main() -> (void) {
+	var d: Data = Data{value: "hello"}
+	consume(d)
+	println(d.value)
+}
+`
+	expectError(t, source, "clone 'd' before the call")
+	expectError(t, source, "to 'consume'")
+}
+
 func TestCheck_BorrowConflictHasCode(t *testing.T) {
 	const source = `
 package main
@@ -369,6 +388,18 @@ func main() -> (void) {
 `
 	expectError(t, source, "borrow as mutable")
 	expectError(t, source, "E0104")
+}
+
+func TestCheck_BorrowConflictSuggestsFinishingImmutableBorrow(t *testing.T) {
+	const source = `
+package main
+func main() -> (void) {
+	mut var nums: Vec<int, _> = Vec.from([1])
+	var borrowed = &nums
+	var mutable_borrow = &mut nums
+}
+`
+	expectError(t, source, "drop immutable borrows of 'nums' before taking '&mut nums'")
 }
 
 func TestCheck_MoveWhileBorrowedHasCode(t *testing.T) {

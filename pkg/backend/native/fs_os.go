@@ -1232,7 +1232,8 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 
 	emitMovRegMemBaseDisp(&s.Code, RAX, RBP, execArgcOff)
 	emitMovRegImm32(&s.Code, RCX, 4)
-	emitAddRegReg(&s.Code, RAX, RCX) // argc + 4
+	emitAddRegReg(&s.Code, RAX, RCX)                                           // argc + 4
+	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RAX), 0x03) // shl rax, 3
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callHelper("__rt_alloc")
 	emitMovRegReg(&s.Code, R15, RAX) // argv
@@ -1455,8 +1456,10 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitTestRegReg(&s.Code, R14, R14)
 	jzStdoutNoBuf := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	emitPushReg(&s.Code, R14)
 	emitMovRegReg(&s.Code, RDI, R14)
 	callHelper("__rt_alloc")
+	emitPopReg(&s.Code, R14)
 	emitMovRegReg(&s.Code, R12, RAX)
 	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStdoutFdOff)
 	emitMovRegReg(&s.Code, RSI, R12)
@@ -1476,8 +1479,10 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitXorRegReg(&s.Code, R12, R12)
 
 	stdoutHeaderPos := len(s.Code)
+	emitPushReg(&s.Code, R14)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callHelper("__rt_alloc")
+	emitPopReg(&s.Code, R14)
 	emitMovMemReg(&s.Code, RAX, R12)
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R14)
 	emitMovMemBaseDispReg(&s.Code, RBP, execStdoutHdrOff, RAX)
@@ -1508,8 +1513,10 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitTestRegReg(&s.Code, R15, R15)
 	jzStderrNoBuf := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0)
+	emitPushReg(&s.Code, R15)
 	emitMovRegReg(&s.Code, RDI, R15)
 	callHelper("__rt_alloc")
+	emitPopReg(&s.Code, R15)
 	emitMovRegReg(&s.Code, R13, RAX)
 	emitMovRegMemBaseDisp(&s.Code, RDI, RBP, execStderrFdOff)
 	emitMovRegReg(&s.Code, RSI, R13)
@@ -1529,8 +1536,10 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitXorRegReg(&s.Code, R13, R13)
 
 	stderrHeaderPos := len(s.Code)
+	emitPushReg(&s.Code, R15)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callHelper("__rt_alloc")
+	emitPopReg(&s.Code, R15)
 	emitMovMemReg(&s.Code, RAX, R13)
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R15)
 	emitMovMemBaseDispReg(&s.Code, RBP, execStderrHdrOff, RAX)
@@ -1610,7 +1619,13 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitMovRegImm32(&s.Code, RAX, 60)
 	emitSyscall(&s.Code)
 
-	// Restore and return.
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpSuccessDone+1, donePos)
+	patchRel32(&s.Code, jmpErrDone+1, donePos)
+
+	// Restore the temporary frame and fall through with the Result pointer in RAX.
+	// emitOsExec is inlined into the caller; returning here would unwind the
+	// surrounding Bak function with a corrupted stack frame.
 	emitAddRspImm32(&s.Code, 328)
 	emitPopReg(&s.Code, R15)
 	emitPopReg(&s.Code, R14)
@@ -1618,11 +1633,6 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitPopReg(&s.Code, R12)
 	emitMovRegReg(&s.Code, RSP, RBP)
 	emitPopReg(&s.Code, RBP)
-	emitRet(&s.Code)
-
-	donePos := len(s.Code)
-	patchRel32(&s.Code, jmpSuccessDone+1, donePos)
-	patchRel32(&s.Code, jmpErrDone+1, donePos)
 
 	return nil
 }

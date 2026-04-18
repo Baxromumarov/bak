@@ -222,6 +222,27 @@ func TestLoadRuntimePermissionsFromManifest(t *testing.T) {
 	}
 }
 
+func TestLoadRuntimePermissionsFromManifestRejectsInvalidPermissions(t *testing.T) {
+	dir := t.TempDir()
+	contents := strings.Join([]string{
+		"[package]",
+		`name = "demo"`,
+		`version = "0.1.0"`,
+		"",
+		"[permissions]",
+		`exec_timeout = "later"`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(dir, "bak.toml"), []byte(contents), 0o644); err != nil {
+		t.Fatalf("writing bak.toml: %v", err)
+	}
+
+	_, err := loadRuntimePermissionsFromManifest(dir)
+	if err == nil || !strings.Contains(err.Error(), "invalid permissions.exec_timeout") {
+		t.Fatalf("expected invalid permission error, got %v", err)
+	}
+}
+
 func TestMergeRuntimePermissions(t *testing.T) {
 	base := runtimecap.Permissions{AllowExec: true, ExecTimeout: 3 * time.Second}
 	extra := runtimecap.Permissions{AllowNet: true, AllowFSMutate: true, ExecMaxOutput: 4096}
@@ -235,6 +256,19 @@ func TestMergeRuntimePermissions(t *testing.T) {
 	}
 	if merged.ExecMaxOutput != 4096 {
 		t.Fatalf("expected manifest exec max output to apply, got %d", merged.ExecMaxOutput)
+	}
+}
+
+func TestValidateFrozenLockfileRejectsMalformedManifest(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "bak.toml"), []byte("[package]\nname = \"demo\"\nversion = \"0.1.0\"\n\n[dependencies.bad]\n"), 0o644); err != nil {
+		t.Fatalf("writing malformed bak.toml: %v", err)
+	}
+
+	lock := manifest.NewLockfile()
+	err := validateFrozenLockfile(dir, lock)
+	if err == nil || !strings.Contains(err.Error(), "loading bak.toml for frozen lockfile validation") {
+		t.Fatalf("expected frozen lockfile validation to surface manifest load error, got %v", err)
 	}
 }
 

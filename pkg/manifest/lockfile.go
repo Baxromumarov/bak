@@ -3,8 +3,11 @@ package manifest
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // Lockfile represents the bak.lock file with resolved dependencies.
@@ -48,6 +51,9 @@ func LoadLockfile(path string) (*Lockfile, error) {
 	if l.Packages == nil {
 		l.Packages = make(map[string]LockedPackage)
 	}
+	if err := l.Validate(); err != nil {
+		return nil, err
+	}
 	return &l, nil
 }
 
@@ -58,6 +64,9 @@ func LoadLockfileFromDir(dir string) (*Lockfile, error) {
 
 // Save writes the lockfile to a file.
 func (l *Lockfile) Save(path string) error {
+	if err := l.Validate(); err != nil {
+		return err
+	}
 	data, err := json.MarshalIndent(l, "", "  ")
 	if err != nil {
 		return err
@@ -73,6 +82,39 @@ func (l *Lockfile) SaveToDir(dir string) error {
 // AddPackage adds a resolved package to the lockfile.
 func (l *Lockfile) AddPackage(name string, pkg LockedPackage) {
 	l.Packages[name] = pkg
+}
+
+// Validate performs structural validation on a lockfile.
+func (l *Lockfile) Validate() error {
+	if l == nil {
+		return fmt.Errorf("lockfile is nil")
+	}
+	if l.Version <= 0 {
+		return fmt.Errorf("lockfile version must be greater than zero")
+	}
+
+	names := make([]string, 0, len(l.Packages))
+	for name := range l.Packages {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		pkg := l.Packages[name]
+		if strings.TrimSpace(name) == "" {
+			return fmt.Errorf("lockfile package names must not be empty")
+		}
+		if pkg.Name != "" && pkg.Name != name {
+			return fmt.Errorf("lockfile package %q has mismatched name %q", name, pkg.Name)
+		}
+		if strings.TrimSpace(pkg.Source) == "" {
+			return fmt.Errorf("lockfile package %q has empty source", name)
+		}
+		if strings.TrimSpace(pkg.Path) == "" {
+			return fmt.Errorf("lockfile package %q has empty path", name)
+		}
+	}
+	return nil
 }
 
 // GetPackage retrieves a locked package by name.
