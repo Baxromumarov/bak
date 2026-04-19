@@ -6,6 +6,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 // enum payload error helpers
@@ -80,6 +81,13 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 		if msgType != nil && !tc.isStringType(msgType) {
 			tc.addError(s.Token.Line, s.Token.Column,
 				"panic expects string, got %s", typeToString(msgType))
+		}
+	case *ast.UnsafeBlock:
+		if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
+			tc.addExperimentalFeatureError(s.Token.Line, s.Token.Column, "`unsafe` blocks", runtimecap.ExperimentalFeatureUnsafe)
+		}
+		if s.Body != nil {
+			tc.checkBlockStatement(s.Body)
 		}
 	}
 }

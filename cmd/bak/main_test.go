@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -108,6 +109,34 @@ func TestStripTraceFlag(t *testing.T) {
 	}
 }
 
+func TestParseExperimentalFeatures(t *testing.T) {
+	features, rest, err := parseExperimentalFeatures([]string{
+		"--experimental=box,unsafe",
+		"run",
+		"main.bak",
+	})
+	if err != nil {
+		t.Fatalf("parseExperimentalFeatures returned error: %v", err)
+	}
+	want := []string{
+		runtimecap.ExperimentalFeatureBox,
+		runtimecap.ExperimentalFeatureUnsafe,
+	}
+	if !reflect.DeepEqual(features, want) {
+		t.Fatalf("unexpected features: got %#v want %#v", features, want)
+	}
+	if len(rest) != 2 || rest[0] != "run" || rest[1] != "main.bak" {
+		t.Fatalf("unexpected remaining args: %#v", rest)
+	}
+}
+
+func TestParseExperimentalFeaturesRejectsUnknownFeature(t *testing.T) {
+	_, _, err := parseExperimentalFeatures([]string{"--experimental=teleport"})
+	if err == nil {
+		t.Fatalf("expected unknown experimental feature to fail")
+	}
+}
+
 func TestPackageCachePathUsesSourceAndCommit(t *testing.T) {
 	p1 := packageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "aaaaaaaa")
 	p2 := packageCachePath(".bak-cache/pkg", "demo", "github.com/other/demo", "aaaaaaaa")
@@ -193,6 +222,57 @@ func TestValidateFrozenLockfileRequiresManifestDepsInLock(t *testing.T) {
 	}
 }
 
+func TestValidateFrozenLockfileRejectsSourceOrVersionDrift(t *testing.T) {
+	dir := t.TempDir()
+	m := manifest.DefaultManifest("demo")
+	m.AddDependency("demo_dep", manifest.Dependency{Git: "github.com/acme/demo_dep", Version: "1.2.3"})
+	if err := m.SaveToDir(dir); err != nil {
+		t.Fatalf("saving manifest: %v", err)
+	}
+
+	lock := manifest.NewLockfile()
+	lock.AddPackage("demo_dep", manifest.LockedPackage{
+		Name:    "demo_dep",
+		Source:  "github.com/evil/demo_dep",
+		Version: "1.2.3",
+	})
+	if err := validateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "points to") {
+		t.Fatalf("expected source drift error, got %v", err)
+	}
+
+	lock.Packages["demo_dep"] = manifest.LockedPackage{
+		Name:    "demo_dep",
+		Source:  "github.com/acme/demo_dep",
+		Version: "1.2.4",
+	}
+	if err := validateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "is version") {
+		t.Fatalf("expected version drift error, got %v", err)
+	}
+
+	lock.Packages["demo_dep"] = manifest.LockedPackage{
+		Name:    "demo_dep",
+		Source:  "github.com/acme/demo_dep",
+		Version: "v1.2.3",
+	}
+	if err := validateFrozenLockfile(dir, lock); err != nil {
+		t.Fatalf("expected normalized version to pass, got %v", err)
+	}
+}
+
+func TestValidateFrozenLockfileIgnoresLocalPathDependencies(t *testing.T) {
+	dir := t.TempDir()
+	m := manifest.DefaultManifest("demo")
+	m.AddDependency("local_dep", manifest.Dependency{Path: "../local_dep"})
+	if err := m.SaveToDir(dir); err != nil {
+		t.Fatalf("saving manifest: %v", err)
+	}
+
+	lock := manifest.NewLockfile()
+	if err := validateFrozenLockfile(dir, lock); err != nil {
+		t.Fatalf("expected local path dependency to be ignored, got %v", err)
+	}
+}
+
 func TestLoadRuntimePermissionsFromManifest(t *testing.T) {
 	dir := t.TempDir()
 	m := manifest.DefaultManifest("demo")
@@ -269,6 +349,26 @@ func TestValidateFrozenLockfileRejectsMalformedManifest(t *testing.T) {
 	err := validateFrozenLockfile(dir, lock)
 	if err == nil || !strings.Contains(err.Error(), "loading bak.toml for frozen lockfile validation") {
 		t.Fatalf("expected frozen lockfile validation to surface manifest load error, got %v", err)
+	}
+}
+
+func TestFrozenLockfileVersionMatches(t *testing.T) {
+	tests := []struct {
+		expected string
+		actual   string
+		want     bool
+	}{
+		{expected: "1.2.3", actual: "1.2.3", want: true},
+		{expected: "1.2.3", actual: "v1.2.3", want: true},
+		{expected: "latest", actual: "latest", want: true},
+		{expected: "latest", actual: "v1.2.3", want: false},
+		{expected: "1.2.3", actual: "1.2.4", want: false},
+	}
+
+	for _, tt := range tests {
+		if got := frozenLockfileVersionMatches(tt.expected, tt.actual); got != tt.want {
+			t.Fatalf("frozenLockfileVersionMatches(%q, %q) = %v, want %v", tt.expected, tt.actual, got, tt.want)
+		}
 	}
 }
 

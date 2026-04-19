@@ -86,10 +86,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+	experimentalFeatures, interpreterArgs, err := parseExperimentalFeatures(interpreterArgs)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 	interpreterArgs, traceEnabled := stripTraceFlag(interpreterArgs)
 
 	if len(interpreterArgs) == 0 {
-		startREPL(permissions)
+		startREPL(permissions, experimentalFeatures)
 		return
 	}
 
@@ -108,7 +113,7 @@ func main() {
 	// Update args to be processed by switch
 	args = interpreterArgs
 	if len(args) == 0 {
-		startREPL(permissions)
+		startREPL(permissions, experimentalFeatures)
 		return
 	}
 
@@ -120,17 +125,17 @@ func main() {
 			os.Exit(1)
 		}
 		if traceEnabled {
-			runFileVM(args[1], scriptArgs, traceEnabled, permissions)
+			runFileVM(args[1], scriptArgs, traceEnabled, permissions, experimentalFeatures)
 			return
 		}
-		runFile(args[1], scriptArgs, permissions)
+		runFile(args[1], scriptArgs, permissions, experimentalFeatures)
 		return
 	case "check":
 		if len(args) < 2 {
 			fmt.Fprintln(os.Stderr, "Error: 'check' requires a file argument")
 			os.Exit(1)
 		}
-		checkFile(args[1])
+		checkFile(args[1], experimentalFeatures)
 		return
 	case "native":
 		// Parse native args: bak native <file.bak> -o <output>
@@ -148,7 +153,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error: 'native' requires a file argument")
 			os.Exit(1)
 		}
-		buildFile(sourceFile, outputFile, true, traceEnabled, permissions)
+		buildFile(sourceFile, outputFile, true, traceEnabled, permissions, experimentalFeatures)
 		return
 	case "build":
 		// bak build works like go build: produces a native executable by default.
@@ -182,7 +187,7 @@ func main() {
 				outputFile = "a.out"
 			}
 		}
-		buildFile(sourceFile, outputFile, true, traceEnabled, permissions)
+		buildFile(sourceFile, outputFile, true, traceEnabled, permissions, experimentalFeatures)
 		return
 	case "new", "init":
 		projectName := "my-project"
@@ -223,7 +228,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Error: 'test' requires a file or directory argument")
 			os.Exit(1)
 		}
-		runTests(args[1], permissions)
+		runTests(args[1], permissions, experimentalFeatures)
 		return
 
 	case "doc":
@@ -248,10 +253,10 @@ func main() {
 		if !explicitArgs {
 			programArgs = append([]string{modulePath}, programArgs...)
 		}
-		runBytecodeFile(modulePath, programArgs, profileEnabled, traceEnabled, permissions)
+		runBytecodeFile(modulePath, programArgs, profileEnabled, traceEnabled, permissions, experimentalFeatures)
 	case "--vm":
 		if len(args) > 1 && strings.HasSuffix(args[1], ".bak") {
-			runFileVM(args[1], scriptArgs, traceEnabled, permissions)
+			runFileVM(args[1], scriptArgs, traceEnabled, permissions, experimentalFeatures)
 		} else {
 			fmt.Fprintf(os.Stderr, "Error: --vm requires a .bak file\n")
 			os.Exit(1)
@@ -259,9 +264,9 @@ func main() {
 	default:
 		if filename != "" {
 			if useVM || traceEnabled {
-				runFileVM(filename, scriptArgs, traceEnabled, permissions)
+				runFileVM(filename, scriptArgs, traceEnabled, permissions, experimentalFeatures)
 			} else {
-				runFile(filename, scriptArgs, permissions)
+				runFile(filename, scriptArgs, permissions, experimentalFeatures)
 			}
 		} else {
 			fmt.Fprintf(os.Stderr, "Error: unknown argument or file type: %s\n", args[0])
@@ -301,6 +306,9 @@ func printHelp() {
 	fmt.Println("  --offline              Use only cached packages; do not fetch from git")
 	fmt.Println("  --frozen-lockfile      Refuse operations that would change bak.lock")
 	fmt.Println()
+	fmt.Println("Experimental language flags:")
+	fmt.Println("  --experimental <list>  Enable experimental features: unsafe, box, user-generics, traits")
+	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  bak --allow-exec run main.bak    Run with subprocess access enabled")
 	fmt.Println("  bak --allow-exec --exec-timeout 2s run main.bak")
@@ -309,14 +317,15 @@ func printHelp() {
 	fmt.Println("  bak build -o myapp main.bak      Build main.bak -> ./myapp")
 	fmt.Println("  bak build .                      Build main.bak in current directory")
 	fmt.Println("  bak run main.bak                 Interpret main.bak")
+	fmt.Println("  bak --experimental=box run main.bak")
 	fmt.Println("  bak get github.com/u/repo@1.2.3 Add a versioned dependency")
 	fmt.Println("  bak install --offline            Install from cache only")
 	fmt.Println()
 	fmt.Println("For more information, visit: https://github.com/baxromumarov/bak")
 }
 
-func runFile(filename string, scriptArgs []string, permissions runtimecap.Permissions) {
-	permissions = loadProjectRuntimePermissions(permissions)
+func runFile(filename string, scriptArgs []string, permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
@@ -354,8 +363,8 @@ func runFile(filename string, scriptArgs []string, permissions runtimecap.Permis
 	}
 }
 
-func runFileVM(filename string, scriptArgs []string, traceEnabled bool, permissions runtimecap.Permissions) {
-	permissions = loadProjectRuntimePermissions(permissions)
+func runFileVM(filename string, scriptArgs []string, traceEnabled bool, permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
@@ -418,7 +427,8 @@ func runFileVM(filename string, scriptArgs []string, traceEnabled bool, permissi
 	}
 }
 
-func checkFile(filename string) {
+func checkFile(filename string, cliFeatures []string) {
+	loadProjectRuntimePermissions(runtimecap.Permissions{}, cliFeatures)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
@@ -447,7 +457,8 @@ func checkFile(filename string) {
 	fmt.Println("Typecheck: OK")
 }
 
-func buildFile(filename string, outputFile string, nativeBuild bool, traceEnabled bool, permissions runtimecap.Permissions) {
+func buildFile(filename string, outputFile string, nativeBuild bool, traceEnabled bool, permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
@@ -537,8 +548,8 @@ func buildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 
 // runTests runs tests for a file or directory. If given a directory it
 // discovers *_test.bak files (fallback to all .bak) and runs each.
-func runTests(path string, permissions runtimecap.Permissions) {
-	permissions = loadProjectRuntimePermissions(permissions)
+func runTests(path string, permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	info, err := os.Stat(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error stating path: %s\n", err)
@@ -812,8 +823,8 @@ func splitBytecodeArgs(args []string) (string, []string, bool, bool, error) {
 	return modulePath, programArgs, explicitArgs, profileEnabled, nil
 }
 
-func runBytecodeFile(filename string, programArgs []string, profileEnabled bool, traceEnabled bool, permissions runtimecap.Permissions) {
-	permissions = loadProjectRuntimePermissions(permissions)
+func runBytecodeFile(filename string, programArgs []string, profileEnabled bool, traceEnabled bool, permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	oldArgs := os.Args
 	if len(programArgs) > 0 {
 		os.Args = append([]string{oldArgs[0]}, programArgs...)
@@ -855,8 +866,8 @@ func stripTraceFlag(args []string) ([]string, bool) {
 	return filtered, traceEnabled
 }
 
-func startREPL(permissions runtimecap.Permissions) {
-	permissions = loadProjectRuntimePermissions(permissions)
+func startREPL(permissions runtimecap.Permissions, cliFeatures []string) {
+	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
 	fmt.Print(LOGO)
 	fmt.Printf("bak v%s - Interactive Mode\n", VERSION)
 	fmt.Println("Type 'exit' or 'quit' to exit, 'help' for help.")
@@ -972,18 +983,95 @@ func parseRuntimePermissions(args []string) (runtimecap.Permissions, []string, e
 	return permissions, rest, nil
 }
 
-func loadProjectRuntimePermissions(base runtimecap.Permissions) runtimecap.Permissions {
+func parseExperimentalFeatures(args []string) ([]string, []string, error) {
+	features := []string{}
+	rest := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--experimental":
+			if i+1 >= len(args) {
+				return nil, nil, fmt.Errorf("--experimental requires a feature list")
+			}
+			parsed, err := parseExperimentalFeatureList(args[i+1])
+			if err != nil {
+				return nil, nil, err
+			}
+			features = append(features, parsed...)
+			i++
+		case strings.HasPrefix(arg, "--experimental="):
+			parsed, err := parseExperimentalFeatureList(strings.TrimPrefix(arg, "--experimental="))
+			if err != nil {
+				return nil, nil, err
+			}
+			features = append(features, parsed...)
+		default:
+			rest = append(rest, arg)
+		}
+	}
+
+	return mergeFeatureLists(nil, features), rest, nil
+}
+
+func parseExperimentalFeatureList(value string) ([]string, error) {
+	parts := strings.Split(value, ",")
+	features := make([]string, 0, len(parts))
+	for _, part := range parts {
+		feature, err := canonicalExperimentalFeature(part)
+		if err != nil {
+			return nil, err
+		}
+		features = append(features, feature)
+	}
+	return features, nil
+}
+
+func canonicalExperimentalFeature(name string) (string, error) {
+	switch strings.TrimSpace(name) {
+	case "unsafe", runtimecap.ExperimentalFeatureUnsafe:
+		return runtimecap.ExperimentalFeatureUnsafe, nil
+	case "box", runtimecap.ExperimentalFeatureBox:
+		return runtimecap.ExperimentalFeatureBox, nil
+	case "user-generics", runtimecap.ExperimentalFeatureUserGenerics:
+		return runtimecap.ExperimentalFeatureUserGenerics, nil
+	case "traits", runtimecap.ExperimentalFeatureTraits:
+		return runtimecap.ExperimentalFeatureTraits, nil
+	default:
+		return "", fmt.Errorf("unknown experimental feature %q (expected one of: unsafe, box, user-generics, traits)", name)
+	}
+}
+
+func mergeFeatureLists(base []string, extra []string) []string {
+	seen := make(map[string]struct{}, len(base)+len(extra))
+	merged := make([]string, 0, len(base)+len(extra))
+	for _, feature := range append(append([]string(nil), base...), extra...) {
+		feature = strings.TrimSpace(feature)
+		if feature == "" {
+			continue
+		}
+		if _, ok := seen[feature]; ok {
+			continue
+		}
+		seen[feature] = struct{}{}
+		merged = append(merged, feature)
+	}
+	sort.Strings(merged)
+	return merged
+}
+
+func loadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []string) runtimecap.Permissions {
 	m, err := manifest.LoadFromDir(".")
 	if err != nil {
 		if os.IsNotExist(err) {
-			runtimecap.SetCurrentFeatures(nil)
+			runtimecap.SetCurrentFeatures(cliFeatures)
 			return base
 		}
-		runtimecap.SetCurrentFeatures(nil)
+		runtimecap.SetCurrentFeatures(cliFeatures)
 		fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", err)
 		os.Exit(1)
 	}
-	runtimecap.SetCurrentFeatures(m.Features)
+	runtimecap.SetCurrentFeatures(mergeFeatureLists(m.Features, cliFeatures))
 	if m == nil || m.Permissions == nil {
 		return base
 	}
@@ -1420,12 +1508,37 @@ func validateFrozenLockfile(dir string, lock *manifest.Lockfile) error {
 		}
 		return fmt.Errorf("loading bak.toml for frozen lockfile validation: %w", err)
 	}
-	for name := range m.Dependencies {
-		if _, ok := lock.Packages[name]; !ok {
+	for name, dep := range m.Dependencies {
+		if strings.TrimSpace(dep.Path) != "" {
+			continue
+		}
+		pkg, ok := lock.Packages[name]
+		if !ok {
 			return fmt.Errorf("bak.lock is missing dependency %q required by bak.toml", name)
+		}
+		if dep.Git != "" && pkg.Source != dep.Git {
+			return fmt.Errorf("bak.lock dependency %q points to %q, but bak.toml requires %q", name, pkg.Source, dep.Git)
+		}
+		if expected := strings.TrimSpace(dep.Version); expected != "" && !frozenLockfileVersionMatches(expected, pkg.Version) {
+			return fmt.Errorf("bak.lock dependency %q is version %q, but bak.toml requires %q", name, pkg.Version, expected)
 		}
 	}
 	return nil
+}
+
+func frozenLockfileVersionMatches(expected, actual string) bool {
+	expected = strings.TrimSpace(expected)
+	actual = strings.TrimSpace(actual)
+	if expected == "" || actual == "" {
+		return expected == actual
+	}
+	if expected == actual {
+		return true
+	}
+	if expected == "latest" || actual == "latest" {
+		return expected == actual
+	}
+	return strings.TrimPrefix(expected, "v") == strings.TrimPrefix(actual, "v")
 }
 
 func sortedLockedPackageNames(lock *manifest.Lockfile) []string {

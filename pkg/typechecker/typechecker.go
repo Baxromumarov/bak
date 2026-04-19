@@ -13,6 +13,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 // loadedPackageCheckers stores TypeChecker instances for imported modules
@@ -756,6 +757,36 @@ type TypeChecker struct {
 	finalized         bool                                   // whether finalization (unused checks) ran for this checker
 }
 
+func stableFrozenGenericTypeName(name string) bool {
+	switch name {
+	case "Vec", "Option", "Result":
+		return true
+	default:
+		return false
+	}
+}
+
+func experimentalFeatureHelp(feature string) string {
+	short := strings.TrimPrefix(feature, "experimental-")
+	return fmt.Sprintf("enable it with features = [\"%s\"] in bak.toml or pass --experimental=%s", feature, short)
+}
+
+func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
+	return runtimecap.CurrentFeatureEnabled(feature)
+}
+
+func (tc *TypeChecker) addExperimentalFeatureError(line, col int, syntax, feature string) {
+	tc.emitter.Emit(diagnostics.Diagnostic{
+		Code:    diagnostics.ErrExperimentalFeature,
+		Level:   diagnostics.LevelError,
+		Message: fmt.Sprintf("%s is experimental and disabled by default", syntax),
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    experimentalFeatureHelp(feature),
+	})
+}
+
 // GetTraitDef looks up a trait definition by name. Used by LSP for code actions.
 func (tc *TypeChecker) GetTraitDef(name string) (*TraitDef, bool) {
 	return tc.env.LookupTrait(name)
@@ -1151,6 +1182,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			}
 			typeParams := []string{}
 			typeParamBounds := make(map[string]string)
 			for _, p := range s.TypeParams {
@@ -1185,6 +1219,12 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 		case *ast.TraitDefinition:
 			if s.Name == nil {
 				continue
+			}
+			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
+				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "`trait` declarations", runtimecap.ExperimentalFeatureTraits)
+			}
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic trait declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			typeParams := []string{}
 			for _, p := range s.TypeParams {
@@ -1232,6 +1272,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			}
 			variants := make(map[string]EnumVariantDef)
 			for _, v := range s.Variants {
 				if v == nil || v.Name == nil {
@@ -1253,6 +1296,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 		case *ast.FunctionDecl:
 			if s.Name == nil {
 				continue
+			}
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			params := make([]ast.TypeExpression, len(s.Parameters))
 			for i, p := range s.Parameters {
@@ -1297,10 +1343,22 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.TypeName == nil {
 				continue
 			}
+			if s.TraitName != nil && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
+				tc.addExperimentalFeatureError(s.TraitName.Token.Line, s.TraitName.Token.Column, "trait implementations", runtimecap.ExperimentalFeatureTraits)
+			}
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			}
+			if len(s.TraitTypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			}
 			if structDef, ok := tc.env.LookupStruct(s.TypeName.Value); ok {
 				for _, method := range s.Methods {
 					if method == nil || method.Name == nil {
 						continue
+					}
+					if len(method.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+						tc.addExperimentalFeatureError(method.Name.Token.Line, method.Name.Token.Column, "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
 					}
 					params := make([]ast.TypeExpression, len(method.Parameters))
 					for i, p := range method.Parameters {
@@ -1594,6 +1652,9 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 			}
 			tc.validateTypeName(tt.Name, line, col)
 		case *ast.GenericType:
+			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+				tc.addExperimentalFeatureError(line, col, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
+			}
 			tc.validateTypeName(tt.Name, line, col)
 			for _, p := range tt.TypeParams {
 				walk(p)
@@ -1603,8 +1664,14 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 		case *ast.BorrowType:
 			walk(tt.Inner)
 		case *ast.BoxType:
+			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
+				tc.addExperimentalFeatureError(line, col, "`box` types", runtimecap.ExperimentalFeatureBox)
+			}
 			walk(tt.Inner)
 		case *ast.BoxOptionalType:
+			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
+				tc.addExperimentalFeatureError(line, col, "`box` types", runtimecap.ExperimentalFeatureBox)
+			}
 			walk(tt.Inner)
 		case *ast.TupleType:
 			for _, e := range tt.Elements {
@@ -2152,6 +2219,9 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 		return inner
 
 	case *ast.BoxExpression:
+		if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
+			tc.addExperimentalFeatureError(e.Token.Line, e.Token.Column, "`box` expressions", runtimecap.ExperimentalFeatureBox)
+		}
 		// Box just wraps a value; infer inner value and return a BoxType if needed
 		inner := tc.inferType(e.Value)
 		if inner == nil {

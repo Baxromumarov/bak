@@ -106,6 +106,9 @@ const (
 	ErrVecFixedOnly   DiagnosticCode = "E0601"
 	ErrVecInvalidInit DiagnosticCode = "E0602"
 
+	// Feature-gating errors (E08xx)
+	ErrExperimentalFeature DiagnosticCode = "E0800"
+
 	// Parser errors (P00xx)
 	ErrParser     DiagnosticCode = "P0001"
 	ErrParserHint DiagnosticCode = "P0002"

@@ -117,6 +117,9 @@ func (m *Manifest) Validate() error {
 	if strings.TrimSpace(m.Package.Version) == "" {
 		return fmt.Errorf("package.version is required")
 	}
+	if err := validateFeatureList(m.Features); err != nil {
+		return err
+	}
 
 	depNames := make([]string, 0, len(m.Dependencies))
 	for name := range m.Dependencies {
@@ -164,6 +167,21 @@ func (m *Manifest) Validate() error {
 		if strings.Contains(source, " ") {
 			return fmt.Errorf("trusted_sources entry %q must not contain spaces", source)
 		}
+	}
+	return nil
+}
+
+func validateFeatureList(features []string) error {
+	seen := make(map[string]struct{}, len(features))
+	for _, feature := range features {
+		trimmed := strings.TrimSpace(feature)
+		if trimmed == "" {
+			return fmt.Errorf("features entries must not be empty")
+		}
+		if _, ok := seen[trimmed]; ok {
+			return fmt.Errorf("duplicate feature %q in bak.toml", trimmed)
+		}
+		seen[trimmed] = struct{}{}
 	}
 	return nil
 }

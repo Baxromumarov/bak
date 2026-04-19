@@ -2,6 +2,11 @@
 
 ---
 
+Status note:
+- `box` / `box?` are experimental and are not part of the frozen `v0.1` language contract.
+- This file is a design note for experimental work, not normative language documentation.
+- See `docs/CORE_LANGUAGE_SPEC.md` and `docs/LANGUAGE_STABILITY_POLICY.md`.
+
 ## 3. Syntax
 
 ### 3.1 Type Syntax

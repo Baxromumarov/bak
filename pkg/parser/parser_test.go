@@ -6,6 +6,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 func TestFunctionTypeAsParameter(t *testing.T) {
@@ -366,6 +367,9 @@ func main() -> (void) {
 }
 
 func TestParseGenericFunction(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
+	t.Cleanup(restore)
+
 	input := `
 package main
 func identity<T>(x T) -> (T) {
@@ -392,6 +396,9 @@ func identity<T>(x T) -> (T) {
 }
 
 func TestParseGenericStruct(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
+	t.Cleanup(restore)
+
 	input := `
 package main
 struct Pair<A, B> {
@@ -577,6 +584,9 @@ func process() -> (Result<Option<int>, string>) {
 }
 
 func TestParseUnsafeBlock(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUnsafe})
+	t.Cleanup(restore)
+
 	input := `
 package main
 func main() -> (void) {

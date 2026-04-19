@@ -6,11 +6,14 @@ Current status:
 - Full self-hosting in `src/` is no longer the primary release path.
 - The active project roadmap is in `GO_FIRST_ROADMAP.md`.
 
-Purpose: concise, authoritative reference for Bak syntax and semantics so contributors and users can read and write Bak programs.
+Purpose: concise overview of Bak syntax, tooling, and project direction.
 
 Audience: compiler contributors, language learners, and repo maintainers.
 
-> Note: per current instruction, generics are intentionally omitted from this document.
+> Contract note: this README is introductory, not normative.
+> The frozen compatibility contract lives in `docs/CORE_LANGUAGE_SPEC.md`.
+> The change policy for the language surface lives in `docs/LANGUAGE_STABILITY_POLICY.md`.
+> If this README conflicts with either document, the spec and stability policy win.
 
 ---
 
@@ -235,4 +238,6 @@ See:
 
 - `GO_FIRST_ROADMAP.md`
 - `BOOTSTRAP.md`
+- `docs/CORE_LANGUAGE_SPEC.md`
+- `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/TRUST_MODEL.md`

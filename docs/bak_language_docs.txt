@@ -1,6 +1,11 @@
 BAK LANGUAGE SPECIFICATION (v1.0)
 ================================
 
+Status note:
+- This file is a broad design/reference document, not the frozen language contract.
+- It may describe experimental or historical surface area.
+- The normative frozen contract is `docs/CORE_LANGUAGE_SPEC.md`.
+- The language freeze and promotion rules are in `docs/LANGUAGE_STABILITY_POLICY.md`.
 
 There is:
 - No garbage collector
@@ -403,4 +408,3 @@ There is a single module definition file per project.
 - Inheritance
 - Implicit allocations
 - Expression-oriented control flow
-

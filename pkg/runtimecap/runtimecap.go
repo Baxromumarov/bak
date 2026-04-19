@@ -22,6 +22,35 @@ const (
 	DefaultExecMaxOutputBytes = 1 << 20
 )
 
+const (
+	ExperimentalFeatureUnsafe       = "experimental-unsafe"
+	ExperimentalFeatureBox          = "experimental-box"
+	ExperimentalFeatureUserGenerics = "experimental-user-generics"
+	ExperimentalFeatureTraits       = "experimental-traits"
+)
+
+func KnownExperimentalFeatures() []string {
+	return []string{
+		ExperimentalFeatureBox,
+		ExperimentalFeatureTraits,
+		ExperimentalFeatureUnsafe,
+		ExperimentalFeatureUserGenerics,
+	}
+}
+
+func IsKnownExperimentalFeature(name string) bool {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	for _, feature := range KnownExperimentalFeatures() {
+		if name == feature {
+			return true
+		}
+	}
+	return false
+}
+
 type Permissions struct {
 	AllowExec     bool
 	AllowNet      bool

@@ -1,14 +1,18 @@
 # Bak Production Readiness Tracker (Linux x86_64)
 
-Status note (2026-04-18):
+Status note (2026-04-19):
 
 - This tracker covers the native self-hosting release track.
 - It is not the primary project success metric anymore.
 - The Go compiler remains the compiler of record.
 - See `GO_FIRST_ROADMAP.md` for the active delivery plan.
 
-Last Updated: February 18, 2026
+Last Updated: April 19, 2026
 Scope: Native compiler/runtime on Linux x86_64 only.
+
+Maintenance note:
+- Most gate evidence below is still from the 2026-02-18 self-hosting check.
+- Governance status was updated on 2026-04-19 to reflect the published language freeze and compatibility policy.
 
 Status values:
 - `PASS`: all gate criteria and required evidence complete.
@@ -26,7 +30,7 @@ Status values:
 | Gate 3: Reliability and Safety | Compiler Core | 2026-05-01 | IN_PROGRESS | 2026-02-18 | Regression tests exist but no complete fuzz/negative-input release evidence bundle yet. |
 | Gate 4: Performance and Resource Budgets | Compiler Core | 2026-05-15 | FAIL | 2026-02-18 | Full in-memory self-host under 1GB/no-swap still not achieved without bootstrap shortcut. |
 | Gate 5: Tooling and DevEx | Tooling Core | 2026-05-30 | IN_PROGRESS | 2026-02-18 | Native workflow works for core hello path; broader CLI/docs/tooling parity still incomplete. |
-| Gate 6: Release Governance | Release Manager | 2026-06-01 | IN_PROGRESS | 2026-02-18 | Legacy Go compiler archived at `archive/go-compiler-2026-02-18/`; full signed release checklist and policy docs pending. |
+| Gate 6: Release Governance | Release Manager | 2026-06-01 | IN_PROGRESS | 2026-04-19 | Versioning and language-compatibility policy are now published; signed release checklist and release workflow docs are still pending. |
 
 ## Gate 0: Bootstrap Integrity
 
@@ -114,8 +118,8 @@ Status: IN_PROGRESS
 
 | Criterion | Status | Evidence / Blocker |
 | --- | --- | --- |
-| Versioning + compatibility policy published | FAIL | Not finalized in release docs. |
-| Signed release checklist | FAIL | Not yet created as a signed artifact. |
+| Versioning + compatibility policy published | PASS | `docs/CORE_LANGUAGE_SPEC.md` and `docs/LANGUAGE_STABILITY_POLICY.md` now define the frozen `v0.1` language contract. |
+| Signed release checklist | IN_PROGRESS | `docs/RELEASE_CHECKLIST.md` now defines the required release checklist; signed release workflow adoption is still pending. |
 | Changelog with migrations and known limits | IN_PROGRESS | Needs release tag workflow completion. |
 | Legacy Go compiler archived read-only | PASS | Archived at `archive/go-compiler-2026-02-18/`. |
 

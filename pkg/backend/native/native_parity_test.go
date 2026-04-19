@@ -36,8 +36,33 @@ func TestNativeVMParityMatrix(t *testing.T) {
 			permissions: runtimecap.Permissions{},
 		},
 		{
+			name:        "string_basic",
+			sourcePath:  filepath.Join(root, "tests", "native_string_basic.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
 			name:        "time_basic",
 			sourcePath:  filepath.Join(root, "tests", "native_time_basic.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "vec_e2e",
+			sourcePath:  filepath.Join(root, "tests", "native_vec_e2e.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "vec_struct_push",
+			sourcePath:  filepath.Join(root, "tests", "native_vec_struct_push.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "borrow_int_ref",
+			sourcePath:  filepath.Join(root, "tests", "native_borrow_int_ref.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "enum_methods",
+			sourcePath:  filepath.Join(root, "tests", "native_enum_methods.bak"),
 			permissions: runtimecap.Permissions{},
 		},
 		{

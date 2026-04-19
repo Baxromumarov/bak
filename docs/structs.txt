@@ -2,6 +2,11 @@ p1 is created
 
 # Struct Initialization in bak
 
+Status note:
+- Struct initialization is part of the stable surface.
+- References in this file to `box` describe experimental heap-allocation syntax, not frozen `v0.1` syntax.
+- See `docs/CORE_LANGUAGE_SPEC.md` for the normative contract.
+
 bak supports multiple forms of struct initialization, all with clear, unified rules and no hidden behavior.
 
 ## Supported Forms

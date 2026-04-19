@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 func findLineCol(text, needle string) (int, int) {
@@ -24,6 +26,9 @@ func findLineCol(text, needle string) (int, int) {
 }
 
 func TestDefinitionMethodCallInPattern(t *testing.T) {
+	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureBox})
+	t.Cleanup(restore)
+
 	src := strings.Join([]string{
 		"package main",
 		"",
