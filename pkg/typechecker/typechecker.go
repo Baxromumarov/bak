@@ -1052,31 +1052,56 @@ func (tc *TypeChecker) isErrorType(t ast.TypeExpression) bool {
 */
 // Check performs type checking on a program
 func (tc *TypeChecker) Check(program *ast.Program) []string {
-	if len(program.Statements) == 0 {
+	if program == nil || len(program.Statements) == 0 {
 		return tc.Errors()
 	}
 
-	// 1. Enforce package declaration at the very beginning
+	if !tc.ensurePackageDeclaration(program) || !tc.checkPackagePlacement(program) {
+		return tc.Errors()
+	}
+
+	// First pass: collect all type definitions (structs, functions)
+	tc.collectDefinitions(program)
+
+	// Second pass: check all statements (stop on first fatal error)
+	tc.checkProgramStatements(program)
+
+	// Post-check: Report unused variables (strict mode)
+	tc.restoreRootEnv()
+
+	// Check for unused variables and imports (skip for imported modules)
+	if !tc.suppressUnused {
+		tc.checkUnusedElements()
+	}
+
+	tc.finalizeImportedModules()
+
+	return tc.Errors()
+}
+
+func (tc *TypeChecker) ensurePackageDeclaration(program *ast.Program) bool {
 	firstStmt := program.Statements[0]
 	if ps, ok := firstStmt.(*ast.PackageStatement); ok {
 		tc.checkPackageStatement(ps)
-	} else {
-		// Report error at the first statement
-		tok := getStmtToken(firstStmt)
-		tc.emitter.Emit(diagnostics.Diagnostic{
-			Code:    diagnostics.ErrMissingPackage,
-			Level:   diagnostics.LevelError,
-			Message: "file must start with a package declaration",
-			Line:    tok.Line,
-			Column:  tok.Column,
-			File:    tc.currentPkgPath,
-			Help:    "add 'package main' (or another name) at the top of the file",
-		})
-		tc.hasFatalError = true
-		return tc.Errors()
+		return true
 	}
 
-	// 2. Check for misplaced or multiple package statements
+	// Report error at the first statement.
+	tok := getStmtToken(firstStmt)
+	tc.emitter.Emit(diagnostics.Diagnostic{
+		Code:    diagnostics.ErrMissingPackage,
+		Level:   diagnostics.LevelError,
+		Message: "file must start with a package declaration",
+		Line:    tok.Line,
+		Column:  tok.Column,
+		File:    tc.currentPkgPath,
+		Help:    "add 'package main' (or another name) at the top of the file",
+	})
+	tc.hasFatalError = true
+	return false
+}
+
+func (tc *TypeChecker) checkPackagePlacement(program *ast.Program) bool {
 	for i := 1; i < len(program.Statements); i++ {
 		if ps, ok := program.Statements[i].(*ast.PackageStatement); ok {
 			tc.emitter.Emit(diagnostics.Diagnostic{
@@ -1091,54 +1116,25 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 			tc.hasFatalError = true
 		}
 	}
+	return !tc.hasFatalError
+}
 
-	if tc.hasFatalError {
-		return tc.Errors()
-	}
-
-	// First pass: collect all type definitions (structs, functions)
-	tc.collectDefinitions(program)
-
-	// Second pass: check all statements (stop on first fatal error)
+func (tc *TypeChecker) checkProgramStatements(program *ast.Program) {
 	for _, stmt := range program.Statements {
 		if tc.hasFatalError {
-			break // Stop on first fatal error to prevent cascade
+			break // Stop on first fatal error to prevent cascade.
 		}
 		tc.checkStatement(stmt)
 	}
+}
 
-	// Post-check: Report unused variables (strict mode)
-	// Walk through all defined symbols in the current scope (and children if we tracked them)
-	// For now, we only check top-level implicit main scope variables if we are essentially in a script?
-	// Actually, local variables inside functions are the main target.
-	// The environment hierarchy handles this. We need to check use counts when scopes exit?
-	// or we can iterate env.symbols here if this is the global scope.
-	// Global variables (in package scope) might be used by other packages, so we check visibility.
-	// Private globals that are unused should be warned.
-
-	// For now, let's just leave this placeholder. Real unused variable check needs to happen
-	// when a block scope ends.
-
-	// Restore root env if it was changed (detect leaks)
-	if tc.env.parent != nil {
-		for tc.env.parent != nil {
-			tc.env = tc.env.parent
-		}
+func (tc *TypeChecker) restoreRootEnv() {
+	for tc.env != nil && tc.env.parent != nil {
+		tc.env = tc.env.parent
 	}
+}
 
-	// Check for unused variables and imports (skip for imported modules)
-	if !tc.suppressUnused {
-		curr := tc.env
-		for curr != nil {
-			keys := make([]string, 0, len(curr.used))
-			for k := range curr.used {
-				keys = append(keys, k)
-			}
-			curr = curr.parent
-		}
-		tc.checkUnusedElements()
-	}
-
+func (tc *TypeChecker) finalizeImportedModules() {
 	// Finalize unused checks for any imported modules we've loaded.
 	// This runs their unused-element checks now that importers have had
 	// a chance to mark used exported symbols.
@@ -1152,15 +1148,13 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 		}
 		modTC.checkUnusedElements()
 		modTC.finalized = true
-		// seed back any used marks into the package registry as well
+		// Seed back any used marks into the package registry as well.
 		if pkg, exists := packages.GlobalRegistry.GetPackage(importPath); exists {
 			for name := range modTC.env.used {
 				pkg.MarkUsed(name)
 			}
 		}
 	}
-
-	return tc.Errors()
 }
 
 // collectDefinitions collects struct and function definitions

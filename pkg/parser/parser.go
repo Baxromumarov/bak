@@ -406,7 +406,7 @@ func (p *Parser) curPrecedence() int {
 
 // ParseProgram parses the entire program
 func (p *Parser) ParseProgram() *ast.Program {
-	program := &ast.Program{}
+	program := &ast.Program{SourcePath: p.filename}
 	program.Statements = []ast.Statement{}
 
 	for !p.curTokenIs(token.EOF) {
@@ -500,59 +500,11 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return nil
 	case token.VAR:
-		// Check if it's a var block or multi-var destructuring
-		// var ( ... ) - block syntax has: var ( IDENT TYPE ... )
-		// var (a, b) = ... - destructuring has: var ( IDENT , ... ) =
-		if p.peekTokenIs(token.LPAREN) {
-			// Look ahead:
-			// var (a, b) = ... - destructuring has: var ( IDENT , ... ) =
-			// var (a: int = 1) - block syntax has: var ( IDENT : ... )
-			isDestructuring := false
-			if p.peek2TokenIs(token.IDENT) || p.peek2TokenIs(token.UNDERSCORE) {
-				if p.peek3TokenIs(token.COMMA) || p.peek3TokenIs(token.RPAREN) {
-					isDestructuring = true
-				}
-			}
-
-			if isDestructuring {
-				if s := p.parseVarStatement(false); s != nil {
-					return s
-				}
-				return nil
-			}
-			if s := p.parseVarBlock(); s != nil {
-				return s
-			}
-			return nil
-		}
-		if s := p.parseVarStatement(false); s != nil {
-			return s
-		}
-		return nil
+		return p.parseVarDecl()
 	case token.MUT:
-		if p.peekTokenIs(token.VAR) {
-			p.nextToken()
-			if s := p.parseVarStatement(true); s != nil {
-				return s
-			}
-			return nil
-		} else if p.peekTokenIs(token.FUNC) {
-			// This would be inside an impl block, handled separately
-			return nil
-		}
-		return nil
+		return p.parseMutDecl()
 	case token.CONST:
-		// Check if it's a const block: const ( ... )
-		if p.peekTokenIs(token.LPAREN) {
-			if s := p.parseConstBlock(); s != nil {
-				return s
-			}
-			return nil
-		}
-		if s := p.parseConstStatement(); s != nil {
-			return s
-		}
-		return nil
+		return p.parseConstDecl()
 	case token.FUNC:
 		if s := p.parseFunctionDecl(); s != nil {
 			return s
@@ -644,6 +596,46 @@ func (p *Parser) parseStatement() ast.Statement {
 	}
 }
 
+func (p *Parser) parseVarDecl() ast.Statement {
+	// var ( ... ) can mean either a block declaration or destructuring assignment.
+	// Look ahead to distinguish:
+	// - var (a, b) = ...  -> destructuring
+	// - var (a: int = 1)  -> block declaration
+	if p.peekTokenIs(token.LPAREN) {
+		if p.isVarDestructuring() {
+			return p.parseVarStatement(false)
+		}
+		return p.parseVarBlock()
+	}
+	return p.parseVarStatement(false)
+}
+
+func (p *Parser) parseMutDecl() ast.Statement {
+	if p.peekTokenIs(token.VAR) {
+		p.nextToken()
+		return p.parseVarStatement(true)
+	}
+	if p.peekTokenIs(token.FUNC) {
+		// This would be inside an impl block, handled separately.
+		return nil
+	}
+	return nil
+}
+
+func (p *Parser) parseConstDecl() ast.Statement {
+	if p.peekTokenIs(token.LPAREN) {
+		return p.parseConstBlock()
+	}
+	return p.parseConstStatement()
+}
+
+func (p *Parser) isVarDestructuring() bool {
+	if !(p.peek2TokenIs(token.IDENT) || p.peek2TokenIs(token.UNDERSCORE)) {
+		return false
+	}
+	return p.peek3TokenIs(token.COMMA) || p.peek3TokenIs(token.RPAREN)
+}
+
 func (p *Parser) parsePackageStatement() *ast.PackageStatement {
 	stmt := &ast.PackageStatement{Token: p.curToken}
 
@@ -663,12 +655,7 @@ func (p *Parser) parsePubDecl() ast.Statement {
 
 	switch p.curToken.Type {
 	case token.FUNC:
-		decl := p.parseFunctionDecl()
-		if decl == nil {
-			return nil
-		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(p.parseFunctionDecl())
 	case token.TRACE:
 		stmt := p.parseTraceDecl()
 		if stmt == nil {
@@ -680,15 +667,9 @@ func (p *Parser) parsePubDecl() ast.Statement {
 			p.errors = append(p.errors, msg)
 			return nil
 		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(decl)
 	case token.TRAIT:
-		decl := p.parseTraitDefinition()
-		if decl == nil {
-			return nil
-		}
-		decl.IsPublic = true
-		return decl
+		return p.applyPublicModifier(p.parseTraitDefinition())
 	case token.STRUCT:
 		decl := p.parseStructDecl()
 		if decl == nil {
@@ -697,46 +678,16 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		decl.Visibility = ast.Public
 		return decl
 	case token.ENUM:
-		decl := p.parseEnumDecl()
-		if decl == nil {
-			return nil
-		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(p.parseEnumDecl())
 	case token.CONST:
 		if p.peekTokenIs(token.LPAREN) {
-			block := p.parseConstBlock()
-			if block == nil {
-				return nil
-			}
-			// Mark all constants in the block as public
-			for _, c := range block.Constants {
-				if c != nil {
-					c.Visibility = ast.Public
-				}
-			}
-			return block
+			return p.applyPublicModifier(p.parseConstBlock())
 		}
-		decl := p.parseConstStatement()
-		if decl == nil {
-			return nil
-		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(p.parseConstStatement())
 	case token.TYPE:
-		decl := p.parseTypeDecl()
-		if decl == nil {
-			return nil
-		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(p.parseTypeDecl())
 	case token.ALIAS:
-		decl := p.parseAliasDecl()
-		if decl == nil {
-			return nil
-		}
-		decl.Visibility = ast.Public
-		return decl
+		return p.applyPublicModifier(p.parseAliasDecl())
 	default:
 		msg := fmt.Sprintf("line %d: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", pubToken.Line)
 		p.errors = append(p.errors, msg)
@@ -751,30 +702,87 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 
 	switch p.curToken.Type {
 	case token.FUNC:
+		return p.markFunctionTraced(p.parseFunctionDecl())
+	case token.PUB:
+		if !p.peekTokenIs(token.FUNC) {
+			msg := fmt.Sprintf("line %d: 'trace pub' can only be used before func declarations", traceToken.Line)
+			p.errors = append(p.errors, msg)
+			return nil
+		}
+		p.nextToken() // consume 'pub'
 		decl := p.parseFunctionDecl()
 		if decl == nil {
 			return nil
 		}
 		decl.Traced = true
-		return decl
-	case token.PUB:
-		stmt := p.parsePubDecl()
-		if stmt == nil {
-			return nil
-		}
-		decl, ok := stmt.(*ast.FunctionDecl)
-		if !ok {
-			msg := fmt.Sprintf("line %d: 'trace pub' can only be used before func declarations", traceToken.Line)
-			p.errors = append(p.errors, msg)
-			return nil
-		}
-		decl.Traced = true
+		decl.Visibility = ast.Public
 		return decl
 	default:
 		msg := fmt.Sprintf("line %d: 'trace' can only be used before func declarations", traceToken.Line)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
+}
+
+func (p *Parser) applyPublicModifier(stmt ast.Statement) ast.Statement {
+	if stmt == nil {
+		return nil
+	}
+	switch decl := stmt.(type) {
+	case *ast.FunctionDecl:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.StructDecl:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.EnumDecl:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.ConstStatement:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.ConstBlock:
+		if decl == nil {
+			return nil
+		}
+		for _, c := range decl.Constants {
+			if c != nil {
+				c.Visibility = ast.Public
+			}
+		}
+	case *ast.TypeDecl:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.AliasDecl:
+		if decl == nil {
+			return nil
+		}
+		decl.Visibility = ast.Public
+	case *ast.TraitDefinition:
+		if decl == nil {
+			return nil
+		}
+		decl.IsPublic = true
+	}
+	return stmt
+}
+
+func (p *Parser) markFunctionTraced(decl *ast.FunctionDecl) *ast.FunctionDecl {
+	if decl == nil {
+		return nil
+	}
+	decl.Traced = true
+	return decl
 }
 
 func (p *Parser) parseImportBlock() ast.Statement {

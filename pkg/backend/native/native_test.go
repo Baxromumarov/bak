@@ -152,6 +152,67 @@ func main() -> (void) {
 	}
 }
 
+func TestBuildExecutableLoadsImportsWithoutPreloadedRegistry(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	typechecker.ResetCache()
+	t.Cleanup(typechecker.ResetCache)
+
+	root := t.TempDir()
+	mainPath := filepath.Join(root, "main.bak")
+	libPath := filepath.Join(root, "lib.bak")
+
+	mainSource := `package main
+
+import "./lib.bak" as lib
+
+func main() -> (int) {
+	return lib.answer()
+}
+`
+	libSource := `package lib
+
+pub func answer() -> (int) {
+	return 7
+}
+`
+
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	tc := typechecker.NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	if errs := tc.Check(program); len(errs) > 0 {
+		t.Fatalf("type errors: %v", errs)
+	}
+
+	packages.GlobalRegistry.Reset()
+
+	binary, err := BuildExecutableWithOptions(program, BuildOptions{MainPath: mainPath})
+	if err != nil {
+		t.Fatalf("BuildExecutableWithOptions failed after registry reset: %v", err)
+	}
+	if len(binary) < 4 || !bytes.Equal(binary[:4], []byte{0x7f, 'E', 'L', 'F'}) {
+		got := binary
+		if len(got) > 4 {
+			got = got[:4]
+		}
+		t.Fatalf("expected ELF binary output, got %x", got)
+	}
+}
+
 func TestBuildExecutableExecCapturesOutputAndExitCode(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

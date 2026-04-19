@@ -12,6 +12,13 @@ import (
 // imports, and legacy github.com path resolution.
 // Returns "" if the module cannot be found.
 func ResolveImportPath(importPath string) string {
+	return ResolveImportPathFrom(importPath, "")
+}
+
+// ResolveImportPathFrom resolves an import path relative to the importing
+// source path when one is available. fromPath may refer to either a file or a
+// directory; empty means "resolve from the current working directory only".
+func ResolveImportPathFrom(importPath, fromPath string) string {
 	// 1. Alias Expansion
 	// "std/" prefix -> "src/std/"
 	searchPath := importPath
@@ -34,42 +41,113 @@ func ResolveImportPath(importPath string) string {
 
 	// 3. Resolution
 	cwd, _ := os.Getwd()
+	baseDir := importBaseDir(fromPath)
 
 	for _, path := range candidates {
+		// Try relative to the importing file/directory first.
+		if baseDir != "" {
+			candidate := filepath.Join(baseDir, path)
+			if resolved := existingPath(candidate); resolved != "" {
+				return resolved
+			}
+		}
+
 		// Try relative to CWD
-		absPath := filepath.Join(cwd, path)
-		if _, err := os.Stat(absPath); err == nil {
-			return absPath
+		if resolved := existingPath(filepath.Join(cwd, path)); resolved != "" {
+			return resolved
 		}
 
 		// If path was already absolute or relative to where we are running
-		if _, err := os.Stat(path); err == nil {
-			abs, _ := filepath.Abs(path)
-			return abs
+		if resolved := existingPath(path); resolved != "" {
+			return resolved
 		}
 	}
 
 	// Fallback for legacy "simple" imports (e.g. import "fmt")
 	if !strings.Contains(importPath, "/") {
 		legacyPath := filepath.Join("src", "std", importPath, importPath+".bak")
-		absLegacy := filepath.Join(cwd, legacyPath)
-		if info, err := os.Stat(absLegacy); err == nil && !info.IsDir() {
-			return absLegacy
+		if baseDir != "" {
+			if resolved := existingFilePath(filepath.Join(baseDir, legacyPath)); resolved != "" {
+				return resolved
+			}
+		}
+		if resolved := existingFilePath(filepath.Join(cwd, legacyPath)); resolved != "" {
+			return resolved
 		}
 	}
 
 	// Fallback for full github path (legacy)
-	if after, ok :=strings.CutPrefix(importPath, "github.com/baxromumarov/bak/"); ok  {
+	if after, ok := strings.CutPrefix(importPath, "github.com/baxromumarov/bak/"); ok {
 		rest := after
 		if rest != "" {
 			base := filepath.Base(rest)
 			legacyPath := filepath.Join("src", rest, base+".bak")
-			absLegacy := filepath.Join(cwd, legacyPath)
-			if _, err := os.Stat(absLegacy); err == nil {
-				return absLegacy
+			if baseDir != "" {
+				if resolved := existingFilePath(filepath.Join(baseDir, legacyPath)); resolved != "" {
+					return resolved
+				}
+			}
+			if resolved := existingFilePath(filepath.Join(cwd, legacyPath)); resolved != "" {
+				return resolved
 			}
 		}
 	}
 
 	return ""
+}
+
+func importBaseDir(fromPath string) string {
+	fromPath = strings.TrimSpace(fromPath)
+	if fromPath == "" {
+		return ""
+	}
+	if info, err := os.Stat(fromPath); err == nil {
+		if info.IsDir() {
+			abs, absErr := filepath.Abs(fromPath)
+			if absErr == nil {
+				return abs
+			}
+			return fromPath
+		}
+		abs, absErr := filepath.Abs(filepath.Dir(fromPath))
+		if absErr == nil {
+			return abs
+		}
+		return filepath.Dir(fromPath)
+	}
+	if strings.HasSuffix(fromPath, ".bak") {
+		abs, absErr := filepath.Abs(filepath.Dir(fromPath))
+		if absErr == nil {
+			return abs
+		}
+		return filepath.Dir(fromPath)
+	}
+	abs, absErr := filepath.Abs(fromPath)
+	if absErr == nil {
+		return abs
+	}
+	return fromPath
+}
+
+func existingPath(path string) string {
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return path
+	}
+	return abs
+}
+
+func existingFilePath(path string) string {
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return ""
+	}
+	abs, absErr := filepath.Abs(path)
+	if absErr != nil {
+		return path
+	}
+	return abs
 }

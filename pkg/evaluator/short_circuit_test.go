@@ -12,6 +12,8 @@ import (
 
 func evalSource(t *testing.T, src string) object.Object {
 	t.Helper()
+	ResetState()
+	t.Cleanup(ResetState)
 
 	l := lexer.New(src)
 	p := parser.New(l)

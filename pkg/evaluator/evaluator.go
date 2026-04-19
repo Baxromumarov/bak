@@ -3,9 +3,6 @@ package evaluator
 import (
 	"fmt"
 	"maps"
-	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,10 +10,8 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/builtins"
-	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/packages"
-	"github.com/baxromumarov/bak/pkg/parser"
 )
 
 var (
@@ -33,10 +28,50 @@ var (
 	nextCancelTokenID = 0
 )
 
+func ResetState() {
+	threadsMu.Lock()
+	clear(threads)
+	threadsMu.Unlock()
+
+	cancelTokensMu.Lock()
+	clear(cancelTokens)
+	nextCancelTokenID = 0
+	cancelTokensMu.Unlock()
+
+	moduleMu.Lock()
+	clear(loadedModules)
+	clear(loadingModules)
+	clear(methodRegistry)
+	clear(moduleMethodKeys)
+	moduleMu.Unlock()
+}
+
+func InvalidateModule(path string) {
+	if path == "" {
+		return
+	}
+	resolvedPath := packages.ResolveImportPath(path)
+	if resolvedPath == "" {
+		resolvedPath = path
+	}
+
+	moduleMu.Lock()
+	delete(loadedModules, resolvedPath)
+	delete(loadingModules, resolvedPath)
+	for _, key := range moduleMethodKeys[resolvedPath] {
+		delete(methodRegistry, key)
+	}
+	delete(moduleMethodKeys, resolvedPath)
+	moduleMu.Unlock()
+}
+
 func Eval(node ast.Node, env *object.Environment) object.Object {
 	switch node := node.(type) {
 	// Statements
 	case *ast.Program:
+		if env != nil && node.SourcePath != "" && env.SourcePath() == "" {
+			env.SetSourcePath(node.SourcePath)
+		}
 		return evalProgram(node, env)
 
 	case *ast.ExpressionStatement:
@@ -64,19 +99,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return evalAliasDecl(node, env)
 
 	case *ast.ReturnStatement:
-		if node.ReturnValue == nil {
-			// Naked return - collect named return values from environment
-			nakedVal := collectNamedReturns(env)
-			if nakedVal != nil {
-				return &object.ReturnValue{Value: nakedVal}
-			}
-			return &object.ReturnValue{Value: NULL}
-		}
-		val := Eval(node.ReturnValue, env)
-		if isError(val) {
-			return val
-		}
-		return &object.ReturnValue{Value: val}
+		return evalReturnStatement(node, env)
 
 	case *ast.DeferStatement:
 		return evalDeferStatement(node, env)
@@ -247,6 +270,21 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	return nil
 }
 
+func evalReturnStatement(node *ast.ReturnStatement, env *object.Environment) object.Object {
+	if node.ReturnValue == nil {
+		nakedVal := collectNamedReturns(env)
+		if nakedVal != nil {
+			return &object.ReturnValue{Value: nakedVal}
+		}
+		return &object.ReturnValue{Value: NULL}
+	}
+	val := Eval(node.ReturnValue, env)
+	if isError(val) {
+		return val
+	}
+	return &object.ReturnValue{Value: val}
+}
+
 func evalUnwrapExpression(node *ast.UnwrapExpression, env *object.Environment) object.Object {
 	inner := Eval(node.Value, env)
 	if isError(inner) {
@@ -357,6 +395,101 @@ func evalProgram(program *ast.Program, env *object.Environment) object.Object {
 	return result
 }
 
+func defaultStructValue(typeName string, env *object.Environment, seen map[string]bool) object.Object {
+	if seen[typeName] {
+		return NULL
+	}
+
+	info, ok := env.Get(typeName)
+	if !ok {
+		return NULL
+	}
+
+	def, ok := info.Value.(*object.StructDef)
+	if !ok {
+		return NULL
+	}
+
+	seen[typeName] = true
+	fields := make(map[string]object.Object)
+	for fieldName, fieldType := range def.Fields {
+		fields[fieldName] = defaultValueForTypeWithSeen(fieldType, env, seen)
+	}
+	delete(seen, typeName)
+
+	return &object.Struct{
+		Name:   typeName,
+		Fields: fields,
+	}
+}
+
+func updateObjectValue(target, val object.Object) object.Object {
+	switch t := target.(type) {
+	case *object.Integer:
+		if v, ok := val.(*object.Integer); ok {
+			t.Value = v.Value
+			return val
+		}
+	case *object.Float:
+		if v, ok := val.(*object.Float); ok {
+			t.Value = v.Value
+			return val
+		}
+	case *object.Boolean:
+		if v, ok := val.(*object.Boolean); ok {
+			t.Value = v.Value
+			return val
+		}
+	case *object.Char:
+		if v, ok := val.(*object.Char); ok {
+			t.Value = v.Value
+			return val
+		}
+	case *object.String:
+		if v, ok := val.(*object.String); ok {
+			t.Value = v.Value
+			return val
+		}
+	case *object.Struct:
+		if v, ok := val.(*object.Struct); ok {
+			// Clear and copy fields to maintain the same object reference
+			for k := range t.Fields {
+				delete(t.Fields, k)
+			}
+			maps.Copy(t.Fields, v.Fields)
+			return val
+		}
+	case *object.Vec:
+		if v, ok := val.(*object.Vec); ok {
+			t.Elements = v.Elements
+			t.Size = v.Size
+			t.Mutable = v.Mutable
+			t.ElemType = v.ElemType
+			return val
+		}
+	}
+	return newError("cannot update value of type %s in-place", target.Type())
+}
+
+func applyCustomMethod(method *object.Method, receiver object.Object, args []object.Object, env *object.Environment) object.Object {
+	// Create environment with receiver bound if applicable
+	extendedEnv := object.NewEnclosedEnvironment(method.Function.Env)
+	if method.Receiver != "" {
+		extendedEnv.Set(method.Receiver, receiver, method.Mutable)
+	}
+
+	// Bind the parameters
+	for paramIdx, param := range method.Function.Parameters {
+		if paramIdx < len(args) {
+			extendedEnv.Set(param.Name.Value, args[paramIdx], param.Mutable)
+		}
+	}
+
+	evaluated := Eval(method.Function.Body, extendedEnv)
+	return unwrapReturnValue(evaluated)
+
+}
+
 // =============================================================================
 // Import Evaluation
 // =============================================================================
@@ -373,13 +506,30 @@ var loadingModules = make(map[string]bool)
 
 // methodRegistry tracks impl methods across modules for cross-module dispatch.
 var methodRegistry = make(map[string]*object.Method)
+var moduleMethodKeys = make(map[string][]string)
+
+func registerMethod(modulePath, methodName string, method *object.Method) {
+	moduleMu.Lock()
+	methodRegistry[methodName] = method
+	if modulePath != "" {
+		moduleMethodKeys[modulePath] = append(moduleMethodKeys[modulePath], methodName)
+	}
+	moduleMu.Unlock()
+}
+
+func lookupRegisteredMethod(methodName string) (*object.Method, bool) {
+	moduleMu.RLock()
+	method, ok := methodRegistry[methodName]
+	moduleMu.RUnlock()
+	return method, ok
+}
 
 func evalImportStatement(is *ast.ImportStatement, env *object.Environment) object.Object {
 	// Get the import path (remove quotes if present)
 	importPath := strings.Trim(is.Path, "\"")
 
 	// Resolve the file path first
-	filePath := resolveImportPath(importPath)
+	filePath := resolveImportPath(importPath, env)
 	if filePath == "" {
 		return newError("cannot resolve import path %q; check that the module exists and is a .bak file or directory", importPath)
 	}
@@ -419,6 +569,7 @@ func evalImportStatement(is *ast.ImportStatement, env *object.Environment) objec
 
 	// Create a new environment for the module
 	moduleEnv := object.NewEnvironment()
+	moduleEnv.SetSourcePath(filePath)
 
 	// Evaluate the module (this registers all its functions, structs, etc.)
 	for _, stmt := range program.Statements {
@@ -480,88 +631,19 @@ func evalImportBlock(ib *ast.ImportBlock, env *object.Environment) object.Object
 }
 
 // resolveImportPath resolves an import path to an absolute file path
-func resolveImportPath(importPath string) string {
+func resolveImportPath(importPath string, env *object.Environment) string {
+	if env != nil {
+		return packages.ResolveImportPathFrom(importPath, env.SourcePath())
+	}
 	return packages.ResolveImportPath(importPath)
 }
 
 func parseImportProgram(path string) (*ast.Program, error) {
-	info, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
-	if info.IsDir() {
-		return parseImportProgramDir(path)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	l := lexer.New(string(data))
-	p := parser.New(l)
-	p.SetFilename(path)
-	program := p.ParseProgram()
-	if len(p.Errors()) != 0 {
-		return nil, fmt.Errorf("parse errors in module %s:\n%s", path, strings.Join(p.Errors(), "\n"))
-	}
-	return program, nil
+	return packages.ParseProgram(path)
 }
 
 func parseImportProgramDir(dir string) (*ast.Program, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	files := make([]string, 0)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".bak") {
-			continue
-		}
-		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
-			continue
-		}
-		files = append(files, filepath.Join(dir, name))
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no .bak files in dir %s", dir)
-	}
-	sort.Strings(files)
-	combined := &ast.Program{Statements: []ast.Statement{}}
-	var pkgName string
-	for _, filePath := range files {
-		data, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, err
-		}
-		l := lexer.New(string(data))
-		p := parser.New(l)
-		p.SetFilename(filePath)
-		prog := p.ParseProgram()
-		if len(p.Errors()) != 0 {
-			return nil, fmt.Errorf("parse errors in module %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
-		}
-		for _, stmt := range prog.Statements {
-			if ps, ok := stmt.(*ast.PackageStatement); ok {
-				if ps.Name != nil {
-					if pkgName == "" {
-						pkgName = ps.Name.Value
-					} else if pkgName != ps.Name.Value {
-						return nil, fmt.Errorf("package mismatch in %s: %s (expected %s)", filePath, ps.Name.Value, pkgName)
-					}
-				}
-				if pkgName != "" && len(combined.Statements) > 0 {
-					if _, exists := combined.Statements[0].(*ast.PackageStatement); exists {
-						continue
-					}
-				}
-			}
-			combined.Statements = append(combined.Statements, stmt)
-		}
-	}
-	return combined, nil
+	return packages.ParseProgram(dir)
 }
 
 // createModuleFromEnv creates a Module object from an evaluated environment
@@ -1401,9 +1483,7 @@ func evalImplDecl(id *ast.ImplDecl, env *object.Environment) object.Object {
 			Mutable: method.Mutable,
 		}
 		env.Set(methodName, m, false)
-		moduleMu.Lock()
-		methodRegistry[methodName] = m
-		moduleMu.Unlock()
+		registerMethod(env.SourcePath(), methodName, m)
 	}
 
 	return NULL
@@ -2026,84 +2106,47 @@ func convertToInt(val object.Object) object.Object {
 	}
 }
 
-func convertToInt8(val object.Object) object.Object {
+func convertToIntegerType(val object.Object, bits int, unsigned bool) object.Object {
 	result := convertToInt(val)
 	if isError(result) {
 		return result
 	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 8, false)
+	intVal, ok := result.(*object.Integer)
+	if !ok {
+		return result
 	}
-	return result
+	if unsigned && intVal.Value < 0 {
+		return newError("cannot convert negative value to uint")
+	}
+	return applyIntegerMeta(intVal, bits, unsigned)
+}
+
+func convertToInt8(val object.Object) object.Object {
+	return convertToIntegerType(val, 8, false)
 }
 
 func convertToInt16(val object.Object) object.Object {
-	result := convertToInt(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 16, false)
-	}
-	return result
+	return convertToIntegerType(val, 16, false)
 }
 
 func convertToInt32(val object.Object) object.Object {
-	result := convertToInt(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 32, false)
-	}
-	return result
+	return convertToIntegerType(val, 32, false)
 }
 
 func convertToUint(val object.Object) object.Object {
-	result := convertToInt(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		if intVal.Value < 0 {
-			return newError("cannot convert negative value to uint")
-		}
-		return applyIntegerMeta(intVal, 64, true)
-	}
-	return result
+	return convertToIntegerType(val, 64, true)
 }
 
 func convertToUint8(val object.Object) object.Object {
-	result := convertToUint(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 8, true)
-	}
-	return result
+	return convertToIntegerType(val, 8, true)
 }
 
 func convertToUint16(val object.Object) object.Object {
-	result := convertToUint(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 16, true)
-	}
-	return result
+	return convertToIntegerType(val, 16, true)
 }
 
 func convertToUint32(val object.Object) object.Object {
-	result := convertToUint(val)
-	if isError(result) {
-		return result
-	}
-	if intVal, ok := result.(*object.Integer); ok {
-		return applyIntegerMeta(intVal, 32, true)
-	}
-	return result
+	return convertToIntegerType(val, 32, true)
 }
 
 func integerTypeInfo(typeName string) (int, bool, bool) {
@@ -2738,7 +2781,7 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 		}
 		// Fallback to global registry for custom static methods (e.g., Vec.my_new)
 		fullName := fmt.Sprintf("%s.%s", tc.Name, methodName)
-		if method, ok := methodRegistry[fullName]; ok {
+		if method, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(method, left, args, env)
 		}
 		return newError("undefined function: %s.%s", tc.Name, methodName)
@@ -2762,7 +2805,7 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 	// Check for static method calls on struct types (e.g., TaskManager.new())
 	if structDef, ok := left.(*object.StructDef); ok {
 		fullName := fmt.Sprintf("%s.%s", structDef.Name, methodName)
-		if method, ok := methodRegistry[fullName]; ok {
+		if method, ok := lookupRegisteredMethod(fullName); ok {
 			// Static method - call without binding receiver (it won't use self)
 			extendedEnv := object.NewEnclosedEnvironment(method.Function.Env)
 			for paramIdx, param := range method.Function.Parameters {
@@ -2807,10 +2850,10 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 
 		// Fallback to global registry
 		if method == nil && function == nil {
-			if m, ok := methodRegistry[fullName]; ok {
+			if m, ok := lookupRegisteredMethod(fullName); ok {
 				method = m
 			} else if shortName != fullName {
-				if m, ok := methodRegistry[shortName]; ok {
+				if m, ok := lookupRegisteredMethod(shortName); ok {
 					method = m
 				}
 			}
@@ -2843,10 +2886,10 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 							}
 						}
 						if method == nil && function == nil {
-							if m, ok := methodRegistry[aliasFull]; ok {
+							if m, ok := lookupRegisteredMethod(aliasFull); ok {
 								method = m
 							} else if aliasShort != aliasFull {
-								if m, ok := methodRegistry[aliasShort]; ok {
+								if m, ok := lookupRegisteredMethod(aliasShort); ok {
 									method = m
 								}
 							}
@@ -3140,7 +3183,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 
 	default:
 		fullName := fmt.Sprintf("Vec.%s", method)
-		if m, ok := methodRegistry[fullName]; ok {
+		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, vec, args, nil) // env not needed here as applyCustomMethod handles it
 		}
 		return newError("undefined method: %s for Vec", method)
@@ -3592,7 +3635,7 @@ func evalResultMethod(result *object.Result, method string, args []object.Object
 		return newError("called unwrap_err on Ok: %s", result.Value.Inspect())
 	default:
 		fullName := fmt.Sprintf("Result.%s", method)
-		if m, ok := methodRegistry[fullName]; ok {
+		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, result, args, nil)
 		}
 		return newError("undefined method: %s for Result", method)
@@ -3620,7 +3663,7 @@ func evalOptionMethod(option *object.Option, method string, args []object.Object
 		return nativeBoolToBooleanObject(!option.IsSome)
 	default:
 		fullName := fmt.Sprintf("Option.%s", method)
-		if m, ok := methodRegistry[fullName]; ok {
+		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, option, args, nil)
 		}
 		return newError("undefined method: %s for Option", method)
@@ -4257,98 +4300,4 @@ func defaultVecValue(te *ast.GenericType, env *object.Environment, seen map[stri
 	}
 
 	return &object.Vec{Elements: []object.Object{}, ElemType: "", Size: -1, Mutable: true}
-}
-
-func defaultStructValue(typeName string, env *object.Environment, seen map[string]bool) object.Object {
-	if seen[typeName] {
-		return NULL
-	}
-
-	info, ok := env.Get(typeName)
-	if !ok {
-		return NULL
-	}
-
-	def, ok := info.Value.(*object.StructDef)
-	if !ok {
-		return NULL
-	}
-
-	seen[typeName] = true
-	fields := make(map[string]object.Object)
-	for fieldName, fieldType := range def.Fields {
-		fields[fieldName] = defaultValueForTypeWithSeen(fieldType, env, seen)
-	}
-	delete(seen, typeName)
-
-	return &object.Struct{
-		Name:   typeName,
-		Fields: fields,
-	}
-}
-
-func updateObjectValue(target, val object.Object) object.Object {
-	switch t := target.(type) {
-	case *object.Integer:
-		if v, ok := val.(*object.Integer); ok {
-			t.Value = v.Value
-			return val
-		}
-	case *object.Float:
-		if v, ok := val.(*object.Float); ok {
-			t.Value = v.Value
-			return val
-		}
-	case *object.Boolean:
-		if v, ok := val.(*object.Boolean); ok {
-			t.Value = v.Value
-			return val
-		}
-	case *object.Char:
-		if v, ok := val.(*object.Char); ok {
-			t.Value = v.Value
-			return val
-		}
-	case *object.String:
-		if v, ok := val.(*object.String); ok {
-			t.Value = v.Value
-			return val
-		}
-	case *object.Struct:
-		if v, ok := val.(*object.Struct); ok {
-			// Clear and copy fields to maintain the same object reference
-			for k := range t.Fields {
-				delete(t.Fields, k)
-			}
-			maps.Copy(t.Fields, v.Fields)
-			return val
-		}
-	case *object.Vec:
-		if v, ok := val.(*object.Vec); ok {
-			t.Elements = v.Elements
-			t.Size = v.Size
-			t.Mutable = v.Mutable
-			t.ElemType = v.ElemType
-			return val
-		}
-	}
-	return newError("cannot update value of type %s in-place", target.Type())
-}
-
-func applyCustomMethod(method *object.Method, receiver object.Object, args []object.Object, env *object.Environment) object.Object {
-	// Create environment with receiver bound if applicable
-	extendedEnv := object.NewEnclosedEnvironment(method.Function.Env)
-	if method.Receiver != "" {
-		extendedEnv.Set(method.Receiver, receiver, method.Mutable)
-	}
-
-	// Bind the parameters
-	for paramIdx, param := range method.Function.Parameters {
-		if paramIdx < len(args) {
-			extendedEnv.Set(param.Name.Value, args[paramIdx], param.Mutable)
-		}
-	}
-
-	evaluated := Eval(method.Function.Body, extendedEnv)
-	return unwrapReturnValue(evaluated)
 }

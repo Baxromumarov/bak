@@ -24,6 +24,7 @@ type Environment struct {
 	deferred     []Object // Deferred calls
 	funcScope    bool
 	namedReturns []string // Names of named return values
+	sourcePath   string
 }
 
 // NewEnvironment creates a new environment
@@ -45,6 +46,9 @@ func NewEnvironment() *Environment {
 func NewEnclosedEnvironment(outer *Environment) *Environment {
 	env := NewEnvironment()
 	env.outer = outer
+	if outer != nil {
+		env.sourcePath = outer.SourcePath()
+	}
 	return env
 }
 
@@ -57,9 +61,15 @@ func (e *Environment) Snapshot() *Environment {
 	snap := NewEnvironment()
 	snap.outer = e.outer
 	snap.funcScope = e.funcScope
+	snap.sourcePath = e.sourcePath
 	for k, v := range e.store {
 		snap.store[k] = &VariableInfo{Value: v.Value, Mutable: v.Mutable, Moved: v.Moved}
 	}
+	maps.Copy(snap.types, e.types)
+	maps.Copy(snap.enums, e.enums)
+	maps.Copy(snap.impls, e.impls)
+	snap.deferred = append([]Object(nil), e.deferred...)
+	snap.namedReturns = append([]string(nil), e.namedReturns...)
 	return snap
 }
 
@@ -132,11 +142,14 @@ func (e *Environment) Update(name string, val Object) (Object, error) {
 
 // MarkMoved marks a variable as moved
 func (e *Environment) MarkMoved(name string) error {
+	e.mu.Lock()
 	info, ok := e.store[name]
 	if ok {
 		info.Moved = true
+		e.mu.Unlock()
 		return nil
 	}
+	e.mu.Unlock()
 	if e.outer != nil {
 		return e.outer.MarkMoved(name)
 	}
@@ -145,10 +158,14 @@ func (e *Environment) MarkMoved(name string) error {
 
 // IsMoved checks if a variable has been moved
 func (e *Environment) IsMoved(name string) bool {
+	e.mu.RLock()
 	info, ok := e.store[name]
 	if ok {
-		return info.Moved
+		moved := info.Moved
+		e.mu.RUnlock()
+		return moved
 	}
+	e.mu.RUnlock()
 	if e.outer != nil {
 		return e.outer.IsMoved(name)
 	}
@@ -157,26 +174,37 @@ func (e *Environment) IsMoved(name string) bool {
 
 // DefineType stores a struct definition
 func (e *Environment) DefineType(name string, def *StructDef) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.types[name] = def
 }
 
 // GetType retrieves a struct definition
 func (e *Environment) GetType(name string) (*StructDef, bool) {
+	e.mu.RLock()
 	def, ok := e.types[name]
-	if !ok && e.outer != nil {
+	e.mu.RUnlock()
+	if ok {
+		return def, true
+	}
+	if e.outer != nil {
 		return e.outer.GetType(name)
 	}
-	return def, ok
+	return nil, false
 }
 
 // DefineEnum stores an enum definition
 func (e *Environment) DefineEnum(name string, def *EnumDef) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.enums[name] = def
 }
 
 // GetEnum retrieves an enum definition
 func (e *Environment) GetEnum(name string) (*EnumDef, bool) {
+	e.mu.RLock()
 	def, ok := e.enums[name]
+	e.mu.RUnlock()
 	if !ok && e.outer != nil {
 		return e.outer.GetEnum(name)
 	}
@@ -185,12 +213,16 @@ func (e *Environment) GetEnum(name string) (*EnumDef, bool) {
 
 // DefineImpl stores an impl block definition
 func (e *Environment) DefineImpl(typeName string, def *ImplDef) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.impls[typeName] = def
 }
 
 // GetImpl retrieves an impl block definition
 func (e *Environment) GetImpl(typeName string) (*ImplDef, bool) {
+	e.mu.RLock()
 	def, ok := e.impls[typeName]
+	e.mu.RUnlock()
 	if !ok && e.outer != nil {
 		return e.outer.GetImpl(typeName)
 	}
@@ -208,22 +240,28 @@ func (e *Environment) GetModules() map[string]Object {
 	}
 
 	// Override/add from current
+	e.mu.RLock()
 	for name, info := range e.store {
 		if info.Value.Type() == MODULE_OBJ {
 			modules[name] = info.Value
 		}
 	}
+	e.mu.RUnlock()
 
 	return modules
 }
 
 // AddDeferred adds a deferred call
 func (e *Environment) AddDeferred(obj Object) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.deferred = append(e.deferred, obj)
 }
 
 // GetDeferred returns all deferred calls (in reverse order)
 func (e *Environment) GetDeferred() []Object {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	result := make([]Object, len(e.deferred))
 	for i, d := range e.deferred {
 		result[len(e.deferred)-1-i] = d
@@ -233,12 +271,32 @@ func (e *Environment) GetDeferred() []Object {
 
 // AddNamedReturn registers a named return variable
 func (e *Environment) AddNamedReturn(name string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
 	e.namedReturns = append(e.namedReturns, name)
 }
 
 // GetNamedReturns returns the list of named return variable names
 func (e *Environment) GetNamedReturns() []string {
-	return e.namedReturns
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return append([]string(nil), e.namedReturns...)
+}
+
+func (e *Environment) SetSourcePath(path string) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.sourcePath = path
+}
+
+func (e *Environment) SourcePath() string {
+	e.mu.RLock()
+	path := e.sourcePath
+	e.mu.RUnlock()
+	if path == "" && e.outer != nil {
+		return e.outer.SourcePath()
+	}
+	return path
 }
 
 // Error types for environment operations

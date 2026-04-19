@@ -43,6 +43,7 @@ type Expression interface {
 // Program is the root node of every AST
 type Program struct {
 	Span       Span
+	SourcePath string
 	Statements []Statement
 }
 

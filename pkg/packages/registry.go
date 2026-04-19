@@ -82,77 +82,54 @@ func (p *Package) extractSymbols() {
 	for _, stmt := range p.Program.Statements {
 		switch node := stmt.(type) {
 		case *ast.FunctionDecl:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolFunc,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolFunc, node)
 		case *ast.StructDecl:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolStruct,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolStruct, node)
 		case *ast.EnumDecl:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolEnum,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolEnum, node)
 		case *ast.ConstStatement:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolConst,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolConst, node)
 		case *ast.ConstBlock:
 			for _, c := range node.Constants {
-				if c.Name != nil {
-					p.Symbols[c.Name.Value] = &Symbol{
-						Name:       c.Name.Value,
-						Visibility: c.Visibility,
-						Kind:       SymbolConst,
-						Node:       c,
-					}
-				}
+				p.registerNamedSymbol(c.Name, c.Visibility, SymbolConst, c)
 			}
 		case *ast.TypeDecl:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolType,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolType, node)
 		case *ast.AliasDecl:
-			if node.Name != nil {
-				p.Symbols[node.Name.Value] = &Symbol{
-					Name:       node.Name.Value,
-					Visibility: node.Visibility,
-					Kind:       SymbolAlias,
-					Node:       node,
-				}
-			}
+			p.registerNamedSymbol(node.Name, node.Visibility, SymbolAlias, node)
 		case *ast.ImportStatement:
-			p.Imports = append(p.Imports, node.Path)
+			p.addImportPath(node.Path)
 		case *ast.ImportBlock:
-			for _, imp := range node.Imports {
-				p.Imports = append(p.Imports, imp.Path)
-			}
+			p.addImportStatements(node.Imports)
 		}
+	}
+}
+
+func (p *Package) registerNamedSymbol(nameNode *ast.Identifier, visibility ast.Visibility, kind SymbolKind, node ast.Node) {
+	if nameNode == nil || nameNode.Value == "" {
+		return
+	}
+	p.Symbols[nameNode.Value] = &Symbol{
+		Name:       nameNode.Value,
+		Visibility: visibility,
+		Kind:       kind,
+		Node:       node,
+	}
+}
+
+func (p *Package) addImportPath(path string) {
+	if path == "" {
+		return
+	}
+	p.Imports = append(p.Imports, path)
+}
+
+func (p *Package) addImportStatements(imports []*ast.ImportStatement) {
+	for _, imp := range imports {
+		if imp == nil {
+			continue
+		}
+		p.addImportPath(imp.Path)
 	}
 }
 

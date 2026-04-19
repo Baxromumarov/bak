@@ -3,15 +3,11 @@ package compiler
 import (
 	"fmt"
 	"maps"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/packages"
-	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
@@ -45,7 +41,8 @@ type Compiler struct {
 	loadedModules map[string]*BytecodeModule // path -> compiled module (cache)
 	importInitFns map[string]int             // alias -> init function index
 
-	aliases map[string]ast.TypeExpression // alias name -> underlying type
+	aliases    map[string]ast.TypeExpression // alias name -> underlying type
+	sourcePath string
 }
 
 // Local represents a local variable in the current scope.
@@ -72,6 +69,8 @@ func New() *Compiler {
 
 // Compile compiles a program AST to a BytecodeModule.
 func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
+	c.sourcePath = program.SourcePath
+	c.module.SourcePath = program.SourcePath
 	if err := c.registerTopLevelDeclarations(program); err != nil {
 		return nil, err
 	}
@@ -127,18 +126,10 @@ func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
 }
 
 func (c *Compiler) registerTopLevelDeclarations(program *ast.Program) error {
-	for _, stmt := range program.Statements {
+	if err := walkTopLevelStatements(program, func(stmt ast.Statement) error {
 		switch s := stmt.(type) {
 		case *ast.ImportStatement:
-			if err := c.processImport(s); err != nil {
-				return err
-			}
-		case *ast.ImportBlock:
-			for _, imp := range s.Imports {
-				if err := c.processImport(imp); err != nil {
-					return err
-				}
-			}
+			return c.processImport(s)
 		case *ast.StructDecl:
 			c.compileStructDef(s)
 		case *ast.EnumDecl:
@@ -147,25 +138,20 @@ func (c *Compiler) registerTopLevelDeclarations(program *ast.Program) error {
 			c.module.AddGlobal(s.Name.Value)
 		case *ast.VarStatement:
 			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarBlock:
-			for _, v := range s.Variables {
-				c.module.AddGlobal(v.Name.Value)
-			}
 		case *ast.MultiVarStatement:
 			for _, name := range s.Names {
 				c.module.AddGlobal(name.Value)
 			}
 		case *ast.ConstStatement:
 			c.module.AddGlobal(s.Name.Value)
-		case *ast.ConstBlock:
-			for _, cst := range s.Constants {
-				c.module.AddGlobal(cst.Name.Value)
-			}
 		case *ast.AliasDecl:
 			c.aliases[s.Name.Value] = s.Underlying
 		case *ast.ImplDecl:
 			// Methods are compiled in a later pass.
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -189,31 +175,55 @@ func (c *Compiler) registerFunctionStubs(program *ast.Program) {
 }
 
 func (c *Compiler) compileTopLevelStatements(program *ast.Program) error {
-	for _, stmt := range program.Statements {
+	if err := walkTopLevelStatements(program, func(stmt ast.Statement) error {
 		switch s := stmt.(type) {
 		case *ast.FunctionDecl:
-			if err := c.compileFunction(s); err != nil {
-				return err
-			}
+			return c.compileFunction(s)
 		case *ast.ImplDecl:
-			if err := c.compileImpl(s); err != nil {
-				return err
-			}
+			return c.compileImpl(s)
 		case *ast.VarStatement:
 			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarBlock:
-			for _, v := range s.Variables {
-				c.module.AddGlobal(v.Name.Value)
-			}
 		case *ast.MultiVarStatement:
 			for _, name := range s.Names {
 				c.module.AddGlobal(name.Value)
 			}
 		case *ast.ConstStatement:
 			c.module.AddGlobal(s.Name.Value)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func walkTopLevelStatements(program *ast.Program, visit func(ast.Statement) error) error {
+	for _, stmt := range program.Statements {
+		if stmt == nil {
+			continue
+		}
+		switch s := stmt.(type) {
+		case *ast.ImportBlock:
+			for _, imp := range s.Imports {
+				if err := visit(imp); err != nil {
+					return err
+				}
+			}
+		case *ast.VarBlock:
+			for _, v := range s.Variables {
+				if err := visit(v); err != nil {
+					return err
+				}
+			}
 		case *ast.ConstBlock:
 			for _, cst := range s.Constants {
-				c.module.AddGlobal(cst.Name.Value)
+				if err := visit(cst); err != nil {
+					return err
+				}
+			}
+		default:
+			if err := visit(stmt); err != nil {
+				return err
 			}
 		}
 	}
@@ -365,10 +375,7 @@ func (c *Compiler) compileGlobalVarInit(vs *ast.VarStatement) error {
 		c.emit(OP_NIL)
 	}
 
-	idx := c.module.AddGlobal(vs.Name.Value)
-	c.emit(OP_SET_GLOBAL)
-	c.emitByte(byte(idx >> 8))
-	c.emitByte(byte(idx))
+	c.emitGlobal(OP_SET_GLOBAL, vs.Name.Value)
 	return nil
 }
 
@@ -376,10 +383,7 @@ func (c *Compiler) compileGlobalConstInit(cs *ast.ConstStatement) error {
 	if err := c.compileExpression(cs.Value); err != nil {
 		return err
 	}
-	idx := c.module.AddGlobal(cs.Name.Value)
-	c.emit(OP_SET_GLOBAL)
-	c.emitByte(byte(idx >> 8))
-	c.emitByte(byte(idx))
+	c.emitGlobal(OP_SET_GLOBAL, cs.Name.Value)
 	return nil
 }
 
@@ -391,12 +395,17 @@ func (c *Compiler) compileGlobalMultiVarInit(mvs *ast.MultiVarStatement) error {
 	c.emitByte(byte(len(mvs.Names)))
 
 	for i := len(mvs.Names) - 1; i >= 0; i-- {
-		idx := c.module.AddGlobal(mvs.Names[i].Value)
-		c.emit(OP_SET_GLOBAL)
-		c.emitByte(byte(idx >> 8))
-		c.emitByte(byte(idx))
+		c.emitGlobal(OP_SET_GLOBAL, mvs.Names[i].Value)
 	}
 	return nil
+}
+
+func (c *Compiler) emitGlobal(op Opcode, name string) int {
+	idx := c.module.AddGlobal(name)
+	c.emit(op)
+	c.emitByte(byte(idx >> 8))
+	c.emitByte(byte(idx))
+	return idx
 }
 
 func (c *Compiler) compileStructDef(sd *ast.StructDecl) {
@@ -724,10 +733,7 @@ func (c *Compiler) compileVarStatement(vs *ast.VarStatement) error {
 		c.addLocal(vs.Name.Value)
 	} else {
 		// Global variable
-		idx := c.module.AddGlobal(vs.Name.Value)
-		c.emit(OP_SET_GLOBAL)
-		c.emitByte(byte(idx >> 8))
-		c.emitByte(byte(idx))
+		c.emitGlobal(OP_SET_GLOBAL, vs.Name.Value)
 	}
 	return nil
 }
@@ -747,10 +753,7 @@ func (c *Compiler) compileMultiVarStatement(mvs *ast.MultiVarStatement) error {
 	}
 
 	for i := len(mvs.Names) - 1; i >= 0; i-- {
-		idx := c.module.AddGlobal(mvs.Names[i].Value)
-		c.emit(OP_SET_GLOBAL)
-		c.emitByte(byte(idx >> 8))
-		c.emitByte(byte(idx))
+		c.emitGlobal(OP_SET_GLOBAL, mvs.Names[i].Value)
 	}
 	return nil
 }
@@ -905,20 +908,20 @@ func (c *Compiler) processImport(is *ast.ImportStatement) (err error) {
 		alias = strings.TrimSuffix(alias, ".bak")
 	}
 
-	// Check if already loaded
-	if _, loaded := c.loadedModules[is.Path]; loaded {
-		c.importAliases[alias] = c.loadedModules[is.Path]
-		return nil
-	}
-
 	// Resolve path
 	resolvedPath := c.resolveImportPath(is.Path)
 	if resolvedPath == "" {
 		return fmt.Errorf("cannot resolve import path %q; check that the module exists and is a .bak file or directory", is.Path)
 	}
 
+	// Check if already loaded
+	if mod, loaded := c.loadedModules[resolvedPath]; loaded {
+		c.importAliases[alias] = mod
+		return nil
+	}
+
 	// Parse (file or directory module)
-	program, err := parseImportProgram(resolvedPath)
+	program, err := packages.ParseProgram(resolvedPath)
 	if err != nil {
 		return err
 	}
@@ -931,7 +934,7 @@ func (c *Compiler) processImport(is *ast.ImportStatement) (err error) {
 	}
 
 	// Cache
-	c.loadedModules[is.Path] = impModule
+	c.loadedModules[resolvedPath] = impModule
 	c.importAliases[alias] = impModule
 
 	// Merge imported globals into current module as alias-qualified names.
@@ -1013,88 +1016,15 @@ func (c *Compiler) processImport(is *ast.ImportStatement) (err error) {
 
 // resolveImportPath resolves an import path to an absolute file path.
 func (c *Compiler) resolveImportPath(importPath string) string {
-	return packages.ResolveImportPath(importPath)
+	return packages.ResolveImportPathFrom(importPath, c.sourcePath)
 }
 
 func parseImportProgram(resolvedPath string) (*ast.Program, error) {
-	info, err := os.Stat(resolvedPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read import %s: %w", resolvedPath, err)
-	}
-	if info.IsDir() {
-		return parseProgramDir(resolvedPath)
-	}
-	source, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read import %s: %w", resolvedPath, err)
-	}
-	l := lexer.New(string(source))
-	p := parser.New(l)
-	p.SetFilename(resolvedPath)
-	program := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		return nil, fmt.Errorf("parse errors in %s:\n%s", resolvedPath, strings.Join(p.Errors(), "\n"))
-	}
-	return program, nil
+	return packages.ParseProgram(resolvedPath)
 }
 
 func parseProgramDir(dir string) (*ast.Program, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read import dir %s: %w", dir, err)
-	}
-	files := make([]string, 0)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".bak") {
-			continue
-		}
-		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
-			continue
-		}
-		files = append(files, filepath.Join(dir, name))
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no .bak files in dir %s", dir)
-	}
-	sort.Strings(files)
-	combined := &ast.Program{Statements: []ast.Statement{}}
-	var pkgName string
-	for _, filePath := range files {
-		source, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, fmt.Errorf("cannot read import %s: %w", filePath, err)
-		}
-		l := lexer.New(string(source))
-		p := parser.New(l)
-		p.SetFilename(filePath)
-		program := p.ParseProgram()
-		if len(p.Errors()) > 0 {
-			return nil, fmt.Errorf("parse errors in %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
-		}
-		for _, stmt := range program.Statements {
-			if ps, ok := stmt.(*ast.PackageStatement); ok {
-				if ps.Name != nil {
-					if pkgName == "" {
-						pkgName = ps.Name.Value
-					} else if pkgName != ps.Name.Value {
-						return nil, fmt.Errorf("package mismatch in %s: %s (expected %s)", filePath, ps.Name.Value, pkgName)
-					}
-				}
-				// Keep only the first package statement.
-				if pkgName != "" && len(combined.Statements) > 0 {
-					if _, exists := combined.Statements[0].(*ast.PackageStatement); exists {
-						continue
-					}
-				}
-			}
-			combined.Statements = append(combined.Statements, stmt)
-		}
-	}
-	return combined, nil
+	return packages.ParseProgram(dir)
 }
 
 func (c *Compiler) compileConstStatement(cs *ast.ConstStatement) error {
@@ -1105,10 +1035,7 @@ func (c *Compiler) compileConstStatement(cs *ast.ConstStatement) error {
 	if c.scopeDepth > 0 {
 		c.addLocal(cs.Name.Value)
 	} else {
-		idx := c.module.AddGlobal(cs.Name.Value)
-		c.emit(OP_SET_GLOBAL)
-		c.emitByte(byte(idx >> 8))
-		c.emitByte(byte(idx))
+		c.emitGlobal(OP_SET_GLOBAL, cs.Name.Value)
 	}
 	return nil
 }

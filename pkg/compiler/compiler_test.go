@@ -2,6 +2,8 @@ package compiler
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/lexer"
@@ -176,6 +178,47 @@ func main() -> (void) {
 	}
 }
 `)
+}
+
+func TestCompileResolvesRelativeImportsFromProgramPath(t *testing.T) {
+	root := t.TempDir()
+	mainPath := filepath.Join(root, "main.bak")
+	libPath := filepath.Join(root, "lib.bak")
+
+	mainSource := `package main
+
+import "./lib.bak" as lib
+
+func main() -> (int) {
+	return lib.answer()
+}
+`
+	libSource := `package lib
+
+pub func answer() -> (int) {
+	return 7
+}
+`
+
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	c := New()
+	if _, err := c.Compile(program); err != nil {
+		t.Fatalf("compile failed for relative import: %v", err)
+	}
 }
 
 // =============================================================================

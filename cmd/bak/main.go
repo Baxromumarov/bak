@@ -491,6 +491,7 @@ func buildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 		exe, err := native.BuildExecutableWithOptions(program, native.BuildOptions{
 			Permissions:  permissions,
 			TraceEnabled: traceEnabled,
+			MainPath:     filename,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Native build error: %s\n", err)
@@ -1176,6 +1177,7 @@ func run(input string, env *object.Environment, filename string) object.Object {
 		}
 	}
 
+	evaluator.ResetState()
 	return evaluator.Eval(program, env)
 }
 

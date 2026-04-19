@@ -4,6 +4,8 @@ import "github.com/baxromumarov/bak/pkg/ast"
 
 // BytecodeModule represents a compiled bak module.
 type BytecodeModule struct {
+	SourcePath string
+
 	// Constants pool - shared across all functions
 	Constants []Value
 

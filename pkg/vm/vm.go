@@ -342,8 +342,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			continue
 		}
 
-		op := compiler.Opcode(fn.Code[frame.ip])
-		frame.ip++
+		op := compiler.Opcode(vm.readByte(frame, fn))
 		vm.recordSourcePos(fn, frame.ip-1)
 
 		// Collect profiling counters when enabled (lightweight version)
@@ -382,15 +381,13 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			vm.sp++
 
 		case compiler.OP_GET_LOCAL:
-			slot := int(fn.Code[frame.ip])
-			frame.ip++
+			slot := int(vm.readByte(frame, fn))
 			// Inline push for performance
 			vm.stack[vm.sp] = vm.stack[frame.base+slot]
 			vm.sp++
 
 		case compiler.OP_SET_LOCAL:
-			slot := int(fn.Code[frame.ip])
-			frame.ip++
+			slot := int(vm.readByte(frame, fn))
 			// Inline pop for performance
 			vm.sp--
 			vm.stack[frame.base+slot] = vm.stack[vm.sp]
@@ -634,8 +631,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 
 		case compiler.OP_CALL:
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			argc := int(vm.readByte(frame, fn))
 			// Inline peek
 			callee := vm.stack[vm.sp-argc-1]
 			// Fast path for simple function calls
@@ -662,8 +658,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_CALL_METHOD:
 			methodNameIdx := vm.readShort(frame, fn)
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			argc := int(vm.readByte(frame, fn))
 
 			methodName := fn.Constants[methodNameIdx].AsString
 			if err := vm.executeMethodCall(methodName, argc, fn.Name, frame.ip, false); err != nil {
@@ -672,8 +667,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			continue
 
 		case compiler.OP_DEFER:
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			argc := int(vm.readByte(frame, fn))
 			args := make([]compiler.Value, argc)
 			for i := argc - 1; i >= 0; i-- {
 				args[i] = vm.pop()
@@ -687,8 +681,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_DEFER_METHOD:
 			methodNameIdx := vm.readShort(frame, fn)
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			argc := int(vm.readByte(frame, fn))
 			args := make([]compiler.Value, argc-1)
 			for i := argc - 2; i >= 0; i-- {
 				args[i] = vm.pop()
@@ -703,10 +696,8 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			})
 
 		case compiler.OP_DEFER_BUILTIN:
-			builtinID := compiler.BuiltinID(fn.Code[frame.ip])
-			frame.ip++
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			builtinID := compiler.BuiltinID(vm.readByte(frame, fn))
+			argc := int(vm.readByte(frame, fn))
 			args := make([]compiler.Value, argc)
 			for i := argc - 1; i >= 0; i-- {
 				args[i] = vm.pop()
@@ -1107,8 +1098,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_UNPACK_N:
 			// Immediate byte contains number of elements to unpack
-			n := int(fn.Code[frame.ip])
-			frame.ip++
+			n := int(vm.readByte(frame, fn))
 			obj := vm.pop()
 			switch obj.Type {
 			case compiler.VAL_ARRAY:
@@ -1135,8 +1125,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			return compiler.NewNil(), fmt.Errorf("unpack requires a vector, got %v in function %s at ip %d", obj.Type, fn.Name, frame.ip)
 
 		case compiler.OP_NEW_TUPLE:
-			count := int(fn.Code[frame.ip])
-			frame.ip++
+			count := int(vm.readByte(frame, fn))
 
 			elements := make([]compiler.Value, count)
 			for i := count - 1; i >= 0; i-- {
@@ -1272,10 +1261,8 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 
 		case compiler.OP_BORROW_LOCAL:
-			slot := int(fn.Code[frame.ip])
-			frame.ip++
-			mutable := fn.Code[frame.ip] == 1
-			frame.ip++
+			slot := int(vm.readByte(frame, fn))
+			mutable := vm.readByte(frame, fn) == 1
 			vm.push(compiler.Value{
 				Type: compiler.VAL_BORROW,
 				AsObject: &compiler.BorrowInstance{
@@ -1286,8 +1273,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_BORROW_GLOBAL:
 			idx := vm.readShort(frame, fn)
-			mutable := fn.Code[frame.ip] == 1
-			frame.ip++
+			mutable := vm.readByte(frame, fn) == 1
 			vm.push(compiler.Value{
 				Type: compiler.VAL_BORROW,
 				AsObject: &compiler.BorrowInstance{
@@ -1298,8 +1284,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_BORROW_STACK:
 			// Borrow the value at stack top (for literals and complex expressions)
-			mutable := fn.Code[frame.ip] == 1
-			frame.ip++
+			mutable := vm.readByte(frame, fn) == 1
 			// The value is on top of stack - we need to replace it with a borrow
 			// that points to the value. To do this without using extra stack space,
 			// we store the value in a heap-allocated location within the BorrowInstance.
@@ -1437,8 +1422,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 
 		case compiler.OP_FSTRING:
-			count := int(fn.Code[frame.ip])
-			frame.ip++
+			count := int(vm.readByte(frame, fn))
 			var result strings.Builder
 
 			vm.sp -= count
@@ -1461,15 +1445,19 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			aliasIdx := vm.readShort(frame, fn)
 			importPath := fn.Constants[pathIdx].AsString
 			alias := fn.Constants[aliasIdx].AsString
+			resolvedPath := vm.resolveImportPath(importPath)
+			if resolvedPath == "" {
+				return compiler.NewNil(), fmt.Errorf("import error for %s: cannot resolve import path", importPath)
+			}
 
 			// Load module if not already cached
-			if _, loaded := vm.loadedModules[importPath]; !loaded {
-				if err := vm.loadModule(importPath, alias); err != nil {
+			if _, loaded := vm.loadedModules[resolvedPath]; !loaded {
+				if err := vm.loadModule(resolvedPath, alias); err != nil {
 					return compiler.NewNil(), fmt.Errorf("import error for %s: %w", importPath, err)
 				}
 			}
 			// Store alias -> path mapping
-			vm.moduleAliases[alias] = importPath
+			vm.moduleAliases[alias] = resolvedPath
 
 		case compiler.OP_VEC_PUSH:
 			value := vm.pop()
@@ -1519,10 +1507,8 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			vm.push(compiler.NewString(a.AsString + b.AsString))
 
 		case compiler.OP_BUILTIN:
-			builtinID := compiler.BuiltinID(fn.Code[frame.ip])
-			frame.ip++
-			argc := int(fn.Code[frame.ip])
-			frame.ip++
+			builtinID := compiler.BuiltinID(vm.readByte(frame, fn))
+			argc := int(vm.readByte(frame, fn))
 
 			args := make([]compiler.Value, argc)
 			for i := argc - 1; i >= 0; i-- {
@@ -1582,6 +1568,12 @@ func (vm *VM) peek(distance int) compiler.Value {
 }
 
 // Helper methods
+
+func (vm *VM) readByte(frame *CallFrame, fn *compiler.FunctionObj) byte {
+	value := fn.Code[frame.ip]
+	frame.ip++
+	return value
+}
 
 func (vm *VM) readShort(frame *CallFrame, fn *compiler.FunctionObj) int {
 	hi := int(fn.Code[frame.ip])

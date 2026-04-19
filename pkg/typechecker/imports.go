@@ -1,17 +1,12 @@
 package typechecker
 
 import (
-	"fmt"
 	"log"
-	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/packages"
-	"github.com/baxromumarov/bak/pkg/parser"
 )
 
 func isCompilerInternalImport(path string) bool {
@@ -77,7 +72,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	pkg, exists := packages.GlobalRegistry.GetPackage(importPath)
 	if !exists {
 		// Recursive loading: If package not found, load and check it
-		modProg, err := tc.parseImportProgram(importPath)
+		modProg, err := packages.ParseProgram(importPath)
 		if err != nil {
 			tc.addErrorWithHelp(
 				is.Token.Line,
@@ -131,87 +126,6 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	}
 }
 
-func (tc *TypeChecker) parseImportProgram(importPath string) (*ast.Program, error) {
-	info, err := os.Stat(importPath)
-	if err != nil {
-		return nil, err
-	}
-	if info.IsDir() {
-		return tc.parseImportProgramDir(importPath)
-	}
-	content, err := os.ReadFile(importPath)
-	if err != nil {
-		return nil, err
-	}
-	l := lexer.New(string(content))
-	p := parser.New(l)
-	p.SetFilename(importPath)
-	modProg := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		return nil, fmt.Errorf("parse errors in imported module %s:\n%s", importPath, strings.Join(p.Errors(), "\n"))
-	}
-	return modProg, nil
-}
-
-func (tc *TypeChecker) parseImportProgramDir(dir string) (*ast.Program, error) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil, err
-	}
-	files := make([]string, 0)
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".bak") {
-			continue
-		}
-		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
-			continue
-		}
-		files = append(files, filepath.Join(dir, name))
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no .bak files in dir %s", dir)
-	}
-	sort.Strings(files)
-	combined := &ast.Program{Statements: []ast.Statement{}}
-	var pkgName string
-	for _, filePath := range files {
-		content, err := os.ReadFile(filePath)
-		if err != nil {
-			return nil, err
-		}
-		l := lexer.New(string(content))
-		p := parser.New(l)
-		p.SetFilename(filePath)
-		prog := p.ParseProgram()
-		if len(p.Errors()) > 0 {
-			return nil, fmt.Errorf("parse errors in imported module %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
-		}
-		for _, stmt := range prog.Statements {
-			if ps, ok := stmt.(*ast.PackageStatement); ok {
-				if ps.Name != nil {
-					if pkgName == "" {
-						pkgName = ps.Name.Value
-					} else if pkgName != ps.Name.Value {
-						return nil, fmt.Errorf("package mismatch in %s: %s (expected %s)", filePath, ps.Name.Value, pkgName)
-					}
-				}
-				// Keep only the first package statement.
-				if pkgName != "" && len(combined.Statements) > 0 {
-					if _, exists := combined.Statements[0].(*ast.PackageStatement); exists {
-						continue
-					}
-				}
-			}
-			combined.Statements = append(combined.Statements, stmt)
-		}
-	}
-	return combined, nil
-}
-
 func (tc *TypeChecker) checkImportBlock(ib *ast.ImportBlock) {
 	for _, imp := range ib.Imports {
 		tc.checkImportStatement(imp)
@@ -234,77 +148,8 @@ func extractPackageName(path string) string {
 }
 
 func (tc *TypeChecker) resolveImportPath(importPath string) string {
-	// 1. Alias Expansion
-	// "std/" prefix -> "src/std/"
-	searchPath := importPath
-	if strings.HasPrefix(importPath, "std/") {
-		searchPath = filepath.Join("src", importPath)
+	if resolved := packages.ResolveImportPathFrom(importPath, tc.currentPkgPath); resolved != "" {
+		return resolved
 	}
-
-	// 2. Candidate Generation
-	cwd, _ := os.Getwd()
-
-	// Helper to normalize and check existence
-	check := func(p string) string {
-		// Try relative to current package if we know where we are
-		if tc.currentPkgPath != "" {
-			rel := filepath.Join(filepath.Dir(tc.currentPkgPath), p)
-			if info, err := os.Stat(rel); err == nil {
-				_ = info
-				abs, _ := filepath.Abs(rel)
-				return abs
-			}
-		}
-
-		// Try relative to CWD
-		absPath := filepath.Join(cwd, p)
-		if info, err := os.Stat(absPath); err == nil {
-			_ = info
-			return absPath
-		}
-
-		// If path was absolute or relative to where we are running
-		if info, err := os.Stat(p); err == nil {
-			_ = info
-			abs, _ := filepath.Abs(p)
-			return abs
-		}
-		return ""
-	}
-
-	candidates := []string{searchPath}
-
-	if !strings.HasSuffix(searchPath, ".bak") {
-		candidates = append(candidates, searchPath+".bak")
-		base := filepath.Base(searchPath)
-		candidates = append(candidates, filepath.Join(searchPath, base+".bak"))
-	}
-
-	for _, c := range candidates {
-		if found := check(c); found != "" {
-			return found
-		}
-	}
-
-	// Fallback for legacy "simple" imports (e.g. import "os" -> src/std/os/os.bak)
-	if !strings.Contains(importPath, "/") {
-		legacyPath := filepath.Join("src", "std", importPath, importPath+".bak")
-		if found := check(legacyPath); found != "" {
-			return found
-		}
-	}
-
-	// Fallback for full github path (legacy)
-	if after, ok := strings.CutPrefix(importPath, "github.com/baxromumarov/bak/"); ok {
-		rest := after
-		if rest != "" {
-			base := filepath.Base(rest)
-			legacyPath := filepath.Join("src", rest, base+".bak")
-			if found := check(legacyPath); found != "" {
-				return found
-			}
-		}
-	}
-
 	return importPath
 }

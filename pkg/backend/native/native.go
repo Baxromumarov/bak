@@ -1,6 +1,8 @@
 package native
 
 import (
+	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -12,6 +14,7 @@ import (
 type BuildOptions struct {
 	Permissions  runtimecap.Permissions
 	TraceEnabled bool
+	MainPath     string
 }
 
 // ProgramWithPath holds a program along with its path-derived name
@@ -27,6 +30,14 @@ func BuildExecutable(program *ast.Program, permissions runtimecap.Permissions) (
 }
 
 func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]byte, error) {
+	mainPath := options.MainPath
+	if mainPath == "" {
+		mainPath = program.SourcePath
+	}
+	if err := ensureImportGraphLoaded(program, mainPath); err != nil {
+		return nil, err
+	}
+
 	// Collect all programs from imported packages
 	allPrograms := make([]ProgramWithPath, 0)
 	allPrograms = append(allPrograms, ProgramWithPath{Program: program, PathName: "main"})
@@ -48,11 +59,66 @@ func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]b
 	return CompilePrograms(allPrograms, program, options)
 }
 
+func ensureImportGraphLoaded(program *ast.Program, mainPath string) error {
+	visited := make(map[string]bool)
+	return loadProgramImports(program, mainPath, visited)
+}
+
+func loadProgramImports(program *ast.Program, currentPath string, visited map[string]bool) error {
+	for _, stmt := range program.Statements {
+		switch s := stmt.(type) {
+		case *ast.ImportStatement:
+			if err := loadImportedProgram(s.Path, currentPath, visited); err != nil {
+				return err
+			}
+		case *ast.ImportBlock:
+			for _, imp := range s.Imports {
+				if err := loadImportedProgram(imp.Path, currentPath, visited); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func loadImportedProgram(importPath, currentPath string, visited map[string]bool) error {
+	resolvedPath := packages.ResolveImportPathFrom(importPath, currentPath)
+	if resolvedPath == "" {
+		return fmt.Errorf("cannot resolve import path %q", importPath)
+	}
+	if visited[resolvedPath] {
+		return nil
+	}
+	visited[resolvedPath] = true
+
+	if _, exists := packages.GlobalRegistry.GetPackage(resolvedPath); exists {
+		return nil
+	}
+
+	program, err := packages.ParseProgram(resolvedPath)
+	if err != nil {
+		return err
+	}
+
+	pkgName := packageNameForProgram(program, resolvedPath)
+	packages.GlobalRegistry.RegisterPackage(packages.NewPackage(pkgName, resolvedPath, program))
+
+	return loadProgramImports(program, resolvedPath, visited)
+}
+
+func packageNameForProgram(program *ast.Program, fallbackPath string) string {
+	for _, stmt := range program.Statements {
+		if pkgStmt, ok := stmt.(*ast.PackageStatement); ok && pkgStmt.Name != nil && pkgStmt.Name.Value != "" {
+			return pkgStmt.Name.Value
+		}
+	}
+	return extractPathName(fallbackPath)
+}
+
 // extractPathName gets the module name from a file path
 func extractPathName(path string) string {
-	// Get the last component
-	parts := strings.Split(path, "/")
-	last := parts[len(parts)-1]
+	last := filepath.Base(filepath.Clean(path))
 	// Remove .bak extension
 	last = strings.TrimSuffix(last, ".bak")
 	return last
