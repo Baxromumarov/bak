@@ -1,0 +1,99 @@
+package packages
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+)
+
+func TestGetSymbolSuggestsCloseMatch(t *testing.T) {
+	pkg := &Package{
+		Name: "demo",
+		Path: filepath.Join(t.TempDir(), "demo.bak"),
+		Symbols: map[string]*Symbol{
+			"println": {
+				Name:       "println",
+				Visibility: ast.Public,
+				Kind:       SymbolFunc,
+			},
+			"print": {
+				Name:       "print",
+				Visibility: ast.Public,
+				Kind:       SymbolFunc,
+			},
+		},
+	}
+
+	_, err := pkg.GetSymbol("prntln", false)
+	if err == nil {
+		t.Fatalf("expected a lookup error")
+	}
+	if !strings.Contains(err.Error(), "did you mean 'println'?") {
+		t.Fatalf("expected suggestion in error, got %q", err.Error())
+	}
+}
+
+func TestGetSymbolPrivateIncludesPubHint(t *testing.T) {
+	pkg := &Package{
+		Name: "demo",
+		Path: filepath.Join(t.TempDir(), "demo.bak"),
+		Symbols: map[string]*Symbol{
+			"secret": {
+				Name:       "secret",
+				Visibility: ast.Private,
+				Kind:       SymbolConst,
+			},
+		},
+	}
+
+	_, err := pkg.GetSymbol("secret", false)
+	if err == nil {
+		t.Fatalf("expected a visibility error")
+	}
+	if !strings.Contains(err.Error(), "private") || !strings.Contains(err.Error(), "pub") {
+		t.Fatalf("expected private/export hint, got %q", err.Error())
+	}
+}
+
+func TestRegistryNormalizesPackagePaths(t *testing.T) {
+	reg := NewRegistry()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+
+	relPath := "./demo.bak"
+	absPath := filepath.Join(cwd, "demo.bak")
+	reg.RegisterPackage(&Package{Name: "demo", Path: relPath})
+
+	if _, ok := reg.GetPackage(absPath); !ok {
+		t.Fatalf("expected package to be found via normalized path %q", absPath)
+	}
+}
+
+func TestCheckCyclicImportReportsFullChain(t *testing.T) {
+	reg := NewRegistry()
+	root := t.TempDir()
+
+	pathA := filepath.Join(root, "a", "a.bak")
+	pathB := filepath.Join(root, "b", "b.bak")
+	pathC := filepath.Join(root, "c", "c.bak")
+
+	reg.RegisterPackage(&Package{Name: "a", Path: pathA, Imports: []string{pathB}})
+	reg.RegisterPackage(&Package{Name: "b", Path: pathB, Imports: []string{pathC}})
+	reg.RegisterPackage(&Package{Name: "c", Path: pathC, Imports: []string{pathA}})
+
+	err := reg.CheckCyclicImport(pathA, pathB, map[string]bool{normalizePath(pathA): true})
+	if err == nil {
+		t.Fatalf("expected a cyclic import error")
+	}
+
+	expectedChain := fmt.Sprintf("%s -> %s -> %s -> %s", normalizePath(pathA), normalizePath(pathB), normalizePath(pathC), normalizePath(pathA))
+	if !strings.Contains(err.Error(), expectedChain) {
+		t.Fatalf("expected cycle chain %q, got %q", expectedChain, err.Error())
+	}
+}

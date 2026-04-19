@@ -254,11 +254,12 @@ func evalUnwrapExpression(node *ast.UnwrapExpression, env *object.Environment) o
 	}
 
 	if ev, ok := inner.(*object.EnumValue); ok {
-		if ev.Variant == "Ok" || ev.Variant == "Some" {
+		switch ev.Variant {
+		case "Ok", "Some":
 			if len(ev.Values) == 1 {
 				return ev.Values[0]
 			}
-		} else if ev.Variant == "Err" || ev.Variant == "None" {
+		case "Err", "None":
 			return &object.ReturnValue{Value: inner}
 		}
 	} else if r, ok := inner.(*object.Result); ok {
@@ -380,7 +381,7 @@ func evalImportStatement(is *ast.ImportStatement, env *object.Environment) objec
 	// Resolve the file path first
 	filePath := resolveImportPath(importPath)
 	if filePath == "" {
-		return newError("cannot find module: %s", importPath)
+		return newError("cannot resolve import path %q; check that the module exists and is a .bak file or directory", importPath)
 	}
 
 	// Check if already loaded (using absolute path)
@@ -500,7 +501,7 @@ func parseImportProgram(path string) (*ast.Program, error) {
 	p.SetFilename(path)
 	program := p.ParseProgram()
 	if len(p.Errors()) != 0 {
-		return nil, fmt.Errorf("parse errors in module %s: %s", path, strings.Join(p.Errors(), "; "))
+		return nil, fmt.Errorf("parse errors in module %s:\n%s", path, strings.Join(p.Errors(), "\n"))
 	}
 	return program, nil
 }
@@ -540,7 +541,7 @@ func parseImportProgramDir(dir string) (*ast.Program, error) {
 		p.SetFilename(filePath)
 		prog := p.ParseProgram()
 		if len(p.Errors()) != 0 {
-			return nil, fmt.Errorf("parse errors in module %s: %s", filePath, strings.Join(p.Errors(), "; "))
+			return nil, fmt.Errorf("parse errors in module %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
 		}
 		for _, stmt := range prog.Statements {
 			if ps, ok := stmt.(*ast.PackageStatement); ok {

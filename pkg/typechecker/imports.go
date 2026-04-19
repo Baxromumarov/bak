@@ -148,7 +148,7 @@ func (tc *TypeChecker) parseImportProgram(importPath string) (*ast.Program, erro
 	p.SetFilename(importPath)
 	modProg := p.ParseProgram()
 	if len(p.Errors()) > 0 {
-		return nil, fmt.Errorf("parse error in imported module %s: %s", importPath, p.Errors()[0])
+		return nil, fmt.Errorf("parse errors in imported module %s:\n%s", importPath, strings.Join(p.Errors(), "\n"))
 	}
 	return modProg, nil
 }
@@ -188,7 +188,7 @@ func (tc *TypeChecker) parseImportProgramDir(dir string) (*ast.Program, error) {
 		p.SetFilename(filePath)
 		prog := p.ParseProgram()
 		if len(p.Errors()) > 0 {
-			return nil, fmt.Errorf("parse error in imported module %s: %s", filePath, p.Errors()[0])
+			return nil, fmt.Errorf("parse errors in imported module %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
 		}
 		for _, stmt := range prog.Statements {
 			if ps, ok := stmt.(*ast.PackageStatement); ok {

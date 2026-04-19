@@ -16,7 +16,7 @@ func (vm *VM) loadModule(importPath, alias string) error {
 	// Resolve import path using same logic as evaluator
 	resolvedPath := vm.resolveImportPath(importPath)
 	if resolvedPath == "" {
-		return fmt.Errorf("cannot resolve import path: %s", importPath)
+		return fmt.Errorf("cannot resolve import path %q; check that the module exists and is a .bak file or directory", importPath)
 	}
 
 	// Read source file
@@ -30,7 +30,7 @@ func (vm *VM) loadModule(importPath, alias string) error {
 	p := parser.New(l)
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
-		return fmt.Errorf("parse errors in %s: %v", resolvedPath, p.Errors())
+		return fmt.Errorf("parse errors in %s:\n%s", resolvedPath, strings.Join(p.Errors(), "\n"))
 	}
 
 	// Compile to bytecode

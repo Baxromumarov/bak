@@ -4,6 +4,8 @@ package packages
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
+	"strings"
 	"sync"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -206,11 +208,18 @@ func (p *Package) GetSymbol(name string, fromSamePackage bool) (*Symbol, error) 
 
 	sym, exists := p.Symbols[name]
 	if !exists {
+		publicNames := publicSymbolNames(p.Symbols)
+		if suggestion := bestSuggestion(name, publicNames); suggestion != "" {
+			return nil, fmt.Errorf("symbol '%s' not found in package '%s'; did you mean '%s'?", name, p.Name, suggestion)
+		}
+		if available := formatSymbolList(p.Symbols, 6); available != "" {
+			return nil, fmt.Errorf("symbol '%s' not found in package '%s'; available public symbols: %s", name, p.Name, available)
+		}
 		return nil, fmt.Errorf("symbol '%s' not found in package '%s'", name, p.Name)
 	}
 
 	if !fromSamePackage && sym.Visibility != ast.Public {
-		return nil, fmt.Errorf("symbol '%s' in package '%s' is private", name, p.Name)
+		return nil, fmt.Errorf("symbol '%s' in package '%s' is private; export it with pub if it should be accessible from other packages", name, p.Name)
 	}
 
 	return sym, nil
@@ -236,6 +245,10 @@ var GlobalRegistry = NewRegistry()
 
 // RegisterPackage adds a package to the registry
 func (r *Registry) RegisterPackage(pkg *Package) {
+	if pkg == nil {
+		return
+	}
+	pkg.Path = normalizePath(pkg.Path)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.packages[pkg.Path] = pkg
@@ -243,6 +256,7 @@ func (r *Registry) RegisterPackage(pkg *Package) {
 
 // GetPackage retrieves a package by path
 func (r *Registry) GetPackage(path string) (*Package, bool) {
+	path = normalizePath(path)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	pkg, exists := r.packages[path]
@@ -251,6 +265,7 @@ func (r *Registry) GetPackage(path string) (*Package, bool) {
 
 // IsLoading checks if a package is currently being loaded (for cycle detection)
 func (r *Registry) IsLoading(path string) bool {
+	path = normalizePath(path)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.loading[path]
@@ -258,6 +273,7 @@ func (r *Registry) IsLoading(path string) bool {
 
 // StartLoading marks a package as being loaded
 func (r *Registry) StartLoading(path string) {
+	path = normalizePath(path)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.loading[path] = true
@@ -265,6 +281,7 @@ func (r *Registry) StartLoading(path string) {
 
 // FinishLoading marks a package as done loading
 func (r *Registry) FinishLoading(path string) {
+	path = normalizePath(path)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.loading, path)
@@ -295,12 +312,22 @@ func (r *Registry) RecordResolvedImport(pkgPath, importPath string) {
 
 // CheckCyclicImport checks for cyclic imports starting from a package
 func (r *Registry) CheckCyclicImport(startPath string, importPath string, visited map[string]bool) error {
+	startPath = normalizePath(startPath)
+	importPath = normalizePath(importPath)
+	return r.checkCyclicImport(startPath, importPath, visited, []string{startPath})
+}
+
+func (r *Registry) checkCyclicImport(startPath string, importPath string, visited map[string]bool, chain []string) error {
 	// Normalize paths
 	startPath = normalizePath(startPath)
 	importPath = normalizePath(importPath)
 
 	if startPath == importPath {
-		return fmt.Errorf("package '%s' imports itself", startPath)
+		cycle := append(append([]string{}, chain...), importPath)
+		if len(cycle) == 1 {
+			cycle = append(cycle, importPath)
+		}
+		return fmt.Errorf("package import cycle detected: %s; move shared declarations into a third package", strings.Join(cycle, " -> "))
 	}
 
 	// Allow same-directory imports (files in the same package can import each other)
@@ -309,7 +336,8 @@ func (r *Registry) CheckCyclicImport(startPath string, importPath string, visite
 	}
 
 	if visited[importPath] {
-		return fmt.Errorf("cyclic import detected: package '%s' is already in the import chain", importPath)
+		cycle := append(append([]string{}, chain...), importPath)
+		return fmt.Errorf("cyclic import detected: %s; move shared declarations into a third package", strings.Join(cycle, " -> "))
 	}
 
 	visited[importPath] = true
@@ -328,7 +356,7 @@ func (r *Registry) CheckCyclicImport(startPath string, importPath string, visite
 		imports = pkg.Imports
 	}
 	for _, imp := range imports {
-		if err := r.CheckCyclicImport(startPath, imp, visited); err != nil {
+		if err := r.checkCyclicImport(startPath, imp, visited, append(chain, importPath)); err != nil {
 			return err
 		}
 	}
@@ -338,6 +366,9 @@ func (r *Registry) CheckCyclicImport(startPath string, importPath string, visite
 
 // normalizePath normalizes a file path for comparison
 func normalizePath(path string) string {
+	if path == "" {
+		return ""
+	}
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return path
@@ -345,17 +376,144 @@ func normalizePath(path string) string {
 	return absPath
 }
 
+func publicSymbolNames(symbols map[string]*Symbol) []string {
+	names := make([]string, 0, len(symbols))
+	for name, sym := range symbols {
+		if sym != nil && sym.Visibility == ast.Public {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+func formatSymbolList(symbols map[string]*Symbol, limit int) string {
+	entries := make([]string, 0, len(symbols))
+	for name, sym := range symbols {
+		if sym == nil || sym.Visibility != ast.Public {
+			continue
+		}
+		entries = append(entries, fmt.Sprintf("%s (%s)", name, sym.Kind))
+	}
+	sort.Strings(entries)
+	if len(entries) == 0 {
+		return ""
+	}
+	if limit > 0 && len(entries) > limit {
+		return fmt.Sprintf("%s, and %d more", strings.Join(entries[:limit], ", "), len(entries)-limit)
+	}
+	return strings.Join(entries, ", ")
+}
+
+func bestSuggestion(name string, candidates []string) string {
+	name = strings.TrimSpace(name)
+	if name == "" || len(candidates) == 0 {
+		return ""
+	}
+	target := strings.ToLower(name)
+	best := ""
+	bestLower := ""
+	bestDist := -1
+	for _, cand := range candidates {
+		if cand == "" {
+			continue
+		}
+		candLower := strings.ToLower(cand)
+		if candLower == target {
+			continue
+		}
+		dist := levenshteinDistance(target, candLower)
+		if bestDist == -1 || dist < bestDist {
+			bestDist = dist
+			best = cand
+			bestLower = candLower
+		}
+	}
+	if best == "" {
+		return ""
+	}
+	if bestDist <= suggestionThreshold(target) {
+		return best
+	}
+	if strings.HasPrefix(bestLower, target) || strings.HasPrefix(target, bestLower) {
+		if absInt(len(bestLower)-len(target)) <= 4 {
+			return best
+		}
+	}
+	return ""
+}
+
+func suggestionThreshold(name string) int {
+	switch {
+	case len(name) >= 10:
+		return 4
+	case len(name) >= 6:
+		return 3
+	default:
+		return 2
+	}
+}
+
+func levenshteinDistance(a, b string) int {
+	ar := []rune(a)
+	br := []rune(b)
+	if len(ar) == 0 {
+		return len(br)
+	}
+	if len(br) == 0 {
+		return len(ar)
+	}
+	prev := make([]int, len(br)+1)
+	for j := 0; j <= len(br); j++ {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ar); i++ {
+		curr := make([]int, len(br)+1)
+		curr[0] = i
+		for j := 1; j <= len(br); j++ {
+			cost := 0
+			if ar[i-1] != br[j-1] {
+				cost = 1
+			}
+			del := prev[j] + 1
+			ins := curr[j-1] + 1
+			sub := prev[j-1] + cost
+			curr[j] = minInt(del, ins, sub)
+		}
+		prev = curr
+	}
+	return prev[len(br)]
+}
+
+func minInt(a, b, c int) int {
+	if a <= b && a <= c {
+		return a
+	}
+	if b <= a && b <= c {
+		return b
+	}
+	return c
+}
+
+func absInt(val int) int {
+	if val < 0 {
+		return -val
+	}
+	return val
+}
+
 // GetSymbolFromPackage retrieves a symbol from a package, checking visibility
 func (r *Registry) GetSymbolFromPackage(pkgPath string, symbolName string, callerPkgPath string) (*Symbol, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	pkg, exists := r.packages[pkgPath]
+	normalizedPkgPath := normalizePath(pkgPath)
+	pkg, exists := r.packages[normalizedPkgPath]
 	if !exists {
 		return nil, fmt.Errorf("package '%s' not found", pkgPath)
 	}
 
-	fromSamePackage := normalizePath(pkgPath) == normalizePath(callerPkgPath)
+	fromSamePackage := normalizedPkgPath == normalizePath(callerPkgPath)
 	return pkg.GetSymbol(symbolName, fromSamePackage)
 }
 
@@ -364,12 +522,13 @@ func (r *Registry) GetAllSymbolsFromPackage(pkgPath string, callerPkgPath string
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	pkg, exists := r.packages[pkgPath]
+	normalizedPkgPath := normalizePath(pkgPath)
+	pkg, exists := r.packages[normalizedPkgPath]
 	if !exists {
 		return nil, fmt.Errorf("package '%s' not found", pkgPath)
 	}
 
-	fromSamePackage := normalizePath(pkgPath) == normalizePath(callerPkgPath)
+	fromSamePackage := normalizedPkgPath == normalizePath(callerPkgPath)
 	if fromSamePackage {
 		return pkg.Symbols, nil
 	}

@@ -914,7 +914,7 @@ func (c *Compiler) processImport(is *ast.ImportStatement) (err error) {
 	// Resolve path
 	resolvedPath := c.resolveImportPath(is.Path)
 	if resolvedPath == "" {
-		return fmt.Errorf("cannot resolve import: %s", is.Path)
+		return fmt.Errorf("cannot resolve import path %q; check that the module exists and is a .bak file or directory", is.Path)
 	}
 
 	// Parse (file or directory module)
@@ -1033,7 +1033,7 @@ func parseImportProgram(resolvedPath string) (*ast.Program, error) {
 	p.SetFilename(resolvedPath)
 	program := p.ParseProgram()
 	if len(p.Errors()) > 0 {
-		return nil, fmt.Errorf("parse errors in %s: %v", resolvedPath, p.Errors())
+		return nil, fmt.Errorf("parse errors in %s:\n%s", resolvedPath, strings.Join(p.Errors(), "\n"))
 	}
 	return program, nil
 }
@@ -1073,7 +1073,7 @@ func parseProgramDir(dir string) (*ast.Program, error) {
 		p.SetFilename(filePath)
 		program := p.ParseProgram()
 		if len(p.Errors()) > 0 {
-			return nil, fmt.Errorf("parse errors in %s: %v", filePath, p.Errors())
+			return nil, fmt.Errorf("parse errors in %s:\n%s", filePath, strings.Join(p.Errors(), "\n"))
 		}
 		for _, stmt := range program.Statements {
 			if ps, ok := stmt.(*ast.PackageStatement); ok {
