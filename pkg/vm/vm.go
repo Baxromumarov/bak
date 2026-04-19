@@ -266,19 +266,7 @@ func (vm *VM) Run() (compiler.Value, error) {
 	}
 
 	mainFn := vm.module.Functions[vm.module.EntryPoint]
-
-	// Initialize functions as global values
-	for name, idx := range vm.module.Globals {
-		for _, fn := range vm.module.Functions {
-			if fn.Name == name {
-				vm.globals[idx] = compiler.Value{
-					Type:     compiler.VAL_FUNCTION,
-					AsObject: fn,
-				}
-				break
-			}
-		}
-	}
+	vm.initializeGlobalFunctions()
 
 	// Set up initial frame
 	vm.frames[0] = CallFrame{
@@ -290,6 +278,21 @@ func (vm *VM) Run() (compiler.Value, error) {
 	vm.startFrameTrace(&vm.frames[0], 0)
 
 	return vm.run()
+}
+
+func (vm *VM) initializeGlobalFunctions() {
+	for name, idx := range vm.module.Globals {
+		for _, fn := range vm.module.Functions {
+			if fn.Name != name {
+				continue
+			}
+			vm.globals[idx] = compiler.Value{
+				Type:     compiler.VAL_FUNCTION,
+				AsObject: fn,
+			}
+			break
+		}
+	}
 }
 
 func (vm *VM) run() (result compiler.Value, err error) {

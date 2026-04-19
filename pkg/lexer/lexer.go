@@ -84,159 +84,77 @@ func (l *Lexer) NextToken() token.Token {
 	switch l.ch {
 	case '=':
 		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-
-			tok = token.Token{
-				Type:    token.EQ,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.EQ, startLine, startColumn)
 		} else {
-			tok = newToken(token.ASSIGN, l.ch, l.line, l.column)
+			tok = newToken(token.ASSIGN, l.ch, startLine, startColumn)
 		}
 	case '+':
-		tok = newToken(token.PLUS, l.ch, l.line, l.column)
+		tok = newToken(token.PLUS, l.ch, startLine, startColumn)
 	case '-':
 		if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-
-			tok = token.Token{
-				Type:    token.ARROW,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.ARROW, startLine, startColumn)
 		} else {
-			tok = newToken(token.MINUS, l.ch, l.line, l.column)
+			tok = newToken(token.MINUS, l.ch, startLine, startColumn)
 		}
 	case '!':
 		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.NOT_EQ,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.NOT_EQ, startLine, startColumn)
 		} else {
-			tok = newToken(token.BANG, l.ch, l.line, l.column)
+			tok = newToken(token.BANG, l.ch, startLine, startColumn)
 		}
 	case '/':
-		tok = newToken(token.SLASH, l.ch, l.line, l.column)
+		tok = newToken(token.SLASH, l.ch, startLine, startColumn)
 	case '*':
-		tok = newToken(token.ASTERISK, l.ch, l.line, l.column)
+		tok = newToken(token.ASTERISK, l.ch, startLine, startColumn)
 	case '%':
-		tok = newToken(token.PERCENT, l.ch, l.line, l.column)
+		tok = newToken(token.PERCENT, l.ch, startLine, startColumn)
 	case '<':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-
-			tok = token.Token{
-				Type:    token.LT_EQ,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
-
-		} else if l.peekChar() == '<' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.LSHIFT,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
-		} else {
-			tok = newToken(token.LT, l.ch, l.line, l.column)
+		switch l.peekChar() {
+		case '=':
+			tok = l.readTwoCharToken(token.LT_EQ, startLine, startColumn)
+		case '<':
+			tok = l.readTwoCharToken(token.LSHIFT, startLine, startColumn)
+		default:
+			tok = newToken(token.LT, l.ch, startLine, startColumn)
 		}
 	case '>':
-		if l.peekChar() == '=' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.GT_EQ,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
-		} else if l.peekChar() == '>' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.RSHIFT,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
-		} else {
-			tok = newToken(token.GT, l.ch, l.line, l.column)
+		switch l.peekChar() {
+		case '=':
+			tok = l.readTwoCharToken(token.GT_EQ, startLine, startColumn)
+		case '>':
+			tok = l.readTwoCharToken(token.RSHIFT, startLine, startColumn)
+		default:
+			tok = newToken(token.GT, l.ch, startLine, startColumn)
 		}
 	case '&':
 		if l.peekChar() == '&' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.AND,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.AND, startLine, startColumn)
 		} else {
-			tok = newToken(token.AMPERSAND, l.ch, l.line, l.column)
+			tok = newToken(token.AMPERSAND, l.ch, startLine, startColumn)
 		}
 	case '|':
 		if l.peekChar() == '|' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.OR,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.OR, startLine, startColumn)
 		} else {
-			tok = newToken(token.BITOR, l.ch, l.line, l.column)
+			tok = newToken(token.BITOR, l.ch, startLine, startColumn)
 		}
 	case '^':
-		tok = newToken(token.BITXOR, l.ch, l.line, l.column)
+		tok = newToken(token.BITXOR, l.ch, startLine, startColumn)
 	case '~':
-		tok = newToken(token.BITNOT, l.ch, l.line, l.column)
+		tok = newToken(token.BITNOT, l.ch, startLine, startColumn)
 	case '?':
-		tok = newToken(token.QUESTION, l.ch, l.line, l.column)
+		tok = newToken(token.QUESTION, l.ch, startLine, startColumn)
 	case ';':
-		tok = newToken(token.SEMICOLON, l.ch, l.line, l.column)
+		tok = newToken(token.SEMICOLON, l.ch, startLine, startColumn)
 	case ':':
-		tok = newToken(token.COLON, l.ch, l.line, l.column)
+		tok = newToken(token.COLON, l.ch, startLine, startColumn)
 	case ',':
-		tok = newToken(token.COMMA, l.ch, l.line, l.column)
+		tok = newToken(token.COMMA, l.ch, startLine, startColumn)
 	case '.':
 		if l.peekChar() == '.' {
-			ch := l.ch
-			l.readChar()
-			literal := string(ch) + string(l.ch)
-			tok = token.Token{
-				Type:    token.DOTDOT,
-				Literal: literal,
-				Line:    startLine,
-				Column:  startColumn,
-			}
+			tok = l.readTwoCharToken(token.DOTDOT, startLine, startColumn)
 		} else {
-			tok = newToken(token.DOT, l.ch, l.line, l.column)
+			tok = newToken(token.DOT, l.ch, startLine, startColumn)
 		}
 	case '(':
 		tok = newToken(token.LPAREN, l.ch, l.line, l.column)
@@ -263,7 +181,7 @@ func (l *Lexer) NextToken() token.Token {
 			return tok
 		}
 		// Single '_' is always UNDERSCORE
-		tok = newToken(token.UNDERSCORE, l.ch, l.line, l.column)
+		tok = newToken(token.UNDERSCORE, l.ch, startLine, startColumn)
 	case '"':
 		tok.Type = token.STRING
 		tok.Line = startLine
@@ -573,6 +491,21 @@ func isLetter(ch rune) bool {
 // isDigit returns true if the character is a digit
 func isDigit(ch rune) bool {
 	return unicode.IsDigit(ch)
+}
+
+// readTwoCharToken reads an operator token composed of the current character and the next one.
+func (l *Lexer) readTwoCharToken(tokenType token.TokenType, startLine, startColumn int) token.Token {
+	first := l.ch
+	l.readChar()
+	literal := string(first) + string(l.ch)
+	return token.Token{
+		Type:      tokenType,
+		Literal:   literal,
+		Line:      startLine,
+		Column:    startColumn,
+		EndLine:   startLine,
+		EndColumn: startColumn + len(literal),
+	}
 }
 
 // newToken creates a new token with the given type and character

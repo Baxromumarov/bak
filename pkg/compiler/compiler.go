@@ -72,115 +72,20 @@ func New() *Compiler {
 
 // Compile compiles a program AST to a BytecodeModule.
 func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
-	// First pass: collect type definitions and function signatures
-	// Also process imports to register their symbols
-	for _, stmt := range program.Statements {
-
-		switch s := stmt.(type) {
-		case *ast.ImportStatement:
-			if err := c.processImport(s); err != nil {
-				return nil, err
-			}
-		case *ast.ImportBlock:
-			for _, imp := range s.Imports {
-				if err := c.processImport(imp); err != nil {
-					return nil, err
-				}
-			}
-		case *ast.StructDecl:
-			c.compileStructDef(s)
-		case *ast.EnumDecl:
-			c.compileEnumDef(s)
-		case *ast.FunctionDecl:
-			// Register function in globals
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarStatement:
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarBlock:
-			for _, v := range s.Variables {
-				c.module.AddGlobal(v.Name.Value)
-			}
-		case *ast.MultiVarStatement:
-			for _, name := range s.Names {
-				c.module.AddGlobal(name.Value)
-			}
-		case *ast.ConstStatement:
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.ConstBlock:
-			for _, cst := range s.Constants {
-				c.module.AddGlobal(cst.Name.Value)
-			}
-		case *ast.AliasDecl:
-			c.aliases[s.Name.Value] = s.Underlying
-		case *ast.ImplDecl:
-			// Methods will be compiled in second pass
-		}
+	if err := c.registerTopLevelDeclarations(program); err != nil {
+		return nil, err
 	}
-
-	// Second pass: pre-register all functions by name with their index and pre-allocate slots
-	for _, stmt := range program.Statements {
-		switch s := stmt.(type) {
-		case *ast.FunctionDecl:
-			stub := &FunctionObj{Name: s.Name.Value}
-			idx := c.module.AddFunction(stub)
-			c.module.FunctionIndices[s.Name.Value] = idx
-		case *ast.ImplDecl:
-			for _, method := range s.Methods {
-				methodName := s.TypeName.Value + "." + method.Name.Value
-				stub := &FunctionObj{Name: methodName}
-				idx := c.module.AddFunction(stub)
-				c.module.FunctionIndices[methodName] = idx
-			}
-		}
-	}
+	c.registerFunctionStubs(program)
 
 	if err := c.compileGlobalInits(program); err != nil {
 		return nil, err
 	}
 
-	// Third pass: compile all functions and impls
-	for _, stmt := range program.Statements {
-		switch s := stmt.(type) {
-		case *ast.FunctionDecl:
-			if err := c.compileFunction(s); err != nil {
-
-				return nil, err
-			}
-		case *ast.ImplDecl:
-			// fmt.Fprintf(os.Stderr, "DEBUG: Compiling impl %s\n", s.TypeName.Value)
-			if err := c.compileImpl(s); err != nil {
-				return nil, err
-			}
-		case *ast.VarStatement:
-			// Global variable
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarBlock:
-			for _, v := range s.Variables {
-				c.module.AddGlobal(v.Name.Value)
-			}
-		case *ast.MultiVarStatement:
-			for _, name := range s.Names {
-				c.module.AddGlobal(name.Value)
-			}
-		case *ast.ConstStatement:
-			// Global constant
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.ConstBlock:
-			for _, cst := range s.Constants {
-				c.module.AddGlobal(cst.Name.Value)
-			}
-		}
+	if err := c.compileTopLevelStatements(program); err != nil {
+		return nil, err
 	}
 
-	// Find main function
-	mainIndex := -1
-	for i, fn := range c.module.Functions {
-		if fn.Name == "main" {
-			c.module.EntryPoint = i
-			mainIndex = i
-			break
-		}
-	}
+	mainIndex := c.findMainFunction()
 
 	if c.hasInit && !c.initAdded {
 		c.ensureInitFn()
@@ -221,6 +126,119 @@ func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
 	return c.module, nil
 }
 
+func (c *Compiler) registerTopLevelDeclarations(program *ast.Program) error {
+	for _, stmt := range program.Statements {
+		switch s := stmt.(type) {
+		case *ast.ImportStatement:
+			if err := c.processImport(s); err != nil {
+				return err
+			}
+		case *ast.ImportBlock:
+			for _, imp := range s.Imports {
+				if err := c.processImport(imp); err != nil {
+					return err
+				}
+			}
+		case *ast.StructDecl:
+			c.compileStructDef(s)
+		case *ast.EnumDecl:
+			c.compileEnumDef(s)
+		case *ast.FunctionDecl:
+			c.module.AddGlobal(s.Name.Value)
+		case *ast.VarStatement:
+			c.module.AddGlobal(s.Name.Value)
+		case *ast.VarBlock:
+			for _, v := range s.Variables {
+				c.module.AddGlobal(v.Name.Value)
+			}
+		case *ast.MultiVarStatement:
+			for _, name := range s.Names {
+				c.module.AddGlobal(name.Value)
+			}
+		case *ast.ConstStatement:
+			c.module.AddGlobal(s.Name.Value)
+		case *ast.ConstBlock:
+			for _, cst := range s.Constants {
+				c.module.AddGlobal(cst.Name.Value)
+			}
+		case *ast.AliasDecl:
+			c.aliases[s.Name.Value] = s.Underlying
+		case *ast.ImplDecl:
+			// Methods are compiled in a later pass.
+		}
+	}
+	return nil
+}
+
+func (c *Compiler) registerFunctionStubs(program *ast.Program) {
+	for _, stmt := range program.Statements {
+		switch s := stmt.(type) {
+		case *ast.FunctionDecl:
+			stub := &FunctionObj{Name: s.Name.Value}
+			idx := c.module.AddFunction(stub)
+			c.module.FunctionIndices[s.Name.Value] = idx
+		case *ast.ImplDecl:
+			for _, method := range s.Methods {
+				methodName := s.TypeName.Value + "." + method.Name.Value
+				stub := &FunctionObj{Name: methodName}
+				idx := c.module.AddFunction(stub)
+				c.module.FunctionIndices[methodName] = idx
+			}
+		}
+	}
+}
+
+func (c *Compiler) compileTopLevelStatements(program *ast.Program) error {
+	for _, stmt := range program.Statements {
+		switch s := stmt.(type) {
+		case *ast.FunctionDecl:
+			if err := c.compileFunction(s); err != nil {
+				return err
+			}
+		case *ast.ImplDecl:
+			if err := c.compileImpl(s); err != nil {
+				return err
+			}
+		case *ast.VarStatement:
+			c.module.AddGlobal(s.Name.Value)
+		case *ast.VarBlock:
+			for _, v := range s.Variables {
+				c.module.AddGlobal(v.Name.Value)
+			}
+		case *ast.MultiVarStatement:
+			for _, name := range s.Names {
+				c.module.AddGlobal(name.Value)
+			}
+		case *ast.ConstStatement:
+			c.module.AddGlobal(s.Name.Value)
+		case *ast.ConstBlock:
+			for _, cst := range s.Constants {
+				c.module.AddGlobal(cst.Name.Value)
+			}
+		}
+	}
+	return nil
+}
+
+func (c *Compiler) findMainFunction() int {
+	for i, fn := range c.module.Functions {
+		if fn.Name == "main" {
+			c.module.EntryPoint = i
+			return i
+		}
+	}
+	return -1
+}
+
+func (c *Compiler) restoreCompilerState(fn *FunctionObj, locals []Local, scopeDepth, loopStart int, loopBreaks []int, loopDepths []int) {
+	c.currentFn = fn
+	c.locals = locals
+	c.scopeDepth = scopeDepth
+	c.loopStart = loopStart
+	c.loopBreaks = loopBreaks
+	c.loopDepths = loopDepths
+}
+
 func (c *Compiler) ensureInitFn() {
 	if c.initFn != nil {
 		return
@@ -252,12 +270,15 @@ func (c *Compiler) compileGlobalInits(program *ast.Program) error {
 	oldDepth := c.scopeDepth
 	oldLoopStart := c.loopStart
 	oldLoopBreaks := c.loopBreaks
+	oldLoopDepths := c.loopDepths
+	defer c.restoreCompilerState(oldFn, oldLocals, oldDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
 
 	c.currentFn = c.initFn
 	c.locals = []Local{}
 	c.scopeDepth = 0
 	c.loopStart = -1
 	c.loopBreaks = nil
+	c.loopDepths = nil
 
 	for _, stmt := range program.Statements {
 		switch s := stmt.(type) {
@@ -322,22 +343,11 @@ func (c *Compiler) compileGlobalInits(program *ast.Program) error {
 		case *ast.ImportBlock:
 			for _, imp := range s.Imports {
 				if err := c.compileImportStatement(imp); err != nil {
-					c.currentFn = oldFn
-					c.locals = oldLocals
-					c.scopeDepth = oldDepth
-					c.loopStart = oldLoopStart
-					c.loopBreaks = oldLoopBreaks
 					return err
 				}
 			}
 		}
 	}
-
-	c.currentFn = oldFn
-	c.locals = oldLocals
-	c.scopeDepth = oldDepth
-	c.loopStart = oldLoopStart
-	c.loopBreaks = oldLoopBreaks
 	c.hasInit = true
 	return nil
 }
@@ -471,6 +481,7 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	oldLoopStart := c.loopStart
 	oldLoopBreaks := c.loopBreaks
 	oldLoopDepths := c.loopDepths
+	defer c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
 
 	// Reset for new function
 	c.currentFn = fn
@@ -498,15 +509,7 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	// Add function to module
 	fnIdx := c.module.AddFunction(fn)
 
-	// Restore compiler state
-	c.currentFn = oldFn
-	// Restore compiler state
-	c.currentFn = oldFn
-	c.locals = oldLocals
-	c.scopeDepth = oldScopeDepth
-	c.loopStart = oldLoopStart
-	c.loopBreaks = oldLoopBreaks
-	c.loopDepths = oldLoopDepths
+	c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
 
 	// Emit OP_GET_FUNC to load the function reference
 	c.emit(OP_GET_FUNC)
@@ -524,59 +527,72 @@ func (c *Compiler) compileImpl(id *ast.ImplDecl) error {
 	}
 
 	for _, method := range id.Methods {
-		fnName := typeName + "." + method.Name.Value
-		fnIdx, ok := c.module.FunctionIndices[fnName]
-		if !ok {
-			return fmt.Errorf("method %s not registered in pass 2", fnName)
-		}
-		fn := c.module.Functions[fnIdx]
-
-		if receiverName != "" {
-			fn.Arity = len(method.Parameters) + 1 // +1 for receiver
-		} else {
-			fn.Arity = len(method.Parameters)
-		}
-		fn.Code = []byte{}
-		fn.Constants = []Value{}
-		fn.SourceMap = make(map[int]SourcePos)
-
-		c.currentFn = fn
-		c.locals = []Local{}
-		c.scopeDepth = 0
-
-		// Add receiver as first local if present
-		if receiverName != "" {
-			c.addLocal(receiverName)
-		}
-
-		// Add parameters as locals
-		for _, param := range method.Parameters {
-			c.addLocal(param.Name.Value)
-		}
-
-		// Compile method body
-		if err := c.compileBlock(method.Body); err != nil {
+		if err := c.compileImplMethod(typeName, receiverName, method); err != nil {
 			return err
 		}
-
-		// Ensure method returns
-		if len(fn.Code) == 0 || fn.Code[len(fn.Code)-1] != byte(OP_RETURN) && fn.Code[len(fn.Code)-1] != byte(OP_RETURN_VOID) {
-			c.emit(OP_RETURN_VOID)
-		}
-
-		c.module.AddMethod(typeName, method.Name.Value, fnIdx)
-
-		c.currentFn = nil
 	}
 
 	return nil
 }
 
+func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.MethodDecl) error {
+	fnName := typeName + "." + method.Name.Value
+	fnIdx, ok := c.module.FunctionIndices[fnName]
+	if !ok {
+		return fmt.Errorf("method %s not registered in pass 2", fnName)
+	}
+	fn := c.module.Functions[fnIdx]
+
+	oldFn := c.currentFn
+	oldLocals := c.locals
+	oldScopeDepth := c.scopeDepth
+	oldLoopStart := c.loopStart
+	oldLoopBreaks := c.loopBreaks
+	oldLoopDepths := c.loopDepths
+	defer c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+
+	if receiverName != "" {
+		fn.Arity = len(method.Parameters) + 1 // +1 for receiver
+	} else {
+		fn.Arity = len(method.Parameters)
+	}
+	fn.Code = []byte{}
+	fn.Constants = []Value{}
+	fn.SourceMap = make(map[int]SourcePos)
+
+	c.currentFn = fn
+	c.locals = []Local{}
+	c.scopeDepth = 0
+	c.loopStart = -1
+	c.loopBreaks = nil
+	c.loopDepths = nil
+
+	// Add receiver as first local if present
+	if receiverName != "" {
+		c.addLocal(receiverName)
+	}
+
+	// Add parameters as locals
+	for _, param := range method.Parameters {
+		c.addLocal(param.Name.Value)
+	}
+
+	// Compile method body
+	if err := c.compileBlock(method.Body); err != nil {
+		return err
+	}
+
+	// Ensure method returns
+	if len(fn.Code) == 0 || fn.Code[len(fn.Code)-1] != byte(OP_RETURN) && fn.Code[len(fn.Code)-1] != byte(OP_RETURN_VOID) {
+		c.emit(OP_RETURN_VOID)
+	}
+
+	c.module.AddMethod(typeName, method.Name.Value, fnIdx)
+	return nil
+}
+
 func (c *Compiler) compileBlock(block *ast.BlockStatement) error {
 	c.beginScope()
-	if c.currentFn != nil {
-		// No debug print
-	}
 	for _, stmt := range block.Statements {
 		if err := c.compileStatement(stmt); err != nil {
 			return err
