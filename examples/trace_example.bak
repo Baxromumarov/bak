@@ -9,6 +9,12 @@ trace func compute(base int) -> (int) {
     return doubled + 1
 }
 
-func main() -> (int) {
-    return compute(20)
+func main() -> (void) {
+    var result = compute(10)
+    println("Result of compute(10):", result)
+
+    return void
 }
+
+
+
