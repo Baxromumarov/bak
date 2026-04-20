@@ -15,10 +15,33 @@ import (
 // Manifest represents the bak.toml package manifest.
 type Manifest struct {
 	Package        PackageInfo           `toml:"package"`
+	LanguageMode   string                `toml:"language_mode,omitempty"`
 	Dependencies   map[string]Dependency `toml:"dependencies"`
 	Features       []string              `toml:"features,omitempty"`
 	Permissions    *RuntimePermissions   `toml:"permissions,omitempty"`
 	TrustedSources []string              `toml:"trusted_sources,omitempty"`
+}
+
+const (
+	LanguageModeFrozen       = "frozen"
+	LanguageModeExperimental = "experimental"
+)
+
+func NormalizeLanguageMode(mode string) string {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		return LanguageModeFrozen
+	}
+	return mode
+}
+
+func IsKnownLanguageMode(mode string) bool {
+	switch NormalizeLanguageMode(mode) {
+	case LanguageModeFrozen, LanguageModeExperimental:
+		return true
+	default:
+		return false
+	}
 }
 
 // PackageInfo contains package metadata.
@@ -56,6 +79,7 @@ func DefaultManifest(name string) *Manifest {
 			Version: "0.1.0",
 			Authors: []string{},
 		},
+		LanguageMode: LanguageModeFrozen,
 		Dependencies: make(map[string]Dependency),
 		Permissions:  nil,
 	}
@@ -116,6 +140,10 @@ func (m *Manifest) Validate() error {
 	}
 	if strings.TrimSpace(m.Package.Version) == "" {
 		return fmt.Errorf("package.version is required")
+	}
+	m.LanguageMode = NormalizeLanguageMode(m.LanguageMode)
+	if !IsKnownLanguageMode(m.LanguageMode) {
+		return fmt.Errorf("language_mode %q is invalid (expected one of: %s, %s)", m.LanguageMode, LanguageModeFrozen, LanguageModeExperimental)
 	}
 	if err := validateFeatureList(m.Features); err != nil {
 		return err

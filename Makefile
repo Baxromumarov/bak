@@ -26,7 +26,7 @@ TEST_SCRIPTS := \
 	tests/run_native_vec_tests.sh \
 	tests/run_typechecker_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-all clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
 
 help:
 	@echo "Bak project Makefile"
@@ -47,6 +47,9 @@ help:
 	@echo "  make test             Run go test ./..."
 	@echo "  make test-unit        Run go test ./..."
 	@echo "  make test-scripts     Run executable test scripts under tests/"
+	@echo "  make test-frozen      Run frozen-surface language and docs guardrails"
+	@echo "  make test-parity      Run evaluator/vm/native parity matrix"
+	@echo "  make test-lanes       Run frozen + parity lanes"
 	@echo "  make test-all         Run unit tests + test scripts"
 	@echo ""
 	@echo "Cleanup targets:"
@@ -99,6 +102,15 @@ test-scripts:
 		echo "==> $$script"; \
 		bash $$script; \
 	done
+
+test-frozen:
+	$(GO) test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint'
+	$(GO) test ./cmd/bak -run 'TestPublicDocsAndExamplesLabelExperimentalSurface|TestPublicConformanceTestsLabelExperimentalSurface|TestResolveProjectFeaturesByLanguageMode'
+
+test-parity:
+	$(GO) test ./pkg/backend/native -run TestEvaluatorVMNativeParityMatrix
+
+test-lanes: test-frozen test-parity
 
 test-all: test-unit test-scripts
 

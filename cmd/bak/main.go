@@ -1058,18 +1058,66 @@ func mergeFeatureLists(base []string, extra []string) []string {
 	return merged
 }
 
-func loadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []string) runtimecap.Permissions {
+func pickExperimentalFeatures(features []string) []string {
+	experimental := make([]string, 0, len(features))
+	for _, feature := range features {
+		if runtimecap.IsKnownExperimentalFeature(feature) {
+			experimental = append(experimental, feature)
+		}
+	}
+	return experimental
+}
+
+func resolveProjectFeaturesByLanguageMode(languageMode string, manifestFeatures []string, cliFeatures []string) ([]string, error) {
+	mode := manifest.NormalizeLanguageMode(languageMode)
+	merged := mergeFeatureLists(manifestFeatures, cliFeatures)
+
+	switch mode {
+	case manifest.LanguageModeExperimental:
+		return merged, nil
+	case manifest.LanguageModeFrozen:
+		manifestExperimental := pickExperimentalFeatures(manifestFeatures)
+		if len(manifestExperimental) > 0 {
+			return nil, fmt.Errorf("bak.toml has language_mode=%q but enables experimental features: %s", mode, strings.Join(manifestExperimental, ", "))
+		}
+		cliExperimental := pickExperimentalFeatures(cliFeatures)
+		if len(cliExperimental) > 0 {
+			return nil, fmt.Errorf("language_mode=%q blocks CLI experimental features (%s); set language_mode = %q in bak.toml to opt in", mode, strings.Join(cliExperimental, ", "), manifest.LanguageModeExperimental)
+		}
+		return merged, nil
+	default:
+		return nil, fmt.Errorf("unknown language_mode %q", mode)
+	}
+}
+
+func resolveProjectFeatureState(cliFeatures []string) (*manifest.Manifest, []string, error) {
 	m, err := manifest.LoadFromDir(".")
 	if err != nil {
 		if os.IsNotExist(err) {
-			runtimecap.SetCurrentFeatures(cliFeatures)
-			return base
+			features, resolveErr := resolveProjectFeaturesByLanguageMode(manifest.LanguageModeFrozen, nil, cliFeatures)
+			if resolveErr != nil {
+				return nil, nil, resolveErr
+			}
+			return nil, features, nil
 		}
-		runtimecap.SetCurrentFeatures(cliFeatures)
+		return nil, nil, err
+	}
+
+	features, err := resolveProjectFeaturesByLanguageMode(m.LanguageMode, m.Features, cliFeatures)
+	if err != nil {
+		return nil, nil, err
+	}
+	return m, features, nil
+}
+
+func loadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []string) runtimecap.Permissions {
+	m, features, err := resolveProjectFeatureState(cliFeatures)
+	if err != nil {
+		runtimecap.SetCurrentFeatures(nil)
 		fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", err)
 		os.Exit(1)
 	}
-	runtimecap.SetCurrentFeatures(mergeFeatureLists(m.Features, cliFeatures))
+	runtimecap.SetCurrentFeatures(features)
 	if m == nil || m.Permissions == nil {
 		return base
 	}

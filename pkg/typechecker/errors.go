@@ -34,7 +34,7 @@ func (tc *TypeChecker) addError(line, col int, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	// Map to diagnostics
 	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.DiagnosticCode("Error"), // Generic error
+		Code:    diagnostics.ErrGeneric,
 		Level:   diagnostics.LevelError,
 		Message: msg,
 		Line:    line,
@@ -48,7 +48,7 @@ func (tc *TypeChecker) addError(line, col int, format string, args ...any) {
 func (tc *TypeChecker) addErrorWithHelp(line, col int, help, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.DiagnosticCode("Error"),
+		Code:    diagnostics.ErrGeneric,
 		Level:   diagnostics.LevelError,
 		Message: msg,
 		Line:    line,
@@ -64,7 +64,7 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 	// Map to diagnostics
 	code := err.Code
 	if code == "" {
-		code = diagnostics.DiagnosticCode("Error")
+		code = diagnostics.ErrGeneric
 	}
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    code,

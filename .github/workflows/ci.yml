@@ -7,7 +7,7 @@ on:
     pull_request:
 
 jobs:
-    test:
+  test:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -32,3 +32,33 @@ jobs:
 
             - name: Run repository tests
               run: go test ./...
+
+    frozen-surface:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+
+            - name: Run frozen language conformance and docs guardrails
+              run: |
+                  go test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint'
+                  go test ./cmd/bak -run 'TestPublicDocsAndExamplesLabelExperimentalSurface|TestPublicConformanceTestsLabelExperimentalSurface|TestResolveProjectFeaturesByLanguageMode'
+
+    native-parity:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Set up Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version-file: go.mod
+
+            - name: Run evaluator/vm/native parity matrix
+              run: go test ./pkg/backend/native -run TestEvaluatorVMNativeParityMatrix

@@ -70,6 +70,43 @@ func main() -> (void) {
 	}
 }
 
+func TestBuildExecutableBuildsIRProgramSet(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+func helper() -> (int) {
+	return 1
+}
+
+func main() -> (int) {
+	return helper()
+}
+`
+
+	var ir *IRProgramSet
+	binary := buildNativeProgramWithOptions(t, source, BuildOptions{
+		Permissions: runtimecap.Permissions{},
+		OnIR: func(set *IRProgramSet) {
+			ir = set
+		},
+	})
+
+	if len(binary) < 4 || !bytes.Equal(binary[:4], []byte{0x7f, 'E', 'L', 'F'}) {
+		t.Fatalf("expected ELF magic, got %x", binary[:4])
+	}
+	if ir == nil {
+		t.Fatalf("expected IR program set to be captured")
+	}
+	if len(ir.Modules) == 0 {
+		t.Fatalf("expected IR to include at least one module")
+	}
+	if ir.Modules[0].Name == "" {
+		t.Fatalf("expected IR module name")
+	}
+}
+
 func TestBuildExecutableCfgFeatureFlag(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

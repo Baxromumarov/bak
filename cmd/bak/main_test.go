@@ -137,6 +137,87 @@ func TestParseExperimentalFeaturesRejectsUnknownFeature(t *testing.T) {
 	}
 }
 
+func TestResolveProjectFeaturesByLanguageModeFrozenRejectsExperimental(t *testing.T) {
+	_, err := resolveProjectFeaturesByLanguageMode(
+		manifest.LanguageModeFrozen,
+		nil,
+		[]string{runtimecap.ExperimentalFeatureUnsafe},
+	)
+	if err == nil || !strings.Contains(err.Error(), "language_mode=\"frozen\" blocks CLI experimental features") {
+		t.Fatalf("expected frozen mode experimental feature error, got %v", err)
+	}
+}
+
+func TestResolveProjectFeaturesByLanguageModeExperimentalAllowsExperimental(t *testing.T) {
+	features, err := resolveProjectFeaturesByLanguageMode(
+		manifest.LanguageModeExperimental,
+		[]string{"fast-path"},
+		[]string{runtimecap.ExperimentalFeatureUnsafe},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{runtimecap.ExperimentalFeatureUnsafe, "fast-path"}
+	if !reflect.DeepEqual(features, want) {
+		t.Fatalf("unexpected features: got %#v want %#v", features, want)
+	}
+}
+
+func TestResolveProjectFeaturesByLanguageModeFrozenRejectsManifestExperimental(t *testing.T) {
+	_, err := resolveProjectFeaturesByLanguageMode(
+		manifest.LanguageModeFrozen,
+		[]string{runtimecap.ExperimentalFeatureUserGenerics},
+		nil,
+	)
+	if err == nil || !strings.Contains(err.Error(), "enables experimental features") {
+		t.Fatalf("expected frozen mode manifest feature error, got %v", err)
+	}
+}
+
+func TestResolveProjectFeatureStateNoManifestDefaultsFrozen(t *testing.T) {
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+
+	m, features, err := resolveProjectFeatureState(nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if m != nil {
+		t.Fatalf("expected nil manifest when bak.toml is absent")
+	}
+	if len(features) != 0 {
+		t.Fatalf("expected no active features in implicit frozen mode, got %#v", features)
+	}
+}
+
+func TestResolveProjectFeatureStateNoManifestRejectsExperimental(t *testing.T) {
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+
+	if err := os.Chdir(t.TempDir()); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+
+	_, _, err = resolveProjectFeatureState([]string{runtimecap.ExperimentalFeatureUnsafe})
+	if err == nil || !strings.Contains(err.Error(), "language_mode=\"frozen\" blocks CLI experimental features") {
+		t.Fatalf("expected frozen default rejection for experimental CLI features, got %v", err)
+	}
+}
+
 func TestPackageCachePathUsesSourceAndCommit(t *testing.T) {
 	p1 := packageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "aaaaaaaa")
 	p2 := packageCachePath(".bak-cache/pkg", "demo", "github.com/other/demo", "aaaaaaaa")

@@ -13,6 +13,7 @@ func TestManifestPermissionRoundTrip(t *testing.T) {
 	path := filepath.Join(tmpDir, "bak.toml")
 
 	m := DefaultManifest("demo")
+	m.LanguageMode = LanguageModeExperimental
 	m.Features = []string{"experimental-cfg", "fast-path"}
 	m.Permissions = &RuntimePermissions{
 		AllowExec:     true,
@@ -42,8 +43,18 @@ func TestManifestPermissionRoundTrip(t *testing.T) {
 	if loaded.Permissions.ExecMaxOutput != 4096 {
 		t.Fatalf("unexpected exec max output: %d", loaded.Permissions.ExecMaxOutput)
 	}
+	if loaded.LanguageMode != LanguageModeExperimental {
+		t.Fatalf("unexpected language mode: %q", loaded.LanguageMode)
+	}
 	if !reflect.DeepEqual(loaded.Features, []string{"experimental-cfg", "fast-path"}) {
 		t.Fatalf("unexpected features: %#v", loaded.Features)
+	}
+}
+
+func TestDefaultManifestLanguageModeIsFrozen(t *testing.T) {
+	m := DefaultManifest("demo")
+	if m.LanguageMode != LanguageModeFrozen {
+		t.Fatalf("unexpected default language mode: %q", m.LanguageMode)
 	}
 }
 
@@ -291,5 +302,23 @@ version = "0.1.0"
 				t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestLoadManifestRejectsInvalidLanguageMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "bak.toml")
+	contents := `
+language_mode = "unstable"
+
+[package]
+name = "demo"
+version = "0.1.0"
+`
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(contents)), 0o644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	_, err := Load(path)
+	if err == nil || !strings.Contains(err.Error(), `language_mode "unstable" is invalid`) {
+		t.Fatalf("expected invalid language mode error, got %v", err)
 	}
 }

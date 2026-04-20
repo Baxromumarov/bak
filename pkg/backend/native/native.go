@@ -15,6 +15,7 @@ type BuildOptions struct {
 	Permissions  runtimecap.Permissions
 	TraceEnabled bool
 	MainPath     string
+	OnIR         func(*IRProgramSet)
 }
 
 // ProgramWithPath holds a program along with its path-derived name
@@ -54,6 +55,11 @@ func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]b
 			pathName := extractPathName(pkg.Path)
 			allPrograms = append(allPrograms, ProgramWithPath{Program: pkg.Program, PathName: pathName})
 		}
+	}
+
+	ir := BuildIRProgramSet(allPrograms)
+	if options.OnIR != nil {
+		options.OnIR(ir)
 	}
 
 	return CompilePrograms(allPrograms, program, options)

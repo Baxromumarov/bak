@@ -253,7 +253,9 @@ Bak is currently developed with a Go-first strategy:
 - `bak init <name>` remains available as a compatibility alias for `bak new`.
 - `bakfmt` formats Bak source files.
 - `baklint` reports style and correctness findings.
-- `bak.toml` can declare `features = ["..."]`; `cfg("...")` checks those feature flags during compilation.
+- `bak.toml` supports `language_mode = "frozen" | "experimental"`.
+- `features = ["..."]` still configures compile-time flags for `cfg("...")` checks.
+- Experimental language features require `language_mode = "experimental"` in `bak.toml`.
 
 See:
 

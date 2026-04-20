@@ -108,6 +108,7 @@ const (
 
 	// Feature-gating errors (E08xx)
 	ErrExperimentalFeature DiagnosticCode = "E0800"
+	ErrGeneric             DiagnosticCode = "E9999"
 
 	// Parser errors (P00xx)
 	ErrParser     DiagnosticCode = "P0001"
@@ -242,6 +243,21 @@ func NewEmitter(file string) *DiagnosticEmitter {
 func (e *DiagnosticEmitter) Emit(d Diagnostic) {
 	if d.File == "" {
 		d.File = e.file
+	}
+	if strings.TrimSpace(d.Message) == "" {
+		d.Message = "unknown diagnostic"
+	}
+	if strings.TrimSpace(string(d.Code)) == "" {
+		switch d.Level {
+		case LevelError:
+			d.Code = ErrGeneric
+		case LevelWarning:
+			d.Code = DiagnosticCode("W0000")
+		case LevelHint:
+			d.Code = DiagnosticCode("H0000")
+		default:
+			d.Code = ErrGeneric
+		}
 	}
 	e.diagnostics = append(e.diagnostics, d)
 	if d.Level == LevelError {

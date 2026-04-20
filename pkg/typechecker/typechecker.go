@@ -3250,55 +3250,10 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 
 	objType := tc.inferType(mc.Object)
 	// Explicitly mark the method-call receiver identifier as used.
-	// We need to unwrap potential layers (borrow, deref, type conversion, parents, etc.)
-	// to find the underlying identifier to mark as used.
-	var markObjUsed func(expr ast.Expression)
-	markObjUsed = func(expr ast.Expression) {
-		if expr == nil {
-			return
-		}
-		switch e := expr.(type) {
-		case *ast.Identifier:
-			tc.env.MarkUsed(e.Value)
-		case *ast.MutableIdentifier:
-			tc.env.MarkUsed(e.Value)
-		case *ast.BorrowExpression:
-			markObjUsed(e.Value)
-		case *ast.DerefExpression:
-			markObjUsed(e.Value)
-		case *ast.TypeConversion:
-			markObjUsed(e.Value)
-		}
-	}
-	markObjUsed(mc.Object)
+	tc.markMethodReceiverUsed(mc.Object)
 
-	// Check for static method calls (TypeName.method())
-	// If object is an identifier that matches a struct name, look up static methods
-	if ident, ok := mc.Object.(*ast.Identifier); ok {
-		if structDef, ok := tc.lookupQualifiedStruct(ident.Value); ok {
-			// It's a call on a struct type - look for static methods
-			if methodSig, ok := structDef.Methods[mc.Method.Value]; ok {
-				if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-					tc.addError(mc.Token.Line, mc.Token.Column,
-						"method '%s' of struct '%s' is private",
-						mc.Method.Value, ident.Value)
-				}
-				for i, arg := range mc.Arguments {
-					if i < len(methodSig.Parameters) {
-						argType := tc.inferType(arg)
-						if argType != nil && !tc.fitsInTypeWithActual(methodSig.Parameters[i], argType, arg) {
-							tc.addError(mc.Token.Line, mc.Token.Column,
-								"argument %d to %s.%s: expected %s, got %s",
-								i+1, ident.Value, mc.Method.Value,
-								typeToString(methodSig.Parameters[i]), typeToString(argType))
-						}
-					}
-				}
-				// Clear temporary mutable borrows created by &mut arguments
-				tc.clearBorrows(mc.Arguments)
-				return methodSig.ReturnType
-			}
-		}
+	if ret, ok := tc.resolveStaticStructMethodCall(mc); ok {
+		return ret
 	}
 
 	if objType == nil {
@@ -3482,6 +3437,58 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 	tc.clearBorrows(mc.Arguments)
 
 	return nil
+}
+
+func (tc *TypeChecker) markMethodReceiverUsed(expr ast.Expression) {
+	if expr == nil {
+		return
+	}
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		tc.env.MarkUsed(e.Value)
+	case *ast.MutableIdentifier:
+		tc.env.MarkUsed(e.Value)
+	case *ast.BorrowExpression:
+		tc.markMethodReceiverUsed(e.Value)
+	case *ast.DerefExpression:
+		tc.markMethodReceiverUsed(e.Value)
+	case *ast.TypeConversion:
+		tc.markMethodReceiverUsed(e.Value)
+	}
+}
+
+func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpression) (ast.TypeExpression, bool) {
+	ident, ok := mc.Object.(*ast.Identifier)
+	if !ok {
+		return nil, false
+	}
+	structDef, ok := tc.lookupQualifiedStruct(ident.Value)
+	if !ok {
+		return nil, false
+	}
+	methodSig, ok := structDef.Methods[mc.Method.Value]
+	if !ok {
+		return nil, false
+	}
+
+	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
+		tc.addError(mc.Token.Line, mc.Token.Column,
+			"method '%s' of struct '%s' is private",
+			mc.Method.Value, ident.Value)
+	}
+	for i, arg := range mc.Arguments {
+		if i < len(methodSig.Parameters) {
+			argType := tc.inferType(arg)
+			if argType != nil && !tc.fitsInTypeWithActual(methodSig.Parameters[i], argType, arg) {
+				tc.addError(mc.Token.Line, mc.Token.Column,
+					"argument %d to %s.%s: expected %s, got %s",
+					i+1, ident.Value, mc.Method.Value,
+					typeToString(methodSig.Parameters[i]), typeToString(argType))
+			}
+		}
+	}
+	tc.clearBorrows(mc.Arguments)
+	return methodSig.ReturnType, true
 }
 
 // clearBorrows is a helper to clear mutable borrows from a list of arguments
