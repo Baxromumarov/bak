@@ -46,7 +46,7 @@ func test_int_set_basic() -> (void) {
 func test_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_queue_basic")
 
-    mut var q: queue.Queue<int> = queue.new_queue()
+    mut var q = queue.new_queue()
     t.is_true(q.is_empty())
 
     q.push(1)
@@ -85,7 +85,7 @@ func test_queue_basic() -> (void) {
 func test_string_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_string_queue_basic")
 
-    mut var q: queue.Queue<string> = queue.new_queue()
+    mut var q = queue.new_queue()
     q.push("a")
     q.push("b")
 

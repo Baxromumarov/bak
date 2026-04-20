@@ -27,12 +27,44 @@ pub func entry(key: string, value: Json) -> (JsonEntry) {
     return JsonEntry{key: key, value: value}
 }
 
+// Typed entry helpers for object construction without manual Json.* wrapping.
+pub func entry_int(key: string, value: int) -> (JsonEntry) {
+    return entry(key, Json.Int(value))
+}
+
+pub func entry_float(key: string, value: float64) -> (JsonEntry) {
+    return entry(key, Json.Float(value))
+}
+
+pub func entry_string(key: string, value: string) -> (JsonEntry) {
+    return entry(key, Json.String(value))
+}
+
+pub func entry_bool(key: string, value: bool) -> (JsonEntry) {
+    return entry(key, Json.Boolean(value))
+}
+
+pub func entry_json(key: string, value: Json) -> (JsonEntry) {
+    return entry(key, value)
+}
+
 pub func object(entries: Vec<JsonEntry, _>) -> (Json) {
     return Json.Object(entries)
 }
 
 pub func array(items: Vec<Json, _>) -> (Json) {
     return Json.Array(items)
+}
+
+// encode_obj maps a value into a JSON object by using a field encoder function.
+// This is an optional helper; developers can still build Json objects manually.
+pub func encode_obj<T>(value: T, fields: func(T) -> (Vec<JsonEntry, _>)) -> (Json) {
+    return object(fields(value))
+}
+
+// marshal_obj encodes an object value and marshals it to a JSON string.
+pub func marshal_obj<T>(value: T, fields: func(T) -> (Vec<JsonEntry, _>)) -> (string) {
+    return marshal(encode_obj(value, fields))
 }
 
 // encode_array maps a Vec<T> into a Json array using the provided encoder.

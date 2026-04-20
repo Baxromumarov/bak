@@ -13,14 +13,18 @@ pub struct Task {
 
 impl Task as t {
 	pub func to_json() -> (json.Json) {
-		mut var entries: Vec<json.JsonEntry, _> = Vec.new()
-
-		entries.push(json.entry("id", json.Json.Int(t.id)))
-		entries.push(json.entry("title", json.Json.String(t.title)))
-		entries.push(json.entry("completed", json.Json.Boolean(t.completed)))
-		
-        return json.object(entries)
+		return json.encode_obj(t, task_json_entries)
 	}
+}
+
+func task_json_entries(t: Task) -> (Vec<json.JsonEntry, _>) {
+	return Vec.from(
+		[
+			json.entry_int("id", t.id),
+			json.entry_string("title", t.title),
+			json.entry_bool("completed", t.completed),
+		],
+	)
 }
 
 struct TaskInput {

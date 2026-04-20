@@ -3,6 +3,22 @@ package json
 import "src/std/test/test.bak" as test
 import "src/std/encoding/json/json.bak" as j
 
+struct AppMeta {
+    name: string
+    version: int
+    ok: bool
+}
+
+func app_meta_fields(m: AppMeta) -> (Vec<j.JsonEntry, _>) {
+    return Vec.from(
+        [
+            j.entry_string("name", m.name),
+            j.entry_int("version", m.version),
+            j.entry_bool("ok", m.ok),
+        ],
+    )
+}
+
 func test_object_getters() -> (void) {
     mut var t: test.T = test.new("test_object_getters")
     var entries: Vec<j.JsonEntry, _> = Vec.from([j.entry("name", j.Json.String("bak")), j.entry("age", j.Json.Int(3)), j.entry("ok", j.Json.Boolean(true))])
@@ -41,5 +57,32 @@ func test_object_getters() -> (void) {
     var pretty: string = j.pretty(obj)
     t.contains(pretty, "
 ")
+    t.finish()
+}
+
+func test_object_helpers() -> (void) {
+    mut var t: test.T = test.new("test_object_helpers")
+
+    var meta: AppMeta = AppMeta{
+        name: "bak",
+        ok: true,
+        version: 2,
+    }
+
+    var obj: j.Json = j.encode_obj(meta, app_meta_fields)
+    var compact: string = j.marshal_obj(meta, app_meta_fields)
+
+    switch j.get_string(&obj, "name") {
+        case Ok(name) {
+            t.eq_string(name, "bak")
+        }
+        case Err(err) {
+            t.fail("name missing: " + err)
+        }
+    }
+
+    t.contains(compact, "\"name\":\"bak\"")
+    t.contains(compact, "\"version\":2")
+    t.contains(compact, "\"ok\":true")
     t.finish()
 }

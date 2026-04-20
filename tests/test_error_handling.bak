@@ -8,10 +8,10 @@ func divide(a: int, b: int) -> (Result<int, string>) {
     return Ok(a / b)
 }
 
-func findIndex(arr: Vec<string, _>, target: string) -> (Result<int, string>) {
+func findIndex(arr: &Vec<string, _>, target: string) -> (Result<int, string>) {
     mut var i: int = 0
-    for item in arr {
-        if item == target {
+    while i < arr.len() {
+        if arr[i] == target {
             return Ok(i)
         }
         i = i + 1
@@ -19,14 +19,14 @@ func findIndex(arr: Vec<string, _>, target: string) -> (Result<int, string>) {
     return Err("not found")
 }
 
-func parseNumber(s: string) -> (Result<int, string>) {
+func parseNumber(s: &string) -> (Result<int, string>) {
     var result: Result<int, string> = s.parseInt()
     switch result {
         case Ok(n) {
             return Ok(n)
         }
-        case Err(e) {
-            return Err("Invalid number: " + s)
+        case Err(_) {
+            return Err("Invalid number")
         }
     }
     return Err("Failed to parse")
@@ -102,8 +102,8 @@ func main() -> (void) {
     }
     
     println("\n5. Result - Ok case:")
-    var names: Vec<string, 3> = Vec.from(["Alice", "Bob", "Charlie"])
-    var found: Result<int, string> = findIndex(names, "Bob")
+    var names: Vec<string, _> = Vec.from(["Alice", "Bob", "Charlie"])
+    var found: Result<int, string> = findIndex(&names, "Bob")
     switch found {
         case Ok(idx) {
             println("  'Bob' found at index:", idx)
@@ -114,7 +114,7 @@ func main() -> (void) {
     }
     
     println("\n6. Result - Err case:")
-    var notFound: Result<int, string> = findIndex(names, "David")
+    var notFound: Result<int, string> = findIndex(&names, "David")
     switch notFound {
         case Ok(idx) {
             println("  'David' found at index:", idx)
@@ -161,7 +161,7 @@ func main() -> (void) {
     }
     
     println("\n9. Chaining results:")
-    var parseResult: Result<int, string> = parseNumber("42")
+    var parseResult: Result<int, string> = parseNumber(&"42")
     switch parseResult {
         case Ok(n) {
             println("  Parsed '42':", n)
@@ -171,7 +171,7 @@ func main() -> (void) {
         }
     }
     
-    var badParse: Result<int, string> = parseNumber("abc")
+    var badParse: Result<int, string> = parseNumber(&"abc")
     switch badParse {
         case Ok(n) {
             println("  Parsed 'abc':", n)
@@ -182,10 +182,10 @@ func main() -> (void) {
     }
     
     println("\n10. Multiple error handling:")
-    var values: Vec<string, 4> = Vec.from(["10", "20", "bad", "40"])
+    var values: Vec<string, _> = Vec.from(["10", "20", "bad", "40"])
     print("  Parsing values: ")
     for v in values {
-        var parsed: Result<int, string> = parseNumber(v)
+        var parsed: Result<int, string> = parseNumber(&v)
         switch parsed {
             case Ok(n) {
                 print(n, " ")
@@ -196,6 +196,16 @@ func main() -> (void) {
         }
     }
     println()
+
+    println("\n11. safeSqrt:")
+    switch safeSqrt(9.0) {
+        case Ok(v) {
+            println("  sqrt(9):", v)
+        }
+        case Err(e) {
+            println("  sqrt error:", e)
+        }
+    }
     
     println("\n=== Error handling tests complete ===")
 }

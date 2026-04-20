@@ -1,6 +1,8 @@
 // Test file for os module
 package main
 
+import "std/os" as os
+
 func main() -> (void) {
     println("=== Testing os module ===")
     
@@ -48,10 +50,24 @@ func main() -> (void) {
         }
     }
     
-    // Test os.hasenv
+    // Test environment variable existence via getenv
     println("\n4. Check environment variable existence:")
-    println("PATH exists:", os.hasenv("PATH"))
-    println("NONEXISTENT exists:", os.hasenv("NONEXISTENT_VAR_12345"))
+    switch os.getenv("PATH") {
+        case Ok(_) {
+            println("PATH exists:", true)
+        }
+        case Err(_) {
+            println("PATH exists:", false)
+        }
+    }
+    switch os.getenv("NONEXISTENT_VAR_12345") {
+        case Ok(_) {
+            println("NONEXISTENT exists:", true)
+        }
+        case Err(_) {
+            println("NONEXISTENT exists:", false)
+        }
+    }
     
     // Test os.executable
     println("\n5. Executable path:")
@@ -67,11 +83,11 @@ func main() -> (void) {
     
     // Test os.exec
     println("\n6. Execute external command:")
-    var result: Result<ExecResult, string> = os.exec("echo", ["Hello from shell!"])
+    var result: Result<os.ExecResult, string> = os.exec("echo", Vec.from(["Hello from shell!"]))
     switch result {
         case Ok(output) {
-            println("Command output:", output.output)
-            println("Exit code:", output.exitCode)
+            println("Command output:", output.Output)
+            println("Exit code:", output.ExitCode)
         }
         case Err(e) {
             println("Error executing command:", e)
@@ -80,12 +96,12 @@ func main() -> (void) {
     
     // Test os.exec with ls
     println("\n7. List current directory:")
-    var lsResult: Result<ExecResult, string> = os.exec("ls", ["-la", "examples"])
+    var lsResult: Result<os.ExecResult, string> = os.exec("ls", Vec.from(["-la", "examples"]))
     switch lsResult {
         case Ok(output) {
-            println("Exit code:", output.exitCode)
+            println("Exit code:", output.ExitCode)
             println("Output:")
-            println(output.output)
+            println(output.Output)
         }
         case Err(e) {
             println("Error:", e)

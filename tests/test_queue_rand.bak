@@ -5,7 +5,7 @@ import "std/rand"
 
 func main() -> (void) {
     // Test queue
-    mut var q: queue.Queue<int> = queue.new_queue()
+    mut var q = queue.new_queue()
 
     q.push(1)
     q.push(2)

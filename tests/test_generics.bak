@@ -1,99 +1,52 @@
-// EXPERIMENTAL: uses user-defined generics outside frozen v0.1.
-// Test file for Generics support
+// Test file for frozen-mode generic primitives (Vec and Result)
 package main
 
-// Generic struct: Pair<T, U>
-struct Pair<T, U> {
-    first: T
-    second: U
-}
-
-// Generic function: identity
-func identity<T>(value: T) -> (T) {
-    return value
-}
-
-// Generic function: swap pair values
-func swapPair<A, B>(p: &Pair) -> (Pair) {
-    return Pair{first: p.second, second: p.first}
-}
-
-// Generic function: makePair
-func makePair<X, Y>(a: X, b: Y) -> (Pair) {
-    return Pair{first: a, second: b}
-}
-
-// Already working: Vec<T> and Result<T, E>
 func main() -> (void) {
-    println("=== Testing Generics ===")
-    
-    // Test generic struct instantiation
-    println("\n1. Generic Struct Pair<T, U>:")
-    var intPair: Pair<int, int> = Pair{first: 1, second: 2}
-    println("  intPair:", intPair)
-    println("  first:", intPair.first)
-    println("  second:", intPair.second)
-    
-    var mixedPair: Pair<string, int> = Pair{first: "hello", second: 42}
-    println("  mixedPair:", mixedPair)
-    println("  first:", mixedPair.first)
-    println("  second:", mixedPair.second)
-    
-    // Test generic function
-    println("\n2. Generic Function identity<T>:")
-    var intResult: int = identity(42)
-    println("  identity(42):", intResult)
-    
-    var strResult: string = identity("hello")
-    println("  identity('hello'):", strResult)
-    
-    var boolResult: bool = identity(true)
-    println("  identity(true):", boolResult)
-    
-    // Test makePair
-    println("\n3. Generic makePair<X, Y>:")
-    var created: Pair<string, int> = makePair("name", 100)
-    println("  makePair('name', 100):", created)
-    
-    // Test swapPair
-    println("\n4. Generic swapPair<A, B>:")
-    var original: Pair<string, int> = Pair{first: "key", second: 999}
-    println("  original first:", original.first)
-    var swapped: Pair<int, string> = swapPair(&original)
-    println("  swapped:", swapped)
-    
-    // Nested generic types
-    println("\n5. Nested Generics:")
-    var nestedPair: Pair<Pair<int, int>, string> = Pair{first: Pair{first: 1, second: 2}, second: "outer"}
-    println("  nested:", nestedPair)
-    println("  inner first:", nestedPair.first.first)
+    println("=== Testing Built-in Generics ===")
 
-    println("\n6. Borrowed generic field access:")
-    var borrowedPair: &Pair<int, int> = &intPair
-    println("  borrowed first:", borrowedPair.first)
-
-    println("\n7. Additional generic field access:")
-    var copiedPair: Pair<int, int> = Pair{first: 7, second: 8}
-    println("  copied first:", copiedPair.first)
-    
-    // Vec<T> - already works
-    println("\n8. Built-in Vec<T>:")
+    println("\n1. Vec<T> basics:")
     var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
-    println("  Vec<int>:", numbers)
-    
-    // Result<T, E> - already works  
-    println("\n9. Built-in Result<T, E>:")
-    var okResult: Result<int, string> = Ok(42)
-    var errResult: Result<int, string> = Err("something went wrong")
-    println("  Ok(42):", okResult)
-    println("  Err('...'):", errResult)
-    
-    // Additional Result<T, E> examples
-    println("\n10. Additional Result<T, E>:")
-    var alsoOk: Result<int, string> = Ok(100)
-    var alsoErr: Result<int, string> = Err("none")
-    println("  Ok(100):", alsoOk)
-    println("  Err('none'):", alsoErr)
-    
-    println("\n=== Generics tests complete ===")
+    println("  numbers:", numbers)
+    println("  len:", numbers.len())
+
+    println("\n2. Vec<T> push/pop:")
+    mut var words: Vec<string, _> = Vec.new()
+    words.push("bak")
+    words.push("lang")
+    println("  words:", words)
+    switch words.pop() {
+        case Ok(v) {
+            println("  pop:", v)
+        }
+        case Err(e) {
+            println("  pop error:", e)
+        }
+    }
+
+    println("\n3. Result<T, E> Ok/Err:")
+    var ok_result: Result<int, string> = Ok(42)
+    var err_result: Result<int, string> = Err("something went wrong")
+    println("  Ok(42):", ok_result)
+    println("  Err('...'):", err_result)
+
+    println("\n4. Result<T, E> pattern matching:")
+    switch ok_result {
+        case Ok(v) {
+            println("  ok value:", v)
+        }
+        case Err(e) {
+            println("  unexpected error:", e)
+        }
+    }
+
+    switch err_result {
+        case Ok(v) {
+            println("  unexpected value:", v)
+        }
+        case Err(e) {
+            println("  err value:", e)
+        }
+    }
+
+    println("\n=== Built-in generics tests complete ===")
 }

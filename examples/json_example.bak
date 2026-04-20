@@ -4,9 +4,9 @@ import "std/encoding/json" as json
 
 func main() -> (void) {
     var entries: Vec<json.JsonEntry, _> = Vec.from([
-        json.entry("name", json.Json.String("bak")),
-        json.entry("version", json.Json.Int(1)),
-        json.entry("ok", json.Json.Boolean(true)),
+        json.entry_string("name", "bak"),
+        json.entry_int("version", 1),
+        json.entry_bool("ok", true),
     ])
 
     var obj: json.Json = json.object(entries)
