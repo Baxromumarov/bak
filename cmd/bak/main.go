@@ -353,13 +353,14 @@ func runFile(filename string, scriptArgs []string, permissions runtimecap.Permis
 	}
 
 	result := run(string(data), env, filename)
+	if result == nil {
+		os.Exit(1)
+	}
 
-	if result != nil {
-		switch result.Type() {
-		case object.ERROR_OBJ, object.PANIC_OBJ:
-			fmt.Fprintf(os.Stderr, "%s\n", result.Inspect())
-			os.Exit(1)
-		}
+	switch result.Type() {
+	case object.ERROR_OBJ, object.PANIC_OBJ:
+		fmt.Fprintf(os.Stderr, "%s\n", result.Inspect())
+		os.Exit(1)
 	}
 }
 

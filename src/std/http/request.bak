@@ -19,7 +19,7 @@ pub struct Request {
 pub func parse_query(path: string) -> (Vec<QueryParam, _>) {
     mut var out: Vec<QueryParam, _> = Vec.new()
     var idx_opt = path.indexOf("?")
-    if idx_opt.is_none() {
+    if idx_opt.is_err() {
         return out
     }
     var start: int = idx_opt.unwrap() + 1

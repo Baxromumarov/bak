@@ -113,7 +113,7 @@ impl Router as r {
     pub func dispatch(mut req: Request) -> (Response) {
         mut var path: string = req.path
         var queryIdx = path.indexOf("?")
-        if queryIdx.is_some() {
+        if queryIdx.is_ok() {
             path = path.substring(
                 0,
                 queryIdx.unwrap(),

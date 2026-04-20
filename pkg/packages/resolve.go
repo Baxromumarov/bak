@@ -42,8 +42,20 @@ func ResolveImportPathFrom(importPath, fromPath string) string {
 	// 3. Resolution
 	cwd, _ := os.Getwd()
 	baseDir := importBaseDir(fromPath)
+	projectRoot := findProjectRoot(baseDir)
+	if projectRoot == "" {
+		projectRoot = findProjectRoot(cwd)
+	}
 
 	for _, path := range candidates {
+		// For repository-rooted imports like src/std/..., resolve from project root.
+		if projectRoot != "" {
+			candidate := filepath.Join(projectRoot, path)
+			if resolved := existingPath(candidate); resolved != "" {
+				return resolved
+			}
+		}
+
 		// Try relative to the importing file/directory first.
 		if baseDir != "" {
 			candidate := filepath.Join(baseDir, path)
@@ -150,4 +162,29 @@ func existingFilePath(path string) string {
 		return path
 	}
 	return abs
+}
+
+func findProjectRoot(start string) string {
+	start = strings.TrimSpace(start)
+	if start == "" {
+		return ""
+	}
+
+	current, err := filepath.Abs(start)
+	if err != nil {
+		current = start
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(current, "go.mod")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+
+	return ""
 }

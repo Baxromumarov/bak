@@ -3248,9 +3248,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		runes := []rune(str.Value)
 		if idx.Value < 0 || idx.Value >= int64(len(runes)) {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
 		}
-		return &object.Option{IsSome: true, Value: &object.Char{Value: runes[idx.Value]}}
+		return &object.Result{IsOk: true, Value: &object.Char{Value: runes[idx.Value]}}
 
 	// === Substrings ===
 	case "substring":
@@ -3317,9 +3317,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		idx := strings.Index(str.Value, substr.Value)
 		if idx == -1 {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
 		}
-		return &object.Option{IsSome: true, Value: &object.Integer{Value: int64(idx)}}
+		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(idx)}}
 	case "lastIndexOf":
 		if len(args) != 1 {
 			return newError("lastIndexOf: wrong number of arguments. got=%d, want=1", len(args))
@@ -3330,9 +3330,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		idx := strings.LastIndex(str.Value, substr.Value)
 		if idx == -1 {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
 		}
-		return &object.Option{IsSome: true, Value: &object.Integer{Value: int64(idx)}}
+		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(idx)}}
 	case "contains":
 		if len(args) != 1 {
 			return newError("contains: wrong number of arguments. got=%d, want=1", len(args))

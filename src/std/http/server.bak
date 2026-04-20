@@ -22,7 +22,7 @@ impl Server as self {
     pub func start() -> (Result<void, string>) {
         var addr: string = self.addr
         var portIdx = addr.lastIndexOf(":")
-        if portIdx.is_none() {
+        if portIdx.is_err() {
             return Err("invalid address: missing port")
         }
         var host: string = addr.substring(

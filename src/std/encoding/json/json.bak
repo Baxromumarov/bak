@@ -78,6 +78,7 @@ pub func get(obj: &Json, key: string) -> (Result<Json, string>) {
 }
 
 pub func get_string(obj: &Json, key: string) -> (Result<string, string>) {
+	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
             switch val {
@@ -90,10 +91,11 @@ pub func get_string(obj: &Json, key: string) -> (Result<string, string>) {
             return Err(err)
         }
     }
-    return Err("expected string at key: " + key)
+    return Err("expected string at key: " + key_copy)
 }
 
 pub func get_number(obj: &Json, key: string) -> (Result<float64, string>) {
+	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
             switch val {
@@ -105,11 +107,12 @@ pub func get_number(obj: &Json, key: string) -> (Result<float64, string>) {
             return Err(err)
         }
     }
-    return Err("expected number at key: " + key)
+    return Err("expected number at key: " + key_copy)
 }
 
 // get_int returns the integer value of a JSON Int field
 pub func get_int(obj: &Json, key: string) -> (Result<int, string>) {
+	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
             switch val {
@@ -120,11 +123,12 @@ pub func get_int(obj: &Json, key: string) -> (Result<int, string>) {
             return Err(err)
         }
     }
-    return Err("expected int at key: " + key)
+    return Err("expected int at key: " + key_copy)
 }
 
 // get_float returns the float value of a JSON Float field  
 pub func get_float(obj: &Json, key: string) -> (Result<float64, string>) {
+	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
             switch val {
@@ -135,10 +139,11 @@ pub func get_float(obj: &Json, key: string) -> (Result<float64, string>) {
             return Err(err)
         }
     }
-    return Err("expected float at key: " + key)
+    return Err("expected float at key: " + key_copy)
 }
 
 pub func get_bool(obj: &Json, key: string) -> (Result<bool, string>) {
+	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
             switch val {
@@ -151,7 +156,7 @@ pub func get_bool(obj: &Json, key: string) -> (Result<bool, string>) {
             return Err(err)
         }
     }
-    return Err("expected bool at key: " + key)
+    return Err("expected bool at key: " + key_copy)
 }
 
 pub func as_array(j: Json) -> (Result<Vec<Json, _>, string>) {

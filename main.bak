@@ -337,11 +337,14 @@ func get_required_bool(row: &db.Row, name: string) -> (Result<bool, string>) {
 
 func main() -> (void) {
 	tasks_db = connect_to_db()
-
-//1.
-    // defer{
-    //     tasks_db.conc.close()
-    // }
+	defer {
+		if tasks_db.ready {
+			var close_result = postgres.close(tasks_db.conn)
+			if close_result.is_err() {
+				println("Database close error: " + close_result.unwrap_err())
+			}
+		}
+	}
 
     mut var router: http.Router = http.new_router()
 	router.get("/health", health_handler)

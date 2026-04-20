@@ -1,7 +1,6 @@
 package typechecker
 
 import (
-	"log"
 	"path/filepath"
 	"strings"
 
@@ -100,14 +99,20 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
-			for _, err := range modErrors {
-				// Suppress printing diagnostics for compiler internal sources
-				if !isCompilerInternalImport(importPath) {
-					log.Printf("Error in module %s: %s\n", importPath, err)
+			for _, modErr := range modErrors {
+				if isCompilerInternalImport(importPath) {
+					continue
 				}
+				tc.addErrorWithHelp(
+					is.Token.Line,
+					is.Token.Column,
+					"fix errors in the imported module before running this program",
+					"error in module %s: %s",
+					importPath,
+					modErr,
+				)
 			}
-			// Propagate fatal error state to fail the build (optional, but good for strictness)
-			tc.hasFatalError = true
+			return
 		}
 
 		// Seed the package-level used map with what the module checker already considered used
