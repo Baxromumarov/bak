@@ -88,12 +88,12 @@ func main() -> (void) {
     println("  Ok(42):", okResult)
     println("  Err('...'):", errResult)
     
-    // Option<T> - already works
-    println("\n10. Built-in Option<T>:")
-    var someVal: Option<int> = Some(100)
-    var noneVal: Option<int> = None
-    println("  Some(100):", someVal)
-    println("  None:", noneVal)
+    // Additional Result<T, E> examples
+    println("\n10. Additional Result<T, E>:")
+    var alsoOk: Result<int, string> = Ok(100)
+    var alsoErr: Result<int, string> = Err("none")
+    println("  Ok(100):", alsoOk)
+    println("  Err('none'):", alsoErr)
     
     println("\n=== Generics tests complete ===")
 }

@@ -23,14 +23,14 @@ pub func close(conn: postgres.Connection) -> (Result<void, string>) {
     return postgres.close(conn)
 }
 
-pub func row_get(row: &Row, name: string) -> (Option<string>) {
+pub func row_get(row: &Row, name: string) -> (Result<string, string>) {
     return postgres.row_get(
         row,
         name,
     )
 }
 
-pub func row_get_index(row: &Row, idx: int) -> (Option<string>) {
+pub func row_get_index(row: &Row, idx: int) -> (Result<string, string>) {
     return postgres.row_get_index(
         row,
         idx,
@@ -791,13 +791,13 @@ impl InsertReturningInt as b {
                             return Err("no rows returned")
                         }
 
-                        var ret_opt: Option<string> = postgres.row_get_index(
+                        var ret_result: Result<string, string> = postgres.row_get_index(
                             &rows[0],
                             0,
                         )
 
-                        switch ret_opt {
-                            case Some(ret_val) {
+                        switch ret_result {
+                            case Ok(ret_val) {
                                 switch strconv.parseInt(
                                     &ret_val,
                                     10,
@@ -810,8 +810,8 @@ impl InsertReturningInt as b {
                                     }
                                 }
                             }
-                            case None {
-                                return Err("missing returning column")
+                            case Err(err) {
+                                return Err(err)
                             }
                         }
                     }

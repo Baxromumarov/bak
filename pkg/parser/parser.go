@@ -257,8 +257,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FUNC, p.parseFunctionLiteral)
 	p.registerPrefix(token.OK, p.parseEnumVariantExpression)
 	p.registerPrefix(token.ERR, p.parseEnumVariantExpression)
-	p.registerPrefix(token.SOME, p.parseEnumVariantExpression)
-	p.registerPrefix(token.NONE, p.parseEnumVariantExpression)
 	p.registerPrefix(token.BOX, p.parseBoxExpression)
 	p.registerPrefix(token.UNDERSCORE, p.parseWildcardExpression)
 	p.registerPrefix(token.VEC, p.parseTypeIdentifier)

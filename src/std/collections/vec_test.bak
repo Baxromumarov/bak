@@ -48,16 +48,16 @@ func test_push_pop() -> (void) {
     t.eq(v.get(0).unwrap(), 10)
     t.eq(v.get(1).unwrap(), 20)
     
-    var p1: Option<int> = v.pop()
+    var p1: Result<int, string> = v.pop()
     t.eq(p1.unwrap(), 20)
     t.eq(v.len(), 1)
     
-    var p2: Option<int> = v.pop()
+    var p2: Result<int, string> = v.pop()
     t.eq(p2.unwrap(), 10)
     t.eq(v.len(), 0)
     
-    var p3: Option<int> = v.pop()
-    t.is_true(p3.is_none())
+    var p3: Result<int, string> = v.pop()
+    t.is_true(p3.is_err())
     t.finish()
 }
 
@@ -86,15 +86,15 @@ func test_remove() -> (void) {
     v.push(30)
     
     // Remove middle element
-    var removed: Option<int> = v.remove(1)
+    var removed: Result<int, string> = v.remove(1)
     t.eq(removed.unwrap(), 20)
     t.eq(v.len(), 2)
     t.eq(v.get(0).unwrap(), 10)
     t.eq(v.get(1).unwrap(), 30)
     
     // Remove out of bounds
-    var invalid: Option<int> = v.remove(5)
-    t.is_true(invalid.is_none())
+    var invalid: Result<int, string> = v.remove(5)
+    t.is_true(invalid.is_err())
     t.finish()
 }
 
@@ -139,8 +139,8 @@ func test_accessors() -> (void) {
     t.is_false(v.contains(300))
     
     mut var empty: Vec<int, _> = Vec.new()
-    t.is_true(empty.first().is_none())
-    t.is_true(empty.last().is_none())
+    t.is_true(empty.first().is_err())
+    t.is_true(empty.last().is_err())
     t.finish()
 }
 
@@ -160,34 +160,34 @@ func main() -> (void) {
     mut var results: Vec<test.TestResult, _> = Vec.new()
     
     test_new()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_with_cap()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_from()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_push_pop()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_grow()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_remove()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_clear()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_reverse()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_accessors()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test_join()
-    switch test.take_last_result() { case Some(r) { results.push(r) } case None {} }
+    switch test.take_last_result() { case Ok(r) { results.push(r) } case Err(_) {} }
     
     test.run_tests(results)
 }

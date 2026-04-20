@@ -17,9 +17,9 @@ impl Queue as q {
         q.items.push(value)
     }
 
-    pub mut func pop() -> (Option<T>) {
+    pub mut func pop() -> (Result<T, string>) {
         if q.head >= q.items.len() {
-            return None
+            return Err("queue is empty")
         }
 
         var val: T = q.items[q.head]
@@ -31,15 +31,15 @@ impl Queue as q {
             q.compact()
         }
 
-        return Some(val)
+        return Ok(val)
     }
 
-    pub func peek() -> (Option<T>) {
+    pub func peek() -> (Result<T, string>) {
         if q.head >= q.items.len() {
-            return None
+            return Err("queue is empty")
         }
 
-        return Some(q.items[q.head])
+        return Ok(q.items[q.head])
     }
 
     pub func len() -> (int) {

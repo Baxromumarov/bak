@@ -19,23 +19,23 @@ func use_result_err() -> (Result<int, string>) {
     return Ok(val + 1)
 }
 
-// --- Option tests ---
+// --- Additional Result tests ---
 
-func find_value(present: bool) -> (Option<int>) {
+func find_value(present: bool) -> (Result<int, string>) {
     if present {
-        return Some(100)
+        return Ok(100)
     }
-    return None
+    return Err("missing value")
 }
 
-func use_option_some() -> (Option<int>) {
+func use_option_some() -> (Result<int, string>) {
     var val: int = find_value(true)?
-    return Some(val + 1)
+    return Ok(val + 1)
 }
 
-func use_option_none() -> (Option<int>) {
+func use_option_none() -> (Result<int, string>) {
     var val: int = find_value(false)?
-    return Some(val + 1)
+    return Ok(val + 1)
 }
 
 func main() -> (void) {
@@ -65,27 +65,29 @@ func main() -> (void) {
         }
     }
 
-    println("=== Option ? operator ===")
+    println("=== Result ? operator (additional) ===")
 
-    // Some path: should unwrap and return Some(101)
+    // Ok path: should unwrap and return Ok(101)
     switch use_option_some() {
-        case Some(v) {
-            println("some:")
+        case Ok(v) {
+            println("ok:")
             println(v)
         }
-        case None {
-            println("none")
+        case Err(e) {
+            println("err:")
+            println(e)
         }
     }
 
-    // None path: should propagate None
+    // Err path: should propagate Err
     switch use_option_none() {
-        case Some(v) {
-            println("some:")
+        case Ok(v) {
+            println("ok:")
             println(v)
         }
-        case None {
-            println("none")
+        case Err(e) {
+            println("err:")
+            println(e)
         }
     }
 

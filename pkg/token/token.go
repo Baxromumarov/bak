@@ -130,8 +130,6 @@ const (
 	RESULT TokenType = "RESULT"
 	OK     TokenType = "OK"
 	ERR    TokenType = "ERR"
-	SOME   TokenType = "SOME"
-	NONE   TokenType = "NONE"
 
 	// Borrow operators
 	AMPERSAND  TokenType = "&" // Also used for borrowing

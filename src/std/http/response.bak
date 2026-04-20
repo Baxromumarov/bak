@@ -43,7 +43,7 @@ pub func set_header(
 pub func get_response_header(
     resp: &Response,
     name: string,
-) -> (Option<string>) {
+) -> (Result<string, string>) {
     return header_value(
         &resp.headers,
         name,

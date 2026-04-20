@@ -139,8 +139,7 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 		return true
 	}
 
-	if (strings.HasPrefix(expectedStr, "Result<") && strings.HasPrefix(actualStr, "Result<")) ||
-		(strings.HasPrefix(expectedStr, "Option<") && strings.HasPrefix(actualStr, "Option<")) {
+	if strings.HasPrefix(expectedStr, "Result<") && strings.HasPrefix(actualStr, "Result<") {
 		if eg, ok := expected.(*ast.GenericType); ok {
 			if ag, ok := actual.(*ast.GenericType); ok {
 				if len(eg.TypeParams) == len(ag.TypeParams) {
@@ -216,11 +215,6 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 	case *ast.BoxOptionalType:
 		if act, ok := actual.(*ast.BoxOptionalType); ok {
 			return tc.typesMatch(exp.Inner, act.Inner)
-		}
-		if actGen, ok := actual.(*ast.GenericType); ok && actGen.Name == "Option" && len(actGen.TypeParams) == 1 {
-			if bt, ok2 := actGen.TypeParams[0].(*ast.BoxType); ok2 {
-				return tc.typesMatch(exp.Inner, bt.Inner)
-			}
 		}
 	case *ast.TupleType:
 		if act, ok := actual.(*ast.TupleType); ok {
@@ -448,19 +442,6 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 		}
 	}
 
-	if bo, ok := expected.(*ast.BoxOptionalType); ok {
-		if ev, ok := expr.(*ast.EnumVariantExpression); ok {
-			variant := ev.Variant.Value
-			if (variant == "Some") && len(ev.Values) == 1 {
-				payloadExpected := &ast.BoxType{Inner: bo.Inner}
-				payloadActual := tc.inferType(ev.Values[0])
-				return tc.fitsInTypeWithActual(payloadExpected, payloadActual, ev.Values[0])
-			} else if variant == "None" && len(ev.Values) == 0 {
-				return true
-			}
-		}
-	}
-
 	if expGen, ok := expected.(*ast.GenericType); ok && expGen.Name == "Vec" {
 		if mc, ok := expr.(*ast.MethodCallExpression); ok {
 			if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
@@ -470,12 +451,12 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 		}
 	}
 
-	if expGen, ok := expected.(*ast.GenericType); ok && (expGen.Name == "Result" || expGen.Name == "Option") {
+	if expGen, ok := expected.(*ast.GenericType); ok && expGen.Name == "Result" {
 		if ev, ok := expr.(*ast.EnumVariantExpression); ok {
 			variant := ev.Variant.Value
-			if (variant == "Ok" || variant == "Err" || variant == "Some") && len(ev.Values) == 1 {
+			if (variant == "Ok" || variant == "Err") && len(ev.Values) == 1 {
 				var targetParam ast.TypeExpression
-				if variant == "Some" || variant == "Ok" {
+				if variant == "Ok" {
 					targetParam = expGen.TypeParams[0]
 				} else if variant == "Err" && len(expGen.TypeParams) > 1 {
 					targetParam = expGen.TypeParams[1]
@@ -483,8 +464,6 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 				if targetParam != nil {
 					return tc.fitsInType(targetParam, ev.Values[0])
 				}
-			} else if variant == "None" && len(ev.Values) == 0 {
-				return true
 			}
 		}
 	}
@@ -572,12 +551,6 @@ func (tc *TypeChecker) suggestTypeName(name string) string {
 }
 
 func (tc *TypeChecker) suggestTypeFix(expected, got string) string {
-	if strings.HasPrefix(expected, "Option<") && !strings.HasPrefix(got, "Option<") {
-		return "wrap with Some(...) to convert to Option"
-	}
-	if !strings.HasPrefix(expected, "Option<") && strings.HasPrefix(got, "Option<") {
-		return "use .unwrap() or a switch statement to extract the value"
-	}
 	if strings.HasPrefix(expected, "Result<") && !strings.HasPrefix(got, "Result<") {
 		return "wrap with Ok(...) or Err(...) to convert to Result"
 	}
@@ -1000,36 +973,6 @@ func getStmtToken(s ast.Statement) token.Token {
 		return stmt.Token
 	default:
 		return token.Token{}
-	}
-}
-
-func (tc *TypeChecker) checkOptionMethodCall(mc *ast.MethodCallExpression, optType *ast.GenericType) ast.TypeExpression {
-	method := mc.Method.Value
-	if len(optType.TypeParams) < 1 {
-		return nil
-	}
-	innerType := optType.TypeParams[0]
-
-	switch method {
-	case "is_some", "is_none":
-		return &ast.SimpleType{Name: "bool"}
-	case "unwrap":
-		return innerType
-	case "unwrapOr":
-		if len(mc.Arguments) == 1 {
-			argType := tc.inferType(mc.Arguments[0])
-			if !tc.typesMatch(innerType, argType) {
-				tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
-					typeToString(innerType), typeToString(argType), "argument to unwrapOr",
-					mc.Arguments[0])
-			}
-		}
-		return innerType
-	case "to_string", "toString":
-		return &ast.SimpleType{Name: "string"}
-	default:
-		tc.errorUndefinedMethod("Option", method, mc.Token.Line, mc.Token.Column, optionMethodCandidates)
-		return nil
 	}
 }
 

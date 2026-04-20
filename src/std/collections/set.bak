@@ -18,8 +18,8 @@ impl Set as s {
 
     pub mut func remove(value: T) -> (bool) {
         switch s.map.remove(&value) {
-            case Some(_) { return true }
-            case None { return false }
+            case Ok(_) { return true }
+            case Err(_) { return false }
         }
     }
 

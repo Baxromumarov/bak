@@ -532,7 +532,7 @@ func main() -> (void) {
 	var result = Some(42)
 	println(result)
 }
-`, "Option<T> is not supported")
+`, "undefined: Some")
 }
 
 func TestCheck_ValidResultType(t *testing.T) {

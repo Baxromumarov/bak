@@ -134,19 +134,19 @@ impl Reader as r {
     }
     
     // read_byte reads a single byte/character
-    pub mut func read_byte() -> (Option<char>) {
+    pub mut func read_byte() -> (Result<char, string>) {
         if r.pos >= r.len {
-            return None
+            return Err("eof")
         }
         var ch: char = r.data[r.pos]
         r.pos = r.pos + 1
-        return Some(ch)
+        return Ok(ch)
     }
     
     // read_line reads until newline or end of data
-    pub mut func read_line() -> (Option<string>) {
+    pub mut func read_line() -> (Result<string, string>) {
         if r.pos >= r.len {
-            return None
+            return Err("eof")
         }
         
         mut var end: int = r.pos
@@ -159,7 +159,7 @@ impl Reader as r {
         if r.pos < r.len && r.data[r.pos] == char('\n') {
             r.pos = r.pos + 1
         }
-        return Some(line)
+        return Ok(line)
     }
     
     // read_all reads all remaining data
@@ -173,11 +173,11 @@ impl Reader as r {
     }
     
     // peek returns the next character without consuming it
-    pub func peek() -> (Option<char>) {
+    pub func peek() -> (Result<char, string>) {
         if r.pos >= r.len {
-            return None
+            return Err("eof")
         }
-        return Some(r.data[r.pos])
+        return Ok(r.data[r.pos])
     }
     
     // skip advances the position by count characters
@@ -372,8 +372,8 @@ pub func lines(data: string) -> (Lines) {
 }
 
 impl Lines as l {
-    // next returns the next line or None if at end
-    pub mut func next() -> (Option<string>) {
+    // next returns the next line or Err if at end
+    pub mut func next() -> (Result<string, string>) {
         return l.reader.read_line()
     }
     
@@ -387,10 +387,10 @@ impl Lines as l {
         mut var result: Vec<string, _> = Vec.new()
         while !l.reader.is_eof() {
             switch l.reader.read_line() {
-                case Some(line) {
+                case Ok(line) {
                     result.push(line)
                 }
-                case None {}
+                case Err(_) {}
             }
         }
         return result

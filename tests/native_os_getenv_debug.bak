@@ -5,7 +5,7 @@ import "std/os"
 func main() -> (void) {
     println("Before os.getenv call")
 
-    var result: Option<string> = os.getenv("TEST")
+    var result: Result<string, string> = os.getenv("TEST")
 
     println("After os.getenv call")
 }

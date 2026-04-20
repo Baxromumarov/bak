@@ -79,34 +79,34 @@ impl Any as a {
     pub func is_array() -> (bool) {
         return a.kind == AnyKind.Array
     }
-    pub func as_int() -> (Option<int>) {
+    pub func as_int() -> (Result<int, string>) {
         // Safe extraction.
         if a.kind == AnyKind.Int {
-            return Some(a.int_val)
+            return Ok(a.int_val)
         }
-        return None
+        return Err("value is not int")
     }
-    pub func as_string() -> (Option<string>) {
+    pub func as_string() -> (Result<string, string>) {
         if a.kind == AnyKind.String {
-            return Some(a.string_val)
+            return Ok(a.string_val)
         }
-        return None
+        return Err("value is not string")
     }
-    pub func as_bool() -> (Option<bool>) {
+    pub func as_bool() -> (Result<bool, string>) {
         if a.kind == AnyKind.Bool {
-            return Some(a.bool_val)
+            return Ok(a.bool_val)
         }
-        return None
+        return Err("value is not bool")
     }
-    pub func as_float() -> (Option<float64>) {
+    pub func as_float() -> (Result<float64, string>) {
         if a.kind == AnyKind.Float {
-            return Some(a.float_val)
+            return Ok(a.float_val)
         }
-        return None
+        return Err("value is not float64")
     }
-    pub func as_box<T>() -> (Option<T box>) {
+    pub func as_box<T>() -> (Result<T box, string>) {
         // as_box is reserved for future typed extraction of boxed values.
-        return None
+        return Err("value is not box")
     }
     pub func as_array() -> (Vec<Any, _>) {
         if a.kind == AnyKind.Array {

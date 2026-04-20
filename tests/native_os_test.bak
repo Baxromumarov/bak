@@ -22,47 +22,47 @@ func main() -> (void) {
     }
 
     // Test os.getenv  
-    var home: Option<string> = os.getenv("HOME")
+    var home: Result<string, string> = os.getenv("HOME")
 
     switch home {
-        case Some(h) {
+        case Ok(h) {
             println(
                 "HOME:",
                 h,
             )
         }
-        case None {
+        case Err(_e) {
             println("HOME not set")
         }
     }
 
-    var path: Option<string> = os.getenv("PATH")
+    var path: Result<string, string> = os.getenv("PATH")
 
     switch path {
-        case Some(p) {
+        case Ok(p) {
             println(
                 "PATH exists (length",
                 len(p),
                 ")",
             )
         }
-        case None {
+        case Err(_e) {
             println("PATH not set")
         }
     }
 
     // Test non-existent env var
-    var nonexistent: Option<string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
+    var nonexistent: Result<string, string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
 
     switch nonexistent {
-        case Some(v) {
+        case Ok(v) {
             println(
                 "ERROR: Found non-existent var:",
                 v,
             )
         }
-        case None {
-            println("Non-existent var correctly returns None")
+        case Err(_) {
+            println("Non-existent var correctly returns Err")
         }
     }
 

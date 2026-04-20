@@ -235,7 +235,7 @@ impl HashMap as m {
         return void
     }
     
-    pub func get(key: &K) -> (Option<V>) {
+    pub func get(key: &K) -> (Result<V, string>) {
         var hash: int = hash_dispatch(key)
         var mask: int = m.cap - 1
         mut var idx: int = hash & mask
@@ -244,28 +244,28 @@ impl HashMap as m {
         while true {
             var c: int8 = m.ctrl[idx]
             if c == HASH_CTRL_EMPTY {
-                return None
+                return Err("key not found")
             }
             
             if c == h2_hash {
                  if m.buckets[idx].filled && m.buckets[idx].key == *key {
-                     return Some(m.buckets[idx].value)
+                     return Ok(m.buckets[idx].value)
                  }
             }
             
             idx = (idx + 1) & mask
         }
-        return None
+        return Err("key not found")
     }
     
     pub func contains(key: &K) -> (bool) {
         switch m.get(key) {
-            case Some(_) { return true }
-            case None { return false }
+            case Ok(_) { return true }
+            case Err(_) { return false }
         }
     }
     
-    pub mut func remove(key: &K) -> (Option<V>) {
+    pub mut func remove(key: &K) -> (Result<V, string>) {
         var hash: int = hash_dispatch(key)
         var mask: int = m.cap - 1
         mut var idx: int = hash & mask
@@ -274,7 +274,7 @@ impl HashMap as m {
         while true {
             var c: int8 = m.ctrl[idx]
             if c == HASH_CTRL_EMPTY {
-                return None
+                return Err("key not found")
             }
             
             if c == h2_hash {
@@ -288,13 +288,13 @@ impl HashMap as m {
                      m.ctrl[idx] = HASH_CTRL_DELETED
                      m.buckets[idx].filled = false
                      m.len = m.len - 1
-                     return Some(val)
+                     return Ok(val)
                  }
             }
             
             idx = (idx + 1) & mask
         }
-        return None
+        return Err("key not found")
     }
     
     mut func grow() -> (void) {

@@ -1259,41 +1259,15 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 		// For each value in the case
 		caseJumps := []int{}
 		var boundVar string
-		var isSomePattern bool
-		var isNonePattern bool
 		var isUserEnumPattern bool
 		var isOkPattern bool
 		var isErrPattern bool
 
 	caseValueLoop:
 		for _, caseValue := range switchCase.Values {
-			// Check for Option pattern matching: Some(x) or None
-			// Handle EnumVariantExpression (how the parser parses Some(x))
+			// Handle Result variant patterns.
 			if ev, ok := caseValue.(*ast.EnumVariantExpression); ok {
-				if ev.Variant.Value == "Some" && len(ev.Values) == 1 {
-					if name, ok := patternBindingName(ev.Values[0]); ok {
-						isSomePattern = true
-						boundVar = name
-						// Check if switch value is Some
-						c.emit(OP_GET_LOCAL)
-						c.emitByte(byte(switchSlot))
-						c.emit(OP_BUILTIN)
-						c.emitByte(byte(BUILTIN_IS_SOME))
-						c.emitByte(1) // argc
-						caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-						continue caseValueLoop
-					}
-				} else if ev.Variant.Value == "None" && len(ev.Values) == 0 {
-					isNonePattern = true
-					// Check if switch value is None
-					c.emit(OP_GET_LOCAL)
-					c.emitByte(byte(switchSlot))
-					c.emit(OP_BUILTIN)
-					c.emitByte(byte(BUILTIN_IS_NONE))
-					c.emitByte(1) // argc
-					caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-					continue caseValueLoop
-				} else if ev.Variant.Value == "Ok" && len(ev.Values) == 1 {
+				if ev.Variant.Value == "Ok" && len(ev.Values) == 1 {
 					if name, ok := patternBindingName(ev.Values[0]); ok {
 						isOkPattern = true
 						boundVar = name
@@ -1323,20 +1297,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			// Also check for CallExpression (alternative parsing)
 			if call, ok := caseValue.(*ast.CallExpression); ok {
 				if ident, ok := call.Function.(*ast.Identifier); ok {
-					if ident.Value == "Some" && len(call.Arguments) == 1 {
-						if name, ok := patternBindingName(call.Arguments[0]); ok {
-							isSomePattern = true
-							boundVar = name
-							// Check if switch value is Some
-							c.emit(OP_GET_LOCAL)
-							c.emitByte(byte(switchSlot))
-							c.emit(OP_BUILTIN)
-							c.emitByte(byte(BUILTIN_IS_SOME))
-							c.emitByte(1) // argc
-							caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-							continue caseValueLoop
-						}
-					} else if ident.Value == "Ok" && len(call.Arguments) == 1 {
+					if ident.Value == "Ok" && len(call.Arguments) == 1 {
 						if name, ok := patternBindingName(call.Arguments[0]); ok {
 							isOkPattern = true
 							boundVar = name
@@ -1362,19 +1323,6 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 						}
 					}
 				}
-			}
-
-			// Check for identifier "None"
-			if ident, ok := caseValue.(*ast.Identifier); ok && ident.Value == "None" {
-				// Pattern: case None
-				isNonePattern = true
-				c.emit(OP_GET_LOCAL)
-				c.emitByte(byte(switchSlot))
-				c.emit(OP_BUILTIN)
-				c.emitByte(byte(BUILTIN_IS_NONE))
-				c.emitByte(1) // argc
-				caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-				continue caseValueLoop
 			}
 
 			// Check for user-defined enum variant patterns as CallExpression, e.g., Object(entries)
@@ -1405,8 +1353,6 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 									// Store bindings for later extraction
 									boundVar = bindings[0] // For now, support single binding
 									isUserEnumPattern = true
-									isSomePattern = false
-									isNonePattern = false
 									continue caseValueLoop
 								}
 							}
@@ -1433,18 +1379,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			c.patchJump(j)
 		}
 
-		// For Some(x) pattern, extract and bind the inner value
-		if isSomePattern && boundVar != "" {
-			c.beginScope()
-			// Duplicate switch value and unwrap
-			c.emit(OP_GET_LOCAL)
-			c.emitByte(byte(switchSlot))
-			c.emit(OP_BUILTIN)
-			c.emitByte(byte(BUILTIN_UNWRAP))
-			c.emitByte(1) // argc
-			// Store in local variable
-			c.addLocal(boundVar)
-		} else if isOkPattern && boundVar != "" {
+		if isOkPattern && boundVar != "" {
 			c.beginScope()
 			c.emit(OP_GET_LOCAL)
 			c.emitByte(byte(switchSlot))
@@ -1469,8 +1404,6 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			c.emit(OP_GET_PAYLOAD)
 			// Store in local variable
 			c.addLocal(boundVar)
-		} else if isNonePattern {
-			c.beginScope()
 		} else {
 			c.beginScope()
 		}
@@ -2536,7 +2469,7 @@ func (c *Compiler) compileDefaultValueWithSeen(typeExpr ast.TypeExpression, seen
 	case *ast.BoxType:
 		return c.compileDefaultBox()
 	case *ast.BoxOptionalType:
-		c.emit(OP_NEW_OPTION_NONE)
+		c.emit(OP_NIL)
 		return nil
 	case *ast.BorrowType:
 		c.emit(OP_NIL)
@@ -2587,7 +2520,7 @@ func (c *Compiler) compileDefaultGenericType(te *ast.GenericType, seen map[strin
 	case "Vec":
 		return c.compileDefaultVec(te, seen)
 	case "Option":
-		c.emit(OP_NEW_OPTION_NONE)
+		c.emit(OP_NIL)
 		return nil
 	case "Result":
 		c.emit(OP_NIL)
@@ -2652,7 +2585,7 @@ func (c *Compiler) compileDefaultStruct(def *StructDef, seen map[string]bool) er
 }
 
 func (c *Compiler) compileDefaultBox() error {
-	c.emit(OP_NEW_OPTION_NONE)
+	c.emit(OP_NIL)
 	c.emit(OP_BUILTIN)
 	c.emitByte(byte(BUILTIN_BOX))
 	c.emitByte(1)
@@ -2787,27 +2720,6 @@ func (c *Compiler) compileEnumVariantExpression(ev *ast.EnumVariantExpression) e
 		}
 		// Use special opcode for Result creation
 		c.emit(OP_NEW_RESULT_ERR)
-		return nil
-	}
-
-	if variantName == "Some" {
-		if len(ev.Values) != 1 {
-			return fmt.Errorf("Some() expects exactly 1 value, got %d", len(ev.Values))
-		}
-		// Compile the inner value
-		if err := c.compileExpression(ev.Values[0]); err != nil {
-			return err
-		}
-		// Use special opcode for Option creation
-		c.emit(OP_NEW_OPTION_SOME)
-		return nil
-	}
-
-	if variantName == "None" {
-		if len(ev.Values) != 0 {
-			return fmt.Errorf("None takes no arguments, got %d", len(ev.Values))
-		}
-		c.emit(OP_NEW_OPTION_NONE)
 		return nil
 	}
 

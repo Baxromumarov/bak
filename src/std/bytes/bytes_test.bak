@@ -15,8 +15,8 @@ func test_get_first_byte() -> (void) {
     mut var t: test.T = test.new("test_get_first_byte")
     var bb: types.Bytes = bytes.from_string("hello")
     switch bytes.get(&bb, 0) {
-        case Some(v) { t.eq(v, int('h')) }
-        case None { t.fail("expected Some for index 0") }
+        case Ok(v) { t.eq(v, int('h')) }
+        case Err(_) { t.fail("expected Ok for index 0") }
     }
     t.finish()
 }

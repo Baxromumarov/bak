@@ -1340,17 +1340,6 @@ func (tc *TypeChecker) resolveSwitchEnumDef(switchType ast.TypeExpression) *Enum
 
 	switchType = tc.resolveType(switchType)
 
-	if bot, ok := switchType.(*ast.BoxOptionalType); ok {
-		return &EnumDef{
-			Variants: map[string]EnumVariantDef{
-				"Some": {HasPayload: true, Fields: []ast.TypeExpression{
-					&ast.BoxType{Inner: bot.Inner},
-				}},
-				"None": {HasPayload: false},
-			},
-		}
-	}
-
 	if st, ok := switchType.(*ast.SimpleType); ok {
 		enumDef, _ := tc.lookupQualifiedEnum(st.Name)
 		return enumDef
@@ -1822,14 +1811,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 			return &ast.ErrorType{Message: "capture violation"}
 		}
 
-		if e.Value == "None" {
-			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
-			inferred = &ast.ErrorType{Message: "option is not supported"}
-			tc.nodeTypes[e] = typeToString(inferred)
-			return inferred
-		}
-
-		// Check if it's a unit enum variant (e.g., Null, None)
+		// Check if it's a unit enum variant (e.g., Null)
 		if enumName, _, variant := tc.findEnumByVariant(e.Value); enumName != "" {
 			if variant.HasPayload {
 				tc.addError(e.Token.Line, e.Token.Column, "enum variant '%s' requires arguments", e.Value)
@@ -2191,12 +2173,6 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 					argType,
 				},
 			}
-		case "Some":
-			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
-			return &ast.ErrorType{Message: "option is not supported"}
-		case "None":
-			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
-			return &ast.ErrorType{Message: "option is not supported"}
 		default:
 			// For other enum variants, return nil (we can't infer type without context)
 			return nil
@@ -2643,10 +2619,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		tc.env.MarkUsed(o.Value)
 	}
 
-	// Special-case: Option / BoxOptional field access. Property-style access
-	// of `is_some`/`is_none` should be disallowed — prefer calling the
-	// method form `is_some()`/`is_none()` instead. However, `.value` is a
-	// valid field returning the payload.
+	// Special-case: BoxOptional field access.
 	switch ob := objType.(type) {
 	case *ast.BoxOptionalType:
 		if fa.Field.Value == "is_some" || fa.Field.Value == "is_none" {
@@ -2655,11 +2628,6 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		}
 		if fa.Field.Value == "value" {
 			return &ast.BoxType{Token: fa.Token, Inner: ob.Inner}
-		}
-	case *ast.GenericType:
-		if ob.Name == "Option" && len(ob.TypeParams) == 1 {
-			tc.rejectOptionUsage(fa.Token.Line, fa.Token.Column)
-			return &ast.ErrorType{Message: "option is not supported"}
 		}
 	}
 
@@ -3568,13 +3536,6 @@ var vecMethodCandidates = []string{
 	"from",
 }
 
-var optionMethodCandidates = []string{
-	"is_some",
-	"is_none",
-	"unwrap",
-	"unwrapOr",
-}
-
 var primitiveMethodCandidates = []string{
 	"toString",
 	"to_string",
@@ -3602,14 +3563,6 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 		// Explicitly mark function as used (LookupFunction also does this but let's ensure it)
 		if sig != nil {
 			tc.env.MarkUsed(funcName)
-		}
-
-		if funcName == "Some" || funcName == "None" {
-			tc.rejectOptionUsage(ce.Token.Line, ce.Token.Column)
-			for _, arg := range ce.Arguments {
-				tc.inferType(arg)
-			}
-			return &ast.ErrorType{Message: "option is not supported"}
 		}
 
 		// If no function found, check if it's an enum variant constructor

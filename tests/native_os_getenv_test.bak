@@ -5,9 +5,9 @@ import "std/os"
 func main() -> (void) {
     println("Testing os.getenv...")
 
-    var home: Option<string> = os.getenv("HOME")
+    var home: Result<string, string> = os.getenv("HOME")
 
-    if home.is_some() {
+    if home.is_ok() {
         var h: string = home.unwrap()
 
         println(
@@ -18,18 +18,18 @@ func main() -> (void) {
         println("HOME not set")
     }
 
-    var path: Option<string> = os.getenv("PATH")
+    var path: Result<string, string> = os.getenv("PATH")
 
-    if path.is_some() {
+    if path.is_ok() {
         println("PATH is set")
     } else {
         println("PATH not set")
     }
 
-    var nonexistent: Option<string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
+    var nonexistent: Result<string, string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
 
-    if nonexistent.is_none() {
-        println("PASS: Non-existent var returns None")
+    if nonexistent.is_err() {
+        println("PASS: Non-existent var returns Err")
     } else {
         println("FAIL: Found non-existent var")
     }

@@ -109,7 +109,7 @@ func decode_user(row: &postgres.Row) -> (Result<user, string>) {
         row,
         "id",
     ) {
-        case Some(id_str) {
+        case Ok(id_str) {
             var id_res = strconv.parseInt(
                 &id_str,
                 10,
@@ -123,16 +123,16 @@ func decode_user(row: &postgres.Row) -> (Result<user, string>) {
                 row,
                 "name",
             ) {
-                case Some(name) {
+                case Ok(name) {
                     return Ok(user{id: id_res.unwrap(), name: name})
                 }
-                case None {
-                    return Err("missing name")
+                case Err(err) {
+                    return Err(err)
                 }
             }
         }
-        case None {
-            return Err("missing id")
+        case Err(err) {
+            return Err(err)
         }
     }
 }

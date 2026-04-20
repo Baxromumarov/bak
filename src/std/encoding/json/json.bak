@@ -61,82 +61,97 @@ pub func is_null(j: Json) -> (bool) {
     return false
 }
 
-pub func get(obj: &Json, key: string) -> (Option<Json>) {
+pub func get(obj: &Json, key: string) -> (Result<Json, string>) {
     switch *obj {
         case Object(entries) {
             mut var i: int = 0
             while i < entries.len() {
                 if (entries[i]).key == key {
-                    return Some((entries[i]).value)
+                    return Ok((entries[i]).value)
                 }
                 i = i + 1
             }
-            return None
+            return Err("key not found: " + key)
         }
     }
-    return None
+    return Err("expected object")
 }
 
-pub func get_string(obj: &Json, key: string) -> (Option<string>) {
+pub func get_string(obj: &Json, key: string) -> (Result<string, string>) {
     switch get(obj, key) {
-        case Some(val) {
+        case Ok(val) {
             switch val {
                 case String(v) {
-                    return Some(v)
+                    return Ok(v)
                 }
             }
         }
-    }
-    return None
-}
-
-pub func get_number(obj: &Json, key: string) -> (Option<float64>) {
-    switch get(obj, key) {
-        case Some(val) {
-            switch val {
-                case Int(v) { return Some(float64(v)) }
-                case Float(v) { return Some(v) }
-            }
+        case Err(err) {
+            return Err(err)
         }
     }
-    return None
+    return Err("expected string at key: " + key)
+}
+
+pub func get_number(obj: &Json, key: string) -> (Result<float64, string>) {
+    switch get(obj, key) {
+        case Ok(val) {
+            switch val {
+                case Int(v) { return Ok(float64(v)) }
+                case Float(v) { return Ok(v) }
+            }
+        }
+        case Err(err) {
+            return Err(err)
+        }
+    }
+    return Err("expected number at key: " + key)
 }
 
 // get_int returns the integer value of a JSON Int field
-pub func get_int(obj: &Json, key: string) -> (Option<int>) {
+pub func get_int(obj: &Json, key: string) -> (Result<int, string>) {
     switch get(obj, key) {
-        case Some(val) {
+        case Ok(val) {
             switch val {
-                case Int(v) { return Some(v) }
+                case Int(v) { return Ok(v) }
             }
         }
+        case Err(err) {
+            return Err(err)
+        }
     }
-    return None
+    return Err("expected int at key: " + key)
 }
 
 // get_float returns the float value of a JSON Float field  
-pub func get_float(obj: &Json, key: string) -> (Option<float64>) {
+pub func get_float(obj: &Json, key: string) -> (Result<float64, string>) {
     switch get(obj, key) {
-        case Some(val) {
+        case Ok(val) {
             switch val {
-                case Float(v) { return Some(v) }
+                case Float(v) { return Ok(v) }
             }
         }
+        case Err(err) {
+            return Err(err)
+        }
     }
-    return None
+    return Err("expected float at key: " + key)
 }
 
-pub func get_bool(obj: &Json, key: string) -> (Option<bool>) {
+pub func get_bool(obj: &Json, key: string) -> (Result<bool, string>) {
     switch get(obj, key) {
-        case Some(val) {
+        case Ok(val) {
             switch val {
                 case Boolean(v) {
-                    return Some(v)
+                    return Ok(v)
                 }
             }
         }
+        case Err(err) {
+            return Err(err)
+        }
     }
-    return None
+    return Err("expected bool at key: " + key)
 }
 
 pub func as_array(j: Json) -> (Result<Vec<Json, _>, string>) {
@@ -160,9 +175,10 @@ pub func as_object(j: Json) -> (Result<Json, string>) {
 pub func require_string(obj: &Json, key: string) -> (Result<string, string>) {
     var key_copy: string = clone_string(&key)
     switch get_string(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return Ok(v)
         }
+        case Err(_) {}
     }
     return Err("missing or invalid string field: " + key_copy)
 }
@@ -170,9 +186,10 @@ pub func require_string(obj: &Json, key: string) -> (Result<string, string>) {
 pub func require_number(obj: &Json, key: string) -> (Result<float64, string>) {
     var key_copy: string = clone_string(&key)
     switch get_number(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return Ok(v)
         }
+        case Err(_) {}
     }
     return Err("missing or invalid number field: " + key_copy)
 }
@@ -180,9 +197,10 @@ pub func require_number(obj: &Json, key: string) -> (Result<float64, string>) {
 pub func require_bool(obj: &Json, key: string) -> (Result<bool, string>) {
     var key_copy: string = clone_string(&key)
     switch get_bool(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return Ok(v)
         }
+        case Err(_) {}
     }
     return Err("missing or invalid bool field: " + key_copy)
 }
@@ -206,27 +224,30 @@ pub func require_int(obj: &Json, key: string) -> (Result<int, string>) {
 
 pub func get_string_or(obj: &Json, key: string, fallback: string) -> (string) {
     switch get_string(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return v
         }
+        case Err(_) {}
     }
     return fallback
 }
 
 pub func get_number_or(obj: &Json, key: string, fallback: float64) -> (float64) {
     switch get_number(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return v
         }
+        case Err(_) {}
     }
     return fallback
 }
 
 pub func get_bool_or(obj: &Json, key: string, fallback: bool) -> (bool) {
     switch get_bool(obj, key) {
-        case Some(v) {
+        case Ok(v) {
             return v
         }
+        case Err(_) {}
     }
     return fallback
 }

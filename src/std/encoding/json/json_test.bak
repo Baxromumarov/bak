@@ -8,34 +8,34 @@ func test_object_getters() -> (void) {
     var entries: Vec<j.JsonEntry, _> = Vec.from([j.entry("name", j.Json.String("bak")), j.entry("age", j.Json.Int(3)), j.entry("ok", j.Json.Boolean(true))])
     var obj: j.Json = j.object(entries)
     switch j.get_string(&obj, "name") {
-        case Some(v) {
+        case Ok(v) {
             t.eq_string(v, "bak")
         }
-        case None {
+        case Err(_) {
             t.fail("missing name")
         }
     }
     switch j.get_number(&obj, "age") {
-        case Some(v) {
+        case Ok(v) {
             t.eq_float(v, 3.0)
         }
-        case None {
+        case Err(_) {
             t.fail("missing age")
         }
     }
     switch j.get_bool(&obj, "ok") {
-        case Some(v) {
+        case Ok(v) {
             t.eq(v, true)
         }
-        case None {
+        case Err(_) {
             t.fail("missing ok")
         }
     }
     switch j.get(&obj, "missing") {
-        case Some(_) {
-            t.fail("expected missing key to be None")
+        case Ok(_) {
+            t.fail("expected missing key to be Err")
         }
-        case None {
+        case Err(_) {
         }
     }
     var pretty: string = j.pretty(obj)

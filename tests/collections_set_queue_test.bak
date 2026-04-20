@@ -55,28 +55,28 @@ func test_queue_basic() -> (void) {
     t.eq(q.len(), 3)
 
     switch q.peek() {
-        case Some(v) { t.eq(v, 1) }
-        case None { t.fail("expected Some from peek") }
+        case Ok(v) { t.eq(v, 1) }
+        case Err(_) { t.fail("expected Ok from peek") }
     }
 
     switch q.pop() {
-        case Some(v) { t.eq(v, 1) }
-        case None { t.fail("expected Some from pop") }
+        case Ok(v) { t.eq(v, 1) }
+        case Err(_) { t.fail("expected Ok from pop") }
     }
 
     switch q.pop() {
-        case Some(v) { t.eq(v, 2) }
-        case None { t.fail("expected Some from pop") }
+        case Ok(v) { t.eq(v, 2) }
+        case Err(_) { t.fail("expected Ok from pop") }
     }
 
     switch q.pop() {
-        case Some(v) { t.eq(v, 3) }
-        case None { t.fail("expected Some from pop") }
+        case Ok(v) { t.eq(v, 3) }
+        case Err(_) { t.fail("expected Ok from pop") }
     }
 
     switch q.pop() {
-        case Some(_) { t.fail("expected None from empty pop") }
-        case None {}
+        case Ok(_) { t.fail("expected Err from empty pop") }
+        case Err(_) {}
     }
 
     t.is_true(q.is_empty())
@@ -90,12 +90,12 @@ func test_string_queue_basic() -> (void) {
     q.push("b")
 
     switch q.pop() {
-        case Some(v) { t.eq_string(v, "a") }
-        case None { t.fail("expected Some from pop") }
+        case Ok(v) { t.eq_string(v, "a") }
+        case Err(_) { t.fail("expected Ok from pop") }
     }
     switch q.pop() {
-        case Some(v) { t.eq_string(v, "b") }
-        case None { t.fail("expected Some from pop") }
+        case Ok(v) { t.eq_string(v, "b") }
+        case Err(_) { t.fail("expected Ok from pop") }
     }
     t.is_true(q.is_empty())
 }

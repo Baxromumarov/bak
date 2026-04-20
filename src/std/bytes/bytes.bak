@@ -75,12 +75,12 @@ pub func length(b: &types.Bytes) -> (int) {
     return b.data.len()
 }
 
-// get returns the byte at index or None if out of range
-pub func get(b: &types.Bytes, i: int) -> (Option<int>) {
+// get returns the byte at index or Err if out of range
+pub func get(b: &types.Bytes, i: int) -> (Result<int, string>) {
     if i < 0 || i >= b.data.len() {
-        return None
+        return Err("index out of bounds")
     }
-    return Some(b.data[i])
+    return Ok(b.data[i])
 }
 
 // set writes a byte at index, returns Err on OOB
@@ -102,11 +102,11 @@ pub func view_length(v: &types.BytesView) -> (int) {
 }
 
 // view_get from view
-pub func view_get(v: &types.BytesView, i: int) -> (Option<int>) {
+pub func view_get(v: &types.BytesView, i: int) -> (Result<int, string>) {
     if i < 0 || i >= v.data.len() {
-        return None
+        return Err("index out of bounds")
     }
-    return Some(v.data[i])
+    return Ok(v.data[i])
 }
 
 // read_file reads a file and returns its bytes

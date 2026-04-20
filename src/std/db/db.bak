@@ -26,64 +26,64 @@ pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
     return out
 }
 
-func column_index(cols: &Vec<string, _>, name: &string) -> (Option<int>) {
+func column_index(cols: &Vec<string, _>, name: &string) -> (Result<int, string>) {
     mut var i: int = 0
     while i < cols.len() {
         if cols[i] == *name {
-            return Some(i)
+            return Ok(i)
         }
         i = i + 1
     }
-    return None
+    return Err("column not found")
 }
 
 impl Row as r {
-    pub func get(name: string) -> (Option<string>) {
+    pub func get(name: string) -> (Result<string, string>) {
         var cols: Vec<string, _> = r.Columns
-        var idx_opt: Option<int> = column_index(&cols, &name)
-        switch idx_opt {
-            case Some(idx) {
+        var idx_result: Result<int, string> = column_index(&cols, &name)
+        switch idx_result {
+            case Ok(idx) {
                 if idx < 0 || idx >= r.Values.len() {
-                    return None
+                    return Err("column index out of bounds")
                 }
                 var v: string = r.Values[idx]
                 if v == "NULL" {
-                    return None
+                    return Err("column '" + name + "' is NULL")
                 }
-                return Some(v)
+                return Ok(v)
             }
-            case None { return None }
+            case Err(err) { return Err(err) }
         }
     }
 
-    pub func get_index(idx: int) -> (Option<string>) {
+    pub func get_index(idx: int) -> (Result<string, string>) {
         if idx < 0 || idx >= r.Values.len() {
-            return None
+            return Err("column index out of bounds")
         }
         var v: string = r.Values[idx]
         if v == "NULL" {
-            return None
+            return Err("column value is NULL")
         }
-        return Some(v)
+        return Ok(v)
     }
 
     pub func get_int(name: string) -> (Result<int, string>) {
         switch r.get(name) {
-            case Some(v) { return v.parseInt() }
-            case None { return Err("column '" + name + "' is NULL or missing") }
+            case Ok(v) { return v.parseInt() }
+            case Err(err) { return Err(err) }
         }
     }
 
     pub func get_string(name: string) -> (Result<string, string>) {
         switch r.get(name) {
-            case Some(v) { return Ok(v) }
-            case None { return Err("column '" + name + "' is NULL or missing") }
+            case Ok(v) { return Ok(v) }
+            case Err(err) { return Err(err) }
         }
     }
 
     pub func get_bool(name: string) -> (Result<bool, string>) {
         switch r.get(name) {
-            case Some(v) {
+            case Ok(v) {
                 if v == "t" || v == "true" || v == "1" {
                     return Ok(true)
                 }
@@ -92,14 +92,14 @@ impl Row as r {
                 }
                 return Err("column '" + name + "' has invalid bool value: " + v)
             }
-            case None { return Err("column '" + name + "' is NULL or missing") }
+            case Err(err) { return Err(err) }
         }
     }
 
     pub func get_float(name: string) -> (Result<float64, string>) {
         switch r.get(name) {
-            case Some(v) { return v.parseFloat() }
-            case None { return Err("column '" + name + "' is NULL or missing") }
+            case Ok(v) { return v.parseFloat() }
+            case Err(err) { return Err(err) }
         }
     }
 }

@@ -46,11 +46,11 @@ pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
     return db.rows(qr)
 }
 
-pub func row_get(row: &Row, name: string) -> (Option<string>) {
+pub func row_get(row: &Row, name: string) -> (Result<string, string>) {
     return row.get(name)
 }
 
-pub func row_get_index(row: &Row, idx: int) -> (Option<string>) {
+pub func row_get_index(row: &Row, idx: int) -> (Result<string, string>) {
     return row.get_index(idx)
 }
 

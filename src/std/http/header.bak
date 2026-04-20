@@ -5,14 +5,14 @@ pub struct Header {
     pub value: string
 }
 
-pub func header_value(headers: &Vec<Header, _>, name: string) -> (Option<string>) {
+pub func header_value(headers: &Vec<Header, _>, name: string) -> (Result<string, string>) {
     mut var i: int = 0
     while i < headers.len() {
         var h: Header = headers[i]
         if eq_case_insensitive(&h.name, &name) {
-            return Some(h.value)
+            return Ok(h.value)
         }
         i = i + 1
     }
-    return None
+    return Err("header not found")
 }

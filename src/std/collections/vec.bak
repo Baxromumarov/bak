@@ -59,16 +59,16 @@ impl Vec as self {
         self.length = self.length + 1
         return
     }
-    pub mut func pop() -> (Option<T>) {
+    pub mut func pop() -> (Result<T, string>) {
         if self.length == 0 {
-            return None
+            return Err("vec is empty")
         }
         self.length = self.length - 1
         var val: T = __vec_get(self.data, self.length)
         // We leave the value in the array, but it's inaccessible via length.
         // If we want to zero it for GC?
         // var dummy: T; self.data.set(self.length, dummy);
-        return Some(val)
+        return Ok(val)
     }
     mut func grow() -> (void) {
         mut var new_cap: int = self.capacity * 2
@@ -86,9 +86,9 @@ impl Vec as self {
         self.capacity = new_cap
         return
     }
-    pub mut func remove(index: int) -> (Option<T>) {
+    pub mut func remove(index: int) -> (Result<T, string>) {
         if index < 0 || index >= self.length {
-            return None
+            return Err("index out of bounds")
         }
         var val: T = __vec_get(self.data, index)
         // Shift down
@@ -99,7 +99,7 @@ impl Vec as self {
         }
         self.length = self.length - 1
         // Optional: clear last slot
-        return Some(val)
+        return Ok(val)
     }
     pub mut func clear() -> (void) {
         self.length = 0
@@ -126,28 +126,28 @@ impl Vec as self {
     pub func is_empty() -> (bool) {
         return self.length == 0
     }
-    pub func first() -> (Option<T>) {
+    pub func first() -> (Result<T, string>) {
         if self.length == 0 {
-            return None
+            return Err("vec is empty")
         }
         var val: T = __vec_get(self.data, 0)
-        return Some(val)
+        return Ok(val)
     }
 
-    pub func last() -> (Option<T>) {
+    pub func last() -> (Result<T, string>) {
         if self.length == 0 {
-            return None
+            return Err("vec is empty")
         }
         var val: T = __vec_get(self.data, self.length - 1)
-        return Some(val)
+        return Ok(val)
     }
 
-    pub func get(index: int) -> (Option<T>) {
+    pub func get(index: int) -> (Result<T, string>) {
         if index < 0 || index >= self.length {
-            return None
+            return Err("index out of bounds")
         }
         var val: T = __vec_get(self.data, index)
-        return Some(val)
+        return Ok(val)
     }
     pub func contains(value: T) -> (bool) {
         mut var i: int = 0
@@ -202,10 +202,10 @@ pub func sum(v: &Vec<int, _>) -> (int) {
     return total
 }
 
-// max_by returns the maximum element using a comparator, or None if empty.
-pub func max_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
+// max_by returns the maximum element using a comparator, or Err if empty.
+pub func max_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, string>) {
     if v.len() == 0 {
-        return None
+        return Err("vec is empty")
     }
     mut var best: T = v[0]
     mut var i: int = 1
@@ -215,13 +215,13 @@ pub func max_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
         }
         i = i + 1
     }
-    return Some(best)
+    return Ok(best)
 }
 
-// min_by returns the minimum element using a comparator, or None if empty.
-pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
+// min_by returns the minimum element using a comparator, or Err if empty.
+pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, string>) {
     if v.len() == 0 {
-        return None
+        return Err("vec is empty")
     }
     mut var best: T = v[0]
     mut var i: int = 1
@@ -231,5 +231,5 @@ pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Option<T>) {
         }
         i = i + 1
     }
-    return Some(best)
+    return Ok(best)
 }

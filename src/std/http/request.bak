@@ -87,14 +87,14 @@ pub func append_query(url: string, params: Vec<QueryParam, _>) -> (string) {
     if qs.len() == 0 {
         return url
     }
-    if url.indexOf("?").is_some() {
+    if url.indexOf("?").is_ok() {
         return url + "&" + qs
     }
     return url + "?" + qs
 }
 
 impl Request as r {
-    pub func header(name: string) -> (Option<string>) {
+    pub func header(name: string) -> (Result<string, string>) {
         return header_value(
             &r.headers,
             name,
@@ -102,38 +102,38 @@ impl Request as r {
     }
 
     pub func has_header(name: string) -> (bool) {
-        return r.header(name).is_some()
+        return r.header(name).is_ok()
     }
 
     pub func query_params() -> (Vec<QueryParam, _>) {
         return parse_query(r.path)
     }
 
-    pub func query(name: string) -> (Option<string>) {
+    pub func query(name: string) -> (Result<string, string>) {
         var params: Vec<QueryParam, _> = parse_query(r.path)
         mut var i: int = 0
         while i < params.len() {
             if (params[i]).name == name {
-                return Some((params[i]).value)
+                return Ok((params[i]).value)
             }
             i = i + 1
         }
-        return None
+        return Err("query param not found")
     }
 
     pub func body_string() -> (string) {
         return strings.fromBytes(r.body)
     }
 
-    pub func param(name: string) -> (Option<string>) {
+    pub func param(name: string) -> (Result<string, string>) {
         mut var i: int = 0
         while i < r.params.len() {
             if (r.params[i]).name == name {
-                return Some((r.params[i]).value)
+                return Ok((r.params[i]).value)
             }
             i = i + 1
         }
-        return None
+        return Err("path param not found")
     }
 }
 

@@ -1,11 +1,11 @@
 package main
 
 func main() -> (int) {
-    var a: Option<int> = Some(42)
+    var a: Result<int, string> = Ok(42)
     mut var result: int = 0
     switch a {
-        case Some(x) { result = x }
-        case None { result = 0 }
+        case Ok(x) { result = x }
+        case Err(_) { result = 0 }
     }
     return result
 }

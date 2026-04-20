@@ -13,8 +13,8 @@ func test_implicit_hashmap() -> (void) {
     
     // Verify string map
     switch (&m).get(&"hello") {
-        case Some(val) { t.eq_string(val, "world"); }
-        case None { t.fail("expected key 'hello' to exist"); }
+        case Ok(val) { t.eq_string(val, "world"); }
+        case Err(_) { t.fail("expected key 'hello' to exist"); }
     }
     
     // Test capacity constructor
@@ -23,8 +23,8 @@ func test_implicit_hashmap() -> (void) {
     { (&mut m2).insert(1, 100); }
     
     switch (&m2).get(&1) {
-        case Some(val) { t.eq(val, 100); }
-        case None { t.fail("expected key 1 to exist"); }
+        case Ok(val) { t.eq(val, 100); }
+        case Err(_) { t.fail("expected key 1 to exist"); }
     }
     println("HashMap Test Finished");
 }

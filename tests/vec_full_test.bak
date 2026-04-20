@@ -16,7 +16,7 @@ func main() -> (void) {
     v.reverse()
     println("after reverse, first: ", v.first().unwrap())
     
-    var removed: Option<int> = v.remove(1)
+    var removed: Result<int, string> = v.remove(1)
     println("removed at 1: ", removed.unwrap())
     println("len after remove: ", v.len())
     

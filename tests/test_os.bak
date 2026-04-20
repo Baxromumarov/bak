@@ -28,22 +28,22 @@ func main() -> (void) {
     
     // Test os.getenv
     println("\n3. Environment variables:")
-    var home: Option<string> = os.getenv("HOME")
+    var home: Result<string, string> = os.getenv("HOME")
     switch home {
-        case Some(path) {
+        case Ok(path) {
             println("HOME:", path)
         }
-        case None {
+        case Err(_) {
             println("HOME not set")
         }
     }
     
-    var user: Option<string> = os.getenv("USER")
+    var user: Result<string, string> = os.getenv("USER")
     switch user {
-        case Some(name) {
+        case Ok(name) {
             println("USER:", name)
         }
-        case None {
+        case Err(_) {
             println("USER not set")
         }
     }
@@ -55,12 +55,12 @@ func main() -> (void) {
     
     // Test os.executable
     println("\n5. Executable path:")
-    var exe: Option<string> = os.executable()
+    var exe: Result<string, string> = os.executable()
     switch exe {
-        case Some(path) {
+        case Ok(path) {
             println("Executable:", path)
         }
-        case None {
+        case Err(_) {
             println("Could not get executable path")
         }
     }

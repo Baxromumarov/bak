@@ -11,12 +11,12 @@ func main() -> (int) {
             score = score + 1
         }
 
-        var opt: Option<int> = bytes.get(
+        var opt: Result<int, string> = bytes.get(
             &b,
             0,
         )
 
-        if opt.is_some() && opt.unwrap() == int('h') {
+        if opt.is_ok() && opt.unwrap() == int('h') {
             score = score + 1
         }
     }

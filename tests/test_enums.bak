@@ -17,7 +17,7 @@ enum Message {
     ChangeColor(int, int, int)
 }
 
-// Generic enum (Option-like)
+// Generic enum (Maybe-like)
 enum Maybe<T> {
     Just(T)
     Nothing
@@ -89,22 +89,22 @@ func main() -> (void) {
     println("  ", processMessage(write))
     println("  ", processMessage(color))
     
-    println("\n4. Built-in Option enum:")
-    var some: Option<int> = Some(42)
-    var none: Option<int> = None
-    println("  Some(42):", some)
-    println("  None:", none)
+    println("\n4. Built-in Result enum:")
+    var some: Result<int, string> = Ok(42)
+    var none: Result<int, string> = Err("none")
+    println("  Ok(42):", some)
+    println("  Err('none'):", none)
     
     switch some {
-        case Some(val) {
+        case Ok(val) {
             println("  Unwrapped:", val)
         }
-        case None {
-            println("  No value")
+        case Err(e) {
+            println("  Error:", e)
         }
     }
     
-    println("\n5. Built-in Result enum:")
+    println("\n5. Built-in Result enum (string payload):")
     var ok: Result<string, string> = Ok("Success!")
     var err: Result<string, string> = Err("Something went wrong")
     println("  Ok:", ok)

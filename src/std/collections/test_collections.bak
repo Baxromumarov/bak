@@ -23,8 +23,8 @@ func test_vec_push_pop() -> (void) {
     
     // Pop elements (LIFO)
     switch v.pop() {
-        case Some(val) { t.eq(val, 30) }
-        case None { t.fail("expected Some, got None") }
+        case Ok(val) { t.eq(val, 30) }
+        case Err(_) { t.fail("expected Ok, got Err") }
     }
     t.eq(v.len(), 2)
     t.finish()
@@ -85,13 +85,13 @@ func test_vec_max_min() -> (void) {
     v.push(1)
     
     switch vec.max_by(&v, compare_ints) {
-        case Some(val) { t.eq(val, 9) }
-        case None { t.fail("expected Some for max") }
+        case Ok(val) { t.eq(val, 9) }
+        case Err(_) { t.fail("expected Ok for max") }
     }
     
     switch vec.min_by(&v, compare_ints) {
-        case Some(val) { t.eq(val, 1) }
-        case None { t.fail("expected Some for min") }
+        case Ok(val) { t.eq(val, 1) }
+        case Err(_) { t.fail("expected Ok for min") }
     }
     t.finish()
 }
@@ -117,13 +117,13 @@ func test_hashmap_insert_get() -> (void) {
     t.eq(m.len(), 2)
 
     switch m.get(&"name") {
-        case Some(val) { t.eq_string(val, "Alice") }
-        case None { t.fail("expected Some for 'name'") }
+        case Ok(val) { t.eq_string(val, "Alice") }
+        case Err(_) { t.fail("expected Ok for 'name'") }
     }
 
     switch m.get(&"city") {
-        case Some(val) { t.eq_string(val, "Boston") }
-        case None { t.fail("expected Some for 'city'") }
+        case Ok(val) { t.eq_string(val, "Boston") }
+        case Err(_) { t.fail("expected Ok for 'city'") }
     }
     t.finish()
 }
@@ -138,8 +138,8 @@ func test_hashmap_update() -> (void) {
     t.eq(m.len(), 1)  // Still only 1 entry
 
     switch m.get(&"key") {
-        case Some(val) { t.eq_string(val, "value2") }
-        case None { t.fail("expected Some") }
+        case Ok(val) { t.eq_string(val, "value2") }
+        case Err(_) { t.fail("expected Ok") }
     }
     t.finish()
 }
@@ -152,8 +152,8 @@ func test_hashmap_remove() -> (void) {
     m.insert("b", "2")
 
     switch m.remove(&"a") {
-        case Some(val) { t.eq_string(val, "1") }
-        case None { t.fail("expected Some for remove") }
+        case Ok(val) { t.eq_string(val, "1") }
+        case Err(_) { t.fail("expected Ok for remove") }
     }
 
     t.eq(m.len(), 1)
@@ -167,8 +167,8 @@ func test_hashmap_missing_key() -> (void) {
     mut var m: hashmap.HashMap<string, string> = hashmap.new_hash_map()
 
     switch m.get(&"nonexistent") {
-        case Some(_) { t.fail("expected None for missing key") }
-        case None {}
+        case Ok(_) { t.fail("expected Err for missing key") }
+        case Err(_) {}
     }
     t.finish()
 }
@@ -187,8 +187,8 @@ func test_hashmap_int_insert_get() -> (void) {
     t.eq(m.len(), 2)
 
     switch m.get(&"apples") {
-        case Some(val) { t.eq(val, 5) }
-        case None { t.fail("expected Some for 'apples'") }
+        case Ok(val) { t.eq(val, 5) }
+        case Err(_) { t.fail("expected Ok for 'apples'") }
     }
     t.finish()
 }
@@ -201,15 +201,15 @@ func test_hashmap_int_increment() -> (void) {
 
     // Simulate increment
     switch m.get(&"count") {
-        case Some(val) {
+        case Ok(val) {
             m.insert("count", val + 1)
         }
-        case None {}
+        case Err(_) {}
     }
 
     switch m.get(&"count") {
-        case Some(val) { t.eq(val, 1) }
-        case None { t.fail("expected Some") }
+        case Ok(val) { t.eq(val, 1) }
+        case Err(_) { t.fail("expected Ok") }
     }
     t.finish()
 }

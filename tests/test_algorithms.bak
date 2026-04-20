@@ -22,39 +22,39 @@ func bubbleSort(arr: Vec<int, _>) -> (Vec<int, _>) {
 }
 
 // Linear search
-func linearSearch(arr: Vec<int, _>, target: int) -> (Option<int>) {
+func linearSearch(arr: Vec<int, _>, target: int) -> (Result<int, string>) {
     mut var i: int = 0
     for item in arr {
         if item == target {
-            return Some(i)
+            return Ok(i)
         }
         i = i + 1
     }
-    return None
+    return Err("not found")
 }
 
 // Binary search (assumes sorted array)
-func binarySearch(arr: Vec<int, _>, target: int) -> (Option<int>) {
+func binarySearch(arr: Vec<int, _>, target: int) -> (Result<int, string>) {
     mut var left: int = 0
     mut var right: int = arr.len() - 1
     
     while left <= right {
         var mid: int = (left + right) / 2
         if arr[mid] == target {
-            return Some(mid)
+            return Ok(mid)
         } else if arr[mid] < target {
             left = mid + 1
         } else {
             right = mid - 1
         }
     }
-    return None
+    return Err("not found")
 }
 
 // Find min/max
-func findMin(arr: Vec<int, _>) -> (Option<int>) {
+func findMin(arr: Vec<int, _>) -> (Result<int, string>) {
     if arr.len() == 0 {
-        return None
+        return Err("empty array")
     }
     mut var min: int = arr[0]
     for item in arr {
@@ -62,12 +62,12 @@ func findMin(arr: Vec<int, _>) -> (Option<int>) {
             min = item
         }
     }
-    return Some(min)
+    return Ok(min)
 }
 
-func findMax(arr: Vec<int, _>) -> (Option<int>) {
+func findMax(arr: Vec<int, _>) -> (Result<int, string>) {
     if arr.len() == 0 {
-        return None
+        return Err("empty array")
     }
     mut var max: int = arr[0]
     for item in arr {
@@ -75,7 +75,7 @@ func findMax(arr: Vec<int, _>) -> (Option<int>) {
             max = item
         }
     }
-    return Some(max)
+    return Ok(max)
 }
 
 // GCD
@@ -157,28 +157,28 @@ func main() -> (void) {
     println("\n2. Linear Search:")
     var arr: Vec<int, 5> = Vec.from([10, 20, 30, 40, 50])
     switch linearSearch(arr, 30) {
-        case Some(idx) {
+        case Ok(idx) {
             println("  Found 30 at index:", idx)
         }
-        case None {
+        case Err(_) {
             println("  30 not found")
         }
     }
     switch linearSearch(arr, 35) {
-        case Some(idx) {
+        case Ok(idx) {
             println("  Found 35 at index:", idx)
         }
-        case None {
+        case Err(_) {
             println("  35 not found")
         }
     }
     
     println("\n3. Binary Search:")
     switch binarySearch(sorted, 25) {
-        case Some(idx) {
+        case Ok(idx) {
             println("  Found 25 at index:", idx)
         }
-        case None {
+        case Err(_) {
             println("  25 not found")
         }
     }
@@ -187,18 +187,18 @@ func main() -> (void) {
     var numbers: Vec<int, 8> = Vec.from([3, 1, 4, 1, 5, 9, 2, 6])
     println("  Array:", numbers)
     switch findMin(numbers) {
-        case Some(m) {
+        case Ok(m) {
             println("  Min:", m)
         }
-        case None {
+        case Err(_) {
             println("  Empty array")
         }
     }
     switch findMax(numbers) {
-        case Some(m) {
+        case Ok(m) {
             println("  Max:", m)
         }
-        case None {
+        case Err(_) {
             println("  Empty array")
         }
     }
