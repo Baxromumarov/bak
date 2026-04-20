@@ -16,7 +16,7 @@ type StdlibSymbol struct {
 	Name       string // e.g., "StringBuilder"
 	ImportPath string // e.g., "src/std/fmt/fmt.bak"
 	Alias      string // e.g., "fmt"
-	Kind       string // "func", "struct", "enum", "trait"
+	Kind       string // "func", "struct", "enum"
 }
 
 var (

@@ -132,20 +132,16 @@ func (gt *GenericType) String() string {
 	return out.String()
 }
 
-// TypeParameter represents a generic type parameter optionally with a trait bound
+// TypeParameter represents a generic type parameter.
 type TypeParameter struct {
 	Span  Span
 	Token token.Token // The identifier token
 	Name  *Identifier
-	Bound TypeExpression // Optional, e.g. Hashable in <T: Hashable>
 }
 
 func (tp *TypeParameter) typeExpressionNode()  {}
 func (tp *TypeParameter) TokenLiteral() string { return tp.Token.Literal }
 func (tp *TypeParameter) String() string {
-	if tp.Bound != nil {
-		return tp.Name.String() + ": " + tp.Bound.String()
-	}
 	return tp.Name.String()
 }
 
@@ -795,7 +791,7 @@ type FunctionDecl struct {
 	Visibility Visibility
 	Traced     bool
 	Name       *Identifier
-	TypeParams []*TypeParameter // Generic type parameters like <T: Trait>
+	TypeParams []*TypeParameter // Generic type parameters like <T>
 	Parameters []*Parameter
 	ReturnType TypeExpression
 	Body       *BlockStatement
@@ -859,7 +855,7 @@ type StructDecl struct {
 	Token      token.Token
 	Visibility Visibility
 	Name       *Identifier
-	TypeParams []*TypeParameter // Generic type parameters like <T: Trait>
+	TypeParams []*TypeParameter // Generic type parameters like <T>
 	Fields     []*StructField
 }
 
@@ -993,95 +989,11 @@ func (ev *EnumVariant) String() string {
 	return out.String()
 }
 
-// TraitDefinition represents a trait declaration.
-// Example: pub trait Comparable<T> { func compare(other: &T) -> (int) }
-type TraitDefinition struct {
-	Span       Span
-	Token      token.Token // The 'trait' token
-	Name       *Identifier
-	TypeParams []*TypeParameter  // <T> etc.
-	Methods    []*FunctionHeader // The method signatures required
-	IsPublic   bool
-}
-
-func (td *TraitDefinition) statementNode()       {}
-func (td *TraitDefinition) TokenLiteral() string { return td.Token.Literal }
-func (td *TraitDefinition) String() string {
-	var out bytes.Buffer
-
-	if td.IsPublic {
-		out.WriteString("pub ")
-	}
-	out.WriteString("trait ")
-	out.WriteString(td.Name.Value)
-
-	if len(td.TypeParams) > 0 {
-		out.WriteString("<")
-		for i, p := range td.TypeParams {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(p.String())
-		}
-		out.WriteString(">")
-	}
-
-	out.WriteString(" {\n")
-	for _, m := range td.Methods {
-		out.WriteString("\t")
-		out.WriteString(m.String())
-		out.WriteString("\n")
-	}
-	out.WriteString("}")
-
-	return out.String()
-}
-
-// FunctionHeader is like a FunctionLiteral but without the body.
-type FunctionHeader struct {
-	Span       Span
-	Token      token.Token // The 'func' token
-	Name       *Identifier // Required
-	Parameters []*Parameter
-	ReturnType TypeExpression
-	IsPublic   bool
-	IsMutating bool
-}
-
-func (fh *FunctionHeader) String() string {
-	var out bytes.Buffer
-
-	if fh.IsPublic {
-		out.WriteString("pub ")
-	}
-	if fh.IsMutating {
-		out.WriteString("mut ")
-	}
-	out.WriteString("func ")
-	out.WriteString(fh.Name.String())
-	out.WriteString("(")
-
-	params := []string{}
-	for _, p := range fh.Parameters {
-		params = append(params, p.String())
-	}
-	out.WriteString(strings.Join(params, ", "))
-	out.WriteString(") -> (")
-
-	if fh.ReturnType != nil {
-		out.WriteString(fh.ReturnType.String())
-	}
-	out.WriteString(")")
-
-	return out.String()
-}
-
 // ImplDecl represents impl blocks
-// impl TraitName<T>: TypeName<U> as receiver { ... }
+// impl TypeName<U> as receiver { ... }
 type ImplDecl struct {
 	Span       Span
 	Token      token.Token
-	TraitName  *Identifier // Optional: e.g., Hashable
 	TypeName   *Identifier
 	TypeParams []*TypeParameter
 	Receiver   *Identifier
@@ -1093,11 +1005,6 @@ func (id *ImplDecl) TokenLiteral() string { return id.Token.Literal }
 func (id *ImplDecl) String() string {
 	var out bytes.Buffer
 	out.WriteString("impl ")
-
-	if id.TraitName != nil {
-		out.WriteString(id.TraitName.String())
-		out.WriteString(": ")
-	}
 
 	out.WriteString(id.TypeName.String())
 	if len(id.TypeParams) > 0 {
@@ -1127,7 +1034,7 @@ type MethodDecl struct {
 	Visibility Visibility
 	Mutable    bool // mut func
 	Name       *Identifier
-	TypeParams []*TypeParameter // Generic type parameters <T: Trait>
+	TypeParams []*TypeParameter // Generic type parameters <T>
 	Parameters []*Parameter
 	ReturnType TypeExpression
 	Body       *BlockStatement

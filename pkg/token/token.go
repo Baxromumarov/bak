@@ -141,8 +141,6 @@ const (
 
 	// Legacy experimental tokens kept for parser/typechecker internal compatibility.
 	BOX TokenType = "BOX"
-
-	TRAIT TokenType = "TRAIT"
 )
 
 // keywords maps keyword strings to their token types

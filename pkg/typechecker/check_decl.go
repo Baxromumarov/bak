@@ -260,15 +260,6 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 
 func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	typeName := id.TypeName.Value
-	if id.TraitName != nil {
-		tc.addErrorWithHelp(
-			id.TraitName.Token.Line,
-			id.TraitName.Token.Column,
-			"remove trait implementation syntax and use plain impl blocks",
-			"trait implementations are not supported in the frozen v0.1 language surface",
-		)
-		return
-	}
 
 	// Allow impl blocks on built-in types Option and Result
 	isBuiltinType := typeName == "Option" || typeName == "Result"

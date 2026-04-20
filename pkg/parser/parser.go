@@ -498,7 +498,7 @@ func (p *Parser) synchronize() {
 		case token.FUNC, token.VAR, token.CONST, token.STRUCT, token.ENUM,
 			token.IMPL, token.IF, token.WHILE, token.FOR, token.SWITCH,
 			token.RETURN, token.IMPORT, token.PUB, token.TYPE, token.ALIAS,
-			token.PACKAGE, token.DEFER, token.PANIC, token.UNSAFE, token.TRAIT:
+			token.PACKAGE, token.DEFER, token.PANIC, token.UNSAFE:
 			p.nextToken()
 			return
 		}
@@ -550,11 +550,6 @@ func (p *Parser) parseStatement() ast.Statement {
 		return nil
 	case token.ALIAS:
 		if s := p.parseAliasDecl(); s != nil {
-			return s
-		}
-		return nil
-	case token.TRAIT:
-		if s := p.parseTraitDefinition(); s != nil {
 			return s
 		}
 		return nil
@@ -691,8 +686,6 @@ func (p *Parser) parsePubDecl() ast.Statement {
 			return nil
 		}
 		return p.applyPublicModifier(decl)
-	case token.TRAIT:
-		return p.applyPublicModifier(p.parseTraitDefinition())
 	case token.STRUCT:
 		decl := p.parseStructDecl()
 		if decl == nil {
@@ -791,11 +784,6 @@ func (p *Parser) applyPublicModifier(stmt ast.Statement) ast.Statement {
 			return nil
 		}
 		decl.Visibility = ast.Public
-	case *ast.TraitDefinition:
-		if decl == nil {
-			return nil
-		}
-		decl.IsPublic = true
 	}
 	return stmt
 }
@@ -1712,7 +1700,7 @@ func (p *Parser) parseReturnTypeElement() ast.TypeExpression {
 	return p.parseTypeExpression()
 }
 
-// parseTypeParams parses <T, U, V> or <T: Trait> type parameters
+// parseTypeParams parses <T, U, V> style type parameters.
 func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 	params := []*ast.TypeParameter{}
 
@@ -1730,12 +1718,12 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 		p.errors = append(p.errors, p.formatMessage(
 			p.peekToken.Line,
 			p.peekToken.Column,
-			"trait bounds on generic parameters are not supported in the frozen v0.1 language surface",
+			"bounded generic parameters are not supported in the frozen v0.1 language surface",
 			"remove the ': Bound' clause from type parameters",
 		))
 		p.nextToken() // consume colon
 		p.nextToken() // move to type
-		param.Bound = p.parseTypeExpression()
+		_ = p.parseTypeExpression()
 	}
 	params = append(params, param)
 
@@ -1755,12 +1743,12 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 			p.errors = append(p.errors, p.formatMessage(
 				p.peekToken.Line,
 				p.peekToken.Column,
-				"trait bounds on generic parameters are not supported in the frozen v0.1 language surface",
+				"bounded generic parameters are not supported in the frozen v0.1 language surface",
 				"remove the ': Bound' clause from type parameters",
 			))
 			p.nextToken() // count colon
 			p.nextToken() // move to type
-			param.Bound = p.parseTypeExpression()
+			_ = p.parseTypeExpression()
 		}
 		params = append(params, param)
 	}
@@ -2037,87 +2025,6 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 	return stmt
 }
 
-func (p *Parser) parseTraitDefinition() *ast.TraitDefinition {
-	p.errors = append(p.errors, p.formatMessage(
-		p.curToken.Line,
-		p.curToken.Column,
-		"trait declarations are not supported in the frozen v0.1 language surface",
-		"remove trait declarations and use concrete types with impl blocks",
-	))
-	stmt := &ast.TraitDefinition{Token: p.curToken}
-
-	if !p.expectPeek(token.IDENT) {
-		return nil
-	}
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if p.peekTokenIs(token.LT) {
-		p.nextToken() // consume '<'
-		stmt.TypeParams = p.parseTypeParams()
-	}
-
-	if !p.expectPeek(token.LBRACE) {
-		return nil
-	}
-	p.nextToken() // consume '{'
-
-	stmt.Methods = []*ast.FunctionHeader{}
-
-	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
-		if p.curTokenIs(token.FUNC) {
-			method := p.parseFunctionHeader()
-			if method != nil {
-				stmt.Methods = append(stmt.Methods, method)
-			}
-		} else {
-			p.nextToken()
-		}
-	}
-
-	return stmt
-}
-
-func (p *Parser) parseFunctionHeader() *ast.FunctionHeader {
-	fh := &ast.FunctionHeader{Token: p.curToken}
-
-	if p.curTokenIs(token.PUB) {
-		fh.IsPublic = true
-		p.nextToken()
-	}
-	if p.curTokenIs(token.MUT) {
-		fh.IsMutating = true
-		p.nextToken()
-	}
-
-	if !p.curTokenIs(token.FUNC) {
-		p.peekError(token.FUNC)
-		return nil
-	}
-
-	if !p.expectPeek(token.IDENT) {
-		return nil
-	}
-	fh.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if !p.expectPeek(token.LPAREN) {
-		return nil
-	}
-
-	fh.Parameters = p.parseParameters()
-
-	if p.peekTokenIs(token.ARROW) {
-		p.nextToken() // consume '->'
-		if !p.expectPeek(token.LPAREN) {
-			return nil
-		}
-		fh.ReturnType = p.parseReturnTypes()
-	} else {
-		fh.ReturnType = &ast.VoidType{Token: token.Token{Type: token.TYPE_VOID, Literal: "void", Filename: p.filename}}
-	}
-
-	return fh
-}
-
 func (p *Parser) parseImplDecl() *ast.ImplDecl {
 	stmt := &ast.ImplDecl{Token: p.curToken}
 
@@ -2145,12 +2052,11 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 		p.errors = append(p.errors, p.formatMessage(
 			p.peekToken.Line,
 			p.peekToken.Column,
-			"trait implementations are not supported in the frozen v0.1 language surface",
-			"remove trait implementation syntax and use plain impl blocks",
+			"colon-qualified impl syntax is not supported in the frozen v0.1 language surface",
+			"remove the ':' clause and use plain impl blocks",
 		))
-		// It was a trait implementation: impl Hashable<T>: Person<U>
+		// Recover by parsing the target type after ':'.
 		p.nextToken() // consume ':'
-		stmt.TraitName = firstIdent
 
 		if !p.expectPeek(token.IDENT) {
 			return nil

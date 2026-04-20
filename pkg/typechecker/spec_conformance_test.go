@@ -121,7 +121,7 @@ func main() -> (void) {
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) == 0 {
-		t.Fatalf("expected parser to reject box syntax without experimental flags, got %v", parseErrs)
+		t.Fatalf("expected parser to reject box syntax from the frozen public surface, got %v", parseErrs)
 	}
 }
 
@@ -150,7 +150,7 @@ func main() -> (void) {
 	}
 }
 
-func TestTraitSyntaxIsRejectedFromPublicSurface(t *testing.T) {
+func TestLegacyDeclarationAndColonImplSyntaxIsRejected(t *testing.T) {
 	source := `package main
 
 trait Displayable {
@@ -173,7 +173,7 @@ func main() -> (void) {
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) == 0 {
-		t.Fatalf("expected parser to reject trait syntax without experimental flags, got %v", parseErrs)
+		t.Fatalf("expected parser to reject removed declaration/colon-impl syntax from the frozen public surface, got %v", parseErrs)
 	}
 }
 

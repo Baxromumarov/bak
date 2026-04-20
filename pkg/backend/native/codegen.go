@@ -767,8 +767,6 @@ func collectProgramItems(program *ast.Program, pkgName string, s *EmitState) ([]
 			// skip
 		case *ast.ImportBlock:
 			// skip
-		case *ast.TraitDefinition:
-			// Trait definitions are compile-time only; no code to emit
 		}
 	}
 	return funcs, consts
@@ -1466,8 +1464,6 @@ func (s *EmitState) emitStatement(stmt ast.Statement) error {
 	case *ast.EnumDecl:
 		return nil
 	case *ast.ImplDecl:
-		return nil
-	case *ast.TraitDefinition:
 		return nil
 	default:
 		return fmt.Errorf("native: unsupported statement type %T", stmt)

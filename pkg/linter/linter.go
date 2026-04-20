@@ -204,16 +204,6 @@ func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
 				Column:  s.Name.Token.Column,
 			})
 		}
-	case *ast.TraitDefinition:
-		if s.Name != nil && !isPascalCase(s.Name.Value) {
-			findings = append(findings, Finding{
-				Rule:    "naming-convention",
-				Level:   "warning",
-				Message: "trait '" + s.Name.Value + "' should be PascalCase",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
-			})
-		}
 	case *ast.ConstStatement:
 		if s.Name != nil && !isUpperSnakeCase(s.Name.Value) && !isPascalCase(s.Name.Value) {
 			findings = append(findings, Finding{

@@ -1172,17 +1172,6 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				Column:      s.Name.Token.Column,
 				Visibility:  s.Visibility,
 			})
-		case *ast.TraitDefinition:
-			if s.Name == nil {
-				continue
-			}
-			tc.addErrorWithHelp(
-				s.Name.Token.Line,
-				s.Name.Token.Column,
-				"remove trait declarations and use concrete types with impl blocks",
-				"trait declarations are not supported in the frozen v0.1 language surface",
-			)
-			continue
 		case *ast.EnumDecl:
 			if s.Name == nil {
 				continue
@@ -1256,15 +1245,6 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 		switch s := stmt.(type) {
 		case *ast.ImplDecl:
 			if s.TypeName == nil {
-				continue
-			}
-			if s.TraitName != nil {
-				tc.addErrorWithHelp(
-					s.TraitName.Token.Line,
-					s.TraitName.Token.Column,
-					"remove trait implementation syntax and use plain impl blocks",
-					"trait implementations are not supported in the frozen v0.1 language surface",
-				)
 				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
