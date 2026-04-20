@@ -6,6 +6,37 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 )
 
+func stringStdlibReplacementHint(method string) string {
+	switch method {
+	case "split":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.split(&value, &sep)"
+	case "trim":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim(&value)"
+	case "trimLeft", "trim_left":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimLeft(&value)"
+	case "trimRight", "trim_right":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimRight(&value)"
+	case "trimPrefix", "trim_prefix":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimPrefix(&value, &prefix)"
+	case "trimSuffix", "trim_suffix":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimSuffix(&value, &suffix)"
+	case "toUpper", "to_upper":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.toUpper(&value)"
+	case "toLower", "to_lower":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.toLower(&value)"
+	case "replaceFirst", "replace_first":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.replaceFirst(&value, &old, &new)"
+	case "count":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.count(&value, &sub)"
+	case "compare":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.compare(&a, &b)"
+	case "equalIgnoreCase", "equal_ignore_case":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.equalIgnoreCase(&a, &b)"
+	default:
+		return ""
+	}
+}
+
 // checkFieldAssignment validates field access assignments (obj.field = value)
 func (tc *TypeChecker) checkFieldAssignment(
 	fa *ast.FieldAccessExpression,
@@ -334,6 +365,10 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 			&ast.SimpleType{Name: "string"},
 		}}
 	default:
+		if hint := stringStdlibReplacementHint(method); hint != "" {
+			tc.errorUndefinedMethodWithHelp("string", method, mc.Token.Line, mc.Token.Column, stringMethodCandidates, hint)
+			return nil
+		}
 		tc.errorUndefinedMethod("string", method, mc.Token.Line, mc.Token.Column, stringMethodCandidates)
 		return nil
 	}

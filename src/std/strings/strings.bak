@@ -700,3 +700,64 @@ pub func concat(parts: &Vec<string, _>) -> (string) {
 
     return result
 }
+
+// reverse returns a string with characters in reverse order.
+pub func reverse(s: &string) -> (string) {
+    if s.len() == 0 {
+        return ""
+    }
+
+    mut var result: string = ""
+    mut var i: int = s.len() - 1
+    while i >= 0 {
+        result = result + string(s[i])
+        if i == 0 {
+            return result
+        }
+        i = i - 1
+    }
+    return result
+}
+
+// has_prefix_any returns true when s starts with at least one provided prefix.
+pub func has_prefix_any(s: &string, prefixes: &Vec<string, _>) -> (bool) {
+    mut var i: int = 0
+    while i < prefixes.len() {
+        if startsWith(s, &prefixes[i]) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// has_suffix_any returns true when s ends with at least one provided suffix.
+pub func has_suffix_any(s: &string, suffixes: &Vec<string, _>) -> (bool) {
+    mut var i: int = 0
+    while i < suffixes.len() {
+        if endsWith(s, &suffixes[i]) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// lines splits by '\n' and trims a trailing '\r' from each line (CRLF-safe).
+pub func lines(s: &string) -> (Vec<string, _>) {
+    var newline: string = "\n"
+    mut var raw: Vec<string, _> = split(s, &newline)
+    mut var out: Vec<string, _> = Vec.with_cap(raw.len())
+
+    mut var i: int = 0
+    while i < raw.len() {
+        var line: string = raw[i]
+        if line.len() > 0 && line[line.len() - 1] == '\r' {
+            out.push(substring(&line, 0, line.len() - 1))
+        } else {
+            out.push(line)
+        }
+        i = i + 1
+    }
+    return out
+}

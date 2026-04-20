@@ -99,6 +99,81 @@ const feature_enabled bool = cfg("experimental-cfg")
 	}
 }
 
+func TestCompileConstantFoldsIntegerComparison(t *testing.T) {
+	module := compileSourceWithFeatures(t, `
+package main
+
+const lt bool = 2 < 3
+`, nil)
+
+	var initFn *FunctionObj
+	for _, fn := range module.Functions {
+		if fn.Name == "__bak_init" {
+			initFn = fn
+			break
+		}
+	}
+	if initFn == nil {
+		t.Fatalf("expected init function to be generated")
+	}
+	if bytes.Contains(initFn.Code, []byte{byte(OP_LT)}) {
+		t.Fatalf("expected integer comparison to fold to a boolean constant, got LT opcode in init function")
+	}
+	if len(initFn.Constants) != 1 || initFn.Constants[0].Type != VAL_BOOL || !initFn.Constants[0].AsBool {
+		t.Fatalf("expected one folded true boolean constant, got %#v", initFn.Constants)
+	}
+}
+
+func TestCompileConstantFoldsIntegerShift(t *testing.T) {
+	module := compileSourceWithFeatures(t, `
+package main
+
+const shifted int = 2 << 3
+`, nil)
+
+	var initFn *FunctionObj
+	for _, fn := range module.Functions {
+		if fn.Name == "__bak_init" {
+			initFn = fn
+			break
+		}
+	}
+	if initFn == nil {
+		t.Fatalf("expected init function to be generated")
+	}
+	if bytes.Contains(initFn.Code, []byte{byte(OP_SHL)}) {
+		t.Fatalf("expected integer shift to fold to a constant, got SHL opcode in init function")
+	}
+	if len(initFn.Constants) != 1 || initFn.Constants[0].Type != VAL_INT || initFn.Constants[0].AsInt != 16 {
+		t.Fatalf("expected one folded int constant 16, got %#v", initFn.Constants)
+	}
+}
+
+func TestCompileConstantFoldsBooleanLiteralAnd(t *testing.T) {
+	module := compileSourceWithFeatures(t, `
+package main
+
+const folded bool = true && false
+`, nil)
+
+	var initFn *FunctionObj
+	for _, fn := range module.Functions {
+		if fn.Name == "__bak_init" {
+			initFn = fn
+			break
+		}
+	}
+	if initFn == nil {
+		t.Fatalf("expected init function to be generated")
+	}
+	if bytes.Contains(initFn.Code, []byte{byte(OP_JMP_IF_FALSE)}) || bytes.Contains(initFn.Code, []byte{byte(OP_DUP)}) {
+		t.Fatalf("expected boolean literal && to fold to a constant, got short-circuit bytecode in init function")
+	}
+	if len(initFn.Constants) != 1 || initFn.Constants[0].Type != VAL_BOOL || initFn.Constants[0].AsBool {
+		t.Fatalf("expected one folded false boolean constant, got %#v", initFn.Constants)
+	}
+}
+
 // =============================================================================
 // Control Flow
 // =============================================================================

@@ -42,6 +42,46 @@ impl Set as s {
     pub mut func clear() -> (void) {
         s.map.clear()
     }
+
+    pub func union(other: &Set<T>) -> (Set<T>) {
+        mut var out: Set<T> = new_set()
+        for value in s.values() {
+            out.add(value)
+        }
+        for value in other.values() {
+            out.add(value)
+        }
+        return out
+    }
+
+    pub func intersection(other: &Set<T>) -> (Set<T>) {
+        mut var out: Set<T> = new_set()
+        for value in s.values() {
+            if other.contains(value) {
+                out.add(value)
+            }
+        }
+        return out
+    }
+
+    pub func difference(other: &Set<T>) -> (Set<T>) {
+        mut var out: Set<T> = new_set()
+        for value in s.values() {
+            if !other.contains(value) {
+                out.add(value)
+            }
+        }
+        return out
+    }
+
+    pub func is_subset_of(other: &Set<T>) -> (bool) {
+        for value in s.values() {
+            if !other.contains(value) {
+                return false
+            }
+        }
+        return true
+    }
 }
 
 // StringSet is a simple set backed by Set<string>.
@@ -81,6 +121,22 @@ impl StringSet as s {
     pub mut func clear() -> (void) {
         s.inner.clear()
     }
+
+    pub func union(other: &StringSet) -> (StringSet) {
+        return StringSet{inner: s.inner.union(&other.inner)}
+    }
+
+    pub func intersection(other: &StringSet) -> (StringSet) {
+        return StringSet{inner: s.inner.intersection(&other.inner)}
+    }
+
+    pub func difference(other: &StringSet) -> (StringSet) {
+        return StringSet{inner: s.inner.difference(&other.inner)}
+    }
+
+    pub func is_subset_of(other: &StringSet) -> (bool) {
+        return s.inner.is_subset_of(&other.inner)
+    }
 }
 
 // IntSet is a simple set backed by Set<int>.
@@ -119,5 +175,21 @@ impl IntSet as s {
 
     pub mut func clear() -> (void) {
         s.inner.clear()
+    }
+
+    pub func union(other: &IntSet) -> (IntSet) {
+        return IntSet{inner: s.inner.union(&other.inner)}
+    }
+
+    pub func intersection(other: &IntSet) -> (IntSet) {
+        return IntSet{inner: s.inner.intersection(&other.inner)}
+    }
+
+    pub func difference(other: &IntSet) -> (IntSet) {
+        return IntSet{inner: s.inner.difference(&other.inner)}
+    }
+
+    pub func is_subset_of(other: &IntSet) -> (bool) {
+        return s.inner.is_subset_of(&other.inner)
     }
 }

@@ -246,6 +246,8 @@ Bak is currently developed with a Go-first strategy:
 - Prefer the frozen `v0.1` surface for examples, libraries, and tests.
 - If you use `unsafe` or user generics, label that code experimental.
 - `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
+- Projects without `bak.toml` are treated as `language_mode = "frozen"` by default.
+- CLI experimental flags are rejected in frozen mode until you explicitly set `language_mode = "experimental"` in `bak.toml`.
 
 ## Tooling
 

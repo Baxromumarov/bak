@@ -654,9 +654,18 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 			"if condition must be bool, got %s", typeToString(condType))
 	}
 
+	guardVar, guardState, hasGuard := tc.detectResultGuardCondition(is.Condition)
+
 	// Check if branches terminate (contain unconditional return).
 	// If a branch terminates, its moves shouldn't propagate to subsequent code.
 	conseqTerminates := tc.blockTerminates(is.Consequence)
+	checkWithGuard := func(name string, state resultGuardState, branch func()) {
+		if !hasGuard {
+			branch()
+			return
+		}
+		tc.withResultGuardFact(name, state, branch)
+	}
 
 	if conseqTerminates {
 		// Create a scoped environment for the consequence branch
@@ -664,10 +673,14 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 		conseqEnv := NewIsolatedTypeEnv(tc.env)
 		oldEnv := tc.env
 		tc.env = conseqEnv
-		tc.checkBlockStatement(is.Consequence)
+		checkWithGuard(guardVar, guardState, func() {
+			tc.checkBlockStatement(is.Consequence)
+		})
 		tc.env = oldEnv
 	} else {
-		tc.checkBlockStatement(is.Consequence)
+		checkWithGuard(guardVar, guardState, func() {
+			tc.checkBlockStatement(is.Consequence)
+		})
 	}
 
 	if is.Alternative != nil {
@@ -676,10 +689,14 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 			altEnv := NewIsolatedTypeEnv(tc.env)
 			oldEnv := tc.env
 			tc.env = altEnv
-			tc.checkBlockStatement(is.Alternative)
+			checkWithGuard(guardVar, invertResultGuardState(guardState), func() {
+				tc.checkBlockStatement(is.Alternative)
+			})
 			tc.env = oldEnv
 		} else {
-			tc.checkBlockStatement(is.Alternative)
+			checkWithGuard(guardVar, invertResultGuardState(guardState), func() {
+				tc.checkBlockStatement(is.Alternative)
+			})
 		}
 	}
 }

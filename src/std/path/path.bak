@@ -23,6 +23,10 @@ pub func is_abs(p: string) -> (bool) {
     return is_abs_ref(&p)
 }
 
+pub func is_rel(p: string) -> (bool) {
+    return !is_abs(p)
+}
+
 pub func clean(p: string) -> (string) {
     if p.len() == 0 {
         return "."
@@ -154,6 +158,42 @@ pub func ext(p: &string) -> (string) {
         return ""
     }
     return strings.substring(&b, idx, b.len())
+}
+
+pub func has_ext(p: &string) -> (bool) {
+    return ext(p) != ""
+}
+
+pub func stem(p: &string) -> (string) {
+    var b: string = base(p)
+    var e: string = ext(p)
+    if e == "" {
+        return b
+    }
+    return strings.substring(&b, 0, b.len() - e.len())
+}
+
+pub func without_ext(p: &string) -> (string) {
+    var d: string = dir(p)
+    var s: string = stem(p)
+    if d == "." {
+        return s
+    }
+    if d == "/" {
+        return "/" + s
+    }
+    return d + Separator + s
+}
+
+pub func with_ext(p: &string, new_ext: &string) -> (string) {
+    var root: string = without_ext(p)
+    if new_ext.len() == 0 {
+        return root
+    }
+    if new_ext[0] == '.' {
+        return root + *new_ext
+    }
+    return root + "." + *new_ext
 }
 
 pub func split(p: &string) -> (Split) {

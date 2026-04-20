@@ -201,3 +201,46 @@ func main() -> (void) {
 		t.Fatalf("expected experimental feature enable hint, got %v", typeErrs)
 	}
 }
+
+func TestResultGuardFlowWarnsOnGuaranteedPanicingUnwrap(t *testing.T) {
+	source := `package main
+
+func main() -> (void) {
+    var r: Result<int, string> = Err("boom")
+    if r.is_err() {
+        var _v: int = r.unwrap()
+    }
+    return void
+}`
+
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	if len(parseErrs) > 0 {
+		t.Fatalf("unexpected parser errors: %v", parseErrs)
+	}
+	joined := strings.Join(typeErrs, "\n")
+	if !strings.Contains(joined, "guaranteed to panic") || !strings.Contains(joined, "unwrap_err()") {
+		t.Fatalf("expected flow warning and unwrap_err guidance, got %v", typeErrs)
+	}
+}
+
+func TestStringMethodUndefinedSuggestsStdlibReplacement(t *testing.T) {
+	source := `package main
+
+func main() -> (void) {
+    var s: string = "a,b,c"
+    var _parts: Vec<string, _> = s.split(",")
+    return void
+}`
+
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	if len(parseErrs) > 0 {
+		t.Fatalf("unexpected parser errors: %v", parseErrs)
+	}
+	joined := strings.Join(typeErrs, "\n")
+	if !strings.Contains(joined, "undefined method 'split' for string") {
+		t.Fatalf("expected split undefined-method diagnostic, got %v", typeErrs)
+	}
+	if !strings.Contains(joined, "import \"src/std/strings/strings.bak\" as strings") || !strings.Contains(joined, "strings.split(&value, &sep)") {
+		t.Fatalf("expected stdlib replacement hint, got %v", typeErrs)
+	}
+}

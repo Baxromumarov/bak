@@ -16,6 +16,7 @@ Use this together with:
 - [ ] `docs/CORE_LANGUAGE_SPEC.md` was updated if the stable language contract changed.
 - [ ] Migration notes were added if any existing valid program changes meaning or stops compiling.
 - [ ] Experimental features remain out of the frozen contract unless explicitly promoted.
+- [ ] If `language_mode` defaults or experimental opt-in behavior changed, release notes include a concrete `bak.toml` migration snippet.
 
 ## Tests
 

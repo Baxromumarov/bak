@@ -233,3 +233,74 @@ pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, stri
     }
     return Ok(best)
 }
+
+// map_by transforms each element in v using f and returns a new Vec<U>.
+pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
+    mut var out: Vec<U> = Vec.with_cap(v.len())
+    mut var i: int = 0
+    while i < v.len() {
+        out.push(f(&v[i]))
+        i = i + 1
+    }
+    return out
+}
+
+// filter_by keeps elements that satisfy predicate and returns a new Vec<T>.
+pub func filter_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Vec<T, _>) {
+    mut var out: Vec<T> = Vec.new()
+    mut var i: int = 0
+    while i < v.len() {
+        if predicate(&v[i]) {
+            out.push(v[i])
+        }
+        i = i + 1
+    }
+    return out
+}
+
+// reduce_by accumulates elements into a single value using reducer.
+pub func reduce_by<T, U>(v: &Vec<T, _>, initial: U, reducer: func(U, &T) -> (U)) -> (U) {
+    mut var acc: U = initial
+    mut var i: int = 0
+    while i < v.len() {
+        acc = reducer(acc, &v[i])
+        i = i + 1
+    }
+    return acc
+}
+
+// any_by returns true if any element satisfies predicate.
+pub func any_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
+    mut var i: int = 0
+    while i < v.len() {
+        if predicate(&v[i]) {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+// all_by returns true if all elements satisfy predicate.
+pub func all_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
+    mut var i: int = 0
+    while i < v.len() {
+        if !predicate(&v[i]) {
+            return false
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// find_by returns the first element satisfying predicate, or Err if not found.
+pub func find_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Result<T, string>) {
+    mut var i: int = 0
+    while i < v.len() {
+        if predicate(&v[i]) {
+            return Ok(v[i])
+        }
+        i = i + 1
+    }
+    return Err("element not found")
+}

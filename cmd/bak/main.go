@@ -308,6 +308,8 @@ func printHelp() {
 	fmt.Println()
 	fmt.Println("Experimental language flags:")
 	fmt.Println("  --experimental <list>  Enable experimental features outside frozen v0.1: unsafe, user-generics")
+	fmt.Println("                         Requires language_mode = \"experimental\" in bak.toml")
+	fmt.Println("                         Without bak.toml, projects default to language_mode = \"frozen\"")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  bak --allow-exec run main.bak    Run with subprocess access enabled")
@@ -1068,6 +1070,10 @@ func pickExperimentalFeatures(features []string) []string {
 	return experimental
 }
 
+func languageModeOptInSnippet() string {
+	return "language_mode = \"experimental\""
+}
+
 func resolveProjectFeaturesByLanguageMode(languageMode string, manifestFeatures []string, cliFeatures []string) ([]string, error) {
 	mode := manifest.NormalizeLanguageMode(languageMode)
 	merged := mergeFeatureLists(manifestFeatures, cliFeatures)
@@ -1078,11 +1084,21 @@ func resolveProjectFeaturesByLanguageMode(languageMode string, manifestFeatures 
 	case manifest.LanguageModeFrozen:
 		manifestExperimental := pickExperimentalFeatures(manifestFeatures)
 		if len(manifestExperimental) > 0 {
-			return nil, fmt.Errorf("bak.toml has language_mode=%q but enables experimental features: %s", mode, strings.Join(manifestExperimental, ", "))
+			return nil, fmt.Errorf(
+				"bak.toml has language_mode=%q but enables experimental features: %s\n\nTo opt in, add this to bak.toml:\n%s",
+				mode,
+				strings.Join(manifestExperimental, ", "),
+				languageModeOptInSnippet(),
+			)
 		}
 		cliExperimental := pickExperimentalFeatures(cliFeatures)
 		if len(cliExperimental) > 0 {
-			return nil, fmt.Errorf("language_mode=%q blocks CLI experimental features (%s); set language_mode = %q in bak.toml to opt in", mode, strings.Join(cliExperimental, ", "), manifest.LanguageModeExperimental)
+			return nil, fmt.Errorf(
+				"language_mode=%q blocks CLI experimental features (%s)\n\nTo opt in, add this to bak.toml:\n%s",
+				mode,
+				strings.Join(cliExperimental, ", "),
+				languageModeOptInSnippet(),
+			)
 		}
 		return merged, nil
 	default:
@@ -1265,7 +1281,7 @@ func initProject(name string) error {
 	}
 
 	readmePath := filepath.Join(projectDir, "README.md")
-	readmeContent := fmt.Sprintf("# %s\n\nStarter Bak project generated with bak new.\n\n## Layout\n\n- src/main.bak: entry point\n- bak.toml: package metadata and permissions\n- .gitignore: local build and cache ignores\n\n## Run\n\n```bash\nbak run src/main.bak\n```\n\n## Format and lint\n\n```bash\nbakfmt src\nbaklint src\n```\n", projectTitle)
+	readmeContent := fmt.Sprintf("# %s\n\nStarter Bak project generated with bak new.\n\n## Layout\n\n- src/main.bak: entry point\n- bak.toml: package metadata, language_mode, and permissions\n- .gitignore: local build and cache ignores\n\n## Run\n\n```bash\nbak run src/main.bak\n```\n\n## Format and lint\n\n```bash\nbakfmt src\nbaklint src\n```\n", projectTitle)
 	if err := os.WriteFile(readmePath, []byte(readmeContent), 0644); err != nil {
 		return fmt.Errorf("create README.md: %w", err)
 	}
@@ -1277,6 +1293,7 @@ func initProject(name string) error {
 	}
 
 	m := manifest.DefaultManifest(packageName)
+	m.LanguageMode = manifest.LanguageModeFrozen
 	if err := m.SaveToDir(projectDir); err != nil {
 		return fmt.Errorf("create bak.toml: %w", err)
 	}

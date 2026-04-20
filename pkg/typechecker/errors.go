@@ -251,12 +251,23 @@ func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file
 }
 
 func (tc *TypeChecker) errorUndefinedMethod(typeName, method string, line, col int, candidates []string) {
+	tc.errorUndefinedMethodWithHelp(typeName, method, line, col, candidates, "")
+}
+
+func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, line, col int, candidates []string, extraHelp string) {
 	help := ""
 	if suggestion := bestSuggestion(method, candidates); suggestion != "" {
 		help = fmt.Sprintf("did you mean '%s'?", suggestion)
 	} else if len(candidates) > 0 && len(candidates) <= 6 {
 		sort.Strings(candidates)
 		help = fmt.Sprintf("available methods: %s", strings.Join(candidates, ", "))
+	}
+	if extraHelp != "" {
+		if help != "" {
+			help = help + "; " + extraHelp
+		} else {
+			help = extraHelp
+		}
 	}
 	tc.emitError(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrUndefinedMethod,

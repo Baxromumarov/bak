@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -11,6 +12,25 @@ import (
 	"github.com/baxromumarov/bak/pkg/manifest"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
+
+func TestCLIHelperProcess(t *testing.T) {
+	if os.Getenv("BAK_TEST_MAIN_HELPER") != "1" {
+		return
+	}
+	idx := -1
+	for i, arg := range os.Args {
+		if arg == "--" {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 || idx+1 >= len(os.Args) {
+		os.Exit(2)
+	}
+	os.Args = os.Args[idx+1:]
+	main()
+	os.Exit(0)
+}
 
 func TestParsePackageCommandOptions(t *testing.T) {
 	opts, rest, err := parsePackageCommandOptions([]string{"--offline", "--frozen-lockfile", "github.com/acme/pkg@1.2.3"})
@@ -215,6 +235,29 @@ func TestResolveProjectFeatureStateNoManifestRejectsExperimental(t *testing.T) {
 	_, _, err = resolveProjectFeatureState([]string{runtimecap.ExperimentalFeatureUnsafe})
 	if err == nil || !strings.Contains(err.Error(), "language_mode=\"frozen\" blocks CLI experimental features") {
 		t.Fatalf("expected frozen default rejection for experimental CLI features, got %v", err)
+	}
+}
+
+func TestCLIRejectsExperimentalWithoutManifestEndToEnd(t *testing.T) {
+	dir := t.TempDir()
+	source := "package main\n\nfunc main() -> (void) {\n    println(\"ok\")\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, "main.bak"), []byte(source), 0644); err != nil {
+		t.Fatalf("writing main.bak: %v", err)
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "--experimental=unsafe", "run", "main.bak")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit when using --experimental without bak.toml, got success output: %s", string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "language_mode=\"frozen\" blocks CLI experimental features") {
+		t.Fatalf("expected frozen-mode rejection message, got: %s", text)
+	}
+	if !strings.Contains(text, "language_mode = \"experimental\"") {
+		t.Fatalf("expected opt-in snippet in error message, got: %s", text)
 	}
 }
 
@@ -472,6 +515,9 @@ func TestInitProjectCreatesStarterFiles(t *testing.T) {
 	if m.Package.Version != "0.1.0" {
 		t.Fatalf("unexpected package version: %q", m.Package.Version)
 	}
+	if m.LanguageMode != manifest.LanguageModeFrozen {
+		t.Fatalf("unexpected language mode: %q", m.LanguageMode)
+	}
 
 	readme, err := os.ReadFile(filepath.Join(projectDir, "README.md"))
 	if err != nil {
@@ -479,6 +525,9 @@ func TestInitProjectCreatesStarterFiles(t *testing.T) {
 	}
 	if !strings.Contains(string(readme), "bak new") {
 		t.Fatalf("README.md does not mention bak new")
+	}
+	if !strings.Contains(string(readme), "language_mode") {
+		t.Fatalf("README.md does not mention language_mode")
 	}
 
 	gitignore, err := os.ReadFile(filepath.Join(projectDir, ".gitignore"))
