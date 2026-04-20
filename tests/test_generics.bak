@@ -1,3 +1,4 @@
+// EXPERIMENTAL: uses user-defined generics outside frozen v0.1.
 // Test file for Generics support
 package main
 

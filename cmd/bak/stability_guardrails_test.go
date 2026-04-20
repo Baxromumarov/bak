@@ -78,6 +78,30 @@ func TestPublicDocsAndExamplesLabelExperimentalSurface(t *testing.T) {
 	}
 }
 
+func TestPublicConformanceTestsLabelExperimentalSurface(t *testing.T) {
+	root := findRepoRootForGuardrail(t)
+	targets := []string{
+		filepath.Join(root, "tests", "IMPORT_TESTS.md"),
+	}
+
+	matches, err := filepath.Glob(filepath.Join(root, "tests", "test_*.bak"))
+	if err != nil {
+		t.Fatalf("glob test fixtures: %v", err)
+	}
+	targets = append(targets, matches...)
+
+	var unlabeled []string
+	for _, target := range targets {
+		if fileNeedsExperimentalLabel(t, target) {
+			unlabeled = append(unlabeled, trimRepoRoot(root, target))
+		}
+	}
+
+	if len(unlabeled) > 0 {
+		t.Fatalf("public conformance tests use experimental surface without a visible experimental-status note: %s", strings.Join(unlabeled, ", "))
+	}
+}
+
 func fileNeedsExperimentalLabel(t *testing.T, path string) bool {
 	t.Helper()
 

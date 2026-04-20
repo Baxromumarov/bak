@@ -65,6 +65,7 @@ func injectStructPrelude(program *ast.Program, path string, structName string) s
 	src := string(data)
 	l := lexer.New(src)
 	p := parser.New(l)
+	p.SetFilename(path)
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
@@ -117,6 +118,7 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) strin
 	src := string(data)
 	l := lexer.New(src)
 	p := parser.New(l)
+	p.SetFilename(path)
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {

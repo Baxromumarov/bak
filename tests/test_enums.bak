@@ -1,3 +1,4 @@
+// EXPERIMENTAL: includes generic enums outside frozen v0.1.
 // Test file for enums and pattern matching
 package main
 

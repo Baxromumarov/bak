@@ -771,6 +771,14 @@ func experimentalFeatureHelp(feature string) string {
 	return fmt.Sprintf("enable it with features = [\"%s\"] in bak.toml or pass --experimental=%s", feature, short)
 }
 
+func isStdlibSourcePath(path string) bool {
+	if path == "" {
+		return false
+	}
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "src/std/")
+}
+
 func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
 	return runtimecap.CurrentFeatureEnabled(feature)
 }
@@ -1176,7 +1184,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			typeParams := []string{}
@@ -1217,7 +1225,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "`trait` declarations", runtimecap.ExperimentalFeatureTraits)
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic trait declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			typeParams := []string{}
@@ -1266,7 +1274,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			variants := make(map[string]EnumVariantDef)
@@ -1291,7 +1299,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			params := make([]ast.TypeExpression, len(s.Parameters))
@@ -1340,10 +1348,10 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.TraitName != nil && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
 				tc.addExperimentalFeatureError(s.TraitName.Token.Line, s.TraitName.Token.Column, "trait implementations", runtimecap.ExperimentalFeatureTraits)
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
 				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
-			if len(s.TraitTypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if len(s.TraitTypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
 				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			if structDef, ok := tc.env.LookupStruct(s.TypeName.Value); ok {
@@ -1351,7 +1359,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 					if method == nil || method.Name == nil {
 						continue
 					}
-					if len(method.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+					if len(method.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(method.Name.Token.Filename) {
 						tc.addExperimentalFeatureError(method.Name.Token.Line, method.Name.Token.Column, "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
 					}
 					params := make([]ast.TypeExpression, len(method.Parameters))
@@ -1646,7 +1654,7 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 			}
 			tc.validateTypeName(tt.Name, line, col)
 		case *ast.GenericType:
-			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(tt.Token.Filename) {
 				tc.addExperimentalFeatureError(line, col, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			tc.validateTypeName(tt.Name, line, col)

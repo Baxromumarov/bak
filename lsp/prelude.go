@@ -4,17 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
-)
-
-var (
-	preludeOnce sync.Once
-	// map key is the primary struct name ("Vec", "HashMap")
-	preludeModules map[string][]ast.Statement
 )
 
 func getStdLibPath() string {
@@ -42,40 +35,39 @@ func getStdLibPath() string {
 }
 
 func loadPreludeModules() map[string][]ast.Statement {
-	preludeOnce.Do(func() {
-		preludeModules = make(map[string][]ast.Statement)
-		stdLibPath := getStdLibPath()
-		modules := map[string]string{
-			"Vec":      filepath.Join(stdLibPath, "collections", "vec.bak"),
-			"HashMap":  filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-			"Option":   filepath.Join(stdLibPath, "option.bak"),
-			"Result":   filepath.Join(stdLibPath, "result.bak"),
-			"Builtins": filepath.Join(stdLibPath, "builtins.bak"),
+	preludeModules := make(map[string][]ast.Statement)
+	stdLibPath := getStdLibPath()
+	modules := map[string]string{
+		"Vec":      filepath.Join(stdLibPath, "collections", "vec.bak"),
+		"HashMap":  filepath.Join(stdLibPath, "collections", "hashmap.bak"),
+		"Option":   filepath.Join(stdLibPath, "option.bak"),
+		"Result":   filepath.Join(stdLibPath, "result.bak"),
+		"Builtins": filepath.Join(stdLibPath, "builtins.bak"),
+	}
+
+	for name, path := range modules {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
 		}
 
-		for name, path := range modules {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				continue
-			}
-
-			l := lexer.New(string(data))
-			p := parser.New(l)
-			prog := p.ParseProgram()
-			if len(p.Errors()) != 0 {
-				continue
-			}
-
-			startIdx := 0
-			if len(prog.Statements) > 0 {
-				if _, ok := prog.Statements[0].(*ast.PackageStatement); ok {
-					startIdx = 1
-				}
-			}
-
-			preludeModules[name] = prog.Statements[startIdx:]
+		l := lexer.New(string(data))
+		p := parser.New(l)
+		p.SetFilename(path)
+		prog := p.ParseProgram()
+		if len(p.Errors()) != 0 {
+			continue
 		}
-	})
+
+		startIdx := 0
+		if len(prog.Statements) > 0 {
+			if _, ok := prog.Statements[0].(*ast.PackageStatement); ok {
+				startIdx = 1
+			}
+		}
+
+		preludeModules[name] = prog.Statements[startIdx:]
+	}
 	return preludeModules
 }
 

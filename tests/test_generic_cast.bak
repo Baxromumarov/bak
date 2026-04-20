@@ -1,4 +1,6 @@
 
+// EXPERIMENTAL: uses user-defined generics outside frozen v0.1.
+
 func check<T>(val: &T)->(void) {
     println("Type of *val:", type(*val))
     if type(*val) == "string" {

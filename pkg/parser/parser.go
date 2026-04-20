@@ -5,6 +5,7 @@ package parser
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -104,7 +105,18 @@ func featureFlagHint(feature string) string {
 }
 
 func (p *Parser) experimentalFeatureEnabled(feature string) bool {
+	if feature == runtimecap.ExperimentalFeatureUserGenerics && isStdlibSourcePath(p.filename) {
+		return true
+	}
 	return runtimecap.CurrentFeatureEnabled(feature)
+}
+
+func isStdlibSourcePath(path string) bool {
+	if path == "" {
+		return false
+	}
+	normalized := filepath.ToSlash(path)
+	return strings.Contains(normalized, "src/std/")
 }
 
 func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
@@ -178,6 +190,15 @@ func (p *Parser) recentTokensSummary() string {
 func (p *Parser) SetFilename(name string) {
 	p.filename = name
 	p.emitter = diagnostics.NewEmitter(name)
+	p.curToken = p.withFilename(p.curToken)
+	p.peekToken = p.withFilename(p.peekToken)
+	p.peek2Token = p.withFilename(p.peek2Token)
+	p.peek3Token = p.withFilename(p.peek3Token)
+}
+
+func (p *Parser) withFilename(tok token.Token) token.Token {
+	tok.Filename = p.filename
+	return tok
 }
 
 func (p *Parser) Diagnostics() []diagnostics.Diagnostic {
@@ -361,7 +382,7 @@ func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.peek2Token
 	p.peek2Token = p.peek3Token
-	p.peek3Token = p.l.NextToken()
+	p.peek3Token = p.withFilename(p.l.NextToken())
 	p.recordToken(p.curToken)
 }
 
@@ -444,6 +465,7 @@ func (p *Parser) splitCompoundToken(firstType token.TokenType, firstLit string, 
 	p.curToken = token.Token{
 		Type:      firstType,
 		Literal:   firstLit,
+		Filename:  p.filename,
 		Line:      line,
 		Column:    col,
 		EndLine:   line,
@@ -452,6 +474,7 @@ func (p *Parser) splitCompoundToken(firstType token.TokenType, firstLit string, 
 	p.peekToken = token.Token{
 		Type:      secondType,
 		Literal:   secondLit,
+		Filename:  p.filename,
 		Line:      line,
 		Column:    col + 1,
 		EndLine:   line,
@@ -2074,7 +2097,7 @@ func (p *Parser) parseFunctionHeader() *ast.FunctionHeader {
 		}
 		fh.ReturnType = p.parseReturnTypes()
 	} else {
-		fh.ReturnType = &ast.VoidType{Token: token.Token{Type: token.TYPE_VOID, Literal: "void"}}
+		fh.ReturnType = &ast.VoidType{Token: token.Token{Type: token.TYPE_VOID, Literal: "void", Filename: p.filename}}
 	}
 
 	return fh
