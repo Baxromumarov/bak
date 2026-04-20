@@ -21,6 +21,18 @@ If `README.md`, design notes, experiments, examples, or parser behavior disagree
 - Additive changes may be accepted only if they do not change the meaning of existing valid programs.
 - Experimental features must be documented as experimental and are not covered by the frozen compatibility promise.
 
+## Backend Conformance
+
+For the frozen `v0.1` surface, the Go interpreter/evaluator, bytecode VM, and native backend are expected to implement the same language semantics.
+
+That means:
+
+- stable programs should parse, typecheck, and behave consistently across supported backends,
+- backend-specific divergence on the stable surface is a bug,
+- parity tests are part of the compatibility contract for the frozen language line.
+
+Performance, tracing depth details, and exact diagnostic wording may differ, but stable program meaning must not.
+
 ## Stable Surface
 
 ### Files, packages, and visibility

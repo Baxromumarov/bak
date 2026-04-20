@@ -9,7 +9,9 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
+	"github.com/baxromumarov/bak/pkg/evaluator"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
@@ -17,7 +19,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/vm"
 )
 
-func TestNativeVMParityMatrix(t *testing.T) {
+func TestEvaluatorVMNativeParityMatrix(t *testing.T) {
 	root := findRepoRoot(t)
 
 	tests := []struct {
@@ -74,13 +76,36 @@ func TestNativeVMParityMatrix(t *testing.T) {
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
+			evaluatorResult := runEvaluatorProgramFromFile(t, testCase.sourcePath, testCase.permissions)
 			vmResult := runVMProgramFromFile(t, testCase.sourcePath, testCase.permissions)
 			nativeResult := runNativeProgramFromFile(t, testCase.sourcePath, testCase.permissions)
+			if evaluatorResult != vmResult {
+				t.Fatalf("evaluator/VM mismatch for %s: evaluator=%d vm=%d", testCase.sourcePath, evaluatorResult, vmResult)
+			}
 			if vmResult != nativeResult {
 				t.Fatalf("VM/native mismatch for %s: vm=%d native=%d", testCase.sourcePath, vmResult, nativeResult)
 			}
 		})
 	}
+}
+
+func runEvaluatorProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {
+	t.Helper()
+
+	program := loadProgramFromFile(t, sourcePath)
+	restorePermissions := runtimecap.SetCurrent(permissions)
+	t.Cleanup(restorePermissions)
+	restoreFeatures := runtimecap.SetCurrentFeatures(nil)
+	t.Cleanup(restoreFeatures)
+	evaluator.ResetState()
+	t.Cleanup(evaluator.ResetState)
+
+	result := evaluator.Eval(program, object.NewEnvironment())
+	intResult, ok := result.(*object.Integer)
+	if !ok {
+		t.Fatalf("evaluator result for %s has type %T, want *object.Integer", sourcePath, result)
+	}
+	return int(intResult.Value)
 }
 
 func runVMProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {

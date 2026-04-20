@@ -47,6 +47,13 @@ Experimental means:
 - parser support alone does not make it stable,
 - examples using it should say so clearly.
 
+The current experimental language set is:
+
+- `unsafe`
+- `box`
+- user-defined generics
+- traits
+
 ### Internal
 
 Anything used only for compiler implementation, bootstrap work, native runtime plumbing, or research-track docs is internal and outside the language contract.

@@ -307,7 +307,7 @@ func printHelp() {
 	fmt.Println("  --frozen-lockfile      Refuse operations that would change bak.lock")
 	fmt.Println()
 	fmt.Println("Experimental language flags:")
-	fmt.Println("  --experimental <list>  Enable experimental features: unsafe, box, user-generics, traits")
+	fmt.Println("  --experimental <list>  Enable experimental features outside frozen v0.1: unsafe, box, user-generics, traits")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  bak --allow-exec run main.bak    Run with subprocess access enabled")

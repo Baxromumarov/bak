@@ -15,6 +15,23 @@ Audience: compiler contributors, language learners, and repo maintainers.
 > The change policy for the language surface lives in `docs/LANGUAGE_STABILITY_POLICY.md`.
 > If this README conflicts with either document, the spec and stability policy win.
 
+## Language Status
+
+Bak is operating under a frozen `v0.1` language line.
+
+- Stable language semantics are defined only by `docs/CORE_LANGUAGE_SPEC.md`.
+- The Go implementation in `pkg/` and `cmd/` is the compiler/runtime of record.
+- Backend divergence on the frozen surface should be treated as a bug, not as “different modes”.
+
+Current experimental language features are:
+
+- `unsafe`
+- `box`
+- user-defined generics
+- traits
+
+Those features are outside the frozen `v0.1` compatibility promise and require explicit opt-in via `--experimental=...`. Parser support or partial implementation does not make them stable.
+
 ---
 
 ## Lexical Structure
@@ -225,6 +242,12 @@ Bak is currently developed with a Go-first strategy:
 - use `bakc-stage0` for normal compilation work,
 - treat `src/` as experimental or supplemental,
 - do not treat full self-hosting as a release blocker.
+
+## Stability Notes
+
+- Prefer the frozen `v0.1` surface for examples, libraries, and tests.
+- If you use `unsafe`, `box`, user generics, or traits, label that code experimental.
+- `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
 
 ## Tooling
 
