@@ -254,7 +254,7 @@ impl Column as c {
         return c.spec
     }
 
-    pub func eq(value: any) -> (Expr) {
+    pub func eq<T>(value: T) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "=",
@@ -262,7 +262,7 @@ impl Column as c {
         )
     }
 
-    pub func gt(value: any) -> (Expr) {
+    pub func gt<T>(value: T) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             ">",
@@ -270,7 +270,7 @@ impl Column as c {
         )
     }
 
-    pub func gte(value: any) -> (Expr) {
+    pub func gte<T>(value: T) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             ">=",
@@ -278,7 +278,7 @@ impl Column as c {
         )
     }
 
-    pub func lt(value: any) -> (Expr) {
+    pub func lt<T>(value: T) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "<",
@@ -286,7 +286,7 @@ impl Column as c {
         )
     }
 
-    pub func lte(value: any) -> (Expr) {
+    pub func lte<T>(value: T) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "<=",
@@ -562,13 +562,13 @@ impl SelectRaw as s {
         }
     }
 
-    pub func load_map(
+    pub func load_map<T>(
         conn: &postgres.Connection,
-        decode: func(&postgres.Row) -> (Result<any, string>),
-    ) -> (Result<Vec<any, _>, string>) {
+        decode: func(&postgres.Row) -> (Result<T, string>),
+    ) -> (Result<Vec<T, _>, string>) {
         switch s.rows(conn) {
             case Ok(rows) {
-                mut var out: Vec<any, _> = Vec.new()
+                mut var out: Vec<T, _> = Vec.new()
 
                 for row in rows {
                     switch decode(&row) {
@@ -589,10 +589,10 @@ impl SelectRaw as s {
         }
     }
 
-    pub func one_map(
+    pub func one_map<T>(
         conn: &postgres.Connection,
-        decode: func(&postgres.Row) -> (Result<any, string>),
-    ) -> (Result<any, string>) {
+        decode: func(&postgres.Row) -> (Result<T, string>),
+    ) -> (Result<T, string>) {
         switch s.load_map(
             conn,
             decode,
@@ -673,7 +673,7 @@ pub func insert(table: string) -> (InsertBuilder) {
 }
 
 impl InsertBuilder as b {
-    pub func value(name: string, value: any) -> (InsertBuilder) {
+    pub func value<T>(name: string, value: T) -> (InsertBuilder) {
         mut var out: InsertBuilder = b
 
         if out.has_error {
@@ -933,7 +933,7 @@ pub func update(table: string) -> (UpdateBuilder) {
 }
 
 impl UpdateBuilder as b {
-    pub func set(name: string, value: any) -> (UpdateBuilder) {
+    pub func set<T>(name: string, value: T) -> (UpdateBuilder) {
         mut var out: UpdateBuilder = b
 
         if out.has_error {

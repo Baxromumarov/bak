@@ -46,10 +46,10 @@ pub func from_float(v: float64) -> (Any) {
 
 // from_box records a boxed value's type name for debugging/inspection.
 // NOTE: v1 stores a debug representation only; typed extraction is a TODO.
-pub func from_box<T>(v: T box) -> (Any) {
+pub func from_box<T>(v: T) -> (Any) {
     return Any{
-        box_repr: "<box>",
-        box_type: typeof(*v),
+        box_repr: string(v),
+        box_type: typeof(v),
         kind: AnyKind.Box,
     }
 }
@@ -104,9 +104,9 @@ impl Any as a {
         }
         return Err("value is not float64")
     }
-    pub func as_box<T>() -> (Result<T box, string>) {
-        // as_box is reserved for future typed extraction of boxed values.
-        return Err("value is not box")
+    pub func as_box<T>() -> (Result<T, string>) {
+        // Box syntax is frozen out in v0.1; keep API but always return an error.
+        return Err("box values are not supported in the frozen v0.1 language surface")
     }
     pub func as_array() -> (Vec<Any, _>) {
         if a.kind == AnyKind.Array {
