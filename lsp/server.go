@@ -3940,6 +3940,8 @@ func (s *Server) handleInlayHint(req Request) []InlayHint {
 var lineColRegex = regexp.MustCompile(`line (\d+):(\d+): (.*)`)
 
 func (s *Server) analyzeAndPublish(uri string, text string) {
+	filePath := uriToPath(uri)
+
 	// 0. Update Registry
 	// Ideally we should know the package path relative to workspace.
 	// For now we treat single file as "main" or parse package decl.
@@ -3947,6 +3949,7 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 	// 1. Parse
 	l := lexer.New(text)
 	p := parser.New(l)
+	p.SetFilename(filePath)
 	prog := p.ParseProgram()
 
 	// 2. Type Check with Registry
@@ -3963,7 +3966,6 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 	// IMPORTANT: For imports to work, we need to load them.
 	// We need to set up the type checker to know about the file path.
 
-	filePath := uriToPath(uri)
 	typechecker.InvalidatePackage(filePath)
 	// log.Printf("Analyzing file: %s from URI: %s", filePath, uri)
 
@@ -4041,6 +4043,9 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 	if tc != nil {
 		typeErrors := tc.GetErrors()
 		for _, typeErr := range typeErrors {
+			if typeErr.File != "" && !samePath(typeErr.File, filePath) {
+				continue
+			}
 			severity := 1
 			if typeErr.Tier == typechecker.TierWarning {
 				severity = 2
@@ -4093,6 +4098,19 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 
 	msg := EncodeMessage(notification)
 	os.Stdout.Write(msg)
+}
+
+func samePath(a, b string) bool {
+	if a == b {
+		return true
+	}
+	if aa, err := filepath.Abs(a); err == nil {
+		a = aa
+	}
+	if bb, err := filepath.Abs(b); err == nil {
+		b = bb
+	}
+	return filepath.Clean(a) == filepath.Clean(b)
 }
 
 func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
@@ -4987,6 +5005,7 @@ func (s *Server) typecheckForCompletion(text, uri string, pos Position) (*typech
 
 	l := lexer.New(modText)
 	p := parser.New(l)
+	p.SetFilename(uriToPath(uri))
 	prog := p.ParseProgram()
 	if prog == nil {
 		return nil, nil

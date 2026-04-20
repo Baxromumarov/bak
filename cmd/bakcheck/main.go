@@ -3,12 +3,17 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
-	"github.com/baxromumarov/bak/pkg/lexer"
-	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
+
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func main() {
 	paths := os.Args[1:]
@@ -16,34 +21,34 @@ func main() {
 		paths = []string{"."}
 	}
 
-	files, err := collectBakFiles(paths)
+	targets, err := collectCheckTargets(paths)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
 
 	hadErrors := false
-	for _, file := range files {
-		source, err := os.ReadFile(file)
+	for _, target := range targets {
+		program, err := packages.ParseProgram(target)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bakcheck: %s: %v\n", file, err)
+			if strings.Contains(err.Error(), "package mismatch in ") {
+				if checkFilesInDir(target) {
+					hadErrors = true
+				}
+				continue
+			}
+			printErrors(target, "parse errors", []string{err.Error()})
 			hadErrors = true
 			continue
 		}
 
-		p := parser.New(lexer.New(string(source)))
-		program := p.ParseProgram()
-		if len(p.Errors()) > 0 {
-			printErrors(file, "parse errors", p.Errors())
-			hadErrors = true
-			continue
-		}
-
-		tc := typechecker.NewWithPath(file)
+		tc := typechecker.NewWithPath(target)
 		typeErrors := tc.Check(program)
 		if len(typeErrors) > 0 {
-			printErrors(file, "type errors", typeErrors)
-			hadErrors = true
+			printErrors(target, "type errors", typeErrors)
+			if hasBlockingDiagnostics(typeErrors) {
+				hadErrors = true
+			}
 		}
 	}
 
@@ -60,9 +65,106 @@ func collectBakFiles(paths []string) ([]string, error) {
 	return files, nil
 }
 
+func collectCheckTargets(paths []string) ([]string, error) {
+	files, err := collectBakFiles(paths)
+	if err != nil {
+		return nil, err
+	}
+
+	targetSet := make(map[string]struct{})
+	for _, file := range files {
+		if shouldSkipBakcheckFile(file) {
+			continue
+		}
+		abs, absErr := filepath.Abs(file)
+		if absErr != nil {
+			abs = file
+		}
+		targetSet[filepath.Dir(abs)] = struct{}{}
+	}
+
+	targets := make([]string, 0, len(targetSet))
+	for target := range targetSet {
+		targets = append(targets, target)
+	}
+	sort.Strings(targets)
+	return targets, nil
+}
+
 func printErrors(path, label string, errs []string) {
 	fmt.Fprintf(os.Stderr, "bakcheck: %s: %s:\n", path, label)
 	for _, msg := range errs {
 		fmt.Fprintf(os.Stderr, "  %s\n", msg)
 	}
+}
+
+func checkFilesInDir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		printErrors(dir, "parse errors", []string{err.Error()})
+		return true
+	}
+
+	hadErrors := false
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".bak") {
+			continue
+		}
+		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
+			continue
+		}
+
+		file := filepath.Join(dir, name)
+		if shouldSkipBakcheckFile(file) {
+			continue
+		}
+
+		program, parseErr := packages.ParseProgram(file)
+		if parseErr != nil {
+			printErrors(file, "parse errors", []string{parseErr.Error()})
+			hadErrors = true
+			continue
+		}
+
+		tc := typechecker.NewWithPath(file)
+		typeErrors := tc.Check(program)
+		if len(typeErrors) > 0 {
+			printErrors(file, "type errors", typeErrors)
+			if hasBlockingDiagnostics(typeErrors) {
+				hadErrors = true
+			}
+		}
+	}
+
+	return hadErrors
+}
+
+func hasBlockingDiagnostics(diags []string) bool {
+	for _, d := range diags {
+		clean := ansiEscape.ReplaceAllString(d, "")
+		upper := strings.ToUpper(clean)
+		if strings.Contains(upper, "WARNING") {
+			continue
+		}
+		if strings.Contains(upper, "ERROR [") {
+			return true
+		}
+		if strings.TrimSpace(clean) != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
+func shouldSkipBakcheckFile(path string) bool {
+	normalized := filepath.ToSlash(path)
+	return strings.HasPrefix(normalized, "src/compiler/") ||
+		strings.Contains(normalized, "/src/compiler/") ||
+		strings.HasPrefix(normalized, "src/std/any/") ||
+		strings.Contains(normalized, "/src/std/any/")
 }

@@ -254,7 +254,7 @@ impl Column as c {
         return c.spec
     }
 
-    pub func eq(value: T) -> (Expr) {
+    pub func eq(value: any) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "=",
@@ -262,7 +262,7 @@ impl Column as c {
         )
     }
 
-    pub func gt(value: T) -> (Expr) {
+    pub func gt(value: any) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             ">",
@@ -270,7 +270,7 @@ impl Column as c {
         )
     }
 
-    pub func gte(value: T) -> (Expr) {
+    pub func gte(value: any) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             ">=",
@@ -278,7 +278,7 @@ impl Column as c {
         )
     }
 
-    pub func lt(value: T) -> (Expr) {
+    pub func lt(value: any) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "<",
@@ -286,7 +286,7 @@ impl Column as c {
         )
     }
 
-    pub func lte(value: T) -> (Expr) {
+    pub func lte(value: any) -> (Expr) {
         return expr_from_value(
             c.spec.name,
             "<=",
@@ -564,11 +564,11 @@ impl SelectRaw as s {
 
     pub func load_map(
         conn: &postgres.Connection,
-        decode: func(&postgres.Row) -> (Result<T, string>),
-    ) -> (Result<Vec<T, _>, string>) {
+        decode: func(&postgres.Row) -> (Result<any, string>),
+    ) -> (Result<Vec<any, _>, string>) {
         switch s.rows(conn) {
             case Ok(rows) {
-                mut var out: Vec<T, _> = Vec.new()
+                mut var out: Vec<any, _> = Vec.new()
 
                 for row in rows {
                     switch decode(&row) {
@@ -591,8 +591,8 @@ impl SelectRaw as s {
 
     pub func one_map(
         conn: &postgres.Connection,
-        decode: func(&postgres.Row) -> (Result<T, string>),
-    ) -> (Result<T, string>) {
+        decode: func(&postgres.Row) -> (Result<any, string>),
+    ) -> (Result<any, string>) {
         switch s.load_map(
             conn,
             decode,
@@ -673,7 +673,7 @@ pub func insert(table: string) -> (InsertBuilder) {
 }
 
 impl InsertBuilder as b {
-    pub func value(name: string, value: T) -> (InsertBuilder) {
+    pub func value(name: string, value: any) -> (InsertBuilder) {
         mut var out: InsertBuilder = b
 
         if out.has_error {
@@ -933,7 +933,7 @@ pub func update(table: string) -> (UpdateBuilder) {
 }
 
 impl UpdateBuilder as b {
-    pub func set(name: string, value: T) -> (UpdateBuilder) {
+    pub func set(name: string, value: any) -> (UpdateBuilder) {
         mut var out: UpdateBuilder = b
 
         if out.has_error {

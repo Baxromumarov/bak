@@ -305,7 +305,6 @@ func format_fields(fields: &Vec<Field, _>) -> (string) {
 // HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)
 // =============================================================================
 const CH_0: int = 48
-const CH_MINUS: int = 45
 func int_to_string(n: int) -> (string) {
     if n == 0 {
         return "0"

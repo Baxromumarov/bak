@@ -16,10 +16,6 @@ func clone_ref_string(path: &string) -> (string) {
     )
 }
 
-func c_path(path: string) -> (string) {
-    return path
-}
-
 // readFile reads the entire contents of a file
 // Returns the content as a string, or an error message
 pub func readFile(path: string) -> (Result<string, string>) {

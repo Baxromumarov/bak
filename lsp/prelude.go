@@ -119,6 +119,7 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 		}
 		sl := lexer.New(string(data))
 		sp := parser.New(sl)
+		sp.SetFilename(siblingPath)
 		sibProg := sp.ParseProgram()
 		if len(sp.Errors()) > 0 || sibProg == nil {
 			continue
@@ -164,9 +165,23 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 	}
 
 	orig := program.Statements
+	insertAt := 0
+	if len(orig) > 0 {
+		if _, ok := orig[0].(*ast.PackageStatement); ok {
+			insertAt = 1
+		}
+		for insertAt < len(orig) {
+			if _, ok := orig[insertAt].(*ast.ImportStatement); !ok {
+				break
+			}
+			insertAt++
+		}
+	}
+
 	merged := make([]ast.Statement, 0, len(orig)+len(toInject))
-	merged = append(merged, orig...)
+	merged = append(merged, orig[:insertAt]...)
 	merged = append(merged, toInject...)
+	merged = append(merged, orig[insertAt:]...)
 	program.Statements = merged
 
 	fn()

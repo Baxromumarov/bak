@@ -269,7 +269,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	if !isBuiltinType {
 		structDef, ok = tc.env.LookupStruct(typeName)
 		if !ok {
-			tc.errorUndefinedType(typeName, id.Token.Line, id.Token.Column)
+			tc.errorUndefinedTypeInFile(typeName, id.Token.Line, id.Token.Column, id.Token.Filename)
 			return
 		}
 	}

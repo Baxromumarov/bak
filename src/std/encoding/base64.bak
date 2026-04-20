@@ -143,9 +143,6 @@ pub func decode(encoded: &string) -> (Result<string, string>) {
 // URL-Safe Variant
 // -----------------------------------------------------------------------------
 
-// URL-safe Base64 alphabet (uses - and _ instead of + and /)
-const URL_ALPHABET: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-
 // encode_url encodes to URL-safe Base64
 pub func encode_url(data: &string) -> (string) {
     var standard: string = encode(data)

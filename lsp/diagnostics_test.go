@@ -167,3 +167,141 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 		t.Fatalf("expected at least one linter diagnostic, got %#v", params.Diagnostics)
 	}
 }
+
+func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {
+	path, err := filepath.Abs(filepath.Join("..", "src", "std", "http", "server.bak"))
+	if err != nil {
+		t.Fatalf("abs path: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read server.bak: %v", err)
+	}
+
+	uri := pathToURI(path)
+	src := string(data)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	if notification.Method != "textDocument/publishDiagnostics" {
+		t.Fatalf("unexpected method: %s", notification.Method)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-typechecker" && diag.Severity == 1 {
+			t.Fatalf("unexpected fatal bak-typechecker diagnostic: %s", diag.Message)
+		}
+	}
+}
+
+func TestAnalyzeAndPublish_StdCollectionsSetHasNoFatalTypeErrors(t *testing.T) {
+	path, err := filepath.Abs(filepath.Join("..", "src", "std", "collections", "set.bak"))
+	if err != nil {
+		t.Fatalf("abs path: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read set.bak: %v", err)
+	}
+
+	uri := pathToURI(path)
+	src := string(data)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	if notification.Method != "textDocument/publishDiagnostics" {
+		t.Fatalf("unexpected method: %s", notification.Method)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-typechecker" && diag.Severity == 1 {
+			t.Fatalf("unexpected fatal bak-typechecker diagnostic: %s", diag.Message)
+		}
+	}
+}
+
+func TestAnalyzeAndPublish_StdCollectionsHashMapHasNoFatalTypeErrors(t *testing.T) {
+	path, err := filepath.Abs(filepath.Join("..", "src", "std", "collections", "hashmap.bak"))
+	if err != nil {
+		t.Fatalf("abs path: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read hashmap.bak: %v", err)
+	}
+
+	uri := pathToURI(path)
+	src := string(data)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	if notification.Method != "textDocument/publishDiagnostics" {
+		t.Fatalf("unexpected method: %s", notification.Method)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-typechecker" && diag.Severity == 1 {
+			t.Fatalf("unexpected fatal bak-typechecker diagnostic: %s", diag.Message)
+		}
+	}
+}

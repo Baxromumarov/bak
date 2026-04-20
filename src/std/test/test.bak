@@ -305,7 +305,6 @@ func esc() -> (string) { return string(char(27)) }
 func red() -> (string) { return esc() + "[31m" }
 func green() -> (string) { return esc() + "[32m" }
 func reset() -> (string) { return esc() + "[0m" }
-func bold() -> (string) { return esc() + "[1m" }
 
 // run_tests takes a list of results and prints the UI
 pub func run_tests(results: Vec<TestResult, _>) -> (void) {

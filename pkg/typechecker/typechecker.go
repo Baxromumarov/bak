@@ -141,6 +141,7 @@ type TypeError struct {
 	Tier    ErrorTier
 	Line    int
 	Column  int
+	File    string
 	Message string
 	Note    string // Additional context (e.g., "value was moved here")
 	NoteLoc string // Location for the note
@@ -859,6 +860,7 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 			Tier:    t,
 			Line:    d.Line,
 			Column:  d.Column,
+			File:    d.File,
 			Message: d.Message,
 			Help:    d.Help,
 		})
@@ -1629,7 +1631,7 @@ func (tc *TypeChecker) validateTypeName(name string, line, col int, filename str
 			}
 		}
 	}
-	tc.errorUndefinedType(name, line, col)
+	tc.errorUndefinedTypeInFile(name, line, col, filename)
 	return false
 }
 

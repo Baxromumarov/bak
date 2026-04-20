@@ -228,9 +228,16 @@ func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
 }
 
 func (tc *TypeChecker) errorUndefinedType(name string, line, col int) {
+	tc.errorUndefinedTypeInFile(name, line, col, tc.currentPkgPath)
+}
+
+func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file string) {
 	help := ""
 	if suggestion := tc.suggestTypeName(name); suggestion != "" {
 		help = fmt.Sprintf("did you mean '%s'?", suggestion)
+	}
+	if file == "" {
+		file = tc.currentPkgPath
 	}
 	tc.emitError(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrUnknownType,
@@ -238,7 +245,7 @@ func (tc *TypeChecker) errorUndefinedType(name string, line, col int) {
 		Message: fmt.Sprintf("undefined type: %s", name),
 		Line:    line,
 		Column:  col,
-		File:    tc.currentPkgPath,
+		File:    file,
 		Help:    help,
 	})
 }
