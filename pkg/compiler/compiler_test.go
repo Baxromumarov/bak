@@ -424,17 +424,17 @@ func main() -> (void) {
 }
 
 // =============================================================================
-// Option & Result
+// Result
 // =============================================================================
 
-func TestCompileOptionResult(t *testing.T) {
+func TestCompileResultOnly(t *testing.T) {
 	compileSource(t, `
 package main
-func find(x int) -> (Option<int>) {
+func find(x int) -> (Result<int, string>) {
 	if x > 0 {
-		return Some(x)
+		return Ok(x)
 	}
-	return None
+	return Err("not found")
 }
 func safe_div(a int, b int) -> (Result<int, string>) {
 	if b == 0 {

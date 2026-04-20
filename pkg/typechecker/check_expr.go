@@ -310,7 +310,10 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 	case "substring":
 		return &ast.SimpleType{Name: "string"}
 	case "indexOf", "lastIndexOf":
-		return &ast.GenericType{Name: "Option", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "int"}}}
+		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
+			&ast.SimpleType{Name: "int"},
+			&ast.SimpleType{Name: "string"},
+		}}
 	case "contains", "startsWith", "endsWith":
 		return &ast.SimpleType{Name: "bool"}
 	case "parseInt":
@@ -326,8 +329,9 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 	case "toString":
 		return &ast.SimpleType{Name: "string"}
 	case "get":
-		return &ast.GenericType{Name: "Option", TypeParams: []ast.TypeExpression{
+		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "char"},
+			&ast.SimpleType{Name: "string"},
 		}}
 	default:
 		tc.errorUndefinedMethod("string", method, mc.Token.Line, mc.Token.Column, stringMethodCandidates)
@@ -469,11 +473,11 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		return &ast.VoidType{}
 
 	case "pop", "remove", "first", "last", "get":
-		// Returns Option<T>
+		// Returns Result<T, string>
 		if elemType != nil {
-			return &ast.GenericType{Name: "Option", TypeParams: []ast.TypeExpression{elemType}}
+			return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{elemType, &ast.SimpleType{Name: "string"}}}
 		}
-		return &ast.GenericType{Name: "Option"}
+		return &ast.GenericType{Name: "Result"}
 	case "len", "cap":
 		return &ast.SimpleType{Name: "int"}
 	case "is_empty", "isEmpty", "contains":

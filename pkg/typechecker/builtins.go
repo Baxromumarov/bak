@@ -24,8 +24,6 @@ func (tc *TypeChecker) isBuiltin(name string) bool {
 		"char",
 		"Box",
 		"unbox",
-		"is_some",
-		"is_none",
 		"unwrap",
 		"is_ok",
 		"is_err",
@@ -255,7 +253,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			},
 		}
 
-	case "is_err", "is_ok", "is_some", "is_none":
+	case "is_err", "is_ok":
 		return &ast.FunctionType{
 			ReturnType: &ast.SimpleType{Name: "bool"},
 		}
@@ -300,8 +298,9 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 		return &ast.FunctionType{
 			Params: nil,
 			ReturnType: &ast.GenericType{
-				Name: "Option",
+				Name: "Result",
 				TypeParams: []ast.TypeExpression{
+					&ast.SimpleType{Name: "string"},
 					&ast.SimpleType{Name: "string"},
 				},
 			},

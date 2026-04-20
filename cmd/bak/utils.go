@@ -46,9 +46,6 @@ func injectPrelude(program *ast.Program) []string {
 	if w := injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "vec.bak"), "Vec"); w != "" {
 		warnings = append(warnings, w)
 	}
-	if w := injectImplPrelude(program, filepath.Join(stdLibPath, "option.bak"), "Option"); w != "" {
-		warnings = append(warnings, w)
-	}
 	if w := injectImplPrelude(program, filepath.Join(stdLibPath, "result.bak"), "Result"); w != "" {
 		warnings = append(warnings, w)
 	}

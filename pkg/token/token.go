@@ -128,7 +128,6 @@ const (
 	// Generic/Container types
 	VEC    TokenType = "VEC"
 	RESULT TokenType = "RESULT"
-	OPTION TokenType = "OPTION"
 	OK     TokenType = "OK"
 	ERR    TokenType = "ERR"
 	SOME   TokenType = "SOME"
@@ -197,11 +196,8 @@ var keywords = map[string]TokenType{
 	// Container types
 	// "Vec":    VEC,
 	"Result": RESULT,
-	"Option": OPTION,
 	"Ok":     OK,
 	"Err":    ERR,
-	"Some":   SOME,
-	"None":   NONE,
 }
 
 // LookupIdent checks if an identifier is a keyword
@@ -274,7 +270,6 @@ func IsType(t TokenType) bool {
 		TYPE_VOID,
 		VEC,
 		RESULT,
-		OPTION,
 		BOX:
 		return true
 	}

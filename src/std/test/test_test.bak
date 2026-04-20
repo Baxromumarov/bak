@@ -218,31 +218,31 @@ func test_compare_helpers() -> (void) {
     t.finish()
 }
 
-func test_option_helpers() -> (void) {
-    mut var t: test.T = test.new("test_option_helpers")
+func test_result_helpers() -> (void) {
+    mut var t: test.T = test.new("test_result_helpers")
 
     mut var a: test.T = test.new("a")
-    var none_val: Option<int> = None
-    a.is_none(none_val)
+    var err_val: Result<int, string> = Err("none")
+    a.is_err(err_val)
     if a.has_failed() {
-        t.fail("is_none should pass for None")
+        t.fail("is_err should pass for Err")
     }
-    var some_val1: Option<int> = Some(1)
-    a.is_none(some_val1)
+    var ok_val1: Result<int, string> = Ok(1)
+    a.is_err(ok_val1)
     if !a.has_failed() {
-        t.fail("is_none should fail for Some")
+        t.fail("is_err should fail for Ok")
     }
 
     mut var b: test.T = test.new("b")
-    var some_val2: Option<int> = Some(1)
-    b.is_some(some_val2)
+    var ok_val2: Result<int, string> = Ok(1)
+    b.is_ok(ok_val2)
     if b.has_failed() {
-        t.fail("is_some should pass for Some")
+        t.fail("is_ok should pass for Ok")
     }
-    var none_val2: Option<int> = None
-    b.is_some(none_val2)
+    var err_val2: Result<int, string> = Err("none")
+    b.is_ok(err_val2)
     if !b.has_failed() {
-        t.fail("is_some should fail for None")
+        t.fail("is_ok should fail for Err")
     }
 
     t.finish()
@@ -282,14 +282,14 @@ func test_prefix_and_results() -> (void) {
     mut var inner: test.T = test.new("inner_finish")
     inner.finish()
     switch test.take_last_result() {
-        case Some(_) {}
-        case None {
+        case Ok(_) {}
+        case Err(_) {
             t.fail("expected last result to be available")
         }
     }
     switch test.take_last_result() {
-        case Some(_) { t.fail("take_last_result should clear stored result") }
-        case None {}
+        case Ok(_) { t.fail("take_last_result should clear stored result") }
+        case Err(_) {}
     }
 
     test.fail_result("oops", "bad")

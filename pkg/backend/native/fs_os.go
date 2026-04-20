@@ -890,7 +890,7 @@ func (s *EmitState) emitOsMkdir(pathExpr ast.Expression) error {
 	return nil
 }
 
-// emitOsGetenv implements os.getenv(key) -> Option<string>
+// emitOsGetenv implements os.getenv(key) -> Result<string, string>
 // Parses environ from the initial stack
 func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	// Evaluate the key string
@@ -1005,15 +1005,15 @@ func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R8)
 	emitMovRegReg(&s.Code, R11, RAX) // R11 = string header
 
-	// Allocate Option (16 bytes: tag + value)
+	// Allocate Result (16 bytes: tag + value)
 	emitPushReg(&s.Code, R11)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteOpt := emitCallRel32(&s.Code, 0)
 	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteOpt, Target: "__rt_alloc"})
 	emitPopReg(&s.Code, R11)
-	// rax = option ptr
-	// Set tag = 1 (Some)
-	emitMovRegImm32(&s.Code, RCX, 1)
+	// rax = result ptr
+	// Set tag = 0 (Ok)
+	emitMovRegImm32(&s.Code, RCX, 0)
 	emitMovMemReg(&s.Code, RAX, RCX)
 	// Set value = string header at offset 8
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R11)
@@ -1039,13 +1039,19 @@ func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	notFound := len(s.Code)
 	patchRel32(&s.Code, jzNotFound+2, notFound)
 
-	// Return None (tag=0)
+	// Return Err("environment variable is not set")
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteNone := emitCallRel32(&s.Code, 0)
 	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteNone, Target: "__rt_alloc"})
-	// Set tag = 0 (None)
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX)
+	// Preserve result pointer in R11
+	emitMovRegReg(&s.Code, R11, RAX)
+	// Set tag = 1 (Err)
+	emitMovRegImm32(&s.Code, RCX, 1)
+	emitMovMemReg(&s.Code, R11, RCX)
+	errIdx := s.addStringLiteral("environment variable is not set")
+	s.emitDataAddr(errIdx)
+	emitMovMemBaseDispReg(&s.Code, R11, 8, RAX)
+	emitMovRegReg(&s.Code, RAX, R11)
 
 	// End label
 	endPos := len(s.Code)

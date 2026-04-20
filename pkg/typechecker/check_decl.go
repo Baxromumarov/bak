@@ -261,8 +261,8 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	typeName := id.TypeName.Value
 
-	// Allow impl blocks on built-in types Option and Result
-	isBuiltinType := typeName == "Option" || typeName == "Result"
+	// Allow impl blocks on built-in Result everywhere.
+	isBuiltinType := typeName == "Result"
 
 	var structDef *StructDef
 	var ok bool
@@ -277,12 +277,8 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	for _, method := range id.Methods {
 		var methodTypeParams []string
 		if isBuiltinType {
-			// For Option/Result, use generic type parameters T, E
-			if typeName == "Option" {
-				methodTypeParams = append(typeParamNames(method.TypeParams), "T")
-			} else if typeName == "Result" {
-				methodTypeParams = append(typeParamNames(method.TypeParams), "T", "E")
-			}
+			// For built-in Result, use generic type parameters T, E.
+			methodTypeParams = append(typeParamNames(method.TypeParams), "T", "E")
 		} else {
 			methodTypeParams = mergeTypeParamNames(structDef.TypeParams, typeParamNames(method.TypeParams))
 		}

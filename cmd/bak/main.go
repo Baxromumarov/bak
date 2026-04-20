@@ -660,23 +660,23 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 	b.WriteString(src)
 	b.WriteString("\n\n// GENERATED test runner\n")
 	b.WriteString("pub func run_all_tests() -> (void) {\n")
-	b.WriteString(fmt.Sprintf("    test.set_prefix(\"%s\")\n", filename))
+	fmt.Fprintf(&b, "    test.set_prefix(\"%s\")\n", filename)
 	b.WriteString("    mut var results: Vec<test.TestResult, _> = Vec.new()\n")
 	for i, name := range tests {
 		idx := i + 1
 		testLabel := filename + ":" + name.name
 		if name.arity == 0 {
-			b.WriteString(fmt.Sprintf("    %s()\n", name.name))
-			b.WriteString(fmt.Sprintf("    var lr%d: Option<test.TestResult> = test.take_last_result()\n", idx))
+			fmt.Fprintf(&b, "    %s()\n", name.name)
+			fmt.Fprintf(&b, "    var lr%d: Result<test.TestResult, string> = test.take_last_result()\n", idx)
 			b.WriteString("    switch lr" + fmt.Sprintf("%d", idx) + " {\n")
-			b.WriteString(fmt.Sprintf("        case Some(r%d) { results.push(r%d) }\n", idx, idx))
-			b.WriteString(fmt.Sprintf("        case None { results.push(test.fail_result(\"%s\", \"test did not call t.finish()\")) }\n", testLabel))
+			fmt.Fprintf(&b, "        case Ok(r%d) { results.push(r%d) }\n", idx, idx)
+			fmt.Fprintf(&b, "        case Err(_e) { results.push(test.fail_result(\"%s\", \"test did not call t.finish()\")) }\n", testLabel)
 			b.WriteString("    }\n")
 		} else {
-			b.WriteString(fmt.Sprintf("    mut var t%d: test.T = test.new(\"%s\")\n", idx, testLabel))
-			b.WriteString(fmt.Sprintf("    %s(&mut t%d)\n", name.name, idx))
-			b.WriteString(fmt.Sprintf("    var r%d: test.TestResult = test.finish(&t%d)\n", idx, idx))
-			b.WriteString(fmt.Sprintf("    results.push(r%d)\n", idx))
+			fmt.Fprintf(&b, "    mut var t%d: test.T = test.new(\"%s\")\n", idx, testLabel)
+			fmt.Fprintf(&b, "    %s(&mut t%d)\n", name.name, idx)
+			fmt.Fprintf(&b, "    var r%d: test.TestResult = test.finish(&t%d)\n", idx, idx)
+			fmt.Fprintf(&b, "    results.push(r%d)\n", idx)
 		}
 	}
 	b.WriteString("    test.run_tests(results)\n")

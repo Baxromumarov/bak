@@ -38,9 +38,6 @@ func loadPreludeModules() map[string][]ast.Statement {
 	preludeModules := make(map[string][]ast.Statement)
 	stdLibPath := getStdLibPath()
 	modules := map[string]string{
-		"Vec":      filepath.Join(stdLibPath, "collections", "vec.bak"),
-		"HashMap":  filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-		"Option":   filepath.Join(stdLibPath, "option.bak"),
 		"Result":   filepath.Join(stdLibPath, "result.bak"),
 		"Builtins": filepath.Join(stdLibPath, "builtins.bak"),
 	}
@@ -193,22 +190,9 @@ func withPreludeForTypecheck(program *ast.Program, filePath string, fn func()) {
 	}
 
 	// Also check if we are analyzing the definition file itself
-	// Check against standard names if possible or some heuristic
-	isVecFile := false
-	if filepath.Base(filePath) == "vec.bak" {
-		isVecFile = true
-	}
-	isHashMapFile := false
-	if filepath.Base(filePath) == "hashmap.bak" {
-		isHashMapFile = true
-	}
 	isBuiltinsFile := false
 	if filepath.Base(filePath) == "builtins.bak" {
 		isBuiltinsFile = true
-	}
-	isOptionFile := false
-	if filepath.Base(filePath) == "option.bak" {
-		isOptionFile = true
 	}
 	isResultFile := false
 	if filepath.Base(filePath) == "result.bak" {
@@ -221,16 +205,7 @@ func withPreludeForTypecheck(program *ast.Program, filePath string, fn func()) {
 		if defined[name] {
 			continue
 		}
-		if name == "Vec" && isVecFile {
-			continue
-		}
-		if name == "HashMap" && isHashMapFile {
-			continue
-		}
 		if name == "Builtins" && isBuiltinsFile {
-			continue
-		}
-		if name == "Option" && isOptionFile {
 			continue
 		}
 		if name == "Result" && isResultFile {

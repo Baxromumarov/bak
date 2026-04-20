@@ -1442,8 +1442,8 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		return vm.callBuiltinDB("pg_connect", args)
 
 	case compiler.BUILTIN_PG_QUERY:
-		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__builtin_pg_query() requires handle and sql")
+		if len(args) < 2 || len(args) > 3 {
+			return compiler.NewNil(), fmt.Errorf("__builtin_pg_query() requires handle and sql, with optional params vec")
 		}
 		return vm.callBuiltinDB("pg_query", args)
 

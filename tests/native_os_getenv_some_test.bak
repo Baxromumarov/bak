@@ -3,9 +3,9 @@ package main
 import "std/os"
 
 func main() -> (int) {
-    var value: Option<string> = os.getenv("BAK_NATIVE_GETENV_SENTINEL")
+    var value: Result<string, string> = os.getenv("BAK_NATIVE_GETENV_SENTINEL")
 
-    if value.is_none() {
+    if value.is_err() {
         return 1
     }
 

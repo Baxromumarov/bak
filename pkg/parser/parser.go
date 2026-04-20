@@ -92,7 +92,7 @@ type Parser struct {
 
 func stableGenericTypeName(name string) bool {
 	switch name {
-	case "Vec", "Option", "Result":
+	case "Vec", "Result":
 		return true
 	default:
 		return false
@@ -263,7 +263,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.UNDERSCORE, p.parseWildcardExpression)
 	p.registerPrefix(token.VEC, p.parseTypeIdentifier)
 	p.registerPrefix(token.RESULT, p.parseTypeIdentifier)
-	p.registerPrefix(token.OPTION, p.parseTypeIdentifier)
 
 	// Type conversion expressions: int(x), string(x), float64(x), etc.
 	p.registerPrefix(token.TYPE_INT, p.parseTypeConversion)
@@ -2028,9 +2027,9 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 func (p *Parser) parseImplDecl() *ast.ImplDecl {
 	stmt := &ast.ImplDecl{Token: p.curToken}
 
-	// Allow IDENT or special generic type tokens (Vec, Option, Result)
+	// Allow IDENT or special generic type tokens (Vec, Result)
 	if !p.peekTokenIs(token.IDENT) && !token.IsType(p.peekToken.Type) &&
-		p.peekToken.Type != token.VEC && p.peekToken.Type != token.OPTION && p.peekToken.Type != token.RESULT {
+		p.peekToken.Type != token.VEC && p.peekToken.Type != token.RESULT {
 		p.peekError(token.IDENT)
 		return nil
 	}
@@ -2211,7 +2210,7 @@ func (p *Parser) parseWildcardExpression() ast.Expression {
 	return &ast.Identifier{Token: p.curToken, Value: "_"}
 }
 
-// parseTypeIdentifier handles type keywords (Vec, Result, Option) that can appear as identifiers
+// parseTypeIdentifier handles type keywords (Vec, Result) that can appear as identifiers
 // This allows usage like: newVec<T>() where Vec is a type being used as an identifier
 func (p *Parser) parseTypeIdentifier() ast.Expression {
 	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}

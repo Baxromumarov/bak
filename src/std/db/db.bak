@@ -74,6 +74,28 @@ impl Row as r {
         }
     }
 
+    pub func get_string(name: string) -> (Result<string, string>) {
+        switch r.get(name) {
+            case Some(v) { return Ok(v) }
+            case None { return Err("column '" + name + "' is NULL or missing") }
+        }
+    }
+
+    pub func get_bool(name: string) -> (Result<bool, string>) {
+        switch r.get(name) {
+            case Some(v) {
+                if v == "t" || v == "true" || v == "1" {
+                    return Ok(true)
+                }
+                if v == "f" || v == "false" || v == "0" {
+                    return Ok(false)
+                }
+                return Err("column '" + name + "' has invalid bool value: " + v)
+            }
+            case None { return Err("column '" + name + "' is NULL or missing") }
+        }
+    }
+
     pub func get_float(name: string) -> (Result<float64, string>) {
         switch r.get(name) {
             case Some(v) { return v.parseFloat() }

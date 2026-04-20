@@ -13,8 +13,13 @@ pub func exit(code: int) -> (void) {
 }
 
 // getenv retrieves the value of the environment variable named by the key
-pub func getenv(key: string) -> (Option<string>) {
+pub func getenv(key: string) -> (Result<string, string>) {
     return __builtin_getenv(key)
+}
+
+// getenv_result retrieves an environment variable as Result for Result-only flows.
+pub func getenv_result(key: string) -> (Result<string, string>) {
+    return getenv(key)
 }
 
 // setenv sets the value of the environment variable named by the key

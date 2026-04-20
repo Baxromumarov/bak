@@ -5,10 +5,10 @@ import "std/os"
 func main() -> (void) {
     println("Testing os.getenv for non-existent var...")
 
-    var nonexistent: Option<string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
+    var nonexistent: Result<string, string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
 
-    if nonexistent.is_none() {
-        println("PASS: Non-existent var returns None")
+    if nonexistent.is_err() {
+        println("PASS: Non-existent var returns Err")
     } else {
         println("FAIL: Found non-existent var")
     }

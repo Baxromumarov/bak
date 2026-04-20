@@ -557,7 +557,7 @@ func read_file(path string) -> (Result<string, string>) {
 	checkParserErrors(t, p)
 }
 
-func TestParseOptionTypes(t *testing.T) {
+func TestParseOptionTypesRejected(t *testing.T) {
 	input := `
 package main
 func find(items int) -> (Option<int>) {
@@ -567,10 +567,12 @@ func find(items int) -> (Option<int>) {
 	l := lexer.New(input)
 	p := New(l)
 	p.ParseProgram()
-	checkParserErrors(t, p)
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected parser errors for Option type usage")
+	}
 }
 
-func TestParseNestedGenericType(t *testing.T) {
+func TestParseNestedGenericTypeWithOptionRejected(t *testing.T) {
 	input := `
 package main
 func process() -> (Result<Option<int>, string>) {
@@ -580,7 +582,9 @@ func process() -> (Result<Option<int>, string>) {
 	l := lexer.New(input)
 	p := New(l)
 	p.ParseProgram()
-	checkParserErrors(t, p)
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected parser errors for nested Option type usage")
+	}
 }
 
 func TestParseUnsafeBlock(t *testing.T) {

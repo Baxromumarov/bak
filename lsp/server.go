@@ -46,12 +46,12 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"to_int":    {Signature: "func to_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
 		"contains":  {Signature: "func contains(substr: string) -> (bool)", Doc: "Returns true if the string contains the substring."},
 		"hash":      {Signature: "func hash() -> (int)", Doc: "Returns the hash code of the string."},
-		"indexOf":   {Signature: "func indexOf(substr: string) -> (Option<int>)", Doc: "Returns the index of the first occurrence of the substring."},
+		"indexOf":   {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
 	},
 	"Vec": {
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of elements in the vector."},
 		"push":     {Signature: "func push(element: T) -> (void)", Doc: "Appends an element to the end of the vector."},
-		"pop":      {Signature: "func pop() -> (Option<T>)", Doc: "Removes and returns the last element of the vector."},
+		"pop":      {Signature: "func pop() -> (Result<T, string>)", Doc: "Removes and returns the last element of the vector, or Err if empty."},
 		"remove":   {Signature: "func remove(index: int) -> (T)", Doc: "Removes and returns the element at the given index."},
 		"insert":   {Signature: "func insert(index: int, element: T) -> (void)", Doc: "Inserts an element at the given index."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all elements from the vector."},
@@ -65,13 +65,6 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all entries from the map."},
 		"remove":   {Signature: "func remove(key: K) -> (void)", Doc: "Removes the entry with the given key."},
 		"contains": {Signature: "func contains(key: K) -> (bool)", Doc: "Returns true if the map contains the given key."},
-	},
-	"Option": {
-		"is_some":   {Signature: "func is_some() -> (bool)", Doc: "Returns true if the option contains a value."},
-		"is_none":   {Signature: "func is_none() -> (bool)", Doc: "Returns true if the option is None."},
-		"unwrap":    {Signature: "func unwrap() -> (T)", Doc: "Returns the contained value. Panics if None."},
-		"unwrapOr":  {Signature: "func unwrapOr(defaultVal: T) -> (T)", Doc: "Returns the contained value or the default if None."},
-		"to_string": {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Option."},
 	},
 	"Result": {
 		"is_ok":      {Signature: "func is_ok() -> (bool)", Doc: "Returns true if the result is Ok."},
@@ -708,7 +701,6 @@ func (s *Server) handleHover(req Request) *Hover {
 					preludeFiles := []string{
 						filepath.Join(stdLibPath, "collections", "vec.bak"),
 						filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-						filepath.Join(stdLibPath, "option.bak"),
 						filepath.Join(stdLibPath, "result.bak"),
 					}
 
@@ -900,7 +892,6 @@ func (s *Server) handleDefinition(req Request) []Location {
 					filepath.Join(stdLibPath, "builtins.bak"),
 					filepath.Join(stdLibPath, "collections", "vec.bak"),
 					filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-					filepath.Join(stdLibPath, "option.bak"),
 					filepath.Join(stdLibPath, "result.bak"),
 				}
 				for _, path := range preludeFiles {
@@ -992,7 +983,6 @@ func (s *Server) handleDefinition(req Request) []Location {
 										filepath.Join(stdLibPath, "builtins.bak"),
 										filepath.Join(stdLibPath, "collections", "vec.bak"),
 										filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-										filepath.Join(stdLibPath, "option.bak"),
 										filepath.Join(stdLibPath, "result.bak"),
 									}
 									for _, path := range preludeFiles {
@@ -1084,7 +1074,6 @@ func (s *Server) handleDefinition(req Request) []Location {
 				preludeFiles := []string{
 					filepath.Join(stdLibPath, "collections", "vec.bak"),
 					filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-					filepath.Join(stdLibPath, "option.bak"),
 					filepath.Join(stdLibPath, "result.bak"),
 				}
 
@@ -2077,8 +2066,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"true",
 		"false",
 		"nil",
-		"Some",
-		"None",
 		"void",
 	}
 	for _, kw := range keywords {
@@ -2571,7 +2558,7 @@ func formatHoverType(typeStr string) string {
 		if formattedInner == "" {
 			formattedInner = inner
 		}
-		return fmt.Sprintf("Option<Box<%s>>", formattedInner)
+		return fmt.Sprintf("Result<Box<%s>, string>", formattedInner)
 	}
 
 	if before, ok := strings.CutSuffix(t, " box"); ok {

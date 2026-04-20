@@ -4,6 +4,7 @@ package builtins
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"sync"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -84,9 +85,18 @@ func pgQuery(args ...object.Object) object.Object {
 
 	var queryArgs []any
 	if len(args) == 3 {
-		// Params vector
+		// Params vector (support both raw *object.Vec and stdlib Vec struct wrapper)
 		vecObj, ok := args[2].(*object.Vec)
 		if !ok {
+			if s, ok := args[2].(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
+				if dataField, ok := s.Fields["data"]; ok {
+					if dataVec, ok := dataField.(*object.Vec); ok {
+						vecObj = dataVec
+					}
+				}
+			}
+		}
+		if vecObj == nil {
 			return newError("__builtin_pg_query: third argument must be VEC (params), got %s", args[2].Type())
 		}
 		for i, elem := range vecObj.Elements {

@@ -1,13 +1,13 @@
 package main
 
 func main() -> (int) {
-    var a: Option<int> = Some(7)
-    var b: Option<int> = None
+    var a: Result<int, string> = Ok(7)
+    var b: Result<int, string> = Err("missing")
     mut var result: int = 0
-    if a.is_some() {
+    if a.is_ok() {
         result = result + 1
     }
-    if b.is_none() {
+    if b.is_err() {
         result = result + 1
     }
     result = result + a.unwrap()

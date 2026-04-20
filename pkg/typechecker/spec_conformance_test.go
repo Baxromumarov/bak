@@ -42,31 +42,24 @@ impl Counter as c {
     }
 }
 
-trace func compute(values Vec<int, _>) -> (Result<Option<int>, string>) {
+trace func compute(values Vec<int, _>) -> (Result<int, string>) {
     mut var total: int = 0
     for value in values {
         total = total + value
     }
     if total > 0 {
-        return Ok(Some(total))
+		return Ok(total)
     }
-    return Ok(None)
+	return Err("non-positive total")
 }
 
 func main() -> (int) {
     mut var counter: Counter = Counter{value: 1}
     counter.inc()
-    var result: Result<Option<int>, string> = compute(Vec.from([counter.value, 2, 3]))
+	var result: Result<int, string> = compute(Vec.from([counter.value, 2, 3]))
     switch result {
-        case Ok(value) {
-            switch value {
-                case Some(total) {
-                    return total
-                }
-                case None {
-                    return 0
-                }
-            }
+		case Ok(total) {
+			return total
         }
         case Err(msg) {
             println(msg)

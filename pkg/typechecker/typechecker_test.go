@@ -525,27 +525,14 @@ func main() -> (void) {
 // Generic Types
 // =============================================================================
 
-func TestCheck_ValidOptionType(t *testing.T) {
-	expectNoErrors(t, `
+func TestCheck_OptionTypeRejectedForUserSurface(t *testing.T) {
+	expectError(t, `
 package main
-func find(x int) -> (Option<int>) {
-	if x > 0 {
-		return Some(x)
-	}
-	return None
-}
 func main() -> (void) {
-	var result: Option<int> = find(42)
-	switch result {
-		case Some(v) {
-			println(v)
-		}
-		case None {
-			println("not found")
-		}
-	}
+	var result = Some(42)
+	println(result)
 }
-`)
+`, "Option<T> is not supported")
 }
 
 func TestCheck_ValidResultType(t *testing.T) {

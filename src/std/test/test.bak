@@ -230,20 +230,20 @@ impl T as t {
         }
     }
 
-    pub mut func is_none<U>(opt: Option<U>) -> (void) {
-        switch opt {
-            case Some(v) {
-                t.fail("  expected: None\n  actual:   Some(" + format_value(v) + ")")
+    pub mut func is_err<U>(res: Result<U, string>) -> (void) {
+        switch res {
+            case Ok(v) {
+                t.fail("  expected: Err\n  actual:   Ok(" + format_value(v) + ")")
             }
-            case None {}
+            case Err(_) {}
         }
     }
 
-    pub mut func is_some<U>(opt: Option<U>) -> (void) {
-        switch opt {
-            case Some(_) {}
-            case None {
-                t.fail("  expected: Some\n  actual:   None")
+    pub mut func is_ok<U>(res: Result<U, string>) -> (void) {
+        switch res {
+            case Ok(_) {}
+            case Err(_) {
+                t.fail("  expected: Ok\n  actual:   Err")
             }
         }
     }
@@ -283,12 +283,12 @@ pub func finish(t: &T) -> (TestResult) {
 mut var has_last_result: bool = false
 mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new()}
 
-pub func take_last_result() -> (Option<TestResult>) {
+pub func take_last_result() -> (Result<TestResult, string>) {
     if has_last_result {
         has_last_result = false
-        return Some(last_result)
+        return Ok(last_result)
     }
-    return None
+    return Err("no last result")
 }
 
 pub func fail_result(name: string, msg: string) -> (TestResult) {

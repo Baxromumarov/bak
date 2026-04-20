@@ -94,6 +94,9 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 
 func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 	switchType := tc.inferType(ss.Value)
+	if gt, ok := tc.resolveType(switchType).(*ast.GenericType); ok && gt.Name == "Option" {
+		tc.rejectOptionUsage(ss.Token.Line, ss.Token.Column)
+	}
 
 	// Try to resolve enum definition for the switch value
 	enumDef := tc.resolveSwitchEnumDef(switchType)

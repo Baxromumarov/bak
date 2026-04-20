@@ -63,7 +63,7 @@ func osExit(args ...object.Object) object.Object {
 	return &object.Void{} // Never reached
 }
 
-// osGetenv gets an environment variable, returns Option<string>
+// osGetenv gets an environment variable, returns Result<string, string>
 func osGetenv(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return newError("os.getenv: wrong number of arguments. got=%d, want=1", len(args))
@@ -76,15 +76,15 @@ func osGetenv(args ...object.Object) object.Object {
 
 	value, exists := os.LookupEnv(name.Value)
 	if !exists {
-		return &object.Option{
-			IsSome: false,
-			Value:  nil,
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "environment variable '" + name.Value + "' is not set"},
 		}
 	}
 
-	return &object.Option{
-		IsSome: true,
-		Value:  &object.String{Value: value},
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.String{Value: value},
 	}
 }
 

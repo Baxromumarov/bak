@@ -307,18 +307,11 @@ func NewTypeEnv() *TypeEnv {
 		},
 		Visibility: ast.Public,
 	}
-	env.enums["Option"] = &EnumDef{
-		Variants: map[string]EnumVariantDef{
-			"Some": {HasPayload: true, Fields: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
-			"None": {HasPayload: false},
-		},
-		Visibility: ast.Public,
-	}
 	return env
 }
 
 // NewEnclosedTypeEnv creates a new enclosed type environment.
-// Unlike NewTypeEnv, it does NOT re-register built-in types (Result, Option)
+// Unlike NewTypeEnv, it does NOT re-register built-in types (Result)
 // since those are inherited from the parent (root) environment.
 func NewEnclosedTypeEnv(parent *TypeEnv) *TypeEnv {
 	env := &TypeEnv{
@@ -723,7 +716,7 @@ type TypeChecker struct {
 
 func stableFrozenGenericTypeName(name string) bool {
 	switch name {
-	case "Vec", "Option", "Result":
+	case "Vec", "Result":
 		return true
 	default:
 		return false
@@ -741,6 +734,15 @@ func isStdlibSourcePath(path string) bool {
 	}
 	normalized := filepath.ToSlash(path)
 	return strings.Contains(normalized, "src/std/")
+}
+
+func (tc *TypeChecker) rejectOptionUsage(line, col int) {
+	tc.addErrorWithHelp(
+		line,
+		col,
+		"Option<T> is not supported; use Result<T, string>",
+		"replace Option/Some/None flows with Result using Ok(...) and Err(...)",
+	)
 }
 
 func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
@@ -1363,14 +1365,6 @@ func (tc *TypeChecker) resolveSwitchEnumDef(switchType ast.TypeExpression) *Enum
 				},
 			}
 		}
-		if gt.Name == "Option" && len(gt.TypeParams) == 1 {
-			return &EnumDef{
-				Variants: map[string]EnumVariantDef{
-					"Some": {HasPayload: true, Fields: []ast.TypeExpression{gt.TypeParams[0]}},
-					"None": {HasPayload: false},
-				},
-			}
-		}
 		enumDef, _ := tc.lookupQualifiedEnum(gt.Name)
 		return enumDef
 	}
@@ -1543,17 +1537,29 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 				tc.addError(line, col, "invalid type 'float': use 'float32' or 'float64'")
 				return
 			}
+			if tt.Name == "Option" {
+				tc.rejectOptionUsage(line, col)
+				return
+			}
 			// Disallow standalone 'Box' type (must use 'T box' syntax)
 			if tt.Name == "Box" {
 				tc.addError(line, col, "invalid use of 'Box' as a type; use 'T box' syntax (e.g. 'int box')")
 				return
 			}
-			tc.validateTypeName(tt.Name, line, col)
+			tc.validateTypeName(tt.Name, line, col, tt.Token.Filename)
 		case *ast.GenericType:
-			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(tt.Token.Filename) {
+			if tt.Name == "Option" {
+				tc.rejectOptionUsage(line, col)
+				for _, p := range tt.TypeParams {
+					walk(p)
+				}
+				return
+			}
+			isStdlibTypeContext := isStdlibSourcePath(tt.Token.Filename) || isStdlibSourcePath(tc.currentPkgPath)
+			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibTypeContext {
 				tc.addExperimentalFeatureError(line, col, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
 			}
-			tc.validateTypeName(tt.Name, line, col)
+			tc.validateTypeName(tt.Name, line, col, tt.Token.Filename)
 			for _, p := range tt.TypeParams {
 				walk(p)
 			}
@@ -1563,7 +1569,7 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 			tc.addErrorWithHelp(line, col, "remove box syntax and use stable value types", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.BoxOptionalType:
-			tc.addErrorWithHelp(line, col, "remove box syntax and use Option<T> with stable types", "box types are not supported in the frozen v0.1 language surface")
+			tc.addErrorWithHelp(line, col, "remove box syntax and use stable value types with Result<T, E>", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.TupleType:
 			for _, e := range tt.Elements {
@@ -1586,9 +1592,13 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 	walk(t)
 }
 
-func (tc *TypeChecker) validateTypeName(name string, line, col int) bool {
+func (tc *TypeChecker) validateTypeName(name string, line, col int, filename string) bool {
 	if name == "" {
 		return true
+	}
+	if name == "Option" {
+		tc.rejectOptionUsage(line, col)
+		return false
 	}
 	if tc.isTypeParamName(name) {
 		return true
@@ -1812,6 +1822,13 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 			return &ast.ErrorType{Message: "capture violation"}
 		}
 
+		if e.Value == "None" {
+			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
+			inferred = &ast.ErrorType{Message: "option is not supported"}
+			tc.nodeTypes[e] = typeToString(inferred)
+			return inferred
+		}
+
 		// Check if it's a unit enum variant (e.g., Null, None)
 		if enumName, _, variant := tc.findEnumByVariant(e.Value); enumName != "" {
 			if variant.HasPayload {
@@ -1889,14 +1906,15 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 			return inner
 		}
 
-		// Unwrapping works on Result<T, E> -> T or Option<T> -> T
+		// Unwrapping works on Result<T, E> -> T.
 		if gt, ok := inner.(*ast.GenericType); ok {
 			if gt.Name == "Result" && len(gt.TypeParams) == 2 {
 				inferred := gt.TypeParams[0]
 				tc.nodeTypes[e] = typeToString(inferred)
 				return inferred
-			} else if gt.Name == "Option" && len(gt.TypeParams) == 1 {
-				inferred := gt.TypeParams[0]
+			} else if gt.Name == "Option" {
+				tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
+				inferred := &ast.ErrorType{Message: "option is not supported"}
 				tc.nodeTypes[e] = typeToString(inferred)
 				return inferred
 			}
@@ -1906,7 +1924,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 			return inferred
 		}
 
-		tc.addError(e.Token.Line, e.Token.Column, "cannot use '?' operator on non-Result/Option type '%s'", typeToString(inner))
+		tc.addError(e.Token.Line, e.Token.Column, "cannot use '?' operator on non-Result type '%s'", typeToString(inner))
 		inferred := &ast.ErrorType{Message: "invalid ? operator"}
 		tc.nodeTypes[e] = typeToString(inferred)
 		return inferred
@@ -2120,7 +2138,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 		return &ast.BoxType{Inner: inner}
 
 	case *ast.EnumVariantExpression:
-		// Handle Result/Option variant constructors: Ok, Err, Some, None
+		// Handle Result variant constructors: Ok, Err.
 		variantName := e.Variant.Value
 		switch variantName {
 		case "Ok":
@@ -2174,38 +2192,11 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 				},
 			}
 		case "Some":
-			if len(e.Values) != 1 {
-				tc.addError(
-					e.Token.Line,
-					e.Token.Column,
-					"Some() requires exactly 1 argument, got %d",
-					len(e.Values),
-				)
-				return nil
-			}
-			argType := tc.inferType(e.Values[0])
-			if argType == nil {
-				argType = &ast.SimpleType{Name: "_"}
-			}
-			return &ast.GenericType{
-				Name:       "Option",
-				TypeParams: []ast.TypeExpression{argType},
-			}
+			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
+			return &ast.ErrorType{Message: "option is not supported"}
 		case "None":
-			if len(e.Values) != 0 {
-				tc.addError(
-					e.Token.Line,
-					e.Token.Column,
-					"None takes no arguments, got %d",
-					len(e.Values),
-				)
-				return nil
-			}
-			// Return Option<_> - the type is a placeholder
-			return &ast.GenericType{
-				Name:       "Option",
-				TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "_"}},
-			}
+			tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
+			return &ast.ErrorType{Message: "option is not supported"}
 		default:
 			// For other enum variants, return nil (we can't infer type without context)
 			return nil
@@ -2667,18 +2658,8 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		}
 	case *ast.GenericType:
 		if ob.Name == "Option" && len(ob.TypeParams) == 1 {
-			if fa.Field.Value == "is_some" || fa.Field.Value == "is_none" {
-				tc.addError(fa.Token.Line, fa.Token.Column, "use '%s()' method instead of property access on Option", fa.Field.Value)
-				return nil
-			}
-			if fa.Field.Value == "value" {
-				// If the Option parameter is written as a BoxOptionalType (T box?),
-				// the runtime value is a Box<T>, so normalize to BoxType here.
-				if bot, ok := ob.TypeParams[0].(*ast.BoxOptionalType); ok {
-					return &ast.BoxType{Token: fa.Token, Inner: bot.Inner}
-				}
-				return ob.TypeParams[0]
-			}
+			tc.rejectOptionUsage(fa.Token.Line, fa.Token.Column)
+			return &ast.ErrorType{Message: "option is not supported"}
 		}
 	}
 
@@ -3401,10 +3382,11 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 
 	// Handle Option method type checking
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Option" {
+		tc.rejectOptionUsage(mc.Token.Line, mc.Token.Column)
 		for _, arg := range mc.Arguments {
 			tc.inferType(arg)
 		}
-		return tc.checkOptionMethodCall(mc, gt)
+		return &ast.ErrorType{Message: "option is not supported"}
 	}
 
 	// Handle Result method type checking
@@ -3620,6 +3602,14 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 		// Explicitly mark function as used (LookupFunction also does this but let's ensure it)
 		if sig != nil {
 			tc.env.MarkUsed(funcName)
+		}
+
+		if funcName == "Some" || funcName == "None" {
+			tc.rejectOptionUsage(ce.Token.Line, ce.Token.Column)
+			for _, arg := range ce.Arguments {
+				tc.inferType(arg)
+			}
+			return &ast.ErrorType{Message: "option is not supported"}
 		}
 
 		// If no function found, check if it's an enum variant constructor

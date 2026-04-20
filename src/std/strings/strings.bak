@@ -210,13 +210,13 @@ pub func split(s: &string, sep: &string) -> (Vec<string>) {
     return result
 }
 
-// charAt returns the character at index, or None if out of bounds
-pub func charAt(s: &string, index: int) -> (Option<char>) {
+// charAt returns the character at index, or Err if out of bounds
+pub func charAt(s: &string, index: int) -> (Result<char, string>) {
     if index < 0 || index >= s.len() {
-        return None
+        return Err("index out of bounds")
     }
 
-    return Some(s[index])
+    return Ok(s[index])
 }
 
 // substring returns a substring from start to end (exclusive)
