@@ -43,7 +43,7 @@ func hash_next_pow2(n: int) -> (int) {
     return p
 }
 
-// Hash function helper - placeholder until we have a real generic hash trait
+// Hash function helper - placeholder until generic hashing support is finalized
 // This uses the address of the pointer/value for now or specific specialized overrides
 func hash_key<K>(_k: &K) -> (int) {
     return hash_dispatch(_k)

@@ -1079,14 +1079,13 @@ func (fh *FunctionHeader) String() string {
 // ImplDecl represents impl blocks
 // impl TraitName<T>: TypeName<U> as receiver { ... }
 type ImplDecl struct {
-	Span            Span
-	Token           token.Token
-	TraitName       *Identifier      // Optional: e.g., Hashable
-	TraitTypeParams []*TypeParameter // Optional: e.g., <T: Trait> for generic traits
-	TypeName        *Identifier
-	TypeParams      []*TypeParameter
-	Receiver        *Identifier
-	Methods         []*MethodDecl
+	Span       Span
+	Token      token.Token
+	TraitName  *Identifier // Optional: e.g., Hashable
+	TypeName   *Identifier
+	TypeParams []*TypeParameter
+	Receiver   *Identifier
+	Methods    []*MethodDecl
 }
 
 func (id *ImplDecl) statementNode()       {}
@@ -1097,15 +1096,6 @@ func (id *ImplDecl) String() string {
 
 	if id.TraitName != nil {
 		out.WriteString(id.TraitName.String())
-		if len(id.TraitTypeParams) > 0 {
-			out.WriteString("<")
-			params := []string{}
-			for _, p := range id.TraitTypeParams {
-				params = append(params, p.String())
-			}
-			out.WriteString(strings.Join(params, ", "))
-			out.WriteString(">")
-		}
 		out.WriteString(": ")
 	}
 

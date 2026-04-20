@@ -307,7 +307,7 @@ func printHelp() {
 	fmt.Println("  --frozen-lockfile      Refuse operations that would change bak.lock")
 	fmt.Println()
 	fmt.Println("Experimental language flags:")
-	fmt.Println("  --experimental <list>  Enable experimental features outside frozen v0.1: unsafe, box, user-generics, traits")
+	fmt.Println("  --experimental <list>  Enable experimental features outside frozen v0.1: unsafe, user-generics")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  bak --allow-exec run main.bak    Run with subprocess access enabled")
@@ -317,7 +317,7 @@ func printHelp() {
 	fmt.Println("  bak build -o myapp main.bak      Build main.bak -> ./myapp")
 	fmt.Println("  bak build .                      Build main.bak in current directory")
 	fmt.Println("  bak run main.bak                 Interpret main.bak")
-	fmt.Println("  bak --experimental=box run main.bak")
+	fmt.Println("  bak --experimental=user-generics run main.bak")
 	fmt.Println("  bak get github.com/u/repo@1.2.3 Add a versioned dependency")
 	fmt.Println("  bak install --offline            Install from cache only")
 	fmt.Println()
@@ -1032,14 +1032,10 @@ func canonicalExperimentalFeature(name string) (string, error) {
 	switch strings.TrimSpace(name) {
 	case "unsafe", runtimecap.ExperimentalFeatureUnsafe:
 		return runtimecap.ExperimentalFeatureUnsafe, nil
-	case "box", runtimecap.ExperimentalFeatureBox:
-		return runtimecap.ExperimentalFeatureBox, nil
 	case "user-generics", runtimecap.ExperimentalFeatureUserGenerics:
 		return runtimecap.ExperimentalFeatureUserGenerics, nil
-	case "traits", runtimecap.ExperimentalFeatureTraits:
-		return runtimecap.ExperimentalFeatureTraits, nil
 	default:
-		return "", fmt.Errorf("unknown experimental feature %q (expected one of: unsafe, box, user-generics, traits)", name)
+		return "", fmt.Errorf("unknown experimental feature %q (expected one of: unsafe, user-generics)", name)
 	}
 }
 

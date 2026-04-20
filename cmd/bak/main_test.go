@@ -111,7 +111,7 @@ func TestStripTraceFlag(t *testing.T) {
 
 func TestParseExperimentalFeatures(t *testing.T) {
 	features, rest, err := parseExperimentalFeatures([]string{
-		"--experimental=box,unsafe",
+		"--experimental=unsafe,user-generics",
 		"run",
 		"main.bak",
 	})
@@ -119,8 +119,8 @@ func TestParseExperimentalFeatures(t *testing.T) {
 		t.Fatalf("parseExperimentalFeatures returned error: %v", err)
 	}
 	want := []string{
-		runtimecap.ExperimentalFeatureBox,
 		runtimecap.ExperimentalFeatureUnsafe,
+		runtimecap.ExperimentalFeatureUserGenerics,
 	}
 	if !reflect.DeepEqual(features, want) {
 		t.Fatalf("unexpected features: got %#v want %#v", features, want)

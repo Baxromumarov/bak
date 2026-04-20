@@ -139,10 +139,9 @@ const (
 	UNDERSCORE TokenType = "_"
 	QUESTION   TokenType = "?"
 
-	// Box type
+	// Legacy experimental tokens kept for parser/typechecker internal compatibility.
 	BOX TokenType = "BOX"
 
-	// Trait definitions
 	TRAIT TokenType = "TRAIT"
 )
 
@@ -179,7 +178,6 @@ var keywords = map[string]TokenType{
 	"true":     TRUE,
 	"false":    FALSE,
 	"pub":      PUB,
-	"trait":    TRAIT,
 
 	// Type keywords
 	"bool":    TYPE_BOOL,
@@ -206,7 +204,6 @@ var keywords = map[string]TokenType{
 	"Err":    ERR,
 	"Some":   SOME,
 	"None":   NONE,
-	"box":    BOX,
 }
 
 // LookupIdent checks if an identifier is a keyword

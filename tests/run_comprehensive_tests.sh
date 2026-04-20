@@ -170,7 +170,6 @@ main() {
     run_category "Structs" "*struct*.bak"
     run_category "Enums" "*enum*.bak"
     run_category "Vectors" "*vec*.bak"
-    run_category "Box Types" "*box*.bak"
     run_category "Generics" "*generic*.bak"
     
     # =========================================================================

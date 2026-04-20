@@ -73,7 +73,6 @@ string
 -------------------------------
 Vec<T, N> where N is an int or _ for dynamic size.
 Option<T> and Result<T, E> for optional and fallible values.
-T box for explicit heap allocation; T box? for optional boxed values.
 
 4.3 void
 --------
@@ -170,7 +169,7 @@ Methods are defined using `impl` blocks.
     }
 
 There is no inheritance.
-There is no interface/trait system in v1.
+There is no interface system in v1.
 Only concrete types and impl blocks exist.
 
 
@@ -404,7 +403,7 @@ There is a single module definition file per project.
 ===================
 - Garbage collection
 - Exceptions
-- Interfaces / traits (v1)
+- Interfaces (v1)
 - Inheritance
 - Implicit allocations
 - Expression-oriented control flow

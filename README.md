@@ -26,9 +26,7 @@ Bak is operating under a frozen `v0.1` language line.
 Current experimental language features are:
 
 - `unsafe`
-- `box`
 - user-defined generics
-- traits
 
 Those features are outside the frozen `v0.1` compatibility promise and require explicit opt-in via `--experimental=...`. Parser support or partial implementation does not make them stable.
 
@@ -246,7 +244,7 @@ Bak is currently developed with a Go-first strategy:
 ## Stability Notes
 
 - Prefer the frozen `v0.1` surface for examples, libraries, and tests.
-- If you use `unsafe`, `box`, user generics, or traits, label that code experimental.
+- If you use `unsafe` or user generics, label that code experimental.
 - `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
 
 ## Tooling

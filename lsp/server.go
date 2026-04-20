@@ -1493,40 +1493,6 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 		}
 	}
 
-	// Implement trait: generate stubs for missing trait methods
-	for _, diag := range params.Context.Diagnostics {
-		methodName, traitName := parseMissingTraitMethod(diag.Message)
-		if methodName == "" || traitName == "" || result == nil || result.TC == nil {
-			continue
-		}
-		traitDef, ok := result.TC.GetTraitDef(traitName)
-		if !ok {
-			continue
-		}
-		methodSig, ok := traitDef.Methods[methodName]
-		if !ok {
-			continue
-		}
-		stub := generateMethodStub(methodName, methodSig)
-		// Insert at the diagnostic position (inside the impl block)
-		insertPos := Position{Line: diag.Range.End.Line + 1, Character: 0}
-		actions = append(actions, CodeAction{
-			Title:       fmt.Sprintf("Implement method '%s'", methodName),
-			Kind:        "quickfix",
-			Diagnostics: []Diagnostic{diag},
-			Edit: &WorkspaceEdit{
-				Changes: map[string][]TextEdit{
-					params.TextDocument.URI: {
-						{
-							Range:   Range{Start: insertPos, End: insertPos},
-							NewText: stub,
-						},
-					},
-				},
-			},
-		})
-	}
-
 	return actions
 }
 
@@ -1560,45 +1526,6 @@ func findImportInsertPosition(result *AnalysisResult) Position {
 		}
 	}
 	return Position{Line: lastImportLine + 1, Character: 0}
-}
-
-// parseMissingTraitMethod extracts method and trait names from
-// "missing required method 'X' for trait 'Y'" messages.
-func parseMissingTraitMethod(msg string) (methodName, traitName string) {
-	// Format: "missing required method 'X' for trait 'Y'"
-	if !strings.Contains(msg, "missing required method") {
-		return "", ""
-	}
-	parts := strings.SplitN(msg, "'", 5)
-	if len(parts) < 5 {
-		return "", ""
-	}
-	return parts[1], parts[3]
-}
-
-// generateMethodStub generates a method stub for a trait method signature.
-func generateMethodStub(name string, sig *typechecker.FunctionSig) string {
-	var sb strings.Builder
-	sb.WriteString("\n    pub func ")
-	sb.WriteString(name)
-	sb.WriteString("(")
-	for i, param := range sig.Parameters {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(fmt.Sprintf("arg%d: %s", i, typechecker.TypeToString(param)))
-	}
-	sb.WriteString(")")
-	if sig.ReturnType != nil {
-		retStr := typechecker.TypeToString(sig.ReturnType)
-		if retStr != "void" && retStr != "" {
-			sb.WriteString(" -> (")
-			sb.WriteString(retStr)
-			sb.WriteString(")")
-		}
-	}
-	sb.WriteString(" {\n        // TODO: implement\n        panic(\"not implemented\")\n    }\n")
-	return sb.String()
 }
 
 func (s *Server) getOrganizeImportsEdit(uri string) *WorkspaceEdit {

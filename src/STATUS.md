@@ -24,7 +24,7 @@ What is implemented (Bak)
     assignment, defer, panic, unsafe, function/struct/enum/impl/type/alias declarations.
   - expressions: literals, identifiers, prefix/infix, calls, method calls, field access, indexing,
     tuples, ranges, borrow expressions, vec literals, struct literals.
-  - types: simple, generic, borrow, box, box-optional, tuple, function, void.
+  - types: simple, generic, borrow, tuple, function, void.
 
 3) Diagnostics
 - Diagnostic types and formatting: src/compiler/diagnostics/diagnostics.bak

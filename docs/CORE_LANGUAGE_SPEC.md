@@ -157,9 +157,7 @@ The repository may contain parser support, AST nodes, design notes, or experimen
 These are currently not frozen:
 
 - `unsafe`
-- `box` / `box?`
 - user-defined generics beyond the stable built-in surface already listed above
-- traits as a stable compatibility promise
 - FFI
 - callback/async cross-language interop
 - any syntax or semantics documented only in design-note files

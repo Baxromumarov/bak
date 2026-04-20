@@ -319,9 +319,9 @@ func TestNextToken_LineColumnTracking(t *testing.T) {
 }
 
 func TestNextToken_ContainerTypes(t *testing.T) {
-	input := `Result Option Ok Err Some None box`
+	input := `Result Option Ok Err Some None`
 	tests := []token.TokenType{
-		token.RESULT, token.OPTION, token.OK, token.ERR, token.SOME, token.NONE, token.BOX,
+		token.RESULT, token.OPTION, token.OK, token.ERR, token.SOME, token.NONE,
 	}
 	l := New(input)
 	for i, expected := range tests {

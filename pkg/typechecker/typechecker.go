@@ -213,24 +213,11 @@ type FieldDef struct {
 
 // StructDef represents a struct definition for type checking
 type StructDef struct {
-	Fields            map[string]FieldDef
-	Methods           map[string]*FunctionSig
-	ImplementedTraits []string          // Names of traits this struct implements
-	TypeParams        []string          // Generic type parameter names
-	TypeParamBounds   map[string]string // Trait bounds: param name -> trait name (e.g. "K" -> "Hashable")
-	Package           string            // The package name where this struct is defined
-	PackagePath       string            // The package path where this struct is defined
-	Line              int
-	Column            int
-	Visibility        ast.Visibility
-}
-
-// TraitDef represents a trait definition for type checking
-type TraitDef struct {
+	Fields      map[string]FieldDef
 	Methods     map[string]*FunctionSig
-	TypeParams  []string
-	Package     string
-	PackagePath string
+	TypeParams  []string // Generic type parameter names
+	Package     string   // The package name where this struct is defined
+	PackagePath string   // The package path where this struct is defined
 	Line        int
 	Column      int
 	Visibility  ast.Visibility
@@ -281,7 +268,6 @@ type TypeEnv struct {
 	symbols      map[string]*TypeInfo
 	functions    map[string]*FunctionSig
 	structs      map[string]*StructDef
-	traits       map[string]*TraitDef
 	enums        map[string]*EnumDef
 	aliases      map[string]*AliasDef // alias Name -> underlying type
 	typedefs     map[string]*TypeDef  // type Name -> underlying type
@@ -302,7 +288,6 @@ func NewTypeEnv() *TypeEnv {
 		symbols:     make(map[string]*TypeInfo),
 		functions:   make(map[string]*FunctionSig),
 		structs:     make(map[string]*StructDef),
-		traits:      make(map[string]*TraitDef),
 		enums:       make(map[string]*EnumDef),
 		aliases:     make(map[string]*AliasDef),
 		typedefs:    make(map[string]*TypeDef),
@@ -340,7 +325,6 @@ func NewEnclosedTypeEnv(parent *TypeEnv) *TypeEnv {
 		symbols:     make(map[string]*TypeInfo),
 		functions:   make(map[string]*FunctionSig),
 		structs:     make(map[string]*StructDef),
-		traits:      make(map[string]*TraitDef),
 		enums:       make(map[string]*EnumDef),
 		aliases:     make(map[string]*AliasDef),
 		typedefs:    make(map[string]*TypeDef),
@@ -649,26 +633,6 @@ func (e *TypeEnv) LookupStruct(name string) (*StructDef, bool) {
 	return nil, false
 }
 
-// DefineTrait defines a trait type
-func (e *TypeEnv) DefineTrait(name string, traitDef *TraitDef) {
-	e.traits[name] = traitDef
-}
-
-// LookupTrait looks up a trait definition
-func (e *TypeEnv) LookupTrait(name string) (*TraitDef, bool) {
-	if t, ok := e.traits[name]; ok {
-		e.MarkUsed(name)
-		return t, true
-	}
-	if e.parent != nil {
-		if e.nonCapturing {
-			return e.root().LookupTrait(name)
-		}
-		return e.parent.LookupTrait(name)
-	}
-	return nil, false
-}
-
 // DefineAlias defines a type alias (interchangeable with underlying type)
 func (e *TypeEnv) DefineAlias(
 	name string,
@@ -793,11 +757,6 @@ func (tc *TypeChecker) addExperimentalFeatureError(line, col int, syntax, featur
 		File:    tc.currentPkgPath,
 		Help:    experimentalFeatureHelp(feature),
 	})
-}
-
-// GetTraitDef looks up a trait definition by name. Used by LSP for code actions.
-func (tc *TypeChecker) GetTraitDef(name string) (*TraitDef, bool) {
-	return tc.env.LookupTrait(name)
 }
 
 // IsSymbolUsed checks if a symbol was used during type checking. Used by linter.
@@ -1188,13 +1147,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			typeParams := []string{}
-			typeParamBounds := make(map[string]string)
 			for _, p := range s.TypeParams {
 				if p != nil {
 					typeParams = append(typeParams, p.Name.Value)
-					if p.Bound != nil {
-						typeParamBounds[p.Name.Value] = typeToString(p.Bound)
-					}
 				}
 			}
 			fields := make(map[string]FieldDef)
@@ -1208,68 +1163,26 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				}
 			}
 			tc.env.DefineStruct(s.Name.Value, &StructDef{
-				Fields:          fields,
-				Methods:         make(map[string]*FunctionSig),
-				TypeParams:      typeParams,
-				TypeParamBounds: typeParamBounds,
-				Package:         tc.currentPkgName,
-				PackagePath:     tc.currentPkgPath,
-				Line:            s.Name.Token.Line,
-				Column:          s.Name.Token.Column,
-				Visibility:      s.Visibility,
-			})
-		case *ast.TraitDefinition:
-			if s.Name == nil {
-				continue
-			}
-			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
-				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "`trait` declarations", runtimecap.ExperimentalFeatureTraits)
-			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic trait declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
-			typeParams := []string{}
-			for _, p := range s.TypeParams {
-				if p != nil {
-					typeParams = append(typeParams, p.Name.Value)
-				}
-			}
-			methods := make(map[string]*FunctionSig)
-			for _, m := range s.Methods {
-				if m == nil || m.Name == nil {
-					continue
-				}
-				sig := &FunctionSig{
-					Parameters:  make([]ast.TypeExpression, len(m.Parameters)),
-					ReturnType:  m.ReturnType,
-					Visibility:  ast.Public,
-					Mutable:     m.IsMutating,
-					IsInstance:  true,
-					Package:     tc.currentPkgName,
-					PackagePath: tc.currentPkgPath,
-					Line:        m.Token.Line,
-					Column:      m.Token.Column,
-				}
-				for i, p := range m.Parameters {
-					sig.Parameters[i] = p.Type
-				}
-				methods[m.Name.Value] = sig
-			}
-
-			var visibility ast.Visibility = ast.Private
-			if s.IsPublic {
-				visibility = ast.Public
-			}
-
-			tc.env.DefineTrait(s.Name.Value, &TraitDef{
-				Methods:     methods,
+				Fields:      fields,
+				Methods:     make(map[string]*FunctionSig),
 				TypeParams:  typeParams,
 				Package:     tc.currentPkgName,
 				PackagePath: tc.currentPkgPath,
 				Line:        s.Name.Token.Line,
 				Column:      s.Name.Token.Column,
-				Visibility:  visibility,
+				Visibility:  s.Visibility,
 			})
+		case *ast.TraitDefinition:
+			if s.Name == nil {
+				continue
+			}
+			tc.addErrorWithHelp(
+				s.Name.Token.Line,
+				s.Name.Token.Column,
+				"remove trait declarations and use concrete types with impl blocks",
+				"trait declarations are not supported in the frozen v0.1 language surface",
+			)
+			continue
 		case *ast.EnumDecl:
 			if s.Name == nil {
 				continue
@@ -1345,13 +1258,16 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.TypeName == nil {
 				continue
 			}
-			if s.TraitName != nil && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
-				tc.addExperimentalFeatureError(s.TraitName.Token.Line, s.TraitName.Token.Column, "trait implementations", runtimecap.ExperimentalFeatureTraits)
+			if s.TraitName != nil {
+				tc.addErrorWithHelp(
+					s.TraitName.Token.Line,
+					s.TraitName.Token.Column,
+					"remove trait implementation syntax and use plain impl blocks",
+					"trait implementations are not supported in the frozen v0.1 language surface",
+				)
+				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
-				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
-			if len(s.TraitTypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
 				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			if structDef, ok := tc.env.LookupStruct(s.TypeName.Value); ok {
@@ -1661,19 +1577,13 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 			for _, p := range tt.TypeParams {
 				walk(p)
 			}
-			// Check trait bounds on type parameters
-			tc.checkTraitBounds(tt, line, col)
 		case *ast.BorrowType:
 			walk(tt.Inner)
 		case *ast.BoxType:
-			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-				tc.addExperimentalFeatureError(line, col, "`box` types", runtimecap.ExperimentalFeatureBox)
-			}
+			tc.addErrorWithHelp(line, col, "remove box syntax and use stable value types", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.BoxOptionalType:
-			if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-				tc.addExperimentalFeatureError(line, col, "`box` types", runtimecap.ExperimentalFeatureBox)
-			}
+			tc.addErrorWithHelp(line, col, "remove box syntax and use Option<T> with stable types", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.TupleType:
 			for _, e := range tt.Elements {
@@ -2221,9 +2131,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 		return inner
 
 	case *ast.BoxExpression:
-		if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-			tc.addExperimentalFeatureError(e.Token.Line, e.Token.Column, "`box` expressions", runtimecap.ExperimentalFeatureBox)
-		}
+		tc.addErrorWithHelp(e.Token.Line, e.Token.Column, "remove box expressions and use stable value construction", "box expressions are not supported in the frozen v0.1 language surface")
 		// Box just wraps a value; infer inner value and return a BoxType if needed
 		inner := tc.inferType(e.Value)
 		if inner == nil {

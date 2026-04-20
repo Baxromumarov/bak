@@ -2,7 +2,6 @@ package typechecker
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -261,6 +260,15 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 
 func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	typeName := id.TypeName.Value
+	if id.TraitName != nil {
+		tc.addErrorWithHelp(
+			id.TraitName.Token.Line,
+			id.TraitName.Token.Column,
+			"remove trait implementation syntax and use plain impl blocks",
+			"trait implementations are not supported in the frozen v0.1 language surface",
+		)
+		return
+	}
 
 	// Allow impl blocks on built-in types Option and Result
 	isBuiltinType := typeName == "Option" || typeName == "Result"
@@ -272,110 +280,6 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		if !ok {
 			tc.errorUndefinedType(typeName, id.Token.Line, id.Token.Column)
 			return
-		}
-	}
-
-	// 1. If implementing a trait, verify the trait exists and methods match
-	var traitDef *TraitDef
-	if id.TraitName != nil {
-		traitDef, ok = tc.env.LookupTrait(id.TraitName.Value)
-		if !ok {
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("UndefinedTrait"),
-				Level:   diagnostics.LevelError,
-				Message: fmt.Sprintf("undefined trait: '%s'", id.TraitName.Value),
-				Line:    id.TraitName.Token.Line,
-				Column:  id.TraitName.Token.Column,
-				File:    tc.currentPkgPath,
-			})
-			return
-		}
-
-		// Track which methods from the trait have been implemented
-		implementedMethods := make(map[string]bool)
-		for _, method := range id.Methods {
-			implementedMethods[method.Name.Value] = true
-
-			// Verify signature matches
-			requiredMethod, exists := traitDef.Methods[method.Name.Value]
-			if !exists {
-				// Warn or error if implementing a method not in the trait
-				tc.emitter.Emit(diagnostics.Diagnostic{
-					Code:    diagnostics.DiagnosticCode("MethodNotInTrait"),
-					Level:   diagnostics.LevelError,
-					Message: fmt.Sprintf("method '%s' is not required by trait '%s'", method.Name.Value, id.TraitName.Value),
-					Line:    method.Name.Token.Line,
-					Column:  method.Name.Token.Column,
-					File:    tc.currentPkgPath,
-				})
-			} else {
-				// Validate parameter count
-				if len(method.Parameters) != len(requiredMethod.Parameters) {
-					tc.emitter.Emit(diagnostics.Diagnostic{
-						Code:    diagnostics.DiagnosticCode("TraitMethodParamMismatch"),
-						Level:   diagnostics.LevelError,
-						Message: fmt.Sprintf("method '%s' has %d parameters, but trait '%s' requires %d", method.Name.Value, len(method.Parameters), id.TraitName.Value, len(requiredMethod.Parameters)),
-						Line:    method.Name.Token.Line,
-						Column:  method.Name.Token.Column,
-						File:    tc.currentPkgPath,
-					})
-				}
-				// Validate mutability
-				if method.Mutable != requiredMethod.Mutable {
-					tc.emitter.Emit(diagnostics.Diagnostic{
-						Code:    diagnostics.DiagnosticCode("TraitMethodMutMismatch"),
-						Level:   diagnostics.LevelError,
-						Message: fmt.Sprintf("method '%s' mutability does not match trait '%s'", method.Name.Value, id.TraitName.Value),
-						Line:    method.Name.Token.Line,
-						Column:  method.Name.Token.Column,
-						File:    tc.currentPkgPath,
-					})
-				}
-				// Validate return type
-				if requiredMethod.ReturnType != nil && method.ReturnType != nil {
-					reqRet := typeToString(requiredMethod.ReturnType)
-					implRet := typeToString(method.ReturnType)
-					if reqRet != implRet {
-						// Allow trait type params to match any concrete type
-						isTraitTypeParam := slices.Contains(traitDef.TypeParams, reqRet)
-						if !isTraitTypeParam {
-							tc.emitter.Emit(diagnostics.Diagnostic{
-								Code:    diagnostics.DiagnosticCode("TraitMethodReturnMismatch"),
-								Level:   diagnostics.LevelError,
-								Message: fmt.Sprintf("method '%s' returns '%s', but trait '%s' requires '%s'", method.Name.Value, implRet, id.TraitName.Value, reqRet),
-								Line:    method.Name.Token.Line,
-								Column:  method.Name.Token.Column,
-								File:    tc.currentPkgPath,
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// Check for missing methods
-		missingMethods := false
-		for reqMethodName := range traitDef.Methods {
-			if !implementedMethods[reqMethodName] {
-				missingMethods = true
-				tc.emitter.Emit(diagnostics.Diagnostic{
-					Code:    diagnostics.DiagnosticCode("MissingTraitMethod"),
-					Level:   diagnostics.LevelError,
-					Message: fmt.Sprintf("missing required method '%s' for trait '%s'", reqMethodName, id.TraitName.Value),
-					Line:    id.Token.Line,
-					Column:  id.Token.Column,
-					File:    tc.currentPkgPath,
-				})
-			}
-		}
-
-		// Record that this struct implements the trait (if no errors)
-		if !missingMethods && structDef != nil {
-			traitName := id.TraitName.Value
-			alreadyTracked := slices.Contains(structDef.ImplementedTraits, traitName)
-			if !alreadyTracked {
-				structDef.ImplementedTraits = append(structDef.ImplementedTraits, traitName)
-			}
 		}
 	}
 

@@ -72,10 +72,9 @@ func main() -> (void) {
     var borrowedPair: &Pair<int, int> = &intPair
     println("  borrowed first:", borrowedPair.first)
 
-    println("\n7. Boxed generic field access:")
-    var boxedPair: Pair<int, int> box = box Pair{first: 7, second: 8}
-    var boxedValue: Pair<int, int> = unbox(boxedPair)
-    println("  boxed first:", boxedValue.first)
+    println("\n7. Additional generic field access:")
+    var copiedPair: Pair<int, int> = Pair{first: 7, second: 8}
+    println("  copied first:", copiedPair.first)
     
     // Vec<T> - already works
     println("\n8. Built-in Vec<T>:")

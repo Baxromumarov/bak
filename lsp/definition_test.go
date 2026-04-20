@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 func findLineCol(text, needle string) (int, int) {
@@ -26,25 +24,26 @@ func findLineCol(text, needle string) (int, int) {
 }
 
 func TestDefinitionMethodCallInPattern(t *testing.T) {
-	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureBox})
-	t.Cleanup(restore)
-
 	src := strings.Join([]string{
 		"package main",
 		"",
-		"struct Tree {",
-		"    left: Tree box?",
+		"struct Node {",
+		"    value: int",
 		"}",
 		"",
-		"impl Tree as t {",
-		"    pub mut func insert(v: int) -> (void) {",
-		"        switch t.left {",
-		"            case Some(mut l) {",
-		"                l.insert(v)",
-		"            }",
-		"            case None {",
-		"                return void",
-		"            }",
+		"impl Node as n {",
+		"    pub func id() -> (int) {",
+		"        return n.value",
+		"    }",
+		"}",
+		"",
+		"func useNode(maybe: Option<Node>) -> (int) {",
+		"    switch maybe {",
+		"        case Some(found) {",
+		"            return found.id()",
+		"        }",
+		"        case None {",
+		"            return 0",
 		"        }",
 		"    }",
 		"}",
@@ -73,13 +72,13 @@ func TestDefinitionMethodCallInPattern(t *testing.T) {
 	s.Documents[uri] = src
 	s.analyzeAndPublish(uri, src)
 
-	callLine, callCol := findLineCol(src, "l.insert(v)")
+	callLine, callCol := findLineCol(src, "found.id()")
 	if callLine < 0 {
 		t.Fatalf("call site not found in source")
 	}
-	callCol += len("l.")
+	callCol += len("found.")
 
-	defLine, defCol := findLineCol(src, "func insert")
+	defLine, defCol := findLineCol(src, "func id")
 	if defLine < 0 {
 		t.Fatalf("definition not found in source")
 	}

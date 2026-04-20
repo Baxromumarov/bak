@@ -61,7 +61,7 @@ m.len()
   - `func hash_int(x int) -> (u64)`
   - `func hash_string(s string) -> (u64)`
 - The compiler links the correct hash function for each type.
-- No traits, dynamic dispatch, or vtables required.
+- No dynamic dispatch or vtables required.
 
 This approach is simple, explicit, and self-hosting friendly.
 

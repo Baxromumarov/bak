@@ -4,7 +4,6 @@ p1 is created
 
 Status note:
 - Struct initialization is part of the stable surface.
-- References in this file to `box` describe experimental heap-allocation syntax, not frozen `v0.1` syntax.
 - See `docs/CORE_LANGUAGE_SPEC.md` for the normative contract.
 
 bak supports multiple forms of struct initialization, all with clear, unified rules and no hidden behavior.
@@ -44,7 +43,7 @@ Allowed if the type is unambiguous. No implicit heap allocation or magic default
 - `var p T` is equivalent to `var p T = T{}`
 - `T{}` initializes all fields to their default values.
 - `T{ field: value }` initializes specified fields and default-initializes the rest.
-- Struct literals do not allocate on the heap unless explicitly wrapped in `box`.
+- Struct literals are value construction syntax and do not imply a separate heap-allocation feature.
 
 ## What to Avoid
 - No form should behave differently in subtle ways.
@@ -53,6 +52,6 @@ Allowed if the type is unambiguous. No implicit heap allocation or magic default
 
 ## Rationale
 - Ergonomic and clear, matching Go, Rust, and Zig.
-- No ownership confusion: all forms produce a value, not a pointer. Heap allocation requires `box`.
+- No ownership confusion: all forms produce a value, not a pointer.
 - Compiler simplicity: all forms lower to a single internal representation.
 - Self-hosting friendly: supports patterns needed for compiler development.

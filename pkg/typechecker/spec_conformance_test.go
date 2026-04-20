@@ -105,7 +105,7 @@ func main() -> (void) {
 	}
 }
 
-func TestExperimentalBoxRequiresOptIn(t *testing.T) {
+func TestBoxSyntaxIsRejectedFromPublicSurface(t *testing.T) {
 	source := `package main
 
 struct Node {
@@ -120,13 +120,8 @@ func main() -> (void) {
 }`
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
-	if len(parseErrs) == 0 || !strings.Contains(strings.Join(parseErrs, "\n"), "experimental and disabled by default") {
-		t.Fatalf("expected experimental box parser error, got %v", parseErrs)
-	}
-
-	parseErrs, typeErrs := parseAndCheckSource(t, source, []string{runtimecap.ExperimentalFeatureBox})
-	if len(parseErrs) > 0 || len(typeErrs) > 0 {
-		t.Fatalf("expected box to work with opt-in, parse=%v type=%v", parseErrs, typeErrs)
+	if len(parseErrs) == 0 {
+		t.Fatalf("expected parser to reject box syntax without experimental flags, got %v", parseErrs)
 	}
 }
 
@@ -155,7 +150,7 @@ func main() -> (void) {
 	}
 }
 
-func TestExperimentalTraitsRequireOptIn(t *testing.T) {
+func TestTraitSyntaxIsRejectedFromPublicSurface(t *testing.T) {
 	source := `package main
 
 trait Displayable {
@@ -177,13 +172,8 @@ func main() -> (void) {
 }`
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
-	if len(parseErrs) == 0 || !strings.Contains(strings.Join(parseErrs, "\n"), "experimental and disabled by default") {
-		t.Fatalf("expected experimental traits parser error, got %v", parseErrs)
-	}
-
-	parseErrs, typeErrs := parseAndCheckSource(t, source, []string{runtimecap.ExperimentalFeatureTraits})
-	if len(parseErrs) > 0 || len(typeErrs) > 0 {
-		t.Fatalf("expected traits to work with opt-in, parse=%v type=%v", parseErrs, typeErrs)
+	if len(parseErrs) == 0 {
+		t.Fatalf("expected parser to reject trait syntax without experimental flags, got %v", parseErrs)
 	}
 }
 

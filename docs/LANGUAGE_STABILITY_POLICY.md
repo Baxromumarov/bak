@@ -1,6 +1,6 @@
 # Language Stability Policy
 
-Last updated: 2026-04-19
+Last updated: 2026-04-20
 
 Bak is now operating under a language freeze for the `v0.1` line.
 
@@ -50,9 +50,7 @@ Experimental means:
 The current experimental language set is:
 
 - `unsafe`
-- `box`
 - user-defined generics
-- traits
 
 ### Internal
 

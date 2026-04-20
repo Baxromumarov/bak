@@ -134,15 +134,6 @@ func buildStdlibIndex() map[string][]StdlibSymbol {
 							Kind:       "enum",
 						})
 					}
-				case *ast.TraitDefinition:
-					if s.IsPublic && s.Name != nil {
-						index[s.Name.Value] = append(index[s.Name.Value], StdlibSymbol{
-							Name:       s.Name.Value,
-							ImportPath: relPath,
-							Alias:      alias,
-							Kind:       "trait",
-						})
-					}
 				}
 			}
 		}

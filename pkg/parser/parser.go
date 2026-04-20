@@ -1353,9 +1353,12 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Support Box<T> as syntax sugar for T box
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Box" && len(gt.TypeParams) == 1 {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-			p.reportExperimentalFeature(gt.Token, "`Box<T>` / `box` types", runtimecap.ExperimentalFeatureBox)
-		}
+		p.errors = append(p.errors, p.formatMessage(
+			gt.Token.Line,
+			gt.Token.Column,
+			"Box<T> and box types are not supported in the frozen v0.1 language surface",
+			"remove box syntax and use stable value types",
+		))
 		baseType = &ast.BoxType{Token: gt.Token, Inner: gt.TypeParams[0]}
 		if p.peekTokenIs(token.QUESTION) {
 			p.nextToken() // consume ?
@@ -1365,9 +1368,12 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Check for box modifier: Type box or Type box?
 	if p.peekTokenIs(token.BOX) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-			p.reportExperimentalFeature(p.peekToken, "`box` types", runtimecap.ExperimentalFeatureBox)
-		}
+		p.errors = append(p.errors, p.formatMessage(
+			p.peekToken.Line,
+			p.peekToken.Column,
+			"box types are not supported in the frozen v0.1 language surface",
+			"remove box syntax and use stable value types",
+		))
 		p.nextToken() // consume box
 		boxTok := p.curToken
 
@@ -1721,9 +1727,12 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 		Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
 	}
 	if p.peekTokenIs(token.COLON) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
-			p.reportExperimentalFeature(p.peekToken, "trait bounds on generic parameters", runtimecap.ExperimentalFeatureTraits)
-		}
+		p.errors = append(p.errors, p.formatMessage(
+			p.peekToken.Line,
+			p.peekToken.Column,
+			"trait bounds on generic parameters are not supported in the frozen v0.1 language surface",
+			"remove the ': Bound' clause from type parameters",
+		))
 		p.nextToken() // consume colon
 		p.nextToken() // move to type
 		param.Bound = p.parseTypeExpression()
@@ -1743,6 +1752,12 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 			Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
 		}
 		if p.peekTokenIs(token.COLON) {
+			p.errors = append(p.errors, p.formatMessage(
+				p.peekToken.Line,
+				p.peekToken.Column,
+				"trait bounds on generic parameters are not supported in the frozen v0.1 language surface",
+				"remove the ': Bound' clause from type parameters",
+			))
 			p.nextToken() // count colon
 			p.nextToken() // move to type
 			param.Bound = p.parseTypeExpression()
@@ -2023,9 +2038,12 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 }
 
 func (p *Parser) parseTraitDefinition() *ast.TraitDefinition {
-	if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
-		p.reportExperimentalFeature(p.curToken, "`trait` declarations", runtimecap.ExperimentalFeatureTraits)
-	}
+	p.errors = append(p.errors, p.formatMessage(
+		p.curToken.Line,
+		p.curToken.Column,
+		"trait declarations are not supported in the frozen v0.1 language surface",
+		"remove trait declarations and use concrete types with impl blocks",
+	))
 	stmt := &ast.TraitDefinition{Token: p.curToken}
 
 	if !p.expectPeek(token.IDENT) {
@@ -2034,9 +2052,6 @@ func (p *Parser) parseTraitDefinition() *ast.TraitDefinition {
 	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic trait declarations", runtimecap.ExperimentalFeatureUserGenerics)
-		}
 		p.nextToken() // consume '<'
 		stmt.TypeParams = p.parseTypeParams()
 	}
@@ -2127,13 +2142,15 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 	}
 
 	if p.peekTokenIs(token.COLON) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureTraits) {
-			p.reportExperimentalFeature(p.peekToken, "trait implementations", runtimecap.ExperimentalFeatureTraits)
-		}
+		p.errors = append(p.errors, p.formatMessage(
+			p.peekToken.Line,
+			p.peekToken.Column,
+			"trait implementations are not supported in the frozen v0.1 language surface",
+			"remove trait implementation syntax and use plain impl blocks",
+		))
 		// It was a trait implementation: impl Hashable<T>: Person<U>
 		p.nextToken() // consume ':'
 		stmt.TraitName = firstIdent
-		stmt.TraitTypeParams = firstParams
 
 		if !p.expectPeek(token.IDENT) {
 			return nil
@@ -2626,9 +2643,12 @@ func (p *Parser) parseDerefExpression() ast.Expression {
 }
 
 func (p *Parser) parseBoxExpression() ast.Expression {
-	if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureBox) {
-		p.reportExperimentalFeature(p.curToken, "`box` expressions", runtimecap.ExperimentalFeatureBox)
-	}
+	p.errors = append(p.errors, p.formatMessage(
+		p.curToken.Line,
+		p.curToken.Column,
+		"box expressions are not supported in the frozen v0.1 language surface",
+		"remove box expressions and use stable value types",
+	))
 	expression := &ast.BoxExpression{Token: p.curToken}
 
 	p.nextToken()

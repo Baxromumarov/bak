@@ -24,15 +24,11 @@ const (
 
 const (
 	ExperimentalFeatureUnsafe       = "experimental-unsafe"
-	ExperimentalFeatureBox          = "experimental-box"
 	ExperimentalFeatureUserGenerics = "experimental-user-generics"
-	ExperimentalFeatureTraits       = "experimental-traits"
 )
 
 func KnownExperimentalFeatures() []string {
 	return []string{
-		ExperimentalFeatureBox,
-		ExperimentalFeatureTraits,
 		ExperimentalFeatureUnsafe,
 		ExperimentalFeatureUserGenerics,
 	}
