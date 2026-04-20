@@ -14,19 +14,22 @@ LSP_BIN := $(BINDIR)/bak-lsp
 
 TEST_SCRIPTS := \
 	tests/run_alias_type_tests.sh \
-	tests/run_comprehensive_tests.sh \
 	tests/run_defer_panic_conformance.sh \
 	tests/run_func_arg_tests.sh \
+	tests/run_typechecker_tests.sh
+
+LEGACY_TEST_SCRIPTS := \
 	tests/run_native_bytes_tests.sh \
 	tests/run_native_enum_tests.sh \
 	tests/run_native_strconv_tests.sh \
 	tests/run_native_string_tests.sh \
 	tests/run_native_strings_std_tests.sh \
 	tests/run_native_time_tests.sh \
-	tests/run_native_vec_tests.sh \
-	tests/run_typechecker_tests.sh
+	tests/run_native_vec_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
+COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
+
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-scripts-legacy test-comprehensive test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
 
 help:
 	@echo "Bak project Makefile"
@@ -47,6 +50,8 @@ help:
 	@echo "  make test             Run go test ./..."
 	@echo "  make test-unit        Run go test ./..."
 	@echo "  make test-scripts     Run executable test scripts under tests/"
+	@echo "  make test-scripts-legacy Run legacy native/self-host script sweep"
+	@echo "  make test-comprehensive Run legacy broad-pattern comprehensive script"
 	@echo "  make test-frozen      Run frozen-surface language and docs guardrails"
 	@echo "  make test-parity      Run evaluator/vm/native parity matrix"
 	@echo "  make test-lanes       Run frozen + parity lanes"
@@ -71,6 +76,9 @@ $(BINDIR):
 
 build-bak: | $(BINDIR)
 	$(GO) build -o $(BAK_BIN) ./cmd/bak
+
+build-root-bak:
+	$(GO) build -o bak ./cmd/bak
 
 build-bakfmt: | $(BINDIR)
 	$(GO) build -o $(BAKFMT_BIN) ./cmd/bakfmt
@@ -97,11 +105,21 @@ test: test-unit
 test-unit:
 	$(GO) test ./...
 
-test-scripts:
+test-scripts: build-root-bak
 	@for script in $(TEST_SCRIPTS); do \
 		echo "==> $$script"; \
 		bash $$script; \
 	done
+
+test-scripts-legacy: build-root-bak
+	@for script in $(LEGACY_TEST_SCRIPTS); do \
+		echo "==> $$script"; \
+		bash $$script; \
+	done
+
+test-comprehensive: build-root-bak
+	@echo "==> $(COMPREHENSIVE_SCRIPT)"
+	@bash $(COMPREHENSIVE_SCRIPT)
 
 test-frozen:
 	$(GO) test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint'

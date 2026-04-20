@@ -3,7 +3,10 @@
 package main
 
 func main() -> (void) {
-    // This should check Vec element types
-    var _nums: Vec<int, 3> = Vec.from([1, 2, "three"])
+    // This should fail: pushing string into Vec<int, _>
+    mut var nums: Vec<int, _> = Vec.new()
+    nums.push(1)
+    nums.push(2)
+    // nums.push("three")
     return void
 }

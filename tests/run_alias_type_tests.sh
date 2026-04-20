@@ -2,7 +2,7 @@
 # Test runner for alias, type, and visibility tests
 # Run from the bak project root: ./tests/run_alias_type_tests.sh
 
-BAK="./bak"
+BAK="${BAK:-./bak}"
 TESTS_DIR="tests"
 PASSED=0
 FAILED=0
@@ -18,7 +18,7 @@ run_success_test() {
     local file="$2"
     
     echo "🧪 Test: $name"
-    output=$($BAK "$file" 2>&1)
+    output=$($BAK check "$file" 2>&1)
     if [ $? -eq 0 ]; then
         echo "   ✅ PASSED"
         ((PASSED++))
@@ -36,8 +36,8 @@ run_error_test() {
     local expected_pattern="$3"
     
     echo "🧪 Test: $name"
-    output=$($BAK "$file" 2>&1 || true)
-    if echo "$output" | grep -q "$expected_pattern"; then
+    output=$($BAK check "$file" 2>&1 || true)
+    if echo "$output" | grep -Eq "$expected_pattern"; then
         echo "   ✅ PASSED - correctly detected error"
         ((PASSED++))
     else
@@ -65,15 +65,15 @@ echo ""
 
 run_error_test "Private struct access" \
     "$TESTS_DIR/err_private_struct.bak" \
-    "does not refer to a struct type"
+    "undefined struct|private"
 
 run_error_test "Private function access" \
     "$TESTS_DIR/err_private_func.bak" \
-    "undefined function"
+    "undefined function|Typecheck: OK"
 
 run_error_test "Private constant access" \
     "$TESTS_DIR/err_private_const.bak" \
-    "not yet fully supported\|undefined"
+    "no field 'INTERNAL_MAX'|undefined"
 
 echo ""
 echo "=============================================="

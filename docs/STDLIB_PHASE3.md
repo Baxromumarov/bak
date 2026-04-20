@@ -2,6 +2,9 @@
 
 This document records the Phase 3 standard-library contract that the Go compiler, VM, and native backend are expected to share today.
 
+Companion usage guide for recently expanded helpers:
+- `docs/STDLIB_COLLECTIONS_STRINGS_PATH.md`
+
 ## Common conventions
 - File and process APIs return `Result<..., string>` for fallible operations.
 - Optional lookups return `Option<T>`.
@@ -79,6 +82,29 @@ This document records the Phase 3 standard-library contract that the Go compiler
 - Limits:
   - this is utility crypto, not a full modern cryptography suite
   - do not treat the RNG as cryptographically secure
+
+## `std/collections/vec`
+- Supported now:
+  - functional helpers: `map_by`, `filter_by`, `reduce_by`, `any_by`, `all_by`, `find_by`
+  - ordering and lookup helpers: `index_of`, `max_by`, `min_by`
+- Error model:
+  - `find_by`, `max_by`, and `min_by` return `Result`
+  - pure predicates and reducers return plain values
+
+## `std/strings`
+- Supported now:
+  - text transforms and checks including `reverse`
+  - multi-candidate checks with `has_prefix_any` and `has_suffix_any`
+  - line splitting with `lines`
+- Error model:
+  - pure value-returning helpers only
+
+## `std/path`
+- Supported now:
+  - path shape helpers like `is_abs`, `is_rel`, `clean`, `split`
+  - extension helpers: `ext`, `has_ext`, `stem`, `without_ext`, `with_ext`
+- Error model:
+  - pure value-returning helpers and predicates only
 
 ## Verification
 - Native smoke: `tests/native_stdlib_surface.bak`

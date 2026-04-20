@@ -26,12 +26,12 @@ impl Rectangle as r {
 }
 
 func main() -> (void) {
-    var origin = Point{x: 0, y: 0}
-    var rect = Rectangle{topLeft: origin, width: 100, height: 50}
+    var origin: Point = Point{x: 0, y: 0}
+    var rect: Rectangle = Rectangle{topLeft: origin, width: 100, height: 50}
     
     println("Area:", rect.area())
     
-    var p = Point{x: 50, y: 25}
+    var p: Point = Point{x: 50, y: 25}
     if rect.contains(p) {
         println("Point is inside rectangle")
     }

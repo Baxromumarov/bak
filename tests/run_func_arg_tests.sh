@@ -2,7 +2,7 @@
 # Test runner for function argument validation tests
 # Run from the bak project root: ./tests/run_func_arg_tests.sh
 
-BAK="./bak"
+BAK="${BAK:-./bak}"
 TESTS_DIR="tests"
 PASSED=0
 FAILED=0
@@ -14,7 +14,7 @@ echo ""
 
 # Test 1: Correct usage (should pass)
 echo "🧪 Test: Correct usage (all valid calls)"
-if $BAK $TESTS_DIR/func_args_test.bak 2>&1 | grep -q "All correct usage tests passed!"; then
+if $BAK check $TESTS_DIR/func_args_test.bak 2>&1 | grep -q "Typecheck: OK"; then
     echo "   ✅ PASSED"
     ((PASSED++))
 else
@@ -29,7 +29,7 @@ run_error_test() {
     local expected_pattern="$3"
     
     echo "🧪 Test: $name"
-    output=$($BAK "$file" 2>&1 || true)
+    output=$($BAK check "$file" 2>&1 || true)
     if echo "$output" | grep -q "$expected_pattern"; then
         echo "   ✅ PASSED - correctly detected error"
         ((PASSED++))
@@ -86,7 +86,7 @@ run_error_test "void function with 3 args" \
 
 # Multiple errors test
 echo "🧪 Test: Multiple errors in one file"
-output=$($BAK $TESTS_DIR/err_multiple_errors.bak 2>&1 || true)
+output=$($BAK check $TESTS_DIR/err_multiple_errors.bak 2>&1 || true)
 error_count=$(echo "$output" | grep -c "expects.*argument(s), but got" || true)
 if [ "$error_count" -eq 4 ]; then
     echo "   ✅ PASSED - detected all 4 errors"

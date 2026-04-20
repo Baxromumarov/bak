@@ -43,18 +43,18 @@ func multiParamNoReturn(a: int, b: string, c: bool) -> (void) {
 }
 
 // Multiple params, single return
-func multiParamSingleReturn(a: int, b: float64) -> (float64) {
+func multiParamSingleReturn(_a: int, _b: float64) -> (float64) {
     return 3.14
 }
 
 // Multiple params, multiple returns (4 in, 4 out)
-func multiParamMultiReturn() -> (
+func multiParamMultiReturn(a: int, b: float64, c: string, d: bool) -> (
     string, 
     int, 
     float64, 
     bool,
 ) {
-    return "done", a, b, d
+    return c, a, b, d
 }
 
 // Many params (6 parameters)
@@ -69,18 +69,18 @@ func manyParams(a: int, b: int, c: int, d: int, e: int, f: int) -> (int) {
 func testCorrectUsage() -> (void) {
     // No params functions
     noParamsNoReturn()
-    var x = noParamsSingleReturn()
-    var (a, b, c) = noParamsMultiReturn()
+    var _x = noParamsSingleReturn()
+    var (_a, _b, _c) = noParamsMultiReturn()
     
     // Single param functions
     singleParamNoReturn(10)
-    var y = singleParamSingleReturn(5)
-    var (d, e) = singleParamMultiReturn(100)
+    var _y = singleParamSingleReturn(5)
+    var (_d, _e) = singleParamMultiReturn(100)
     
     // Multi param functions
     multiParamNoReturn(1, "test", true)
-    var z = multiParamSingleReturn(10, 2.5)
-    var (s, n, f, bl) = multiParamMultiReturn(1, 2.5, "hi", false)
+    var _z = multiParamSingleReturn(10, 2.5)
+    var (_s, _n, _f, _bl) = multiParamMultiReturn(1, 2.5, "hi", false)
     
     // Many params function
     var sum = manyParams(1, 2, 3, 4, 5, 6)

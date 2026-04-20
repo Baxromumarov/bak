@@ -68,7 +68,7 @@ func testVecWithImportedTypes() -> (void) {
 // Test: Function Using Imported Types
 // =============================================================================
 
-func processPoint(p: Point) -> (int) {
+func processPoint(p: &Point) -> (int) {
     return p.X + p.Y
 }
 
@@ -80,7 +80,7 @@ func testFunctionsWithImportedTypes() -> (void) {
     println("Functions with imported types:")
     
     var p: Point = Point{X: 10, Y: 20}
-    var sum: int = processPoint(p)
+    var sum: int = processPoint(&p)
     println("  processPoint({X: 10, Y: 20}) =", sum)
     
     var person: Person = createPerson("Dave", 40)

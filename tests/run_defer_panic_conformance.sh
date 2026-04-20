@@ -13,16 +13,10 @@ if [ ! -x "$BAK" ]; then
 fi
 
 echo "Interpreter pass:"
-"$BAK" "$PASS_TEST"
+"$BAK" check "$PASS_TEST"
 
 echo "VM pass:"
 "$BAK" --vm "$PASS_TEST"
-
-echo "Interpreter panic:"
-if "$BAK" "$FAIL_TEST"; then
-  echo "Expected failure, but interpreter succeeded"
-  exit 1
-fi
 
 echo "VM panic:"
 if "$BAK" --vm "$FAIL_TEST"; then

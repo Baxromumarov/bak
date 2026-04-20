@@ -8,15 +8,15 @@ package typelib
 
 // Public struct
 pub struct Point {
-    X: int
-    Y: int
+    pub X: int
+    pub Y: int
 }
 
 // Public struct with multiple fields
 pub struct Person {
-    Name: string
-    Age: int
-    Active: bool
+    pub Name: string
+    pub Age: int
+    pub Active: bool
 }
 
 // Public alias for a primitive
