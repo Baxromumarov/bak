@@ -36,10 +36,10 @@ type builtinMethodInfo struct {
 var builtinMethods = map[string]map[string]builtinMethodInfo{
 	"string": {
 		"len":       {Signature: "func len() -> (int)", Doc: "Returns the length of the string in bytes."},
-		"bytes":     {Signature: "func bytes() -> (Vec<int>)", Doc: "Returns the byte representation of the string as a vector of integers."},
-		"chars":     {Signature: "func chars() -> (Vec<char>)", Doc: "Returns the characters of the string as a vector of chars."},
-		"lines":     {Signature: "func lines() -> (Vec<string>)", Doc: "Returns the lines of the string."},
-		"split":     {Signature: "func split(sep: string) -> (Vec<string>)", Doc: "Splits the string by the given separator."},
+		"bytes":     {Signature: "func bytes() -> (Vec<int, _>)", Doc: "Returns the byte representation of the string as a vector of integers."},
+		"chars":     {Signature: "func chars() -> (Vec<char, _>)", Doc: "Returns the characters of the string as a vector of chars."},
+		"lines":     {Signature: "func lines() -> (Vec<string, _>)", Doc: "Returns the lines of the string."},
+		"split":     {Signature: "func split(sep: string) -> (Vec<string, _>)", Doc: "Splits the string by the given separator."},
 		"replace":   {Signature: "func replace(old: string, new: string) -> (string)", Doc: "Replaces all occurrences of old with new."},
 		"substring": {Signature: "func substring(start: int, end: int) -> (string)", Doc: "Returns a substring from start (inclusive) to end (exclusive)."},
 		"trim":      {Signature: "func trim() -> (string)", Doc: "Returns the string with leading and trailing whitespace removed."},
@@ -73,16 +73,16 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"get":      {Signature: "func get(key: &K) -> (Result<V, string>)", Doc: "Looks up a key and returns Result<V, string>."},
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of key-value pairs in the map."},
 		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the map has no entries."},
-		"keys":     {Signature: "func keys() -> (Vec<K>)", Doc: "Returns a vector of all keys in the map."},
-		"values":   {Signature: "func values() -> (Vec<V>)", Doc: "Returns a vector of all values in the map."},
+		"keys":     {Signature: "func keys() -> (Vec<K, _>)", Doc: "Returns a vector of all keys in the map."},
+		"values":   {Signature: "func values() -> (Vec<V, _>)", Doc: "Returns a vector of all values in the map."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all entries from the map."},
 		"remove":   {Signature: "func remove(key: &K) -> (Result<V, string>)", Doc: "Removes and returns the value for the given key."},
 		"contains": {Signature: "func contains(key: &K) -> (bool)", Doc: "Returns true if the map contains the given key."},
 	},
 	"Map": {
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of key-value pairs in the map."},
-		"keys":     {Signature: "func keys() -> (Vec<K>)", Doc: "Returns a vector of all keys in the map."},
-		"values":   {Signature: "func values() -> (Vec<V>)", Doc: "Returns a vector of all values in the map."},
+		"keys":     {Signature: "func keys() -> (Vec<K, _>)", Doc: "Returns a vector of all keys in the map."},
+		"values":   {Signature: "func values() -> (Vec<V, _>)", Doc: "Returns a vector of all values in the map."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all entries from the map."},
 		"remove":   {Signature: "func remove(key: K) -> (void)", Doc: "Removes the entry with the given key."},
 		"contains": {Signature: "func contains(key: K) -> (bool)", Doc: "Returns true if the map contains the given key."},
@@ -98,9 +98,9 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 
 var builtinStaticMethods = map[string]map[string]builtinMethodInfo{
 	"Vec": {
-		"new":      {Signature: "func new() -> (Vec<T>)", Doc: "Creates an empty vector."},
-		"with_cap": {Signature: "func with_cap(cap: int) -> (Vec<T>)", Doc: "Creates an empty vector with reserved capacity."},
-		"from":     {Signature: "func from<N>(arr: Vec<T, N>) -> (Vec<T>)", Doc: "Creates a dynamic vector from a fixed-size vector."},
+		"new":      {Signature: "func new() -> (Vec<T, _>)", Doc: "Creates an empty vector."},
+		"with_cap": {Signature: "func with_cap(cap: int) -> (Vec<T, _>)", Doc: "Creates an empty vector with reserved capacity."},
+		"from":     {Signature: "func from<N>(arr: Vec<T, N>) -> (Vec<T, _>)", Doc: "Creates a dynamic vector from a fixed-size vector."},
 	},
 	"HashMap": {
 		"new":      {Signature: "func new() -> (HashMap<K, V>)", Doc: "Creates an empty hash map."},
@@ -2234,7 +2234,7 @@ func completionInsertTextFromSignature(methodName, signature string) (string, in
 }
 
 var builtinSignatures = map[string]string{
-	"fromChars": "fromChars(chars: Vec<char,_>) -> (string)",
+	"fromChars": "fromChars(chars: Vec<char, _>) -> (string)",
 	"print":     "print(values: any...) -> (void)",
 	"println":   "println(values: any...) -> (void)",
 	"type":      "type(value: any) -> (string)",
@@ -2693,7 +2693,7 @@ func isDynamicVecType(typeStr string) bool {
 	if strings.Contains(compact, ",_>") {
 		return true
 	}
-	// Some paths represent dynamic vectors as Vec<T>.
+	// Some paths represent dynamic vectors as Vec<T, _>.
 	return strings.HasPrefix(compact, "Vec<") && !strings.Contains(compact, ",")
 }
 
@@ -4333,8 +4333,7 @@ func collectInlayHints(text string, result *AnalysisResult, s *Server) []InlayHi
 						}
 
 						if !isExplicit {
-							if t := result.TC.GetNodeType(n.Name); t != "" && t != "void" {
-								t = baseTypeName(t)
+							if t := strings.TrimSpace(result.TC.GetNodeType(n.Name)); t != "" && t != "void" {
 								hints = append(hints, InlayHint{
 									Position:     Position{Line: n.Name.Token.Line - 1, Character: n.Name.Token.Column + len(n.Name.Value) - 1},
 									Label:        ": " + t,

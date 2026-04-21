@@ -1,7 +1,7 @@
 
 # Vec and HashMap Internals in bak
 
-## Vec<T> (Vector)
+## Vec<T, _> (Vector)
 
 ### Core Representation
 ```

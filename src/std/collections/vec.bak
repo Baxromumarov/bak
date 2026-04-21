@@ -9,7 +9,7 @@ struct Vec<T> {
 }
 
 impl Vec {
-    pub func new() -> (Vec<T>) {
+    pub func new() -> (Vec<T, _>) {
         // --- CONSTRUCTORS ---
         // Create a dummy value of type T to appease __alloc_array signature.
         // It will be nil/zero at runtime, but size 0 array ignores it.
@@ -21,7 +21,7 @@ impl Vec {
             capacity: 0,
         }
     }
-    pub func with_cap(cap: int) -> (Vec<T>) {
+    pub func with_cap(cap: int) -> (Vec<T, _>) {
         mut var effective_cap: int = cap
         if effective_cap < 0 {
             effective_cap = 0
@@ -34,10 +34,10 @@ impl Vec {
             capacity: effective_cap,
         }
     }
-    pub func from<N>(arr: Vec<T, N>) -> (Vec<T>) {
+    pub func from<N>(arr: Vec<T, N>) -> (Vec<T, _>) {
         // arr is fixed array.
         var len: int = arr.len()
-        mut var v: Vec<T> = Vec.with_cap(len)
+        mut var v: Vec<T, _> = Vec.with_cap(len)
         // copy elements
         mut var i: int = 0
         while i < len {
@@ -175,7 +175,7 @@ impl Vec as self {
 }
 
 // =============================================================================
-// Free functions for Vec<T> utilities
+// Free functions for Vec<T, _> utilities
 // =============================================================================
 
 // index_of returns the index of the first element matching `value` using `eq`,
@@ -234,9 +234,9 @@ pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, stri
     return Ok(best)
 }
 
-// map_by transforms each element in v using f and returns a new Vec<U>.
+// map_by transforms each element in v using f and returns a new Vec<U, _>.
 pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
-    mut var out: Vec<U> = Vec.with_cap(v.len())
+    mut var out: Vec<U, _> = Vec.with_cap(v.len())
     mut var i: int = 0
     while i < v.len() {
         out.push(f(&v[i]))
@@ -245,9 +245,9 @@ pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
     return out
 }
 
-// filter_by keeps elements that satisfy predicate and returns a new Vec<T>.
+// filter_by keeps elements that satisfy predicate and returns a new Vec<T, _>.
 pub func filter_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Vec<T, _>) {
-    mut var out: Vec<T> = Vec.new()
+    mut var out: Vec<T, _> = Vec.new()
     mut var i: int = 0
     while i < v.len() {
         if predicate(&v[i]) {

@@ -185,11 +185,11 @@ func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
 			}
 		}
 	case *ast.StructDecl:
-		if s.Name != nil && !isPascalCase(s.Name.Value) {
+		if s.Name != nil && !isPascalCase(s.Name.Value) && !isSnakeCase(s.Name.Value) {
 			findings = append(findings, Finding{
 				Rule:    "naming-convention",
 				Level:   "warning",
-				Message: "struct '" + s.Name.Value + "' should be PascalCase",
+				Message: "struct '" + s.Name.Value + "' should be PascalCase or snake_case",
 				Line:    s.Name.Token.Line,
 				Column:  s.Name.Token.Column,
 			})

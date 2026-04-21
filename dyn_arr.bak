@@ -7,16 +7,31 @@ package main
 // 4. it is also not showing any data types, like int32,int64, float32, and so on
 // 5. in comment as you see two dots(..), any kind of checker must skip the comment section
 
-struct Data{
+struct data{
     name: string,
 
 }
 
+impl data as d {
+    mut func set_name(s: string)-> (void){
+        d.name = s
+        return void
+    }
+}
+
 func main() -> (void) {
-    mut var arr: Vec<int,_> = Vec.from([1,2,3])
+    mut var d: data
+
+    d.set_name("Ben")
+    println(d.name)
+    
+    mut var arr= Vec.from([1,2,3])
     arr.push(21)
     arr.push(21)
     arr.push(21)
+    arr.pop()
+
+
     println("ARR: ",arr)
     println("Hello, World!")
 

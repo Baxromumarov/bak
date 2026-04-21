@@ -34,8 +34,8 @@ pub func clean(p: string) -> (string) {
 
     var abs: bool = is_abs_ref(&p)
     var sep: string = Separator
-    var parts: Vec<string> = strings.split(&p, &sep)
-    mut var stack: Vec<string> = Vec.new()
+    var parts: Vec<string, _> = strings.split(&p, &sep)
+    mut var stack: Vec<string, _> = Vec.new()
 
     for part in parts {
         if part.len() == 0 || part == "." {
@@ -75,7 +75,7 @@ pub func join(a: string, b: string) -> (string) {
     return clean(a + Separator + b)
 }
 
-pub func join_parts(parts: Vec<string>) -> (string) {
+pub func join_parts(parts: Vec<string, _>) -> (string) {
     if parts.len() == 0 {
         return "."
     }
@@ -200,7 +200,7 @@ pub func split(p: &string) -> (Split) {
     return Split{Dir: dir(p), Base: base(p)}
 }
 
-func join_stack(parts: &Vec<string>, abs: bool) -> (string) {
+func join_stack(parts: &Vec<string, _>, abs: bool) -> (string) {
     if parts.len() == 0 {
         if abs {
             return "/"

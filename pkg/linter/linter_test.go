@@ -30,29 +30,35 @@ func TestLintSourceRespectsDisabledRules(t *testing.T) {
 	}
 }
 
-func TestLintSourceFindsStructPascalCaseIssue(t *testing.T) {
+func TestLintSourceAllowsStructSnakeCase(t *testing.T) {
 	source := "package main\n\nstruct data {\n    name: string,\n}\n"
 
 	findings := LintSource("demo.bak", source, nil)
-	if len(findings) == 0 {
-		t.Fatalf("expected lint findings")
+	for _, f := range findings {
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data'") {
+			t.Fatalf("did not expect struct snake_case warning, got %#v", findings)
+		}
 	}
+}
 
+func TestLintSourceWarnsForStructCamelCase(t *testing.T) {
+	source := "package main\n\nstruct dataModel {\n    name: string,\n}\n"
+
+	findings := LintSource("demo.bak", source, nil)
 	found := false
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data' should be PascalCase") {
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'dataModel' should be PascalCase or snake_case") {
 			found = true
 			break
 		}
 	}
-
 	if !found {
-		t.Fatalf("expected struct PascalCase finding, got %#v", findings)
+		t.Fatalf("expected struct naming finding, got %#v", findings)
 	}
 }
 
 func TestLintSourceKeepsLintWhenParseErrorsExist(t *testing.T) {
-	source := "package main\n\nstruct data {\n    name: string,\n}\n\nfunc main() -> (void) {\n    return void\n}\n)\n"
+	source := "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n)\n"
 
 	findings := LintSource("demo.bak", source, nil)
 	if len(findings) == 0 {
@@ -61,14 +67,14 @@ func TestLintSourceKeepsLintWhenParseErrorsExist(t *testing.T) {
 
 	found := false
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data' should be PascalCase") {
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "function 'BadName' should be snake_case") {
 			found = true
 			break
 		}
 	}
 
 	if !found {
-		t.Fatalf("expected struct PascalCase finding despite parse errors, got %#v", findings)
+		t.Fatalf("expected naming finding despite parse errors, got %#v", findings)
 	}
 }
 

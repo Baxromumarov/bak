@@ -75,7 +75,7 @@ func fsReadFile(args ...object.Object) object.Object {
 	}
 }
 
-// fsReadFileBytes reads a file and returns Result<Vec<int>, string>
+// fsReadFileBytes reads a file and returns Result<Vec<int, _>, string>
 func fsReadFileBytes(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return newError("fs.readFileBytes: wrong number of arguments. got=%d, want=1", len(args))
@@ -110,7 +110,7 @@ func fsReadFileBytes(args ...object.Object) object.Object {
 	}
 }
 
-// fsWriteFileBytes writes raw bytes (Vec<int>) to a file
+// fsWriteFileBytes writes raw bytes (Vec<int, _>) to a file
 func fsWriteFileBytes(args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return newError("fs.writeFileBytes: wrong number of arguments. got=%d, want=2", len(args))
@@ -123,7 +123,7 @@ func fsWriteFileBytes(args ...object.Object) object.Object {
 
 	dataObj, ok := args[1].(*object.Vec)
 	if !ok {
-		return newError("fs.writeFileBytes: second argument must be Vec<int>, got %s", args[1].Type())
+		return newError("fs.writeFileBytes: second argument must be Vec<int, _>, got %s", args[1].Type())
 	}
 	if denied := requireFSMutatePermission("fs.writeFileBytes"); denied != nil {
 		return denied
@@ -148,7 +148,7 @@ func fsWriteFileBytes(args ...object.Object) object.Object {
 	return &object.Result{IsOk: true, Value: &object.Void{}}
 }
 
-// fsReadLines reads a file and returns Result<Vec<string>, string>
+// fsReadLines reads a file and returns Result<Vec<string, _>, string>
 func fsReadLines(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return newError("fs.readLines: wrong number of arguments. got=%d, want=1", len(args))
@@ -235,7 +235,7 @@ func fsIsFile(args ...object.Object) object.Object {
 	return &object.Boolean{Value: !info.IsDir()}
 }
 
-// fsReadDir lists directory contents, returns Result<Vec<DirEntry>, string>
+// fsReadDir lists directory contents, returns Result<Vec<DirEntry, _>, string>
 func fsReadDir(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return newError("fs.readDir: wrong number of arguments. got=%d, want=1", len(args))

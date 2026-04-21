@@ -129,14 +129,14 @@ func builtinCfg(args ...object.Object) object.Object {
 	return &object.Boolean{Value: runtimecap.CurrentFeatureEnabled(featureName.Value)}
 }
 
-// builtinFromChars: primitive to convert Vec<char,_> to string
+// builtinFromChars: primitive to convert Vec<char, _> to string
 func builtinFromChars(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return newError("fromChars: wrong number of arguments. got=%d, want=1", len(args))
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("fromChars: argument must be Vec<char,_>, got %s", args[0].Type())
+		return newError("fromChars: argument must be Vec<char, _>, got %s", args[0].Type())
 	}
 	// Check element type
 	if vec.ElemType != "char" {
@@ -153,7 +153,7 @@ func builtinFromChars(args ...object.Object) object.Object {
 	return &object.String{Value: string(runes)}
 }
 
-// builtinStringFromBytes: optimized string construction from Vec<int> bytes
+// builtinStringFromBytes: optimized string construction from Vec<int, _> bytes
 func builtinStringFromBytes(args ...object.Object) object.Object {
 	if len(args) != 3 {
 		return newError("wrong number of arguments. got=%d, want=3", len(args))
@@ -468,8 +468,8 @@ func builtinSocketRead(args ...object.Object) object.Object {
 		// If partial read, that's fine.
 	}
 
-	// Create Vec<byte> (which is Vec<int> in Bak runtime usually, unless we use byte array optimization?)
-	// Bak currently uses Vec<Object> internally, so it's Vec<Integer>.
+	// Create Vec<byte, _> (which is Vec<int, _> in Bak runtime usually, unless we use byte array optimization?)
+	// Bak currently uses Vec<Object, _> internally, so it's Vec<Integer, _>.
 	// This is inefficient but consistent.
 	elements := make([]object.Object, n)
 	for i := range n {
@@ -492,7 +492,7 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 
 	dataObj, ok := args[1].(*object.Vec)
 	if !ok {
-		return newError("__builtin_socket_write: argument 1 must be Vec<byte>, got %s", args[1].Type())
+		return newError("__builtin_socket_write: argument 1 must be Vec<byte, _>, got %s", args[1].Type())
 	}
 
 	connMu.Lock()
@@ -510,7 +510,7 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 		}
 	}
 
-	// Convert Vec<int> to []byte
+	// Convert Vec<int, _> to []byte
 	bytes := make([]byte, len(dataObj.Elements))
 	for i, el := range dataObj.Elements {
 		if intVal, ok := el.(*object.Integer); ok {

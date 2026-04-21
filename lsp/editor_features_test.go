@@ -267,6 +267,51 @@ func TestHoverDropsVecLengthAfterIfElseWhenBranchesDiffer(t *testing.T) {
 	}
 }
 
+func TestInlayHintShowsFullGenericVecType(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var arr = Vec.from([1, 2, 3])",
+		"    arr.push(4)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	params := InlayHintParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range:        fullDocumentRange(src),
+	}
+	hints := s.handleInlayHint(mustRequest(t, params))
+	if len(hints) == 0 {
+		t.Fatalf("expected inlay hints")
+	}
+
+	targetLine, _ := findLineCol(src, "arr = Vec.from")
+	if targetLine < 0 {
+		t.Fatalf("target declaration not found")
+	}
+
+	for _, hint := range hints {
+		if hint.Kind != 2 || hint.Position.Line != targetLine {
+			continue
+		}
+		if hint.Label != ": Vec<int, _>" {
+			t.Fatalf("expected full generic vec type hint, got %q", hint.Label)
+		}
+		return
+	}
+
+	t.Fatalf("did not find variable type inlay hint on declaration line, hints=%#v", hints)
+}
+
 func TestCompletionSuggestsStdImportPaths(t *testing.T) {
 	src := "package main\n\nimport \"std/str"
 	uri := writeTempBakFile(t, src)
@@ -325,8 +370,10 @@ func TestCompletionSuggestsVecStaticMethodsAfterDot(t *testing.T) {
 	completion := s.handleCompletion(mustRequest(t, params))
 
 	labels := map[string]bool{}
+	details := map[string]string{}
 	for _, item := range completion.Items {
 		labels[item.Label] = true
+		details[item.Label] = item.Detail
 	}
 
 	for _, expected := range []string{"new", "with_cap", "from"} {
@@ -337,6 +384,13 @@ func TestCompletionSuggestsVecStaticMethodsAfterDot(t *testing.T) {
 
 	if labels["push"] {
 		t.Fatalf("did not expect instance method push on Vec. completion, got %#v", completion.Items)
+	}
+
+	if got := details["new"]; got != "func new() -> (Vec<T, _>)" {
+		t.Fatalf("unexpected Vec.new signature detail: %q", got)
+	}
+	if got := details["from"]; got != "func from<N>(arr: Vec<T, N>) -> (Vec<T, _>)" {
+		t.Fatalf("unexpected Vec.from signature detail: %q", got)
 	}
 }
 

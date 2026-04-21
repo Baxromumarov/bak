@@ -32,7 +32,7 @@ pub func query(conn: &Connection, sql: string) -> (Result<QueryResult, string>) 
 }
 
 // query_params executes a SQL query with parameters and returns a QueryResult.
-// Parameters are passed as a Vec<string> to prevent SQL injection.
+// Parameters are passed as a Vec<string, _> to prevent SQL injection.
 pub func query_params(conn: &Connection, sql: string, params: Vec<string, _>) -> (Result<QueryResult, string>) {
     return __builtin_pg_query(conn.Handle, sql, params)
 }

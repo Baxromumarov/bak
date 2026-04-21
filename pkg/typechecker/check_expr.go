@@ -465,7 +465,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		// If elemType is nil, it means we have an untyped Vec (raw generic), which should be illegal.
 		// We error here as a failsafe, though checkVarStatement should prevent it from existing.
 		if elemType == nil {
-			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'push' on untyped Vec; use explicit type (Vec<T>)")
+			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'push' on untyped Vec; use explicit type (Vec<T, _>)")
 			return &ast.ErrorType{Message: "untyped vec"}
 		}
 
@@ -488,7 +488,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		}
 
 		if elemType == nil {
-			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'append' on untyped Vec; use explicit type (Vec<T>)")
+			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'append' on untyped Vec; use explicit type (Vec<T, _>)")
 			return &ast.ErrorType{Message: "untyped vec"}
 		}
 
@@ -563,7 +563,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		if len(mc.Arguments) == 1 {
 			argType := tc.inferType(mc.Arguments[0])
 			if at, ok := argType.(*ast.ArrayType); ok {
-				// Inferred from ArrayLiteral (e.g. [1, 2, 3] -> Vec<int>)
+				// Inferred from ArrayLiteral (e.g. [1, 2, 3] -> Vec<int, _>)
 				return &ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
@@ -609,8 +609,12 @@ func formatVecTypeForDiagnostic(vecType *ast.GenericType) string {
 		}
 	}
 
+	if len(vecType.TypeParams) == 1 {
+		return fmt.Sprintf("Vec<%s, _>", elemType)
+	}
+
 	if rendered := typeToString(vecType); rendered != "" {
 		return rendered
 	}
-	return fmt.Sprintf("Vec<%s>", elemType)
+	return fmt.Sprintf("Vec<%s, _>", elemType)
 }

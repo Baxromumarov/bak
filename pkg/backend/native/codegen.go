@@ -82,7 +82,7 @@ type EmitState struct {
 	// Track variables with float type for arithmetic dispatch
 	FloatVariables map[string]bool
 
-	// Track Vec<string> variables for string element dispatch
+	// Track Vec<string, _> variables for string element dispatch
 	VecStringElements map[string]bool
 
 	// Track variables with struct types (variable name -> struct type name)
@@ -422,7 +422,7 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 				return st.Name == "string"
 			}
 		}
-		// Indexing into Vec<string> returns string - check if object is a string
+		// Indexing into Vec<string, _> returns string - check if object is a string
 		if s.isStringExpression(e.Object) {
 			if methodName == "substring" {
 				return true
@@ -456,17 +456,17 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 	case *ast.TypeConversion:
 		return e.TypeName == "string"
 	case *ast.IndexExpression:
-		// Check if indexing a Vec<string> or similar string collection
+		// Check if indexing a Vec<string, _> or similar string collection
 		if id, ok := e.Left.(*ast.Identifier); ok {
 			if s.isStringVariable(id.Value) {
 				// Indexing a string variable returns a char, not a string
 				return false
 			}
 			// Check VecElementTypes for the variable — if not a struct element,
-			// check if the variable was typed as Vec<string>
+			// check if the variable was typed as Vec<string, _>
 			if _, isStructElem := s.VecElementTypes[id.Value]; !isStructElem {
 				// If the Vec variable itself is tracked as string-typed, its elements are strings
-				// Use heuristic: check if we know this is a Vec<string>
+				// Use heuristic: check if we know this is a Vec<string, _>
 				if s.VecStringElements[id.Value] {
 					return true
 				}
@@ -1167,7 +1167,7 @@ func (s *EmitState) bindParameters(params []*ast.Parameter, skipRegs int) {
 					}
 				}
 			}
-			// Unwrap &Vec<T> / &Option<T> / &Result<T,E>
+			// Unwrap &Vec<T, _> / &Option<T> / &Result<T,E>
 			if inner, ok := bt.Inner.(*ast.GenericType); ok {
 				if inner.Name == "Vec" && len(inner.TypeParams) >= 1 {
 					if elemType, ok := inner.TypeParams[0].(*ast.SimpleType); ok {
@@ -3958,10 +3958,10 @@ func (s *EmitState) emitBuiltinLen(e *ast.CallExpression) error {
 	return nil
 }
 
-// emitBuiltinStringFromBytes creates a string from a Vec<int> slice
+// emitBuiltinStringFromBytes creates a string from a Vec<int, _> slice
 // __builtin_string_from_bytes(vec, start, end) -> string
 // Args: RDI = vec ptr, RSI = start, RDX = end
-// The vec is Vec<int> where each int is a byte value
+// The vec is Vec<int, _> where each int is a byte value
 // Returns string header pointer in RAX
 func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
 	if len(e.Arguments) != 3 {
@@ -4261,7 +4261,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		// vec.pop()
 		return s.emitVecPop(e.Object)
 	case "bytes":
-		// string.bytes() - convert string to Vec<int>
+		// string.bytes() - convert string to Vec<int, _>
 		return s.emitStringBytes(e.Object)
 	case "chars":
 		// string.chars() - same as bytes() for ASCII strings
@@ -4743,10 +4743,10 @@ func (s *EmitState) extractStructNameFromType(t ast.TypeExpression) string {
 		// &StructName or &mut StructName - unwrap the inner type
 		return s.extractStructNameFromType(typ.Inner)
 	case *ast.GenericType:
-		// Vec<StructName>, Option<StructName>, etc. - the base type is the generic name
+		// Vec<StructName, _>, Option<StructName>, etc. - the base type is the generic name
 		// For these, we don't care about the generic - we want the type parameters
 		if len(typ.TypeParams) > 0 {
-			// Return the first type parameter (e.g., StructName in Vec<StructName>)
+			// Return the first type parameter (e.g., StructName in Vec<StructName, _>)
 			return s.extractStructNameFromType(typ.TypeParams[0])
 		}
 		return ""

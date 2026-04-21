@@ -116,6 +116,15 @@ func (gt *GenericType) String() string {
 	if gt == nil {
 		return "<nil>"
 	}
+
+	if gt.Name == "Vec" && len(gt.TypeParams) == 1 {
+		param := "<nil>"
+		if gt.TypeParams[0] != nil {
+			param = gt.TypeParams[0].String()
+		}
+		return "Vec<" + param + ", _>"
+	}
+
 	var out bytes.Buffer
 	out.WriteString(gt.Name)
 	out.WriteString("<")

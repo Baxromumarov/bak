@@ -58,7 +58,7 @@ func (s *EmitState) emitStringSplit(obj, sep ast.Expression) error {
 	return fmt.Errorf("native: string.split not yet implemented")
 }
 
-// emitStringBytes implements s.bytes() - convert string to Vec<int>
+// emitStringBytes implements s.bytes() - convert string to Vec<int, _>
 // Returns a Vec header where each element is a byte (0-255)
 func (s *EmitState) emitStringBytes(obj ast.Expression) error {
 	// Save callee-saved registers

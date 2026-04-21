@@ -67,7 +67,7 @@ pub func marshal_obj<T>(value: T, fields: func(T) -> (Vec<JsonEntry, _>)) -> (st
     return marshal(encode_obj(value, fields))
 }
 
-// encode_array maps a Vec<T> into a Json array using the provided encoder.
+// encode_array maps a Vec<T, _> into a Json array using the provided encoder.
 pub func encode_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
     mut var out: Vec<Json, _> = Vec.new()
     for item in items {
@@ -76,7 +76,7 @@ pub func encode_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
     return Json.Array(out)
 }
 
-// marshal_array maps a Vec<T> into a Json array and marshals it to a string.
+// marshal_array maps a Vec<T, _> into a Json array and marshals it to a string.
 pub func marshal_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
     return marshal(encode_array(items, f))
 }

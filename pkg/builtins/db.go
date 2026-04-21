@@ -60,7 +60,7 @@ func pgConnect(args ...object.Object) object.Object {
 }
 
 // pgQuery executes a SQL query on a PostgreSQL connection.
-// __builtin_pg_query(handle: int, sql: string, params: Vec<string>) -> Result<QueryResult, string>
+// __builtin_pg_query(handle: int, sql: string, params: Vec<string, _>) -> Result<QueryResult, string>
 func pgQuery(args ...object.Object) object.Object {
 	if len(args) < 2 || len(args) > 3 {
 		return newError("__builtin_pg_query: wrong number of arguments. got=%d, want=2 or 3", len(args))
@@ -288,14 +288,14 @@ func rowsToResult(rows *sql.Rows) object.Object {
 		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 
-	// Build columns Vec<string>
+	// Build columns Vec<string, _>
 	colElements := make([]object.Object, len(columns))
 	for i, col := range columns {
 		colElements[i] = &object.String{Value: col}
 	}
 	columnsVec := &object.Vec{Elements: colElements, ElemType: "string", Size: -1, Mutable: false}
 
-	// Build rows Vec<Vec<string>>
+	// Build rows Vec<Vec<string, _>, _>
 	var rowElements []object.Object
 	for rows.Next() {
 		// Create a slice of interface{} to scan into

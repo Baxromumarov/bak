@@ -28,7 +28,7 @@ var OSModule = &object.Module{
 	},
 }
 
-// osArgs returns command-line arguments as Vec<string>
+// osArgs returns command-line arguments as Vec<string, _>
 func osArgs(args ...object.Object) object.Object {
 	if len(args) != 0 {
 		return newError("os.args: wrong number of arguments. got=%d, want=0", len(args))

@@ -23,7 +23,7 @@ pub func join(a: string, b: string) -> (string) {
     return path.join(a, b)
 }
 
-pub func join_parts(parts: Vec<string>) -> (string) {
+pub func join_parts(parts: Vec<string, _>) -> (string) {
     return path.join_parts(parts)
 }
 

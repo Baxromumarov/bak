@@ -156,8 +156,8 @@ pub func replace(s: &string, old: &string, new: &string) -> (string) {
 }
 
 // split splits s by the separator sep
-pub func split(s: &string, sep: &string) -> (Vec<string>) {
-    mut var result: Vec<string> = Vec.new()
+pub func split(s: &string, sep: &string) -> (Vec<string, _>) {
+    mut var result: Vec<string, _> = Vec.new()
 
     // removed explicit type params inference placeholder
     if sep.len() == 0 {

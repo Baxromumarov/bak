@@ -607,7 +607,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	case compiler.BUILTIN_WRITE_FILE_BYTES:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__builtin_write_file_bytes() requires path (string) and data (Vec<int>)")
+			return compiler.NewNil(), fmt.Errorf("__builtin_write_file_bytes() requires path (string) and data (Vec<int, _>)")
 		}
 		if !vm.permissions.AllowFSMutate {
 			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.writeFileBytes", runtimecap.FlagAllowFSMutate))), nil
@@ -1029,7 +1029,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__builtin_socket_write() requires int fd and Vec<byte> data")
+			return compiler.NewNil(), fmt.Errorf("__builtin_socket_write() requires int fd and Vec<byte, _> data")
 		}
 
 		fd := int(args[0].AsInt)

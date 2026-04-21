@@ -1531,7 +1531,7 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 			}
 		}
 
-		// Normalize Vec<T, _> to Vec<T> (maps to struct GenericType with 1 param)
+		// Normalize Vec<T, _> to the parser's internal single-parameter Vec representation.
 		// Check for "_" or dynamic SizeExpression
 		isDynamic := false
 		if sizeExpr, ok := gt.TypeParams[1].(*ast.SizeExpression); ok && sizeExpr.IsDynamic {
@@ -2209,7 +2209,7 @@ func (p *Parser) parseWildcardExpression() ast.Expression {
 }
 
 // parseTypeIdentifier handles type keywords (Vec, Result) that can appear as identifiers
-// This allows usage like: newVec<T>() where Vec is a type being used as an identifier
+// This supports generic helper invocations where a type name appears as an identifier.
 func (p *Parser) parseTypeIdentifier() ast.Expression {
 	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 

@@ -8116,7 +8116,7 @@ func iterable_elem_info(
             )
         }
         case ast.Expression.Index(ie) {
-            // e.g. args[1] where args is Vec<string> -> element is string
+            // e.g. args[1] where args is Vec<string, _> -> element is string
             var containerOpt: Option<IterableInfo> = iterable_elem_info(
                 &ie.Left,
                 &None,
@@ -15190,7 +15190,7 @@ func is_string_expr(
             }
         }
         case ast.Expression.Index(ie) {
-            // e.g. args[1] where args is Vec<string> -> element is string
+            // e.g. args[1] where args is Vec<string, _> -> element is string
             var objInfo: Option<IterableInfo> = iterable_elem_info(
                 &ie.Left,
                 &None,
@@ -17279,7 +17279,7 @@ func emit_string_header_from_regs(
     return Ok(void)
 }
 
-// Push a string header value (R11) into a Vec<string> header (RCX).
+// Push a string header value (R11) into a Vec<string, _> header (RCX).
 // Uses elem_size=8 and grows via __rt_realloc when needed.
 func emit_vec_push_string_from_regs(
     state: &mut BackendEmitState,
@@ -17529,7 +17529,7 @@ func emit_vec_push_string_from_regs(
     return Ok(void)
 }
 
-// Push a struct value (R11 points to struct bytes) into a Vec<T> header in RCX.
+// Push a struct value (R11 points to struct bytes) into a Vec<T, _> header in RCX.
 // Uses elem_size for sizing and grows via __rt_realloc when needed.
 func emit_vec_push_struct_from_regs(
     elem_size: int,
@@ -17857,7 +17857,7 @@ func emit_bytes_length(
         }
     }
 
-    // Bytes is treated as Vec<int> header pointer.
+    // Bytes is treated as Vec<int, _> header pointer.
     x86.emit_mov_reg_mem_base_disp(
         code,
         x86.RAX,
@@ -21256,7 +21256,7 @@ func emit_strings_from_bytes(
         }
     }
 
-    // Vec<int> header in rax
+    // Vec<int, _> header in rax
     x86.emit_mov_reg_reg(
         code,
         x86.R8,
@@ -24617,13 +24617,13 @@ func emit_fs_read_file(
     return Ok(void)
 }
 
-// emit_fs_read_file_bytes reads file as Vec<int> of bytes.
+// emit_fs_read_file_bytes reads file as Vec<int, _> of bytes.
 func emit_fs_read_file_bytes(
     path: &ast.Expression,
     state: &mut BackendEmitState,
     mut code: &mut Vec<int, _>,
 ) -> (Result<void, string>) {
-    // Read as string, then convert Ok value to Vec<int> (bytes).
+    // Read as string, then convert Ok value to Vec<int, _> (bytes).
     var readRes: Result<void, string> = emit_fs_read_file(
         path,
         state,
@@ -24671,7 +24671,7 @@ func emit_fs_read_file_bytes(
         x86.R12,
         8,
     )
-    // Convert string -> Vec<int>
+    // Convert string -> Vec<int, _>
     x86.emit_mov_reg_reg(
         code,
         x86.R8,
@@ -25181,7 +25181,7 @@ func emit_fs_write_file(
     return Ok(void)
 }
 
-// emit_fs_write_file_bytes writes Vec<int> as bytes to file.
+// emit_fs_write_file_bytes writes Vec<int, _> as bytes to file.
 func emit_fs_write_file_bytes(
     path: &ast.Expression,
     bytes: &ast.Expression,
@@ -25223,7 +25223,7 @@ func emit_fs_write_file_bytes(
         }
     }
 
-    // Convert Vec<int> -> string (raw bytes)
+    // Convert Vec<int, _> -> string (raw bytes)
     // rax = vec header
     x86.emit_mov_reg_mem_base_disp(
         code,
@@ -25822,7 +25822,7 @@ func emit_fs_read_dir(
     )
 
     // buf ptr
-    // Create empty Vec<DirEntry>
+    // Create empty Vec<DirEntry, _>
     var vecRes: Result<void, string> = emit_vec_new(
         state,
         code,

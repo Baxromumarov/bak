@@ -1136,7 +1136,7 @@ func (s *EmitState) emitRuntimeAtoi() {
 }
 
 // emitRuntimeStringFromBytes: __rt_string_from_bytes(vec_ptr: rdi, start: rsi, end: rdx) -> str_ptr
-// Creates a string from a slice of a Vec<int> (where each int is a byte value)
+// Creates a string from a slice of a Vec<int, _> (where each int is a byte value)
 // Vec layout: {ptr: 8, len: 8, cap: 8} (data is ptr to int64[] array)
 // String layout: {ptr: 8, len: 8}
 func (s *EmitState) emitRuntimeStringFromBytes() {

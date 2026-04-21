@@ -383,7 +383,7 @@ func (s *EmitState) emitFsWriteFileBytes(pathExpr, dataExpr ast.Expression) erro
 	jnzErr := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0)
 
-	// Convert Vec<int> (byte values) into a packed byte buffer before writing.
+	// Convert Vec<int, _> (byte values) into a packed byte buffer before writing.
 	// Vec layout: [ptr:8][len:8][cap:8], where elements are 8-byte ints.
 	emitMovRegMemBaseDisp(&s.Code, R11, R8, 0) // r11 = data ptr (int*)
 	emitMovRegMemBaseDisp(&s.Code, R10, R8, 8) // r10 = len

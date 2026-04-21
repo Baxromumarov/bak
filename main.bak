@@ -61,8 +61,8 @@ func connect_to_db() -> (TasksDB) {
 
 func ensure_schema(conn: &db.Connection) -> (Result<void, string>) {
 	var sql: string = "CREATE TABLE IF NOT EXISTS tasks (
-                            id SERIAL PRIMARY KEY, 
-                            title TEXT NOT NULL, 
+                            id SERIAL PRIMARY KEY,
+                            title TEXT NOT NULL,
                             completed BOOLEAN NOT NULL DEFAULT FALSE)"
 	var q = postgres.query(conn, sql)
 	if q.is_err() {

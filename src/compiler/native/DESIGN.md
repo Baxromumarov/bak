@@ -29,7 +29,7 @@ Architecture decisions
 - float64: 8 bytes, aligned to 8.
 - char: 4 bytes (Unicode codepoint), aligned to 4.
 - string: struct { ptr: *u8, len: int } (16 bytes).
-- Vec<T>: struct { ptr: *T, len: int, cap: int } (24 bytes).
+- Vec<T, _>: struct { ptr: *T, len: int, cap: int } (24 bytes).
 - Box<T>: ptr to heap-allocated T.
 - Option<T>: tagged union, layout decided by "size + tag" for simplicity:
   { tag: int, payload: T } where tag=0 None, tag=1 Some.

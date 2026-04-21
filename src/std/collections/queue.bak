@@ -1,6 +1,6 @@
 package collections
 
-// Queue<T> is a simple FIFO queue backed by Vec<T>.
+// Queue<T> is a simple FIFO queue backed by Vec<T, _>.
 pub struct Queue<T> {
     items: Vec<T, _>
     head:  int

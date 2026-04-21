@@ -1283,6 +1283,13 @@ func formatType(expr ast.TypeExpression) string {
 	case *ast.SimpleType:
 		return t.Name
 	case *ast.GenericType:
+		if t.Name == "Vec" && len(t.TypeParams) == 1 {
+			var out strings.Builder
+			out.WriteString("Vec<")
+			out.WriteString(formatType(t.TypeParams[0]))
+			out.WriteString(", _>")
+			return out.String()
+		}
 		var out strings.Builder
 		out.WriteString(t.Name)
 		out.WriteString("<")

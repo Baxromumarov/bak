@@ -33,7 +33,7 @@ func test_join_and_split() -> (void) {
     t.eq_string(p.join("/a", "b"), "/a/b")
     t.eq_string(p.join("a", "/b"), "/b")
 
-    var parts: Vec<string> = Vec.from(["a", "b", "c"])
+    var parts: Vec<string, _> = Vec.from(["a", "b", "c"])
     t.eq_string(p.join_parts(parts), "a/b/c")
 
     var path_str: string = "/a/b"
