@@ -1,0 +1,24 @@
+package main
+
+// 1. making the array size visible
+// 2. Vec. it is not showing the available functions
+// 3. type hashmap it is not showing that hashmap, 
+// how to know what kind of functionality bak has
+// 4. it is also not showing any data types, like int32,int64, float32, and so on
+// 5. in comment as you see two dots(..), any kind of checker must skip the comment section
+
+struct Data{
+    name: string,
+
+}
+
+func main() -> (void) {
+    mut var arr: Vec<int,_> = Vec.from([1,2,3])
+    arr.push(21)
+    arr.push(21)
+    arr.push(21)
+    println("ARR: ",arr)
+    println("Hello, World!")
+
+    return void
+}

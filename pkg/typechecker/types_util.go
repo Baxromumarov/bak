@@ -452,6 +452,22 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 		}
 	}
 
+	if expArr, ok := expected.(*ast.ArrayType); ok {
+		if mc, ok := expr.(*ast.MethodCallExpression); ok {
+			if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
+				staticVec := &ast.GenericType{
+					Name: "Vec",
+					TypeParams: []ast.TypeExpression{
+						expArr.ElemType,
+						&ast.SizeExpression{Value: expArr.Size},
+					},
+				}
+				tc.checkVecConstructor(mc.Token.Line, mc.Token.Column, true, staticVec, mc)
+				return true
+			}
+		}
+	}
+
 	if expGen, ok := expected.(*ast.GenericType); ok && expGen.Name == "Result" {
 		if ev, ok := expr.(*ast.EnumVariantExpression); ok {
 			variant := ev.Variant.Value
@@ -586,9 +602,58 @@ func (tc *TypeChecker) suggestTypeFix(expected, got string) string {
 		return "use a comparison expression to produce a bool"
 	}
 	if strings.HasPrefix(expected, "Vec<") && strings.HasPrefix(got, "Vec<") {
-		return "ensure all vector elements have the same type"
+		expectedSize, expectedHasSize := vecSizeParam(expected)
+		gotSize, gotHasSize := vecSizeParam(got)
+		if expectedHasSize && gotHasSize && expectedSize != gotSize {
+			if expectedSize != "_" && gotSize == "_" {
+				return "Vec.from(...) returns a dynamic Vec<T, _>; use Vec<T, _> or assign a fixed-size literal like [1,2,3] to Vec<T, N>"
+			}
+			if expectedSize == "_" && gotSize != "_" {
+				return "expected a dynamic Vec<T, _>; use Vec.from(...) or change the annotation to fixed-size Vec<T, N>"
+			}
+			return "vector size parameters differ; ensure Vec<T, N> and Vec<T, N> use the same N"
+		}
+		return "ensure vector element types are compatible"
 	}
 	return ""
+}
+
+func vecSizeParam(typeName string) (string, bool) {
+	t := strings.TrimSpace(typeName)
+	if !strings.HasPrefix(t, "Vec<") || !strings.HasSuffix(t, ">") {
+		return "", false
+	}
+
+	inner := strings.TrimSpace(t[len("Vec<") : len(t)-1])
+	if inner == "" {
+		return "", false
+	}
+
+	depth := 0
+	comma := -1
+	for i, ch := range inner {
+		switch ch {
+		case '<':
+			depth++
+		case '>':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				comma = i
+			}
+		}
+	}
+
+	if comma == -1 {
+		return "", false
+	}
+	size := strings.TrimSpace(inner[comma+1:])
+	if size == "" {
+		return "", false
+	}
+	return size, true
 }
 
 func (tc *TypeChecker) collectIdentifierCandidates() []string {

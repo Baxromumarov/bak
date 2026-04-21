@@ -60,6 +60,8 @@ type packageCommandOptions struct {
 	FrozenLockfile bool
 }
 
+var lastRunHadFatalDiagnostic bool
+
 func main() {
 	args := os.Args[1:]
 	var scriptArgs []string
@@ -356,7 +358,10 @@ func runFile(filename string, scriptArgs []string, permissions runtimecap.Permis
 
 	result := run(string(data), env, filename)
 	if result == nil {
-		os.Exit(1)
+		if lastRunHadFatalDiagnostic {
+			os.Exit(1)
+		}
+		return
 	}
 
 	switch result.Type() {
@@ -407,7 +412,7 @@ func runFileVM(filename string, scriptArgs []string, traceEnabled bool, permissi
 		for _, msg := range typeErrors {
 			fmt.Fprintf(os.Stderr, "  %s\n", msg)
 		}
-		if tc.HasErrors() {
+		if hasFatalTypeErrors(tc) {
 			os.Exit(1)
 		}
 	}
@@ -1212,6 +1217,7 @@ func printREPLHelp() {
 }
 
 func run(input string, env *object.Environment, filename string) object.Object {
+	lastRunHadFatalDiagnostic = false
 	l := lexer.New(input)
 	p := parser.New(l)
 	p.SetFilename(filename)
@@ -1220,6 +1226,7 @@ func run(input string, env *object.Environment, filename string) object.Object {
 
 	if len(p.Errors()) != 0 {
 		printParserErrors(p.Diagnostics())
+		lastRunHadFatalDiagnostic = true
 		return nil
 	}
 
@@ -1233,13 +1240,26 @@ func run(input string, env *object.Environment, filename string) object.Object {
 	typeErrors := tc.Check(program)
 	if len(typeErrors) != 0 {
 		printTypeErrors(typeErrors)
-		if tc.HasErrors() {
+		if hasFatalTypeErrors(tc) {
+			lastRunHadFatalDiagnostic = true
 			return nil
 		}
 	}
 
 	evaluator.ResetState()
 	return evaluator.Eval(program, env)
+}
+
+func hasFatalTypeErrors(tc *typechecker.TypeChecker) bool {
+	if tc == nil {
+		return false
+	}
+	for _, typeErr := range tc.GetErrors() {
+		if typeErr.Tier == typechecker.TierFatal {
+			return true
+		}
+	}
+	return false
 }
 
 func printParserErrors(diags []diagnostics.Diagnostic) {

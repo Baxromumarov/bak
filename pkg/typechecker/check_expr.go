@@ -446,8 +446,9 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	}
 
 	if dynamicOnlyMethods[method] && isFixedSize {
+		vecLabel := formatVecTypeForDiagnostic(vecType)
 		tc.addError(mc.Token.Line, mc.Token.Column,
-			"cannot call %s on fixed-size %s", method, typeToString(vecType))
+			"cannot call %s on fixed-size %s", method, vecLabel)
 		return nil
 	}
 
@@ -587,4 +588,29 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		tc.errorUndefinedMethod("Vec", method, mc.Token.Line, mc.Token.Column, vecMethodCandidates)
 		return nil
 	}
+}
+
+func formatVecTypeForDiagnostic(vecType *ast.GenericType) string {
+	if vecType == nil {
+		return "Vec"
+	}
+
+	elemType := "T"
+	if len(vecType.TypeParams) >= 1 && vecType.TypeParams[0] != nil {
+		elemType = typeToString(vecType.TypeParams[0])
+	}
+
+	if len(vecType.TypeParams) >= 2 {
+		if se, ok := vecType.TypeParams[1].(*ast.SizeExpression); ok {
+			if se.IsDynamic {
+				return fmt.Sprintf("Vec<%s, _>", elemType)
+			}
+			return fmt.Sprintf("Vec<%s, %d>", elemType, se.Value)
+		}
+	}
+
+	if rendered := typeToString(vecType); rendered != "" {
+		return rendered
+	}
+	return fmt.Sprintf("Vec<%s>", elemType)
 }

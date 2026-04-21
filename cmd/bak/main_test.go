@@ -261,6 +261,40 @@ func TestCLIRejectsExperimentalWithoutManifestEndToEnd(t *testing.T) {
 	}
 }
 
+func TestCLIRunWarningOnlyDoesNotFail(t *testing.T) {
+	dir := t.TempDir()
+	source := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    name: string",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    println(\"ok\")",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(dir, "main.bak"), []byte(source), 0644); err != nil {
+		t.Fatalf("writing main.bak: %v", err)
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "run", "main.bak")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected warning-only run to succeed, got error %v and output:\n%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "WARNING") {
+		t.Fatalf("expected warning in output, got: %s", text)
+	}
+	if !strings.Contains(text, "ok") {
+		t.Fatalf("expected program output in warning-only run, got: %s", text)
+	}
+}
+
 func TestPackageCachePathUsesSourceAndCommit(t *testing.T) {
 	p1 := packageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "aaaaaaaa")
 	p2 := packageCachePath(".bak-cache/pkg", "demo", "github.com/other/demo", "aaaaaaaa")

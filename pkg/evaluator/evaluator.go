@@ -863,6 +863,16 @@ func evalVarStatement(vs *ast.VarStatement, env *object.Environment) object.Obje
 				if len(gt.TypeParams) >= 1 {
 					vec.ElemType = gt.TypeParams[0].String()
 				}
+			} else if at, ok := vs.Type.(*ast.ArrayType); ok {
+				vec.Mutable = vs.Mutable
+				if at.IsDynamic {
+					vec.Size = -1
+				} else {
+					vec.Size = int(at.Size)
+				}
+				if at.ElemType != nil {
+					vec.ElemType = at.ElemType.String()
+				}
 			}
 		}
 	} else {

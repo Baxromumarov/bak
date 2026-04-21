@@ -66,6 +66,207 @@ func TestHoverShowsIdentifierType(t *testing.T) {
 	}
 }
 
+func TestHoverShowsDynamicVecLengthHint(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var nums: Vec<int, _> = Vec.new()",
+		"    nums.push(1)",
+		"    nums.push(2)",
+		"    println(nums)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "nums)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	params := HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}
+	hover := s.handleHover(mustRequest(t, params))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "nums: Vec<int") {
+		t.Fatalf("unexpected hover contents: %q", hover.Contents.Value)
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<int, 2>") {
+		t.Fatalf("expected inferred vec size in type, got: %q", hover.Contents.Value)
+	}
+}
+
+func TestHoverTracksVecLengthAcrossAssignmentAndAppend(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var base: Vec<int, _> = Vec.from([1, 2])",
+		"    mut var nums: Vec<int, _> = base",
+		"    nums.append(Vec.from([3, 4]))",
+		"    println(nums)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "nums)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	params := HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}
+	hover := s.handleHover(mustRequest(t, params))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<int, 4>") {
+		t.Fatalf("expected inferred vec size Vec<int, 4>, got: %q", hover.Contents.Value)
+	}
+}
+
+func TestHoverTracksVecLengthInsideIfBranch(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var nums: Vec<int, _> = Vec.new()",
+		"    nums.push(1)",
+		"    if true {",
+		"        nums.push(2)",
+		"        println(nums)",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "nums)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	params := HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}
+	hover := s.handleHover(mustRequest(t, params))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<int, 2>") {
+		t.Fatalf("expected inferred vec size Vec<int, 2> inside branch, got: %q", hover.Contents.Value)
+	}
+}
+
+func TestHoverMergesVecLengthAfterIfElseWhenBranchesAgree(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var nums: Vec<int, _> = Vec.new()",
+		"    nums.push(1)",
+		"    if true {",
+		"        nums.push(2)",
+		"    } else {",
+		"        nums.push(2)",
+		"    }",
+		"    println(nums)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "println(nums)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	params := HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("println(")},
+	}
+	hover := s.handleHover(mustRequest(t, params))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<int, 2>") {
+		t.Fatalf("expected merged vec size Vec<int, 2> after if/else, got: %q", hover.Contents.Value)
+	}
+}
+
+func TestHoverDropsVecLengthAfterIfElseWhenBranchesDiffer(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var nums: Vec<int, _> = Vec.new()",
+		"    nums.push(1)",
+		"    if true {",
+		"        nums.push(2)",
+		"    } else {",
+		"        nums.clear()",
+		"    }",
+		"    println(nums)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "println(nums)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	params := HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("println(")},
+	}
+	hover := s.handleHover(mustRequest(t, params))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "nums: Vec<int") {
+		t.Fatalf("unexpected hover contents: %q", hover.Contents.Value)
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<int, _>") {
+		t.Fatalf("expected unknown vec size to stay underscore after divergent branches, got: %q", hover.Contents.Value)
+	}
+}
+
 func TestCompletionSuggestsStdImportPaths(t *testing.T) {
 	src := "package main\n\nimport \"std/str"
 	uri := writeTempBakFile(t, src)
@@ -92,6 +293,207 @@ func TestCompletionSuggestsStdImportPaths(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected std import completion, got %#v", completion.Items)
+	}
+}
+
+func TestCompletionSuggestsVecStaticMethodsAfterDot(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var arr: Vec<int,_> = Vec.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "Vec.")
+	if line < 0 {
+		t.Fatalf("Vec completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Vec.")},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+
+	for _, expected := range []string{"new", "with_cap", "from"} {
+		if !labels[expected] {
+			t.Fatalf("expected Vec static completion %q, got %#v", expected, completion.Items)
+		}
+	}
+
+	if labels["push"] {
+		t.Fatalf("did not expect instance method push on Vec. completion, got %#v", completion.Items)
+	}
+}
+
+func TestCompletionSuggestsVecInstanceMethodsForVariable(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var arr: Vec<int,_> = Vec.from([1,2,3])",
+		"    arr.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "arr.")
+	if line < 0 {
+		t.Fatalf("arr completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("arr.")},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+
+	for _, expected := range []string{"push", "pop", "remove", "len"} {
+		if !labels[expected] {
+			t.Fatalf("expected arr instance completion %q, got %#v", expected, completion.Items)
+		}
+	}
+
+	if labels["from"] {
+		t.Fatalf("did not expect static method from on arr. completion, got %#v", completion.Items)
+	}
+}
+
+func TestCompletionSuggestsHashMapStaticMethodsAfterDot(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var m: HashMap<string, int> = HashMap.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "HashMap.")
+	if line < 0 {
+		t.Fatalf("HashMap completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("HashMap.")},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+
+	for _, expected := range []string{"new", "with_cap"} {
+		if !labels[expected] {
+			t.Fatalf("expected HashMap static completion %q, got %#v", expected, completion.Items)
+		}
+	}
+}
+
+func TestCompletionIncludesPrimitiveAndBuiltinTypes(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    ",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "    ")
+	if line < 0 {
+		t.Fatalf("completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + 4},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+
+	for _, expected := range []string{"int32", "float32", "HashMap"} {
+		if !labels[expected] {
+			t.Fatalf("expected type completion %q, got %#v", expected, completion.Items)
+		}
+	}
+}
+
+func TestCompletionSkipsCommentContext(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    // comment with two dots .. and Vec.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "Vec.")
+	if line < 0 {
+		t.Fatalf("comment completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Vec.")},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+	if len(completion.Items) != 0 {
+		t.Fatalf("expected no completion items inside comments, got %#v", completion.Items)
 	}
 }
 

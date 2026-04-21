@@ -3385,6 +3385,16 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Vec" {
 		return tc.checkVecMethodCall(mc, gt)
 	}
+	if at, ok := baseType.(*ast.ArrayType); ok {
+		vecType := &ast.GenericType{
+			Name: "Vec",
+			TypeParams: []ast.TypeExpression{
+				at.ElemType,
+				&ast.SizeExpression{Value: at.Size, IsDynamic: at.IsDynamic},
+			},
+		}
+		return tc.checkVecMethodCall(mc, vecType)
+	}
 
 	// Handle primitive and type-parameter method calls (e.g., int.toString())
 	if st, ok := baseType.(*ast.SimpleType); ok {

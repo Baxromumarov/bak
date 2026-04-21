@@ -201,6 +201,26 @@ func main() -> (void) {
 `)
 }
 
+func TestCheck_ValidStaticVecFromLiteral(t *testing.T) {
+	expectNoErrors(t, `
+package main
+func main() -> (void) {
+	mut var arr: Vec<int,3> = Vec.from([1,2,3])
+	println(arr)
+}
+`)
+}
+
+func TestCheck_StaticVecPushRejected(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var arr: Vec<int,3> = Vec.from([1,2,3])
+	arr.push(21)
+}
+`, "cannot call push on fixed-size")
+}
+
 // =============================================================================
 // Error Cases
 // =============================================================================

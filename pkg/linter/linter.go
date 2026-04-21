@@ -84,8 +84,8 @@ func LintSource(path, source string, config *Config) []Finding {
 	l := lexer.New(source)
 	p := parser.New(l)
 	program := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		return nil // skip files with parse errors
+	if program == nil {
+		return nil
 	}
 	return lintProgram(path, source, program, config)
 }
@@ -226,7 +226,11 @@ func (r *StyleRule) Name() string { return "style" }
 func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Finding {
 	var findings []Finding
 	lines := strings.Split(source, "\n")
+	inBlockComment := false
 	for i, line := range lines {
+		if isCommentOnlyLine(line, &inBlockComment) {
+			continue
+		}
 		// Line length check
 		if len(line) > config.MaxLineLength {
 			findings = append(findings, Finding{
@@ -250,6 +254,44 @@ func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Fi
 		}
 	}
 	return findings
+}
+
+func isCommentOnlyLine(line string, inBlockComment *bool) bool {
+	trimmed := strings.TrimLeft(line, " \t")
+	if trimmed == "" {
+		return false
+	}
+
+	if *inBlockComment {
+		end := strings.Index(trimmed, "*/")
+		if end == -1 {
+			return true
+		}
+		*inBlockComment = false
+		rest := strings.TrimSpace(trimmed[end+2:])
+		if rest == "" || strings.HasPrefix(rest, "//") || strings.HasPrefix(rest, "/*") {
+			if strings.HasPrefix(rest, "/*") && !strings.Contains(rest, "*/") {
+				*inBlockComment = true
+			}
+			return true
+		}
+		return false
+	}
+
+	if strings.HasPrefix(trimmed, "//") {
+		return true
+	}
+	if strings.HasPrefix(trimmed, "/*") {
+		if !strings.Contains(trimmed, "*/") {
+			*inBlockComment = true
+		}
+		rest := ""
+		if idx := strings.Index(trimmed, "*/"); idx != -1 {
+			rest = strings.TrimSpace(trimmed[idx+2:])
+		}
+		return rest == "" || strings.HasPrefix(rest, "//")
+	}
+	return false
 }
 
 // EmptyBlockRule checks for empty blocks.

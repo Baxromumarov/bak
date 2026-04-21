@@ -49,14 +49,35 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"indexOf":   {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
 	},
 	"Vec": {
-		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of elements in the vector."},
-		"push":     {Signature: "func push(element: T) -> (void)", Doc: "Appends an element to the end of the vector."},
+		"push":     {Signature: "func push(value: T) -> (void)", Doc: "Pushes an element to the end of the vector."},
+		"append":   {Signature: "func append(other: Vec<T, _>) -> (void)", Doc: "Appends all elements from another vector."},
 		"pop":      {Signature: "func pop() -> (Result<T, string>)", Doc: "Removes and returns the last element of the vector, or Err if empty."},
-		"remove":   {Signature: "func remove(index: int) -> (T)", Doc: "Removes and returns the element at the given index."},
-		"insert":   {Signature: "func insert(index: int, element: T) -> (void)", Doc: "Inserts an element at the given index."},
+		"remove":   {Signature: "func remove(index: int) -> (Result<T, string>)", Doc: "Removes and returns the element at the given index."},
+		"first":    {Signature: "func first() -> (Result<T, string>)", Doc: "Returns the first element, or Err if empty."},
+		"last":     {Signature: "func last() -> (Result<T, string>)", Doc: "Returns the last element, or Err if empty."},
+		"get":      {Signature: "func get(index: int) -> (Result<T, string>)", Doc: "Returns the element at index, or Err if out of bounds."},
+		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of elements in the vector."},
+		"cap":      {Signature: "func cap() -> (int)", Doc: "Returns the vector capacity."},
+		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the vector has no elements."},
+		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Returns true if the vector has no elements."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all elements from the vector."},
-		"contains": {Signature: "func contains(element: T) -> (bool)", Doc: "Returns true if the vector contains the element."},
-		"clone":    {Signature: "func clone() -> (Vec<T>)", Doc: "Returns a copy of the vector."},
+		"reverse":  {Signature: "func reverse() -> (void)", Doc: "Reverses elements in place."},
+		"contains": {Signature: "func contains(value: T) -> (bool)", Doc: "Returns true if the vector contains the value."},
+		"join":     {Signature: "func join(separator: string) -> (string)", Doc: "Concatenates elements using a separator."},
+		"slice":    {Signature: "func slice(start: int, end: int) -> (Vec<T, _>)", Doc: "Returns a sub-vector between start and end."},
+		"to_vec":   {Signature: "func to_vec() -> (Vec<T, _>)", Doc: "Returns a dynamic Vec copy."},
+		"set":      {Signature: "func set(index: int, value: T) -> (void)", Doc: "Sets the element at index."},
+	},
+	"HashMap": {
+		"insert":   {Signature: "func insert(key: K, value: V) -> (void)", Doc: "Inserts or updates a key-value pair."},
+		"get":      {Signature: "func get(key: &K) -> (Result<V, string>)", Doc: "Looks up a key and returns Result<V, string>."},
+		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of key-value pairs in the map."},
+		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the map has no entries."},
+		"keys":     {Signature: "func keys() -> (Vec<K>)", Doc: "Returns a vector of all keys in the map."},
+		"values":   {Signature: "func values() -> (Vec<V>)", Doc: "Returns a vector of all values in the map."},
+		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all entries from the map."},
+		"remove":   {Signature: "func remove(key: &K) -> (Result<V, string>)", Doc: "Removes and returns the value for the given key."},
+		"contains": {Signature: "func contains(key: &K) -> (bool)", Doc: "Returns true if the map contains the given key."},
 	},
 	"Map": {
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of key-value pairs in the map."},
@@ -72,6 +93,18 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"unwrap":     {Signature: "func unwrap() -> (T)", Doc: "Returns the Ok value. Panics if Err."},
 		"unwrap_err": {Signature: "func unwrap_err() -> (E)", Doc: "Returns the Err value. Panics if Ok."},
 		"to_string":  {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Result."},
+	},
+}
+
+var builtinStaticMethods = map[string]map[string]builtinMethodInfo{
+	"Vec": {
+		"new":      {Signature: "func new() -> (Vec<T>)", Doc: "Creates an empty vector."},
+		"with_cap": {Signature: "func with_cap(cap: int) -> (Vec<T>)", Doc: "Creates an empty vector with reserved capacity."},
+		"from":     {Signature: "func from<N>(arr: Vec<T, N>) -> (Vec<T>)", Doc: "Creates a dynamic vector from a fixed-size vector."},
+	},
+	"HashMap": {
+		"new":      {Signature: "func new() -> (HashMap<K, V>)", Doc: "Creates an empty hash map."},
+		"with_cap": {Signature: "func with_cap(c: int) -> (HashMap<K, V>)", Doc: "Creates an empty hash map with reserved capacity."},
 	},
 }
 
@@ -822,6 +855,10 @@ func (s *Server) handleHover(req Request) *Hover {
 		}
 	}
 	hoverType := formatHoverType(typeStr)
+	if ident, ok := node.(*ast.Identifier); ok && isDynamicVecType(typeStr) {
+		vecLen, hasLen := inferDynamicVecLengthAtPosition(result.AST, ident.Value, line, char)
+		hoverType = formatDynamicVecTypeWithLength(hoverType, vecLen, hasLen)
+	}
 
 	if typeStr != "" || doc != "" || sig != "" || hasStructInfo {
 		var body string
@@ -1595,6 +1632,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	if !ok {
 		return CompletionList{Items: []CompletionItem{}}
 	}
+	if isPositionInComment(text, params.Position) {
+		return CompletionList{Items: []CompletionItem{}}
+	}
 
 	lineText := lineAt(text, params.Position.Line)
 	if prefix, ok := importPathPrefix(lineText, params.Position.Character); ok {
@@ -1804,6 +1844,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 						}
 					}
 				} else {
+					if appendBuiltinTypeMethodCompletions(&items, baseType, isStatic) {
+						return
+					}
 					if result.Index != nil && result.Index.Structs != nil {
 						if st, ok := result.Index.Structs[baseType]; ok {
 							if !isStatic {
@@ -1815,15 +1858,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 									})
 								}
 							}
-							// Add methods from index?
-							// The index usually separates methods into the Sigs map with "Type.Method" key.
-							// But here we might not have easy access to list of methods for a type from Index.
-							// Usually they are in s.Cache... RefIndex?
-							// For now, we stick to existing behavior for Index-based (which was just fields).
-							// Wait, previous code loop: `if st, ok ...` only added fields!
-							// So previously methods were NOT added from Index if StructDef/TC failed?
-							// Actually methods might be in Index.Sigs.
-							// We should check Sigs for "BaseType.*".
 						}
 					}
 				}
@@ -1929,7 +1963,14 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 						}
 					}
 				}
+				if typeStr == "" && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
+					typeStr = qualifier
+					isStatic = true
+				}
 				addMembers(typeStr, isStatic)
+			}
+			if len(items) == 0 && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
+				appendBuiltinTypeMethodCompletions(&items, qualifier, true)
 			}
 		}
 		return CompletionList{Items: items}
@@ -2071,6 +2112,36 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	for _, kw := range keywords {
 		items = append(items, CompletionItem{Label: kw, Kind: 14})
 	}
+	typeKeywords := []string{
+		"any",
+		"bool",
+		"int",
+		"int8",
+		"int16",
+		"int32",
+		"int64",
+		"uint",
+		"uint8",
+		"uint16",
+		"uint32",
+		"uint64",
+		"float32",
+		"float64",
+		"char",
+		"string",
+		"Vec",
+		"HashMap",
+		"Result",
+		"Box",
+		"Range",
+	}
+	for _, typ := range typeKeywords {
+		items = append(items, CompletionItem{
+			Label:  typ,
+			Kind:   25, // Type
+			Detail: "type",
+		})
+	}
 
 	snippets := []struct {
 		label  string
@@ -2120,6 +2191,46 @@ func methodDetail(sig *typechecker.FunctionSig) string {
 		mut = "mut "
 	}
 	return fmt.Sprintf("%sfunc(%s) -> (%s)", mut, strings.Join(params, ", "), ret)
+}
+
+func hasBuiltinStaticCompletionType(typeName string) bool {
+	_, ok := builtinStaticMethods[typeName]
+	return ok
+}
+
+func appendBuiltinTypeMethodCompletions(items *[]CompletionItem, typeName string, isStatic bool) bool {
+	var methods map[string]builtinMethodInfo
+	if isStatic {
+		methods = builtinStaticMethods[typeName]
+	} else {
+		methods = builtinMethods[typeName]
+	}
+	if len(methods) == 0 {
+		return false
+	}
+
+	for methodName, info := range methods {
+		insertText, insertFormat := completionInsertTextFromSignature(methodName, info.Signature)
+		*items = append(*items, CompletionItem{
+			Label:            methodName,
+			Kind:             2, // Method
+			Detail:           info.Signature,
+			InsertText:       insertText,
+			InsertTextFormat: insertFormat,
+		})
+	}
+
+	return true
+}
+
+func completionInsertTextFromSignature(methodName, signature string) (string, int) {
+	if strings.Contains(signature, "()") {
+		return methodName + "()", 2
+	}
+	if signature != "" {
+		return methodName + "($0)", 2
+	}
+	return methodName, 1
 }
 
 var builtinSignatures = map[string]string{
@@ -2571,6 +2682,522 @@ func formatHoverType(typeStr string) string {
 	}
 
 	return t
+}
+
+func isDynamicVecType(typeStr string) bool {
+	t := strings.TrimSpace(typeStr)
+	if t == "" || baseTypeName(t) != "Vec" {
+		return false
+	}
+	compact := strings.ReplaceAll(t, " ", "")
+	if strings.Contains(compact, ",_>") {
+		return true
+	}
+	// Some paths represent dynamic vectors as Vec<T>.
+	return strings.HasPrefix(compact, "Vec<") && !strings.Contains(compact, ",")
+}
+
+func formatDynamicVecTypeWithLength(typeStr string, vecLen int, hasLen bool) string {
+	t := strings.TrimSpace(typeStr)
+	if !strings.HasPrefix(t, "Vec<") || !strings.HasSuffix(t, ">") {
+		return typeStr
+	}
+
+	inner := strings.TrimSpace(t[len("Vec<") : len(t)-1])
+	if inner == "" {
+		return typeStr
+	}
+
+	parts := splitTopLevelTypeArgs(inner)
+	if len(parts) == 0 {
+		return typeStr
+	}
+
+	if hasLen {
+		sizeToken := strconv.Itoa(vecLen)
+		if len(parts) >= 2 {
+			parts[len(parts)-1] = sizeToken
+		} else {
+			parts = append(parts, sizeToken)
+		}
+	} else {
+		if len(parts) >= 2 {
+			parts[len(parts)-1] = "_"
+		} else {
+			parts = append(parts, "_")
+		}
+	}
+
+	return "Vec<" + strings.Join(parts, ", ") + ">"
+}
+
+func splitTopLevelTypeArgs(inner string) []string {
+	args := []string{}
+	depth := 0
+	start := 0
+
+	for i, ch := range inner {
+		switch ch {
+		case '<':
+			depth++
+		case '>':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				args = append(args, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+
+	args = append(args, strings.TrimSpace(inner[start:]))
+	return args
+}
+
+type vecLenState struct {
+	known  bool
+	length int
+}
+
+func inferDynamicVecLengthAtPosition(prog *ast.Program, varName string, line, col int) (int, bool) {
+	if prog == nil || varName == "" || line <= 0 || col <= 0 {
+		return 0, false
+	}
+	states := make(map[string]vecLenState)
+	if !walkProgramVecLengthPath(prog, line, col, states) {
+		return 0, false
+	}
+
+	st, ok := states[varName]
+	if !ok || !st.known {
+		return 0, false
+	}
+	return st.length, true
+}
+
+func walkProgramVecLengthPath(prog *ast.Program, line, col int, states map[string]vecLenState) bool {
+	if prog == nil {
+		return false
+	}
+	return walkStatementsVecLengthPath(prog.Statements, line, col, states)
+}
+
+func walkStatementsVecLengthPath(stmts []ast.Statement, line, col int, states map[string]vecLenState) bool {
+	for _, stmt := range stmts {
+		if stmt == nil {
+			continue
+		}
+
+		span := ast.SpanOf(stmt)
+		if positionBefore(line, col, span.Start.Line, span.Start.Column) {
+			return true
+		}
+
+		if spanContainsPosition(span, line, col) {
+			switch s := stmt.(type) {
+			case *ast.FunctionDecl:
+				if s != nil && s.Body != nil {
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+				}
+				return true
+			case *ast.ImplDecl:
+				if s == nil {
+					return true
+				}
+				for _, m := range s.Methods {
+					if m != nil && m.Body != nil && spanContainsPosition(m.Span, line, col) {
+						return walkStatementsVecLengthPath(m.Body.Statements, line, col, states)
+					}
+				}
+				return true
+			case *ast.IfStatement:
+				if s != nil {
+					if s.Consequence != nil && spanContainsPosition(ast.SpanOf(s.Consequence), line, col) {
+						return walkStatementsVecLengthPath(s.Consequence.Statements, line, col, states)
+					}
+					if s.Alternative != nil && spanContainsPosition(ast.SpanOf(s.Alternative), line, col) {
+						return walkStatementsVecLengthPath(s.Alternative.Statements, line, col, states)
+					}
+				}
+				return true
+			case *ast.WhileStatement:
+				if s != nil && s.Body != nil {
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+				}
+				return true
+			case *ast.ForStatement:
+				if s != nil && s.Body != nil {
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+				}
+				return true
+			case *ast.SwitchStatement:
+				if s != nil {
+					for _, c := range s.Cases {
+						if c != nil && c.Body != nil && spanContainsPosition(ast.SpanOf(c.Body), line, col) {
+							return walkStatementsVecLengthPath(c.Body.Statements, line, col, states)
+						}
+					}
+				}
+				return true
+			case *ast.UnsafeBlock:
+				if s != nil && s.Body != nil {
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+				}
+				return true
+			case *ast.BlockStatement:
+				if s != nil {
+					return walkStatementsVecLengthPath(s.Statements, line, col, states)
+				}
+				return true
+			default:
+				applyVecLengthStatement(stmt, states)
+				return true
+			}
+		}
+
+		applyVecLengthStatement(stmt, states)
+		if isLoopBoundary(stmt) {
+			invalidateAllVecStates(states)
+		}
+	}
+
+	return true
+}
+
+func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) {
+	if stmt == nil {
+		return
+	}
+
+	switch s := stmt.(type) {
+	case *ast.VarStatement:
+		if s == nil || s.Name == nil {
+			return
+		}
+		name := s.Name.Value
+		if !isVecVariableDeclaration(s, states) {
+			delete(states, name)
+			return
+		}
+		if l, ok := inferVecLengthFromExpr(s.Value, states); ok {
+			states[name] = vecLenState{known: true, length: l}
+			return
+		}
+		states[name] = vecLenState{known: false, length: 0}
+	case *ast.AssignmentStatement:
+		if s == nil {
+			return
+		}
+		ident, ok := s.Left.(*ast.Identifier)
+		if !ok || ident == nil {
+			return
+		}
+		name := ident.Value
+		if _, tracked := states[name]; !tracked {
+			return
+		}
+		if l, ok := inferVecLengthFromExpr(s.Value, states); ok {
+			states[name] = vecLenState{known: true, length: l}
+			return
+		}
+		states[name] = vecLenState{known: false, length: 0}
+	case *ast.ExpressionStatement:
+		if s == nil {
+			return
+		}
+		applyVecLengthExpr(s.Expression, states)
+	case *ast.IfStatement:
+		if s == nil {
+			return
+		}
+		base := cloneVecLenStates(states)
+
+		consequenceStates := cloneVecLenStates(base)
+		if s.Consequence != nil {
+			applyVecLengthStatements(s.Consequence.Statements, consequenceStates)
+		}
+
+		alternativeStates := cloneVecLenStates(base)
+		if s.Alternative != nil {
+			applyVecLengthStatements(s.Alternative.Statements, alternativeStates)
+		}
+
+		merged := mergeBranchStates(base, []map[string]vecLenState{consequenceStates, alternativeStates})
+		for name, st := range merged {
+			states[name] = st
+		}
+	case *ast.SwitchStatement:
+		if s == nil {
+			return
+		}
+		base := cloneVecLenStates(states)
+		branchStates := make([]map[string]vecLenState, 0, len(s.Cases)+1)
+		hasDefault := false
+		for _, c := range s.Cases {
+			if c == nil || c.Body == nil {
+				continue
+			}
+			if c.Default {
+				hasDefault = true
+			}
+			caseStates := cloneVecLenStates(base)
+			applyVecLengthStatements(c.Body.Statements, caseStates)
+			branchStates = append(branchStates, caseStates)
+		}
+		if len(branchStates) == 0 {
+			return
+		}
+		if !hasDefault {
+			// Without default, keep a conservative no-match path.
+			branchStates = append(branchStates, cloneVecLenStates(base))
+		}
+		merged := mergeBranchStates(base, branchStates)
+		for name, st := range merged {
+			states[name] = st
+		}
+	case *ast.UnsafeBlock:
+		if s != nil && s.Body != nil {
+			applyVecLengthStatements(s.Body.Statements, states)
+		}
+	case *ast.BlockStatement:
+		if s != nil {
+			applyVecLengthStatements(s.Statements, states)
+		}
+	}
+}
+
+func applyVecLengthStatements(stmts []ast.Statement, states map[string]vecLenState) {
+	for _, stmt := range stmts {
+		if stmt == nil {
+			continue
+		}
+		applyVecLengthStatement(stmt, states)
+		if isLoopBoundary(stmt) {
+			invalidateAllVecStates(states)
+		}
+	}
+}
+
+func cloneVecLenStates(states map[string]vecLenState) map[string]vecLenState {
+	out := make(map[string]vecLenState, len(states))
+	for name, st := range states {
+		out[name] = st
+	}
+	return out
+}
+
+func mergeBranchStates(base map[string]vecLenState, branches []map[string]vecLenState) map[string]vecLenState {
+	merged := cloneVecLenStates(base)
+	if len(branches) == 0 {
+		return merged
+	}
+
+	for name, baseState := range base {
+		states := make([]vecLenState, 0, len(branches))
+		for _, b := range branches {
+			if st, ok := b[name]; ok {
+				states = append(states, st)
+			} else {
+				// Missing means the branch did not semantically update this outer variable.
+				states = append(states, baseState)
+			}
+		}
+
+		first := states[0]
+		allKnown := first.known
+		sameLen := true
+		for _, st := range states[1:] {
+			if st.known != first.known {
+				allKnown = false
+				sameLen = false
+				continue
+			}
+			if st.known && first.known && st.length != first.length {
+				sameLen = false
+			}
+			if !st.known {
+				allKnown = false
+			}
+		}
+
+		if allKnown && sameLen {
+			merged[name] = vecLenState{known: true, length: first.length}
+		} else {
+			merged[name] = vecLenState{known: false, length: 0}
+		}
+	}
+
+	return merged
+}
+
+func isVecVariableDeclaration(stmt *ast.VarStatement, states map[string]vecLenState) bool {
+	if stmt == nil {
+		return false
+	}
+	if stmt.Type != nil {
+		return isDynamicVecType(stmt.Type.String())
+	}
+	if _, ok := inferVecLengthFromExpr(stmt.Value, states); ok {
+		return true
+	}
+	return isPotentialVecExpr(stmt.Value, states)
+}
+
+func isPotentialVecExpr(expr ast.Expression, states map[string]vecLenState) bool {
+	if expr == nil {
+		return false
+	}
+	switch e := expr.(type) {
+	case *ast.VecLiteral:
+		return true
+	case *ast.Identifier:
+		_, ok := states[e.Value]
+		return ok
+	case *ast.MethodCallExpression:
+		if e == nil || e.Method == nil {
+			return false
+		}
+		if obj, ok := e.Object.(*ast.Identifier); ok {
+			if obj.Value == "Vec" {
+				switch e.Method.Value {
+				case "new", "with_cap", "from":
+					return true
+				}
+			}
+			if _, ok := states[obj.Value]; ok && e.Method.Value == "clone" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func applyVecLengthExpr(expr ast.Expression, states map[string]vecLenState) {
+	mc, ok := expr.(*ast.MethodCallExpression)
+	if !ok || mc == nil || mc.Method == nil {
+		return
+	}
+	ident, ok := mc.Object.(*ast.Identifier)
+	if !ok || ident == nil {
+		return
+	}
+	st, tracked := states[ident.Value]
+	if !tracked {
+		return
+	}
+
+	switch mc.Method.Value {
+	case "push", "insert":
+		if st.known {
+			st.length = st.length + 1
+		}
+	case "pop", "remove":
+		if st.known {
+			if st.length > 0 {
+				st.length = st.length - 1
+			} else {
+				st.length = 0
+			}
+		}
+	case "clear":
+		st.known = true
+		st.length = 0
+	case "append":
+		if len(mc.Arguments) == 1 && st.known {
+			if rhsLen, ok := inferVecLengthFromExpr(mc.Arguments[0], states); ok {
+				st.length = st.length + rhsLen
+			} else {
+				st.known = false
+			}
+		} else {
+			st.known = false
+		}
+	}
+
+	states[ident.Value] = st
+}
+
+func inferVecLengthFromExpr(expr ast.Expression, states map[string]vecLenState) (int, bool) {
+	if expr == nil {
+		return 0, false
+	}
+
+	switch e := expr.(type) {
+	case *ast.VecLiteral:
+		return len(e.Elements), true
+	case *ast.Identifier:
+		if st, ok := states[e.Value]; ok && st.known {
+			return st.length, true
+		}
+		return 0, false
+	case *ast.MethodCallExpression:
+		if e == nil || e.Method == nil {
+			return 0, false
+		}
+		obj, ok := e.Object.(*ast.Identifier)
+		if !ok || obj == nil {
+			return 0, false
+		}
+
+		if obj.Value == "Vec" {
+			switch e.Method.Value {
+			case "new", "with_cap":
+				return 0, true
+			case "from":
+				if len(e.Arguments) == 1 {
+					return inferVecLengthFromExpr(e.Arguments[0], states)
+				}
+			}
+			return 0, false
+		}
+
+		if st, ok := states[obj.Value]; ok && e.Method.Value == "clone" && st.known {
+			return st.length, true
+		}
+	}
+
+	return 0, false
+}
+
+func isLoopBoundary(stmt ast.Statement) bool {
+	switch stmt.(type) {
+	case *ast.WhileStatement, *ast.ForStatement:
+		return true
+	default:
+		return false
+	}
+}
+
+func invalidateAllVecStates(states map[string]vecLenState) {
+	for name, st := range states {
+		st.known = false
+		states[name] = st
+	}
+}
+
+func spanContainsPosition(span ast.Span, line, col int) bool {
+	if span.Start.Line <= 0 || line <= 0 || col <= 0 {
+		return false
+	}
+	if positionBefore(line, col, span.Start.Line, span.Start.Column) {
+		return false
+	}
+	if span.End.Line <= 0 {
+		return true
+	}
+	return positionBefore(line, col, span.End.Line, span.End.Column)
+}
+
+func positionBefore(lineA, colA, lineB, colB int) bool {
+	if lineA < lineB {
+		return true
+	}
+	if lineA > lineB {
+		return false
+	}
+	return colA < colB
 }
 
 func (s *Server) findStructInfoByType(result *AnalysisResult, uri, typeStr string) (StructInfo, bool) {
@@ -4794,6 +5421,100 @@ func lineAt(text string, line int) string {
 		return ""
 	}
 	return lines[line]
+}
+
+func isPositionInComment(text string, pos Position) bool {
+	offset := offsetAt(text, pos.Line, pos.Character)
+	if offset < 0 {
+		return false
+	}
+	if offset > len(text) {
+		offset = len(text)
+	}
+
+	inLineComment := false
+	inBlockComment := false
+	inString := false
+	inChar := false
+	inRawString := false
+	escaped := false
+
+	for i := 0; i < offset; i++ {
+		ch := text[i]
+		var next byte
+		if i+1 < len(text) {
+			next = text[i+1]
+		}
+
+		if inLineComment {
+			if ch == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+		if inBlockComment {
+			if ch == '*' && next == '/' {
+				inBlockComment = false
+				i++
+			}
+			continue
+		}
+		if inString {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '"' {
+				inString = false
+			}
+			continue
+		}
+		if inChar {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if ch == '\\' {
+				escaped = true
+				continue
+			}
+			if ch == '\'' {
+				inChar = false
+			}
+			continue
+		}
+		if inRawString {
+			if ch == '`' {
+				inRawString = false
+			}
+			continue
+		}
+
+		switch ch {
+		case '/':
+			if next == '/' {
+				inLineComment = true
+				i++
+			} else if next == '*' {
+				inBlockComment = true
+				i++
+			}
+		case '"':
+			inString = true
+			escaped = false
+		case '\'':
+			inChar = true
+			escaped = false
+		case '`':
+			inRawString = true
+		}
+	}
+
+	return inLineComment || inBlockComment
 }
 
 func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisResult, s *Server) *SignatureHelp {
