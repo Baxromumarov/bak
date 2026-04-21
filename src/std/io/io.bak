@@ -19,12 +19,12 @@ pub func println_str(value: string) -> (void) {
 
 // print_int outputs an integer to stdout
 pub func print_int(n: int) -> (void) {
-    __builtin_print(strconv.intToString(n))
+    __builtin_print(strconv.int_to_string(n))
 }
 
 // println_int outputs an integer to stdout with a newline
 pub func println_int(n: int) -> (void) {
-    __builtin_println(strconv.intToString(n))
+    __builtin_println(strconv.int_to_string(n))
 }
 
 // print_bool outputs a boolean to stdout
@@ -268,7 +268,7 @@ impl Writer as w {
     
     // write_int appends an integer as a string
     pub mut func write_int(n: int) -> (void) {
-        w.buffer = w.buffer + strconv.intToString(n)
+        w.buffer = w.buffer + strconv.int_to_string(n)
     }
     
     // write_repeated appends a string repeated n times

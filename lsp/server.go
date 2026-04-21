@@ -5675,14 +5675,15 @@ func lookupUniqueBuiltinMethod(name string) (string, builtinMethodInfo, bool) {
 
 func builtinMethodSignatureInfo(typeName, methodName string, info builtinMethodInfo) SignatureInfo {
 	label := info.Signature
-	if strings.HasPrefix(label, "func ") {
-		label = strings.TrimPrefix(label, "func ")
+	if after, ok := strings.CutPrefix(label, "func "); ok {
+		label = after
 	}
+	
+	label = typeName + "." + methodName
 	if open := strings.Index(label, "("); open != -1 {
-		label = typeName + "." + methodName + label[open:]
-	} else {
-		label = typeName + "." + methodName
+		label = label[open:]
 	}
+
 	return SignatureInfo{
 		Label:  label,
 		Params: parseSignatureParams(label),

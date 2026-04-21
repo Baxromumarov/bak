@@ -2048,6 +2048,25 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pop() // pop receiver
 
+		resultOk := func(v compiler.Value) compiler.Value {
+			return compiler.Value{
+				Type: compiler.VAL_RESULT,
+				AsObject: &compiler.ResultInstance{
+					IsErr: false,
+					Value: v,
+				},
+			}
+		}
+		resultErr := func(msg string) compiler.Value {
+			return compiler.Value{
+				Type: compiler.VAL_RESULT,
+				AsObject: &compiler.ResultInstance{
+					IsErr: true,
+					Value: compiler.NewString(msg),
+				},
+			}
+		}
+
 		var result compiler.Value
 		switch methodName {
 		case "len":
@@ -2055,6 +2074,16 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("len() requires 0 arguments")
 			}
 			result = compiler.NewInt(int64(len(arr.Elements)))
+		case "cap":
+			if len(args) != 0 {
+				return fmt.Errorf("cap() requires 0 arguments")
+			}
+			result = compiler.NewInt(int64(cap(arr.Elements)))
+		case "is_empty", "isEmpty":
+			if len(args) != 0 {
+				return fmt.Errorf("is_empty() requires 0 arguments")
+			}
+			result = compiler.NewBool(len(arr.Elements) == 0)
 		case "get":
 			if len(args) != 1 {
 				return fmt.Errorf("get() requires 1 argument")
@@ -2064,9 +2093,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			idx := int(args[0].AsInt)
 			if idx < 0 || idx >= len(arr.Elements) {
-				result = compiler.Value{Type: compiler.VAL_OPTION, AsObject: &compiler.OptionInstance{IsSome: false}}
+				result = resultErr("index out of bounds")
 			} else {
-				result = compiler.Value{Type: compiler.VAL_OPTION, AsObject: &compiler.OptionInstance{IsSome: true, Value: arr.Elements[idx]}}
+				result = resultOk(arr.Elements[idx])
 			}
 		case "set":
 			if len(args) != 2 {
@@ -2092,9 +2121,10 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("pop() requires 0 arguments")
 			}
 			if len(arr.Elements) == 0 {
-				return fmt.Errorf("pop() called on empty array")
+				result = resultErr("vec is empty")
+				break
 			}
-			result = arr.Elements[len(arr.Elements)-1]
+			result = resultOk(arr.Elements[len(arr.Elements)-1])
 			arr.Elements = arr.Elements[:len(arr.Elements)-1]
 		case "append":
 			if len(args) != 1 {
@@ -2106,6 +2136,105 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			other := args[0].AsObject.(*compiler.ArrayInstance)
 			arr.Elements = append(arr.Elements, other.Elements...)
 			result = compiler.NewNil()
+		case "remove":
+			if len(args) != 1 {
+				return fmt.Errorf("remove() requires 1 argument")
+			}
+			if args[0].Type != compiler.VAL_INT {
+				return fmt.Errorf("remove() requires an integer index")
+			}
+			idx := int(args[0].AsInt)
+			if idx < 0 || idx >= len(arr.Elements) {
+				result = resultErr("index out of bounds")
+				break
+			}
+			removed := arr.Elements[idx]
+			arr.Elements = append(arr.Elements[:idx], arr.Elements[idx+1:]...)
+			result = resultOk(removed)
+		case "first":
+			if len(args) != 0 {
+				return fmt.Errorf("first() requires 0 arguments")
+			}
+			if len(arr.Elements) == 0 {
+				result = resultErr("vec is empty")
+			} else {
+				result = resultOk(arr.Elements[0])
+			}
+		case "last":
+			if len(args) != 0 {
+				return fmt.Errorf("last() requires 0 arguments")
+			}
+			if len(arr.Elements) == 0 {
+				result = resultErr("vec is empty")
+			} else {
+				result = resultOk(arr.Elements[len(arr.Elements)-1])
+			}
+		case "contains":
+			if len(args) != 1 {
+				return fmt.Errorf("contains() requires 1 argument")
+			}
+			found := false
+			for _, elem := range arr.Elements {
+				if vm.valuesEqual(elem, args[0]) {
+					found = true
+					break
+				}
+			}
+			result = compiler.NewBool(found)
+		case "join":
+			if len(args) != 1 {
+				return fmt.Errorf("join() requires 1 argument")
+			}
+			if args[0].Type != compiler.VAL_STRING {
+				return fmt.Errorf("join() requires a string separator")
+			}
+			parts := make([]string, len(arr.Elements))
+			for i, elem := range arr.Elements {
+				parts[i] = elem.String()
+			}
+			result = compiler.NewString(strings.Join(parts, args[0].AsString))
+		case "reverse":
+			if len(args) != 0 {
+				return fmt.Errorf("reverse() requires 0 arguments")
+			}
+			for i, j := 0, len(arr.Elements)-1; i < j; i, j = i+1, j-1 {
+				arr.Elements[i], arr.Elements[j] = arr.Elements[j], arr.Elements[i]
+			}
+			result = compiler.NewNil()
+		case "clear":
+			if len(args) != 0 {
+				return fmt.Errorf("clear() requires 0 arguments")
+			}
+			arr.Elements = arr.Elements[:0]
+			result = compiler.NewNil()
+		case "slice":
+			if len(args) != 2 {
+				return fmt.Errorf("slice() requires 2 arguments")
+			}
+			if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
+				return fmt.Errorf("slice() requires integer start/end")
+			}
+			start := int(args[0].AsInt)
+			end := int(args[1].AsInt)
+			if start < 0 {
+				start = 0
+			}
+			if end > len(arr.Elements) {
+				end = len(arr.Elements)
+			}
+			if start > end {
+				start = end
+			}
+			sliced := make([]compiler.Value, end-start)
+			copy(sliced, arr.Elements[start:end])
+			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: sliced}}
+		case "to_vec":
+			if len(args) != 0 {
+				return fmt.Errorf("to_vec() requires 0 arguments")
+			}
+			dup := make([]compiler.Value, len(arr.Elements))
+			copy(dup, arr.Elements)
+			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: dup}}
 		default:
 			return fmt.Errorf("undefined method: array.%s", methodName)
 		}

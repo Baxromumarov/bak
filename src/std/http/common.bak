@@ -35,8 +35,8 @@ pub func eq_case_insensitive(a: &string, b: &string) -> (bool) {
     return true
 }
 
-// indexOf returns the first index of toFind in s, or -1 if not found.
-pub func indexOf(s: &string, toFind: &string) -> (int) {
+// index_of returns the first index of to_find in s, or -1 if not found.
+pub func index_of(s: &string, toFind: &string) -> (int) {
     if toFind.len() == 0 {
         return 0
     }
@@ -60,4 +60,9 @@ pub func indexOf(s: &string, toFind: &string) -> (int) {
         i = i + 1
     }
     return -1
+}
+
+// Deprecated: use index_of.
+pub func indexOf(s: &string, toFind: &string) -> (int) {
+    return index_of(s, toFind)
 }

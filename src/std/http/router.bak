@@ -112,7 +112,7 @@ impl Router as r {
 
     pub func dispatch(mut req: Request) -> (Response) {
         mut var path: string = req.path
-        var queryIdx = path.indexOf("?")
+        var queryIdx = path.index_of("?")
         if queryIdx.is_ok() {
             path = path.substring(
                 0,
@@ -133,7 +133,7 @@ impl Router as r {
                     while j < routeSegments.len() {
                         var rs: string = routeSegments[j]
                         var reqS: string = reqSegments[j]
-                        if rs.startsWith(":") {
+                        if rs.starts_with(":") {
                             var paramName: string = rs.substring(
                                 1,
                                 rs.len(),

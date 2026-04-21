@@ -21,7 +21,7 @@ pub func new_server(addr: string, router: Router) -> (Server) {
 impl Server as self {
     pub func start() -> (Result<void, string>) {
         var addr: string = self.addr
-        var portIdx = addr.lastIndexOf(":")
+        var portIdx = addr.last_index_of(":")
         if portIdx.is_err() {
             return Err("invalid address: missing port")
         }
@@ -33,7 +33,7 @@ impl Server as self {
             portIdx.unwrap() + 1,
             addr.len(),
         )
-        var portRes = portStr.parseInt()
+        var portRes = portStr.parse_int()
         if portRes.is_err() {
             return Err("invalid port")
         }

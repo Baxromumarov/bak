@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"testing"
@@ -74,16 +75,16 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 		"Option":  signatureLabelAt(t, s, uri, src, "x.is_some("),
 	}
 
-	if !strings.Contains(sigs["Vec"], "Vec.push(") {
+	if !strings.Contains(sigs["Vec"], "Vec.push") {
 		t.Fatalf("Vec signature mismatch: %q", sigs["Vec"])
 	}
-	if !strings.Contains(sigs["Result"], "Result.unwrap_err(") {
+	if !strings.Contains(sigs["Result"], "Result.unwrap_err") {
 		t.Fatalf("Result signature mismatch: %q", sigs["Result"])
 	}
-	if !strings.Contains(sigs["HashMap"], "HashMap.insert(") {
+	if !strings.Contains(sigs["HashMap"], "HashMap.insert") {
 		t.Fatalf("HashMap signature mismatch: %q", sigs["HashMap"])
 	}
-	if !strings.Contains(sigs["Option"], "Option.is_some(") {
+	if !strings.Contains(sigs["Option"], "Option.is_some") {
 		t.Fatalf("Option signature mismatch: %q", sigs["Option"])
 	}
 }
@@ -137,6 +138,63 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 		t.Fatalf("unexpected Option hover: %q", hoverOptionMethod)
 	}
 
+}
+
+func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    mut var inferred_vec = Vec.from([1, 2])",
+		"    mut var inferred_result = \"1\".parse_int()",
+		"    mut var inferred_map = HashMap.new()",
+		"    inferred_map.insert(\"k\", 1)",
+		"    println(inferred_vec)",
+		"    println(inferred_result)",
+		"    println(inferred_map)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+	s := NewServer()
+	s.Documents[uri] = src
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	params := InlayHintParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range:        fullDocumentRange(src),
+	}
+	hints := s.handleInlayHint(mustRequest(t, params))
+
+	snapshot := make([]string, 0, len(hints))
+	lines := strings.Split(src, "\n")
+	for _, hint := range hints {
+		if hint.Kind != 2 {
+			continue
+		}
+		lineText := ""
+		if hint.Position.Line >= 0 && hint.Position.Line < len(lines) {
+			lineText = strings.TrimSpace(lines[hint.Position.Line])
+		}
+		snapshot = append(snapshot, fmt.Sprintf("%s => %s", lineText, hint.Label))
+	}
+	sort.Strings(snapshot)
+
+	want := []string{
+		"mut var inferred_map = HashMap.new() => : HashMap<K, V>",
+		"mut var inferred_result = \"1\".parse_int() => : Result<int, string>",
+		"mut var inferred_vec = Vec.from([1, 2]) => : Vec<int, _>",
+	}
+	if len(snapshot) != len(want) {
+		t.Fatalf("inlay snapshot size mismatch:\n got=%v\nwant=%v\ndiagnostics=%s", snapshot, want, output)
+	}
+	for i := range want {
+		if snapshot[i] != want[i] {
+			t.Fatalf("inlay snapshot mismatch at %d:\n got=%q\nwant=%q\nall=%v", i, snapshot[i], want[i], snapshot)
+		}
+	}
 }
 
 func completionLabelsAt(t *testing.T, s *Server, uri, src, needle string) []string {

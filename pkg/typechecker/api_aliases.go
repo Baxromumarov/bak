@@ -25,25 +25,47 @@ var resultMethodAliasCanonical = map[string]string{
 }
 
 var stringsFunctionAliasCanonical = map[string]string{
-	"charAt":         "char_at",
-	"indexOf":        "index_of",
-	"lastIndexOf":    "last_index_of",
-	"startsWith":     "starts_with",
-	"endsWith":       "ends_with",
-	"trimLeft":       "trim_left",
-	"trimRight":      "trim_right",
-	"trimPrefix":     "trim_prefix",
-	"trimSuffix":     "trim_suffix",
-	"toUpper":        "to_upper",
-	"toLower":        "to_lower",
-	"replaceFirst":   "replace_first",
-	"padLeft":        "pad_left",
-	"padRight":       "pad_right",
-	"isLetter":       "is_letter",
-	"isDigit":        "is_digit",
-	"isAlphanumeric": "is_alphanumeric",
-	"isUpper":        "is_upper",
-	"isLower":        "is_lower",
+	"charAt":          "char_at",
+	"indexOf":         "index_of",
+	"lastIndexOf":     "last_index_of",
+	"startsWith":      "starts_with",
+	"endsWith":        "ends_with",
+	"trimLeft":        "trim_left",
+	"trimRight":       "trim_right",
+	"trimPrefix":      "trim_prefix",
+	"trimSuffix":      "trim_suffix",
+	"toUpper":         "to_upper",
+	"toLower":         "to_lower",
+	"replaceFirst":    "replace_first",
+	"padLeft":         "pad_left",
+	"padRight":        "pad_right",
+	"isLetter":        "is_letter",
+	"isDigit":         "is_digit",
+	"isAlphanumeric":  "is_alphanumeric",
+	"isUpper":         "is_upper",
+	"isLower":         "is_lower",
+	"equalIgnoreCase": "equal_ignore_case",
+	"fromChars":       "from_chars",
+	"fromBytes":       "from_bytes",
+	"fromBytesSlice":  "from_bytes_slice",
+	"toChars":         "to_chars",
+}
+
+var strconvFunctionAliasCanonical = map[string]string{
+	"intToString":  "int_to_string",
+	"formatInt":    "format_int",
+	"formatBinary": "format_binary",
+	"formatOctal":  "format_octal",
+	"formatHex":    "format_hex",
+	"isDigit":      "is_digit",
+	"digitValue":   "digit_value",
+	"parseInt":     "parse_int",
+	"parseBinary":  "parse_binary",
+	"parseOctal":   "parse_octal",
+	"parseHex":     "parse_hex",
+	"formatFloat":  "format_float",
+	"parseBool":    "parse_bool",
+	"formatBool":   "format_bool",
 }
 
 func normalizeAlias(aliasMap map[string]string, name string) (string, bool) {
@@ -91,14 +113,24 @@ func isStdStringsImportPath(path string) bool {
 	return strings.Contains(normalized, "std/strings/strings")
 }
 
+func isStdStrconvImportPath(path string) bool {
+	normalized := strings.ReplaceAll(path, "\\", "/")
+	return strings.Contains(normalized, "std/strconv/strconv")
+}
+
 func (tc *TypeChecker) canonicalizeStringsModuleFunction(moduleAlias, name string, line, col int) string {
 	path := tc.importedPkgPaths[moduleAlias]
-	if !isStdStringsImportPath(path) {
-		return name
+	if isStdStringsImportPath(path) {
+		if canonical, deprecated := normalizeAlias(stringsFunctionAliasCanonical, name); deprecated {
+			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
+			return canonical
+		}
 	}
-	if canonical, deprecated := normalizeAlias(stringsFunctionAliasCanonical, name); deprecated {
-		tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
-		return canonical
+	if isStdStrconvImportPath(path) {
+		if canonical, deprecated := normalizeAlias(strconvFunctionAliasCanonical, name); deprecated {
+			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
+			return canonical
+		}
 	}
 	return name
 }

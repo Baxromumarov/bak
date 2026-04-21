@@ -243,6 +243,18 @@ func main() -> (void) {
 `, "deprecated method alias 'parseInt'; use 'parse_int'")
 }
 
+func TestCheck_DeprecatedStrconvFunctionAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/strconv/strconv.bak" as strconv
+func main() -> (void) {
+	var value: string = "42"
+	var parsed: Result<int, string> = strconv.parseInt(&value, 10)
+	println(parsed.is_ok())
+}
+`, "deprecated function alias 'strconv.parseInt'; use 'strconv.parse_int'")
+}
+
 func TestCheck_TypeMismatchIncludesWhereInferredNote(t *testing.T) {
 	expectError(t, `
 package main
@@ -251,6 +263,13 @@ func main() -> (void) {
 	x = "hello"
 }
 `, "where inferred: this expression has type string")
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var x: int = 1
+	x = "hello"
+}
+`, "where expected: assignment to variable 'x' expects type int")
 }
 
 func TestCheck_UseAfterMoveIncludesWhereMovedNote(t *testing.T) {

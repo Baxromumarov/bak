@@ -148,7 +148,7 @@ func parse_id_param(req: &http.Request) -> (Result<int, string>) {
     if id_opt.is_none() {
         return Err("missing id param")
     }
-    var id_result = id_opt.unwrap().parseInt()
+    var id_result = id_opt.unwrap().parse_int()
     if id_result.is_err() {
         return Err("invalid id param")
     }

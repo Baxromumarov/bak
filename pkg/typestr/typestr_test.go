@@ -121,3 +121,47 @@ func TestRenderTypeGoldenSnapshots(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderTypeForSyntaxGoldenSnapshots(t *testing.T) {
+	tests := []struct {
+		name string
+		typ  ast.TypeExpression
+		want string
+	}{
+		{
+			name: "hashmap_generic_params",
+			typ: &ast.GenericType{
+				Name: "HashMap",
+				TypeParams: []ast.TypeExpression{
+					&ast.SimpleType{Name: "K"},
+					&ast.SimpleType{Name: "V"},
+				},
+			},
+			want: "HashMap<K, V>",
+		},
+		{
+			name: "result_vec_and_string",
+			typ: &ast.GenericType{
+				Name: "Result",
+				TypeParams: []ast.TypeExpression{
+					&ast.GenericType{
+						Name: "Vec",
+						TypeParams: []ast.TypeExpression{
+							&ast.SimpleType{Name: "int"},
+						},
+					},
+					&ast.SimpleType{Name: "string"},
+				},
+			},
+			want: "Result<Vec<int, _>, string>",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := RenderTypeForSyntax(tc.typ); got != tc.want {
+				t.Fatalf("syntax snapshot mismatch: got %q want %q", got, tc.want)
+			}
+		})
+	}
+}

@@ -42,7 +42,7 @@ impl UsersDB as u {
 
     pub func get_user_by_id(id: int) -> (Result<user, string>) {
         var sql: string = "SELECT id, name, balance FROM users WHERE id = $1"
-        var params: Vec<string, _> = Vec.from([id.toString()])
+        var params: Vec<string, _> = Vec.from([id.to_string()])
         var result = postgres.query_params(&u.db, sql, params)
         if result.is_err() {
             return Err(result.unwrap_err())
@@ -52,7 +52,7 @@ impl UsersDB as u {
 
     pub func create_user(name: string, balance: float64) -> (Result<user, string>) {
         var sql: string = "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([name, balance.toString()])
+        var params: Vec<string, _> = Vec.from([name, balance.to_string()])
         var result = postgres.query_params(&u.db, sql, params)
         if result.is_err() {
             return Err(result.unwrap_err())
@@ -62,7 +62,7 @@ impl UsersDB as u {
 
     pub func update_user(id: int, name: string, balance: float64) -> (Result<user, string>) {
         var sql: string = "UPDATE users SET name = $1, balance = $2 WHERE id = $3 RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([name, balance.toString(), id.toString()])
+        var params: Vec<string, _> = Vec.from([name, balance.to_string(), id.to_string()])
         var result = postgres.query_params(&u.db, sql, params)
         if result.is_err() {
             return Err(result.unwrap_err())
@@ -72,7 +72,7 @@ impl UsersDB as u {
 
     pub func delete_user(id: int) -> (Result<user, string>) {
         var sql: string = "DELETE FROM users WHERE id = $1 RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([id.toString()])
+        var params: Vec<string, _> = Vec.from([id.to_string()])
         var result = postgres.query_params(&u.db, sql, params)
         if result.is_err() {
             return Err(result.unwrap_err())
@@ -150,7 +150,7 @@ func get_required_string(row: &db.Row, name: string) -> (Result<string, string>)
 
 func get_float_or(row: &db.Row, name: string, fallback: float64) -> (Result<float64, string>) {
     switch row.get(name) {
-        case Some(v) { return v.parseFloat() }
+        case Some(v) { return v.parse_float() }
         case None { return Ok(fallback) }
     }
 }

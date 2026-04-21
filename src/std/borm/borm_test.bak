@@ -110,7 +110,7 @@ func decode_user(row: &postgres.Row) -> (Result<user, string>) {
         "id",
     ) {
         case Ok(id_str) {
-            var id_res = strconv.parseInt(
+            var id_res = strconv.parse_int(
                 &id_str,
                 10,
             )

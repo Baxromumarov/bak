@@ -672,10 +672,10 @@ func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
             return "false"
         }
         case Int(n) {
-            return strconv.intToString(n)
+            return strconv.int_to_string(n)
         }
         case Float(n) {
-            return strconv.formatFloat(n, 6)
+            return strconv.format_float(n, 6)
         }
         case String(s) {
             return quote_string(s)
@@ -738,10 +738,10 @@ pub func marshal(j: Json) -> (string) {
             return "false"
         }
         case Int(n) {
-            return strconv.intToString(n)
+            return strconv.int_to_string(n)
         }
         case Float(n) {
-            return strconv.formatFloat(n, 6)
+            return strconv.format_float(n, 6)
         }
         case String(s) {
             return quote_string(s)
@@ -854,7 +854,7 @@ impl JsonParser as p {
                 return p.parse_number()
             }
         }
-        return Err("invalid character at position " + strconv.intToString(p.pos))
+        return Err("invalid character at position " + strconv.int_to_string(p.pos))
     }
     mut func parse_object() -> (Result<Json, string>) {
         p.consume_char()

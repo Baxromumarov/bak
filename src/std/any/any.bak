@@ -141,7 +141,7 @@ impl Any as a {
     }
     pub func to_string() -> (string) {
         if a.kind == AnyKind.Int {
-            return strconv.intToString(a.int_val)
+            return strconv.int_to_string(a.int_val)
         }
         if a.kind == AnyKind.String {
             return a.string_val

@@ -1,6 +1,5 @@
 package main
 
-import "src/std/db/db.bak" as db
 import "src/std/encoding/json/json.bak" as json
 
 pub struct user {

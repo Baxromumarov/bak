@@ -18,7 +18,7 @@ pub struct Request {
 
 pub func parse_query(path: string) -> (Vec<QueryParam, _>) {
     mut var out: Vec<QueryParam, _> = Vec.new()
-    var idx_opt = path.indexOf("?")
+    var idx_opt = path.index_of("?")
     if idx_opt.is_err() {
         return out
     }
@@ -87,7 +87,7 @@ pub func append_query(url: string, params: Vec<QueryParam, _>) -> (string) {
     if qs.len() == 0 {
         return url
     }
-    if url.indexOf("?").is_ok() {
+    if url.index_of("?").is_ok() {
         return url + "&" + qs
     }
     return url + "?" + qs
@@ -138,13 +138,13 @@ impl Request as r {
 }
 
 pub func parse_request(raw: string) -> (Result<Request, string>) {
-    mut var headerEnd = indexOf(
+    mut var headerEnd = index_of(
         &raw,
         &CRLFCRLF,
     )
     mut var sepLen: int = 4
     if headerEnd == -1 {
-        headerEnd = indexOf(
+        headerEnd = index_of(
             &raw,
             &LFLF,
         )
@@ -161,7 +161,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         headerEnd + sepLen,
         raw.len(),
     )
-    mut var statusLineEnd = indexOf(
+    mut var statusLineEnd = index_of(
         &headerPart,
         &LF,
     )
@@ -180,7 +180,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         statusLineEnd + 1,
         headerPart.len(),
     )
-    var firstSpace = indexOf(
+    var firstSpace = index_of(
         &requestLine,
         &" ",
     )
@@ -195,7 +195,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         firstSpace + 1,
         requestLine.len(),
     )
-    var secondSpace = indexOf(
+    var secondSpace = index_of(
         &rest,
         &" ",
     )
@@ -213,7 +213,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
     mut var headers: Vec<Header, _> = Vec.from([])
     mut var current: string = headersPart
     while current.len() > 0 {
-        var lineEnd = indexOf(
+        var lineEnd = index_of(
             &current,
             &LF,
         )
@@ -238,7 +238,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         if line.len() == 0 {
             break
         }
-        var colonIndex = indexOf(
+        var colonIndex = index_of(
             &line,
             &":",
         )
@@ -251,7 +251,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
                 colonIndex + 1,
                 line.len(),
             )
-            if value.startsWith(" ") {
+            if value.starts_with(" ") {
                 value = value.substring(
                     1,
                     value.len(),

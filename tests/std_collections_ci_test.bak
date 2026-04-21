@@ -22,3 +22,38 @@ func test_vec_core_behaviour() -> (void) {
 
     t.finish()
 }
+
+func test_vec_accessors_and_helpers() -> (void) {
+    mut var t: test.T = test.new("test_vec_accessors_and_helpers")
+
+    mut var v: Vec<int, _> = Vec.from([3, 1, 2])
+    t.is_true(v.cap() >= v.len())
+    t.eq(v.first().unwrap(), 3)
+    t.eq(v.last().unwrap(), 2)
+    t.eq(v.contains(1), true)
+    t.eq(v.contains(99), false)
+
+    v.reverse()
+    t.eq(v.join(","), "2,1,3")
+
+    switch v.remove(1) {
+        case Ok(mid) { t.eq(mid, 1) }
+        case Err(err) { t.fail("remove failed: " + err) }
+    }
+    t.eq(v.join(","), "2,3")
+
+    t.finish()
+}
+
+func test_vec_error_paths() -> (void) {
+    mut var t: test.T = test.new("test_vec_error_paths")
+
+    mut var v: Vec<int, _> = Vec.new()
+    t.is_true(v.first().is_err())
+    t.is_true(v.last().is_err())
+    t.is_true(v.get(0).is_err())
+    t.is_true(v.remove(0).is_err())
+    t.is_true(v.pop().is_err())
+
+    t.finish()
+}

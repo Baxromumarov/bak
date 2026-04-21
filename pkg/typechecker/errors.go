@@ -193,6 +193,13 @@ func (tc *TypeChecker) errorTypeMismatch(
 
 	// Generate context-aware help suggestions
 	help := tc.suggestTypeFix(expected, got)
+	if help == "" {
+		if context != "" {
+			help = fmt.Sprintf("make %s have type %s, or change the expected type", context, expected)
+		} else {
+			help = fmt.Sprintf("convert the value to %s, or change the expected type", expected)
+		}
+	}
 	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrTypeMismatch,
 		Level:   diagnostics.LevelError,
@@ -201,6 +208,9 @@ func (tc *TypeChecker) errorTypeMismatch(
 		File:    tc.currentPkgPath,
 		Message: msg,
 		Help:    help,
+	}
+	if context != "" {
+		diag.Notes = append(diag.Notes, tc.expectedTypeOriginNote(context, expected))
 	}
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
 		diag.Notes = append(diag.Notes, diagnostics.Note{
@@ -211,6 +221,34 @@ func (tc *TypeChecker) errorTypeMismatch(
 		})
 	}
 	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnostics.Note {
+	note := diagnostics.Note{
+		Message: fmt.Sprintf("where expected: %s expects type %s", context, expected),
+		File:    tc.currentPkgPath,
+	}
+	const assignmentPrefix = "assignment to variable '"
+	if strings.HasPrefix(context, assignmentPrefix) {
+		rest := strings.TrimPrefix(context, assignmentPrefix)
+		if idx := strings.Index(rest, "'"); idx > 0 {
+			name := rest[:idx]
+			if info, ok := tc.lookupSymbolWithoutMark(name); ok && info.Line > 0 {
+				note.Line = info.Line
+				note.Column = info.Column
+			}
+		}
+	}
+	return note
+}
+
+func (tc *TypeChecker) lookupSymbolWithoutMark(name string) (*TypeInfo, bool) {
+	for env := tc.env; env != nil; env = env.parent {
+		if info, ok := env.symbols[name]; ok {
+			return info, true
+		}
+	}
+	return nil, false
 }
 
 func (tc *TypeChecker) warnDeprecatedAlias(kind, alias, canonical string, line, col int) {

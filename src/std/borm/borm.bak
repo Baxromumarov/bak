@@ -425,7 +425,7 @@ func expr_to_sql(expr: &Expr, start: int) -> (ExprSql) {
             sql = sql + " " + expr.joins[i - 1] + " "
         }
 
-        sql = sql + cond.column + " " + cond.op + " $" + strconv.intToString(start + i + 1)
+        sql = sql + cond.column + " " + cond.op + " $" + strconv.int_to_string(start + i + 1)
         params.push(cond.value)
         i = i + 1
     }
@@ -458,7 +458,7 @@ func build_assignment_clause(columns: &Vec<string, _>, start: int) -> (string) {
     mut var i: int = 0
 
     while i < columns.len() {
-        parts.push(columns[i] + " = $" + strconv.intToString(start + i + 1))
+        parts.push(columns[i] + " = $" + strconv.int_to_string(start + i + 1))
         i = i + 1
     }
 
@@ -470,7 +470,7 @@ func build_placeholders(count: int, start: int) -> (string) {
     mut var i: int = 0
 
     while i < count {
-        parts.push("$" + strconv.intToString(start + i + 1))
+        parts.push("$" + strconv.int_to_string(start + i + 1))
         i = i + 1
     }
 
@@ -798,7 +798,7 @@ impl InsertReturningInt as b {
 
                         switch ret_result {
                             case Ok(ret_val) {
-                                switch strconv.parseInt(
+                                switch strconv.parse_int(
                                     &ret_val,
                                     10,
                                 ) {

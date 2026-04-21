@@ -739,12 +739,17 @@ pub func compare(a: &string, b: &string) -> (int) {
     return 0
 }
 
-// equalIgnoreCase compares strings ignoring case
-pub func equalIgnoreCase(a: &string, b: &string) -> (bool) {
+// equal_ignore_case compares strings ignoring case.
+pub func equal_ignore_case(a: &string, b: &string) -> (bool) {
     var aLower: string = to_lower(a)
     var bLower: string = to_lower(b)
 
     return aLower == bLower
+}
+
+// Deprecated: use equal_ignore_case.
+pub func equalIgnoreCase(a: &string, b: &string) -> (bool) {
+    return equal_ignore_case(a, b)
 }
 
 // -----------------------------------------------------------------------------
@@ -786,8 +791,8 @@ pub func count(s: &string, sub: &string) -> (int) {
 // -----------------------------------------------------------------------------
 // Conversion Helpers (from old implementation)
 // -----------------------------------------------------------------------------
-// fromChars converts a Vec of chars to a string
-pub func fromChars(chars: &Vec<char, _>) -> (string) {
+// from_chars converts a Vec of chars to a string.
+pub func from_chars(chars: &Vec<char, _>) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
 
@@ -799,8 +804,13 @@ pub func fromChars(chars: &Vec<char, _>) -> (string) {
     return result
 }
 
-// fromBytes converts a Vec of bytes (integers) to a string.
-pub func fromBytes(bytes: Vec<int, _>) -> (string) {
+// Deprecated: use from_chars.
+pub func fromChars(chars: &Vec<char, _>) -> (string) {
+    return from_chars(chars)
+}
+
+// from_bytes converts a Vec of bytes (integers) to a string.
+pub func from_bytes(bytes: Vec<int, _>) -> (string) {
     return __builtin_string_from_bytes(
         bytes,
         0,
@@ -808,8 +818,13 @@ pub func fromBytes(bytes: Vec<int, _>) -> (string) {
     )
 }
 
-// fromBytesSlice converts a range of bytes (integers) to a string.
-pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
+// Deprecated: use from_bytes.
+pub func fromBytes(bytes: Vec<int, _>) -> (string) {
+    return from_bytes(bytes)
+}
+
+// from_bytes_slice converts a range of bytes (integers) to a string.
+pub func from_bytes_slice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
     return __builtin_string_from_bytes(
         bytes,
         start,
@@ -817,8 +832,13 @@ pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
     )
 }
 
-// toChars converts a string to a Vec of chars
-pub func toChars(s: &string) -> (Vec<char, _>) {
+// Deprecated: use from_bytes_slice.
+pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
+    return from_bytes_slice(bytes, start, end)
+}
+
+// to_chars converts a string to a Vec of chars.
+pub func to_chars(s: &string) -> (Vec<char, _>) {
     mut var result: Vec<char, _> = Vec.new()
     mut var i: int = 0
 
@@ -828,6 +848,11 @@ pub func toChars(s: &string) -> (Vec<char, _>) {
     }
 
     return result
+}
+
+// Deprecated: use to_chars.
+pub func toChars(s: &string) -> (Vec<char, _>) {
+    return to_chars(s)
 }
 
 // concat joins multiple strings

@@ -131,7 +131,7 @@ impl Duration as d {
     }
 
     pub func to_string() -> (string) {
-        return strconv.intToString(d.nanos) + "ns"
+        return strconv.int_to_string(d.nanos) + "ns"
     }
 
     pub func eq(other: Duration) -> (bool) {
@@ -188,15 +188,15 @@ impl Time as t {
     // Fast path for unix numeric formats
     pub func format(format: string) -> (string) {
         if format == FormatUnix {
-            return strconv.intToString(t.unix())
+            return strconv.int_to_string(t.unix())
         }
 
         if format == FormatUnixMillis {
-            return strconv.intToString(t.unix_millis())
+            return strconv.int_to_string(t.unix_millis())
         }
 
         if format == FormatUnixNanos {
-            return strconv.intToString(t.unix_nanos())
+            return strconv.int_to_string(t.unix_nanos())
         }
 
         var parts: Vec<int, _> = __builtin_time_parts(t.nanos)
@@ -279,7 +279,7 @@ impl Time as t {
 }
 
 func pad_left(value: int, width: int) -> (string) {
-    mut var s: string = strconv.intToString(value)
+    mut var s: string = strconv.int_to_string(value)
 
     while s.len() < width {
         s = "0" + s

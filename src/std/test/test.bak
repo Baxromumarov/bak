@@ -77,10 +77,10 @@ func format_value<T>(val: T) -> (string) {
         type_name == "uint16" || 
         type_name == "uint32" ||
         type_name == "uint64" {
-        return strconv.intToString(int(val))
+        return strconv.int_to_string(int(val))
     }
     if type_name == "FLOAT" || type_name == "float" || type_name == "float32" || type_name == "float64" {
-        return strconv.formatFloat(float64(val), 6)
+        return strconv.format_float(float64(val), 6)
     }
     if type_name == "BOOLEAN" || type_name == "bool" {
         if int(val) == 0 {
@@ -190,7 +190,7 @@ impl T as t {
             diff = -diff
         }
         if diff > 0.000001 {
-            t.fail("  expected: " + strconv.formatFloat(want, 6) + "\n  actual:   " + strconv.formatFloat(got, 6))
+            t.fail("  expected: " + strconv.format_float(want, 6) + "\n  actual:   " + strconv.format_float(got, 6))
         }
     }
 
@@ -208,25 +208,25 @@ impl T as t {
 
     pub mut func gt(got: int, want: int) -> (void) {
         if got <= want {
-            t.fail("  expected: " + strconv.intToString(got) + " > " + strconv.intToString(want))
+            t.fail("  expected: " + strconv.int_to_string(got) + " > " + strconv.int_to_string(want))
         }
     }
 
     pub mut func gte(got: int, want: int) -> (void) {
         if got < want {
-            t.fail("  expected: " + strconv.intToString(got) + " >= " + strconv.intToString(want))
+            t.fail("  expected: " + strconv.int_to_string(got) + " >= " + strconv.int_to_string(want))
         }
     }
 
     pub mut func lt(got: int, want: int) -> (void) {
         if got >= want {
-            t.fail("  expected: " + strconv.intToString(got) + " < " + strconv.intToString(want))
+            t.fail("  expected: " + strconv.int_to_string(got) + " < " + strconv.int_to_string(want))
         }
     }
 
     pub mut func lte(got: int, want: int) -> (void) {
         if got > want {
-            t.fail("  expected: " + strconv.intToString(got) + " <= " + strconv.intToString(want))
+            t.fail("  expected: " + strconv.int_to_string(got) + " <= " + strconv.int_to_string(want))
         }
     }
 

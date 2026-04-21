@@ -221,13 +221,13 @@ func status_reason(status: int) -> (string) {
 }
 
 pub func parse_response(raw: string) -> (Result<Response, string>) {
-    mut var headerEnd = indexOf(
+    mut var headerEnd = index_of(
         &raw,
         &CRLFCRLF,
     )
     mut var headerSepLen: int = 4
     if headerEnd == -1 {
-        headerEnd = indexOf(
+        headerEnd = index_of(
             &raw,
             &LFLF,
         )
@@ -244,7 +244,7 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
         headerEnd + headerSepLen,
         raw.len(),
     )
-    mut var statusLineEnd = indexOf(
+    mut var statusLineEnd = index_of(
         &headerPart,
         &LF,
     )
@@ -263,7 +263,7 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
         statusLineEnd + 1,
         headerPart.len(),
     )
-    var firstSpace = indexOf(
+    var firstSpace = index_of(
         &statusLine,
         &" ",
     )
@@ -278,7 +278,7 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
         firstSpace + 1,
         statusLine.len(),
     )
-    var secondSpace = indexOf(
+    var secondSpace = index_of(
         &rest,
         &" ",
     )
@@ -297,14 +297,14 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
         )
     }
     mut var headers: Vec<Header, _> = Vec.from([])
-    var statusCodeResult: Result<int, string> = statusCodeStr.parseInt()
+    var statusCodeResult: Result<int, string> = statusCodeStr.parse_int()
     if !statusCodeResult.is_ok() {
         return Err("invalid status code")
     }
     var statusCode: int = statusCodeResult.unwrap()
     mut var current: string = headersPart
     while current.len() > 0 {
-        var lineEnd = indexOf(
+        var lineEnd = index_of(
             &current,
             &LF,
         )
@@ -329,7 +329,7 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
         if line.len() == 0 {
             break
         }
-        var colonIndex = indexOf(
+        var colonIndex = index_of(
             &line,
             &":",
         )
@@ -342,7 +342,7 @@ pub func parse_response(raw: string) -> (Result<Response, string>) {
                 colonIndex + 1,
                 line.len(),
             )
-            if value.startsWith(" ") {
+            if value.starts_with(" ") {
                 value = value.substring(
                     1,
                     value.len(),
