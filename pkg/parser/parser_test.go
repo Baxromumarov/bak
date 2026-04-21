@@ -204,6 +204,48 @@ pub trace func work() -> (void) {
 	}
 }
 
+func TestParserCanonicalizesVecShorthandToDynamic(t *testing.T) {
+	input := `
+package main
+func main() -> (void) {
+	var xs: Vec<int> = Vec.new()
+}
+`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	fn, ok := program.Statements[1].(*ast.FunctionDecl)
+	if !ok {
+		t.Fatalf("expected FunctionDecl, got %T", program.Statements[1])
+	}
+	if len(fn.Body.Statements) == 0 {
+		t.Fatalf("expected function body statements")
+	}
+	vs, ok := fn.Body.Statements[0].(*ast.VarStatement)
+	if !ok {
+		t.Fatalf("expected VarStatement, got %T", fn.Body.Statements[0])
+	}
+
+	gt, ok := vs.Type.(*ast.GenericType)
+	if !ok {
+		t.Fatalf("expected GenericType, got %T", vs.Type)
+	}
+	if gt.Name != "Vec" {
+		t.Fatalf("expected Vec generic type, got %q", gt.Name)
+	}
+	if len(gt.TypeParams) != 2 {
+		t.Fatalf("expected canonical Vec<T, _> to have 2 params, got %d", len(gt.TypeParams))
+	}
+	if _, ok := gt.TypeParams[1].(*ast.SizeExpression); !ok {
+		t.Fatalf("expected second param to be SizeExpression, got %T", gt.TypeParams[1])
+	}
+	if se, ok := gt.TypeParams[1].(*ast.SizeExpression); !ok || !se.IsDynamic {
+		t.Fatalf("expected second param to be dynamic size _, got %#v", gt.TypeParams[1])
+	}
+}
+
 func TestParseEnumDecl(t *testing.T) {
 	input := `
 package main

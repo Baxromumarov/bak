@@ -324,7 +324,7 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		}
 		// Common boolean-returning methods
 		switch e.Method.Value {
-		case "startsWith", "endsWith", "contains", "is_empty", "is_ok", "is_err", "is_some", "is_none":
+		case "startsWith", "starts_with", "endsWith", "ends_with", "contains", "is_empty", "isEmpty", "is_ok", "is_err", "is_some", "is_none":
 			return true
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, e.Method.Value); ok {
@@ -413,7 +413,7 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 	case *ast.MethodCallExpression:
 		// Methods that return strings
 		methodName := e.Method.Value
-		if methodName == "toString" || methodName == "substring" || methodName == "trim" ||
+		if methodName == "toString" || methodName == "to_string" || methodName == "substring" || methodName == "trim" ||
 			methodName == "to_lowercase" || methodName == "to_uppercase" || methodName == "formatAll" {
 			return true
 		}
@@ -4044,7 +4044,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				callSite := emitCallRel32(&s.Code, 0)
 				s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
 				return nil
-			case "parseInt", "atoi":
+			case "parseInt", "parse_int", "atoi":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: strconv.parseInt expects 1 argument")
 				}
@@ -4185,7 +4185,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			return s.emitLen(fa)
 		case "pop":
 			return s.emitVecPop(fa)
-		case "is_empty":
+		case "is_empty", "isEmpty":
 			return s.emitIsEmpty(fa)
 		case "contains":
 			if len(e.Arguments) != 1 {
@@ -4270,6 +4270,9 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	case "is_empty":
 		// vec.is_empty()
 		return s.emitIsEmpty(e.Object)
+	case "isEmpty":
+		// vec.isEmpty() (deprecated alias)
+		return s.emitIsEmpty(e.Object)
 	case "contains":
 		// string.contains(other)
 		if len(e.Arguments) != 1 {
@@ -4330,7 +4333,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	case "hash":
 		// string.hash() - compute hash of string
 		return s.emitStringHash(e.Object)
-	case "parseFloat":
+	case "parseFloat", "parse_float":
 		// string.parseFloat() -> Result<float64, string>
 		// Delegate to strconv.atof which takes &string (reference to string).
 		// Push string value on stack so we can pass its address.
@@ -4343,7 +4346,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "strconv.atof"})
 		emitAddRspImm8(&s.Code, 8) // clean up stack
 		return nil
-	case "parseInt":
+	case "parseInt", "parse_int":
 		// string.parseInt() - parse string as int
 		if err := s.emitExpression(e.Object); err != nil {
 			return err
@@ -4357,7 +4360,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		callSite := emitCallRel32(&s.Code, 0)
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
 		return nil
-	case "toString":
+	case "toString", "to_string":
 		// char.toString() or int.toString() - convert value to 1-char or number string
 		return s.emitToString(e.Object)
 	}

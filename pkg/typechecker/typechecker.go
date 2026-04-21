@@ -3179,8 +3179,15 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			// It is a module function call!
 			// We need to handle it here because the parser might have created a MethodCallExpression
 
-			if sym, ok := symbols[mc.Method.Value]; ok && sym.Kind == packages.SymbolFunc {
-				tc.markImportedSymbolUsed(ident.Value, mc.Method.Value)
+			methodName := mc.Method.Value
+			canonicalMethod := tc.canonicalizeStringsModuleFunction(ident.Value, methodName, mc.Token.Line, mc.Token.Column)
+			if canonicalMethod != methodName {
+				if _, ok := symbols[canonicalMethod]; ok {
+					methodName = canonicalMethod
+				}
+			}
+			if sym, ok := symbols[methodName]; ok && sym.Kind == packages.SymbolFunc {
+				tc.markImportedSymbolUsed(ident.Value, methodName)
 				if funcDecl, ok := sym.Node.(*ast.FunctionDecl); ok {
 					// Extract signature
 					paramTypes := make([]ast.TypeExpression, len(funcDecl.Parameters))
@@ -3622,14 +3629,14 @@ var stringMethodCandidates = []string{
 	"chars",
 	"hash",
 	"substring",
-	"indexOf",
-	"lastIndexOf",
+	"index_of",
+	"last_index_of",
 	"contains",
-	"startsWith",
-	"endsWith",
-	"parseInt",
-	"parseFloat",
-	"toString",
+	"starts_with",
+	"ends_with",
+	"parse_int",
+	"parse_float",
+	"to_string",
 	"get",
 }
 
@@ -3644,7 +3651,6 @@ var vecMethodCandidates = []string{
 	"len",
 	"cap",
 	"is_empty",
-	"isEmpty",
 	"contains",
 	"join",
 	"slice",
@@ -3657,7 +3663,6 @@ var vecMethodCandidates = []string{
 }
 
 var primitiveMethodCandidates = []string{
-	"toString",
 	"to_string",
 }
 
@@ -3669,7 +3674,7 @@ var resultMethodCandidates = []string{
 }
 
 func isToStringMethod(name string) bool {
-	return name == "toString" || name == "to_string"
+	return name == "to_string"
 }
 
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {
@@ -3784,7 +3789,14 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				return &ast.SimpleType{Name: "thread.Thread"}
 			}
 			if symbols, exists := tc.importedSymbols[modIdent.Value]; exists {
-				if sym, found := symbols[fa.Field.Value]; found {
+				methodName := fa.Field.Value
+				canonicalMethod := tc.canonicalizeStringsModuleFunction(modIdent.Value, methodName, ce.Token.Line, ce.Token.Column)
+				if canonicalMethod != methodName {
+					if _, ok := symbols[canonicalMethod]; ok {
+						methodName = canonicalMethod
+					}
+				}
+				if sym, found := symbols[methodName]; found {
 
 					switch sym.Kind {
 					case packages.SymbolFunc:
@@ -3803,17 +3815,17 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 								Parameters: params,
 								ReturnType: qualifyImportedType(funcDecl.ReturnType, modIdent.Value, symbols),
 							}
-							funcName = modIdent.Value + "." + fa.Field.Value
+							funcName = modIdent.Value + "." + methodName
 							// Mark this imported function as used by the current package
-							tc.markImportedSymbolUsed(modIdent.Value, fa.Field.Value)
+							tc.markImportedSymbolUsed(modIdent.Value, methodName)
 						}
 					case packages.SymbolEnum:
 						// Handle imported Enum constructor (e.g. diag.UnusedVariable(...))
-						tc.markImportedSymbolUsed(modIdent.Value, fa.Field.Value)
+						tc.markImportedSymbolUsed(modIdent.Value, methodName)
 						// Clear temporary mutable borrows created by &mut arguments
 						tc.clearBorrows(ce.Arguments)
 						// Return the enum type
-						return &ast.SimpleType{Name: modIdent.Value + "." + fa.Field.Value}
+						return &ast.SimpleType{Name: modIdent.Value + "." + methodName}
 					}
 				}
 			}

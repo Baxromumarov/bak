@@ -69,7 +69,7 @@ impl Row as r {
 
     pub func get_int(name: string) -> (Result<int, string>) {
         switch r.get(name) {
-            case Ok(v) { return v.parseInt() }
+            case Ok(v) { return v.parse_int() }
             case Err(err) { return Err(err) }
         }
     }
@@ -98,7 +98,7 @@ impl Row as r {
 
     pub func get_float(name: string) -> (Result<float64, string>) {
         switch r.get(name) {
-            case Ok(v) { return v.parseFloat() }
+            case Ok(v) { return v.parse_float() }
             case Err(err) { return Err(err) }
         }
     }

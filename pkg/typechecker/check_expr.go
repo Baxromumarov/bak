@@ -13,25 +13,25 @@ func stringStdlibReplacementHint(method string) string {
 	case "trim":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim(&value)"
 	case "trimLeft", "trim_left":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimLeft(&value)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_left(&value)"
 	case "trimRight", "trim_right":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimRight(&value)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_right(&value)"
 	case "trimPrefix", "trim_prefix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimPrefix(&value, &prefix)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_prefix(&value, &prefix)"
 	case "trimSuffix", "trim_suffix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimSuffix(&value, &suffix)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_suffix(&value, &suffix)"
 	case "toUpper", "to_upper":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.toUpper(&value)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.to_upper(&value)"
 	case "toLower", "to_lower":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.toLower(&value)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.to_lower(&value)"
 	case "replaceFirst", "replace_first":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.replaceFirst(&value, &old, &new)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.replace_first(&value, &old, &new)"
 	case "count":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.count(&value, &sub)"
 	case "compare":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.compare(&a, &b)"
 	case "equalIgnoreCase", "equal_ignore_case":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.equalIgnoreCase(&a, &b)"
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.equal_ignore_case(&a, &b)"
 	default:
 		return ""
 	}
@@ -271,14 +271,15 @@ func (tc *TypeChecker) checkMutableReceiver(expr ast.Expression) bool {
 }
 
 func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
+	method := tc.canonicalizePrimitiveMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}
-	if isToStringMethod(mc.Method.Value) {
+	if method == "to_string" {
 		if len(mc.Arguments) != 0 {
 			tc.errorMethodArgumentCountMismatch(
 				typeName,
-				mc.Method.Value,
+				method,
 				0,
 				len(mc.Arguments),
 				mc.Token.Line,
@@ -288,19 +289,20 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		}
 		return &ast.SimpleType{Name: "string"}
 	}
-	tc.errorUndefinedMethod(typeName, mc.Method.Value, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
+	tc.errorUndefinedMethod(typeName, method, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
 	return nil
 }
 
 func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
+	method := tc.canonicalizePrimitiveMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}
-	if isToStringMethod(mc.Method.Value) {
+	if method == "to_string" {
 		if len(mc.Arguments) != 0 {
 			tc.errorMethodArgumentCountMismatch(
 				typeName,
-				mc.Method.Value,
+				method,
 				0,
 				len(mc.Arguments),
 				mc.Token.Line,
@@ -310,13 +312,13 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 		}
 		return &ast.SimpleType{Name: "string"}
 	}
-	tc.errorUndefinedMethod(typeName, mc.Method.Value, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
+	tc.errorUndefinedMethod(typeName, method, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
 	return nil
 }
 
 // checkStringMethodCall type checks String method calls
 func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.TypeExpression {
-	method := mc.Method.Value
+	method := tc.canonicalizeStringMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
 	switch method {
 	case "len":
 		return &ast.SimpleType{Name: "int"}
@@ -340,24 +342,24 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 		return &ast.SimpleType{Name: "int"}
 	case "substring":
 		return &ast.SimpleType{Name: "string"}
-	case "indexOf", "lastIndexOf":
+	case "index_of", "last_index_of":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "int"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "contains", "startsWith", "endsWith":
+	case "contains", "starts_with", "ends_with":
 		return &ast.SimpleType{Name: "bool"}
-	case "parseInt":
+	case "parse_int":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "int"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "parseFloat":
+	case "parse_float":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "float64"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "toString":
+	case "to_string":
 		return &ast.SimpleType{Name: "string"}
 	case "get":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
@@ -377,7 +379,7 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 // checkVecMethodCall type checks Vec method calls and enforces fixed-size vs dynamic restrictions
 // Also enforces ownership and mutability rules for Vec operations
 func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType *ast.GenericType) ast.TypeExpression {
-	method := mc.Method.Value
+	method := tc.canonicalizeVecMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
 
 	// Get the variable name if the object is an identifier
 	var varName string
@@ -516,7 +518,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		return &ast.GenericType{Name: "Result"}
 	case "len", "cap":
 		return &ast.SimpleType{Name: "int"}
-	case "is_empty", "isEmpty", "contains":
+	case "is_empty", "contains":
 		return &ast.SimpleType{Name: "bool"}
 	case "join":
 		return &ast.SimpleType{Name: "string"}

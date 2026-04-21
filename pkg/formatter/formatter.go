@@ -11,6 +11,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/token"
+	"github.com/baxromumarov/bak/pkg/typestr"
 )
 
 const indentUnit = "    "
@@ -1279,75 +1280,7 @@ func unwrapElseIf(block *ast.BlockStatement) *ast.IfStatement {
 }
 
 func formatType(expr ast.TypeExpression) string {
-	switch t := expr.(type) {
-	case *ast.SimpleType:
-		return t.Name
-	case *ast.GenericType:
-		if t.Name == "Vec" && len(t.TypeParams) == 1 {
-			var out strings.Builder
-			out.WriteString("Vec<")
-			out.WriteString(formatType(t.TypeParams[0]))
-			out.WriteString(", _>")
-			return out.String()
-		}
-		var out strings.Builder
-		out.WriteString(t.Name)
-		out.WriteString("<")
-		for i, param := range t.TypeParams {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(formatType(param))
-		}
-		out.WriteString(">")
-		return out.String()
-	case *ast.BorrowType:
-		if t.Mutable {
-			return "&mut " + formatType(t.Inner)
-		}
-		return "&" + formatType(t.Inner)
-	case *ast.BoxType:
-		return formatType(t.Inner) + " box"
-	case *ast.BoxOptionalType:
-		return formatType(t.Inner) + " box?"
-	case *ast.SizeExpression:
-		if t.IsDynamic {
-			return "_"
-		}
-		return t.Token.Literal
-	case *ast.VoidType:
-		return "void"
-	case *ast.TupleType:
-		var out strings.Builder
-		out.WriteString("(")
-		for i, elem := range t.Elements {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(formatType(elem))
-		}
-		out.WriteString(")")
-		return out.String()
-	case *ast.FunctionType:
-		var out strings.Builder
-		out.WriteString("func(")
-		for i, param := range t.Params {
-			if i > 0 {
-				out.WriteString(", ")
-			}
-			out.WriteString(formatType(param))
-		}
-		out.WriteString(") -> (")
-		if t.ReturnType != nil {
-			out.WriteString(formatType(t.ReturnType))
-		} else {
-			out.WriteString("void")
-		}
-		out.WriteString(")")
-		return out.String()
-	default:
-		return ""
-	}
+	return typestr.RenderTypeForSyntax(expr)
 }
 
 const (

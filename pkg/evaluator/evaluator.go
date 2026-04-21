@@ -3202,18 +3202,18 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 
 func evalStringMethod(str *object.String, method string, args []object.Object) object.Object {
 	switch method {
-	case "toString":
+	case "toString", "to_string":
 		if len(args) != 0 {
-			return newError("toString: wrong number of arguments. got=%d, want=0", len(args))
+			return newError("to_string: wrong number of arguments. got=%d, want=0", len(args))
 		}
 		return str
 	// === Length and Emptiness ===
 	case "len":
 		return &object.Integer{Value: int64(len([]rune(str.Value)))}
-	case "charCount":
+	case "charCount", "char_count":
 		// Count Unicode characters (runes)
 		return &object.Integer{Value: int64(len([]rune(str.Value)))}
-	case "isEmpty":
+	case "isEmpty", "is_empty":
 		return nativeBoolToBooleanObject(len(str.Value) == 0)
 	case "hash":
 		h := uint32(2166136261)
@@ -3223,7 +3223,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		return &object.Integer{Value: int64(h)}
 
 	// === Character Access ===
-	case "charAt":
+	case "charAt", "char_at":
 		if len(args) != 1 {
 			return newError("charAt: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3236,7 +3236,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return &object.Option{IsSome: false, Value: nil}
 		}
 		return &object.Option{IsSome: true, Value: &object.Char{Value: runes[idx.Value]}}
-	case "byteAt":
+	case "byteAt", "byte_at":
 		if len(args) != 1 {
 			return newError("byteAt: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3283,7 +3283,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return &object.String{Value: ""}
 		}
 		return &object.String{Value: string(runes[start.Value:end.Value])}
-	case "substringFrom":
+	case "substringFrom", "substring_from":
 		if len(args) != 1 {
 			return newError("substringFrom: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3299,7 +3299,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return &object.String{Value: ""}
 		}
 		return &object.String{Value: string(runes[start.Value:])}
-	case "substringTo":
+	case "substringTo", "substring_to":
 		if len(args) != 1 {
 			return newError("substringTo: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3317,7 +3317,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		return &object.String{Value: string(runes[:end.Value])}
 
 	// === Searching ===
-	case "indexOf":
+	case "indexOf", "index_of":
 		if len(args) != 1 {
 			return newError("indexOf: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3330,7 +3330,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
 		}
 		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(idx)}}
-	case "lastIndexOf":
+	case "lastIndexOf", "last_index_of":
 		if len(args) != 1 {
 			return newError("lastIndexOf: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3352,7 +3352,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return newError("contains: argument must be STRING, got %s", args[0].Type())
 		}
 		return nativeBoolToBooleanObject(strings.Contains(str.Value, substr.Value))
-	case "startsWith":
+	case "startsWith", "starts_with":
 		if len(args) != 1 {
 			return newError("startsWith: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3361,7 +3361,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return newError("startsWith: argument must be STRING, got %s", args[0].Type())
 		}
 		return nativeBoolToBooleanObject(strings.HasPrefix(str.Value, prefix.Value))
-	case "endsWith":
+	case "endsWith", "ends_with":
 		if len(args) != 1 {
 			return newError("endsWith: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3386,7 +3386,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			elements[i] = &object.String{Value: part}
 		}
 		return &object.Vec{Elements: elements, ElemType: "string", Size: -1, Mutable: false}
-	case "splitLines":
+	case "splitLines", "split_lines":
 		lines := strings.Split(str.Value, "\n")
 		elements := make([]object.Object, len(lines))
 		for i, line := range lines {
@@ -3397,11 +3397,11 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 	// === Trimming ===
 	case "trim":
 		return &object.String{Value: strings.TrimSpace(str.Value)}
-	case "trimStart":
+	case "trimStart", "trim_start":
 		return &object.String{Value: strings.TrimLeft(str.Value, " \t\n\r")}
-	case "trimEnd":
+	case "trimEnd", "trim_end":
 		return &object.String{Value: strings.TrimRight(str.Value, " \t\n\r")}
-	case "trimChars":
+	case "trimChars", "trim_chars":
 		if len(args) != 1 {
 			return newError("trimChars: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3412,9 +3412,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		return &object.String{Value: strings.Trim(str.Value, chars.Value)}
 
 	// === Case Conversion ===
-	case "toUpper":
+	case "toUpper", "to_upper":
 		return &object.String{Value: strings.ToUpper(str.Value)}
-	case "toLower":
+	case "toLower", "to_lower":
 		return &object.String{Value: strings.ToLower(str.Value)}
 
 	// === Replacement ===
@@ -3428,7 +3428,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return newError("replace: arguments must be STRING")
 		}
 		return &object.String{Value: strings.ReplaceAll(str.Value, old.Value, new.Value)}
-	case "replaceFirst":
+	case "replaceFirst", "replace_first":
 		if len(args) != 2 {
 			return newError("replaceFirst: wrong number of arguments. got=%d, want=2", len(args))
 		}
@@ -3454,14 +3454,14 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		return &object.String{Value: strings.Repeat(str.Value, int(count.Value))}
 
 	// === Parsing ===
-	case "parseInt":
+	case "parseInt", "parse_int":
 		var val int64
 		_, err := fmt.Sscanf(str.Value, "%d", &val)
 		if err != nil {
 			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid integer"}}
 		}
 		return &object.Result{IsOk: true, Value: &object.Integer{Value: val}}
-	case "parseFloat":
+	case "parseFloat", "parse_float":
 		var val float64
 		_, err := fmt.Sscanf(str.Value, "%f", &val)
 		if err != nil {
@@ -3528,7 +3528,7 @@ func evalCharMethod(ch *object.Char, method string, args []object.Object) object
 			return &object.Char{Value: r + 32}
 		}
 		return ch
-	case "toString":
+	case "toString", "to_string":
 		return &object.String{Value: string(r)}
 	default:
 		return newError("undefined method: %s for Char", method)
@@ -3539,7 +3539,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 	_ = args // No methods currently take arguments
 
 	switch method {
-	case "toString":
+	case "toString", "to_string":
 		return &object.String{Value: fmt.Sprintf("%d", num.Value)}
 	case "toFloat":
 		return &object.Float{Value: float64(num.Value)}
@@ -3555,7 +3555,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 
 func evalFloatMethod(num *object.Float, method string, args []object.Object) object.Object {
 	switch method {
-	case "toString":
+	case "toString", "to_string":
 		return &object.String{Value: fmt.Sprintf("%g", num.Value)}
 	case "toInt":
 		return &object.Integer{Value: int64(num.Value)}
@@ -3643,6 +3643,8 @@ func evalResultMethod(result *object.Result, method string, args []object.Object
 			return result.Value
 		}
 		return newError("called unwrap_err on Ok: %s", result.Value.Inspect())
+	case "to_string", "toString":
+		return &object.String{Value: result.Inspect()}
 	default:
 		fullName := fmt.Sprintf("Result.%s", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
@@ -3671,6 +3673,8 @@ func evalOptionMethod(option *object.Option, method string, args []object.Object
 		return nativeBoolToBooleanObject(option.IsSome)
 	case "is_none":
 		return nativeBoolToBooleanObject(!option.IsSome)
+	case "to_string", "toString":
+		return &object.String{Value: option.Inspect()}
 	default:
 		fullName := fmt.Sprintf("Option.%s", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {

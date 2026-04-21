@@ -93,7 +93,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 						Name: "Vec",
 						TypeParams: []ast.TypeExpression{
 							&ast.SimpleType{Name: "int"},
-							&ast.SimpleType{Name: "_"},
+							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
 					&ast.SimpleType{Name: "string"},
@@ -107,7 +107,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Vec",
 				TypeParams: []ast.TypeExpression{
 					&ast.SimpleType{Name: "string"},
-					&ast.SimpleType{Name: "_"},
+					&ast.SizeExpression{IsDynamic: true},
 				},
 			},
 		}
@@ -118,7 +118,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
 						&ast.SimpleType{Name: "int"},
-						&ast.SimpleType{Name: "_"},
+						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
 				&ast.SimpleType{Name: "int"},
@@ -152,7 +152,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
 						&ast.SimpleType{Name: "int"},
-						&ast.SimpleType{Name: "_"},
+						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
 			},
@@ -193,7 +193,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 						Name: "Vec",
 						TypeParams: []ast.TypeExpression{
 							&ast.SimpleType{Name: "DirEntry"},
-							&ast.SimpleType{Name: "_"},
+							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
 					&ast.SimpleType{Name: "string"},
@@ -383,7 +383,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 						Name: "Vec",
 						TypeParams: []ast.TypeExpression{
 							&ast.SimpleType{Name: "int"},
-							&ast.SimpleType{Name: "_"},
+							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
 					&ast.SimpleType{Name: "string"},

@@ -9,6 +9,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/token"
+	"github.com/baxromumarov/bak/pkg/typestr"
 )
 
 // resolveType resolves aliases to their underlying types (aliases are interchangeable).
@@ -941,10 +942,7 @@ func TypeToString(t ast.TypeExpression) string {
 }
 
 func typeToString(t ast.TypeExpression) string {
-	if t == nil {
-		return "unknown"
-	}
-	return t.String()
+	return typestr.RenderType(t)
 }
 
 func describeNodeToken(node ast.Node) string {
@@ -1043,7 +1041,7 @@ func getStmtToken(s ast.Statement) token.Token {
 }
 
 func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resType *ast.GenericType) ast.TypeExpression {
-	method := mc.Method.Value
+	method := tc.canonicalizeResultMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
 	if len(resType.TypeParams) < 2 {
 		return nil
 	}
@@ -1084,7 +1082,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 			})
 		}
 		return errType
-	case "to_string", "toString":
+	case "to_string":
 		return &ast.SimpleType{Name: "string"}
 	default:
 		tc.errorUndefinedMethod("Result", method, mc.Token.Line, mc.Token.Column, resultMethodCandidates)

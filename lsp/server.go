@@ -35,18 +35,32 @@ type builtinMethodInfo struct {
 // builtinMethods maps a type name to a map of method names to their info.
 var builtinMethods = map[string]map[string]builtinMethodInfo{
 	"string": {
-		"len":       {Signature: "func len() -> (int)", Doc: "Returns the length of the string in bytes."},
-		"bytes":     {Signature: "func bytes() -> (Vec<int, _>)", Doc: "Returns the byte representation of the string as a vector of integers."},
-		"chars":     {Signature: "func chars() -> (Vec<char, _>)", Doc: "Returns the characters of the string as a vector of chars."},
-		"lines":     {Signature: "func lines() -> (Vec<string, _>)", Doc: "Returns the lines of the string."},
-		"split":     {Signature: "func split(sep: string) -> (Vec<string, _>)", Doc: "Splits the string by the given separator."},
-		"replace":   {Signature: "func replace(old: string, new: string) -> (string)", Doc: "Replaces all occurrences of old with new."},
-		"substring": {Signature: "func substring(start: int, end: int) -> (string)", Doc: "Returns a substring from start (inclusive) to end (exclusive)."},
-		"trim":      {Signature: "func trim() -> (string)", Doc: "Returns the string with leading and trailing whitespace removed."},
-		"to_int":    {Signature: "func to_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
-		"contains":  {Signature: "func contains(substr: string) -> (bool)", Doc: "Returns true if the string contains the substring."},
-		"hash":      {Signature: "func hash() -> (int)", Doc: "Returns the hash code of the string."},
-		"indexOf":   {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
+		"len":           {Signature: "func len() -> (int)", Doc: "Returns the length of the string in bytes."},
+		"bytes":         {Signature: "func bytes() -> (Vec<int, _>)", Doc: "Returns the byte representation of the string as a vector of integers."},
+		"chars":         {Signature: "func chars() -> (Vec<char, _>)", Doc: "Returns the characters of the string as a vector of chars."},
+		"lines":         {Signature: "func lines() -> (Vec<string, _>)", Doc: "Returns the lines of the string."},
+		"split":         {Signature: "func split(sep: string) -> (Vec<string, _>)", Doc: "Splits the string by the given separator."},
+		"replace":       {Signature: "func replace(old: string, new: string) -> (string)", Doc: "Replaces all occurrences of old with new."},
+		"substring":     {Signature: "func substring(start: int, end: int) -> (string)", Doc: "Returns a substring from start (inclusive) to end (exclusive)."},
+		"trim":          {Signature: "func trim() -> (string)", Doc: "Returns the string with leading and trailing whitespace removed."},
+		"to_int":        {Signature: "func to_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
+		"contains":      {Signature: "func contains(substr: string) -> (bool)", Doc: "Returns true if the string contains the substring."},
+		"hash":          {Signature: "func hash() -> (int)", Doc: "Returns the hash code of the string."},
+		"index_of":      {Signature: "func index_of(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
+		"last_index_of": {Signature: "func last_index_of(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the last occurrence of the substring, or Err if not found."},
+		"starts_with":   {Signature: "func starts_with(prefix: string) -> (bool)", Doc: "Returns true if the string starts with prefix."},
+		"ends_with":     {Signature: "func ends_with(suffix: string) -> (bool)", Doc: "Returns true if the string ends with suffix."},
+		"parse_int":     {Signature: "func parse_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
+		"parse_float":   {Signature: "func parse_float() -> (Result<float64, string>)", Doc: "Parses the string as a float."},
+		"to_string":     {Signature: "func to_string() -> (string)", Doc: "Returns this string value."},
+		"get":           {Signature: "func get(index: int) -> (Result<char, string>)", Doc: "Returns the character at index, or Err if out of bounds."},
+		"indexOf":       {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Deprecated: use index_of."},
+		"lastIndexOf":   {Signature: "func lastIndexOf(substr: string) -> (Result<int, string>)", Doc: "Deprecated: use last_index_of."},
+		"startsWith":    {Signature: "func startsWith(prefix: string) -> (bool)", Doc: "Deprecated: use starts_with."},
+		"endsWith":      {Signature: "func endsWith(suffix: string) -> (bool)", Doc: "Deprecated: use ends_with."},
+		"parseInt":      {Signature: "func parseInt() -> (Result<int, string>)", Doc: "Deprecated: use parse_int."},
+		"parseFloat":    {Signature: "func parseFloat() -> (Result<float64, string>)", Doc: "Deprecated: use parse_float."},
+		"toString":      {Signature: "func toString() -> (string)", Doc: "Deprecated: use to_string."},
 	},
 	"Vec": {
 		"push":     {Signature: "func push(value: T) -> (void)", Doc: "Pushes an element to the end of the vector."},
@@ -59,7 +73,7 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of elements in the vector."},
 		"cap":      {Signature: "func cap() -> (int)", Doc: "Returns the vector capacity."},
 		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the vector has no elements."},
-		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Returns true if the vector has no elements."},
+		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Deprecated: use is_empty."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all elements from the vector."},
 		"reverse":  {Signature: "func reverse() -> (void)", Doc: "Reverses elements in place."},
 		"contains": {Signature: "func contains(value: T) -> (bool)", Doc: "Returns true if the vector contains the value."},
@@ -93,6 +107,13 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"unwrap":     {Signature: "func unwrap() -> (T)", Doc: "Returns the Ok value. Panics if Err."},
 		"unwrap_err": {Signature: "func unwrap_err() -> (E)", Doc: "Returns the Err value. Panics if Ok."},
 		"to_string":  {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Result."},
+		"toString":   {Signature: "func toString() -> (string)", Doc: "Deprecated: use to_string."},
+	},
+	"Option": {
+		"is_some":   {Signature: "func is_some() -> (bool)", Doc: "Returns true if the option is Some."},
+		"is_none":   {Signature: "func is_none() -> (bool)", Doc: "Returns true if the option is None."},
+		"unwrap":    {Signature: "func unwrap() -> (T)", Doc: "Returns the Some value. Panics if None."},
+		"to_string": {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Option."},
 	},
 }
 
@@ -2210,6 +2231,9 @@ func appendBuiltinTypeMethodCompletions(items *[]CompletionItem, typeName string
 	}
 
 	for methodName, info := range methods {
+		if strings.HasPrefix(info.Doc, "Deprecated:") {
+			continue
+		}
 		insertText, insertFormat := completionInsertTextFromSignature(methodName, info.Signature)
 		*items = append(*items, CompletionItem{
 			Label:            methodName,
@@ -5569,6 +5593,30 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 	}
 
 	if sig.Label == "" {
+		if qualifier != "" {
+			if methods, ok := builtinMethods[qualifier]; ok {
+				if info, ok := methods[name]; ok {
+					sig = builtinMethodSignatureInfo(qualifier, name, info)
+				}
+			}
+			if sig.Label == "" {
+				if methods, ok := builtinStaticMethods[qualifier]; ok {
+					if info, ok := methods[name]; ok {
+						sig = builtinMethodSignatureInfo(qualifier, name, info)
+					}
+				}
+			}
+		}
+	}
+
+	if sig.Label == "" {
+		typeName, info, ok := lookupUniqueBuiltinMethod(name)
+		if ok {
+			sig = builtinMethodSignatureInfo(typeName, name, info)
+		}
+	}
+
+	if sig.Label == "" {
 		return nil
 	}
 
@@ -5601,6 +5649,107 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 		ActiveSignature: 0,
 		ActiveParameter: activeParam,
 	}
+}
+
+func lookupUniqueBuiltinMethod(name string) (string, builtinMethodInfo, bool) {
+	var (
+		foundType string
+		foundInfo builtinMethodInfo
+		matches   int
+	)
+	for typeName, methods := range builtinMethods {
+		if info, ok := methods[name]; ok {
+			if strings.HasPrefix(info.Doc, "Deprecated:") {
+				continue
+			}
+			foundType = typeName
+			foundInfo = info
+			matches++
+		}
+	}
+	if matches == 1 {
+		return foundType, foundInfo, true
+	}
+	return "", builtinMethodInfo{}, false
+}
+
+func builtinMethodSignatureInfo(typeName, methodName string, info builtinMethodInfo) SignatureInfo {
+	label := info.Signature
+	if strings.HasPrefix(label, "func ") {
+		label = strings.TrimPrefix(label, "func ")
+	}
+	if open := strings.Index(label, "("); open != -1 {
+		label = typeName + "." + methodName + label[open:]
+	} else {
+		label = typeName + "." + methodName
+	}
+	return SignatureInfo{
+		Label:  label,
+		Params: parseSignatureParams(label),
+		Doc:    info.Doc,
+	}
+}
+
+func parseSignatureParams(signature string) []string {
+	open := strings.Index(signature, "(")
+	if open == -1 {
+		return nil
+	}
+	close := open
+	depth := 0
+	for i := open; i < len(signature); i++ {
+		switch signature[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				close = i
+				raw := strings.TrimSpace(signature[open+1 : close])
+				if raw == "" {
+					return nil
+				}
+				return splitTopLevelParams(raw)
+			}
+		}
+	}
+	return nil
+}
+
+func splitTopLevelParams(raw string) []string {
+	params := []string{}
+	start := 0
+	angleDepth := 0
+	parenDepth := 0
+	for i := 0; i < len(raw); i++ {
+		switch raw[i] {
+		case '<':
+			angleDepth++
+		case '>':
+			if angleDepth > 0 {
+				angleDepth--
+			}
+		case '(':
+			parenDepth++
+		case ')':
+			if parenDepth > 0 {
+				parenDepth--
+			}
+		case ',':
+			if angleDepth == 0 && parenDepth == 0 {
+				part := strings.TrimSpace(raw[start:i])
+				if part != "" {
+					params = append(params, part)
+				}
+				start = i + 1
+			}
+		}
+	}
+	last := strings.TrimSpace(raw[start:])
+	if last != "" {
+		params = append(params, last)
+	}
+	return params
 }
 
 func scanCallableToken(prefix string) string {

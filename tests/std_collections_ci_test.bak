@@ -1,0 +1,24 @@
+package main
+
+import "src/std/test/test.bak" as test
+
+func test_vec_core_behaviour() -> (void) {
+    mut var t: test.T = test.new("test_vec_core_behaviour")
+
+    mut var v: Vec<int, _> = Vec.new()
+    t.is_true(v.is_empty())
+    t.eq(v.len(), 0)
+
+    v.push(10)
+    v.push(20)
+    t.eq(v.len(), 2)
+
+    switch v.pop() {
+        case Ok(last) { t.eq(last, 20) }
+        case Err(err) { t.fail("pop failed: " + err) }
+    }
+    t.eq(v.len(), 1)
+    t.is_false(v.is_empty())
+
+    t.finish()
+}

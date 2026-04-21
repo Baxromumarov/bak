@@ -221,6 +221,52 @@ func main() -> (void) {
 `, "cannot call push on fixed-size")
 }
 
+func TestCheck_DeprecatedVecMethodAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var arr: Vec<int, _> = Vec.from([1])
+	var empty: bool = arr.isEmpty()
+	println(empty)
+}
+`, "deprecated method alias 'isEmpty'; use 'is_empty'")
+}
+
+func TestCheck_DeprecatedStringMethodAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var s: string = "42"
+	var parsed: Result<int, string> = s.parseInt()
+	println(parsed.is_ok())
+}
+`, "deprecated method alias 'parseInt'; use 'parse_int'")
+}
+
+func TestCheck_TypeMismatchIncludesWhereInferredNote(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var x: int = 1
+	x = "hello"
+}
+`, "where inferred: this expression has type string")
+}
+
+func TestCheck_UseAfterMoveIncludesWhereMovedNote(t *testing.T) {
+	expectError(t, `
+package main
+func consume(v string) -> (void) {
+	println(v)
+}
+func main() -> (void) {
+	var value: string = "hello"
+	consume(value)
+	println(value)
+}
+`, "where moved: value was moved by function call")
+}
+
 // =============================================================================
 // Error Cases
 // =============================================================================
@@ -394,7 +440,7 @@ func main() -> (void) {
 }
 `
 	expectError(t, source, "clone 'd' before the call")
-	expectError(t, source, "to 'consume'")
+	expectError(t, source, "by 'consume'")
 }
 
 func TestCheck_BorrowConflictHasCode(t *testing.T) {

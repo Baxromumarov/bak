@@ -106,9 +106,9 @@ func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo
 		Help:    help,
 	}
 	if moveInfo != nil {
-		err.Note = fmt.Sprintf("value was %s", moveInfo.Reason)
+		err.Note = fmt.Sprintf("where moved: value was %s", moveInfo.Reason)
 		if moveInfo.Detail != "" {
-			err.Note += fmt.Sprintf(" to '%s'", moveInfo.Detail)
+			err.Note += fmt.Sprintf(" by '%s'", moveInfo.Detail)
 		}
 		err.NoteLoc = fmt.Sprintf("line %d:%d", moveInfo.Line, moveInfo.Column)
 	}
@@ -193,14 +193,43 @@ func (tc *TypeChecker) errorTypeMismatch(
 
 	// Generate context-aware help suggestions
 	help := tc.suggestTypeFix(expected, got)
-
-	tc.addFatalError(TypeError{
+	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrTypeMismatch,
-		Tier:    TierFatal,
+		Level:   diagnostics.LevelError,
 		Line:    line,
 		Column:  col,
+		File:    tc.currentPkgPath,
 		Message: msg,
 		Help:    help,
+	}
+	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
+		diag.Notes = append(diag.Notes, diagnostics.Note{
+			Message: fmt.Sprintf("where inferred: this expression has type %s", got),
+			Line:    tok.Line,
+			Column:  tok.Column,
+			File:    tc.currentPkgPath,
+		})
+	}
+	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) warnDeprecatedAlias(kind, alias, canonical string, line, col int) {
+	path := strings.ReplaceAll(tc.currentPkgPath, "\\", "/")
+	if strings.Contains(path, "/src/std/") || strings.Contains(path, "/tests/") {
+		return
+	}
+	message := fmt.Sprintf("deprecated alias '%s'; use '%s'", alias, canonical)
+	if kind != "" {
+		message = fmt.Sprintf("deprecated %s alias '%s'; use '%s'", kind, alias, canonical)
+	}
+	tc.emitter.Emit(diagnostics.Diagnostic{
+		Code:    diagnostics.DiagnosticCode("W0910"),
+		Level:   diagnostics.LevelWarning,
+		Message: message,
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    fmt.Sprintf("replace '%s' with '%s'", alias, canonical),
 	})
 }
 

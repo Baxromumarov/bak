@@ -1,0 +1,27 @@
+package main
+
+import "src/std/strings/strings.bak" as strings
+import "src/std/test/test.bak" as test
+
+func test_strings_snake_case_api() -> (void) {
+    mut var t: test.T = test.new("test_strings_snake_case_api")
+
+    var text: string = "  bak-lang  "
+    t.eq_string(strings.trim_left(&text), "bak-lang  ")
+    t.eq_string(strings.trim_right(&text), "  bak-lang")
+
+    var name: string = "baklang"
+    t.is_true(strings.starts_with(&name, &"bak"))
+    t.is_true(strings.ends_with(&name, &"lang"))
+
+    var csv: string = "a,b,c"
+    var parts: Vec<string, _> = strings.split(&csv, &",")
+    t.eq(parts.len(), 3)
+
+    switch strings.parse_int(&"42") {
+        case Ok(v) { t.eq(v, 42) }
+        case Err(err) { t.fail("parse_int failed: " + err) }
+    }
+
+    t.finish()
+}

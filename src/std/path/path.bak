@@ -118,7 +118,7 @@ pub func base(p: &string) -> (string) {
 
     var trimmed: string = strings.substring(p, 0, end)
     var sep: string = Separator
-    var idx: int = strings.lastIndexOf(&trimmed, &sep)
+    var idx: int = strings.last_index_of(&trimmed, &sep)
     if idx == -1 {
         return trimmed
     }
@@ -137,7 +137,7 @@ pub func dir(p: &string) -> (string) {
 
     var trimmed: string = strings.substring(p, 0, end)
     var sep: string = Separator
-    var idx: int = strings.lastIndexOf(&trimmed, &sep)
+    var idx: int = strings.last_index_of(&trimmed, &sep)
     if idx == -1 {
         return "."
     }
@@ -153,7 +153,7 @@ pub func ext(p: &string) -> (string) {
         return ""
     }
     var dot: string = "."
-    var idx: int = strings.lastIndexOf(&b, &dot)
+    var idx: int = strings.last_index_of(&b, &dot)
     if idx <= 0 {
         return ""
     }

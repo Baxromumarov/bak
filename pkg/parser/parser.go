@@ -1518,7 +1518,7 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 	// Helper to check if name is "Vec" or token is VEC
 	isVec := name == "Vec" || tok.Type == token.VEC
 
-	// Special handling for Vec<T, N>: Map to internal ArrayType
+	// Special handling for Vec<T, N>: map fixed-size form to ArrayType.
 	if isVec && len(gt.TypeParams) == 2 {
 		// Check if second param is a fixed size (SizeExpression with IsDynamic=false)
 		// Or an integer literal we parsed into SizeExpression
@@ -1531,8 +1531,8 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 			}
 		}
 
-		// Normalize Vec<T, _> to the parser's internal single-parameter Vec representation.
-		// Check for "_" or dynamic SizeExpression
+		// Keep Vec<T, _> as explicit dynamic Vec.
+		// Check for "_" or dynamic SizeExpression.
 		isDynamic := false
 		if sizeExpr, ok := gt.TypeParams[1].(*ast.SizeExpression); ok && sizeExpr.IsDynamic {
 			isDynamic = true
@@ -1541,11 +1541,14 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 		}
 
 		if isDynamic {
-			// Do not truncate for LSP display purposes.
-			// We rely on typechecker to handle the extra parameter or ignore it for Vec.
-			// gt.TypeParams = gt.TypeParams[:1]
 			return gt
 		}
+	}
+
+	// Canonicalize legacy Vec<T> shorthand to Vec<T, _>.
+	if isVec && len(gt.TypeParams) == 1 {
+		gt.TypeParams = append(gt.TypeParams, &ast.SizeExpression{IsDynamic: true})
+		return gt
 	}
 
 	return gt
