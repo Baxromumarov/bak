@@ -9,12 +9,14 @@ Use this together with:
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/PRODUCTION_READINESS_TRACKER.md`
+- `docs/RESULT_MIGRATION_NOTES.md` (when Result-oriented API behavior changes)
 
 ## Language and Compatibility
 
 - [ ] The change is classified correctly: stable, experimental, or internal.
 - [ ] `docs/CORE_LANGUAGE_SPEC.md` was updated if the stable language contract changed.
 - [ ] Migration notes were added if any existing valid program changes meaning or stops compiling.
+- [ ] If Result-oriented stdlib/runtime API behavior changed, `docs/RESULT_MIGRATION_NOTES.md` was updated.
 - [ ] Experimental features remain out of the frozen contract unless explicitly promoted.
 - [ ] If `language_mode` defaults or experimental opt-in behavior changed, release notes include a concrete `bak.toml` migration snippet.
 

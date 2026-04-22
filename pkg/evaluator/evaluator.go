@@ -3010,13 +3010,13 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		if !vec.Mutable {
 			return newError("cannot pop from immutable Vec")
 		}
-		// Returns Option<T> - None if empty
+		// Returns Result<T, string> - Err if empty
 		if len(vec.Elements) == 0 {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
 		}
 		last := vec.Elements[len(vec.Elements)-1]
 		vec.Elements = vec.Elements[:len(vec.Elements)-1]
-		return &object.Option{IsSome: true, Value: last}
+		return &object.Result{IsOk: true, Value: last}
 
 	case "append":
 		// Only allowed on dynamic Vec (Size == -1)
@@ -3054,15 +3054,15 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		if !ok {
 			return newError("remove: argument must be INTEGER, got %s", args[0].Type())
 		}
-		// Returns Option<T> - None if out of bounds
+		// Returns Result<T, string> - Err if out of bounds
 		if idx.Value < 0 || idx.Value >= int64(len(vec.Elements)) {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
 		}
 		// Get the element to return
 		elem := vec.Elements[idx.Value]
 		// Shift elements left
 		vec.Elements = append(vec.Elements[:idx.Value], vec.Elements[idx.Value+1:]...)
-		return &object.Option{IsSome: true, Value: elem}
+		return &object.Result{IsOk: true, Value: elem}
 
 	case "clear":
 		if !vec.Mutable {
@@ -3131,15 +3131,15 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 
 	case "first":
 		if len(vec.Elements) == 0 {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
 		}
-		return &object.Option{IsSome: true, Value: vec.Elements[0]}
+		return &object.Result{IsOk: true, Value: vec.Elements[0]}
 
 	case "last":
 		if len(vec.Elements) == 0 {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
 		}
-		return &object.Option{IsSome: true, Value: vec.Elements[len(vec.Elements)-1]}
+		return &object.Result{IsOk: true, Value: vec.Elements[len(vec.Elements)-1]}
 
 	case "get":
 		if len(args) != 1 {
@@ -3150,9 +3150,9 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 			return newError("get: argument must be INTEGER, got %s", args[0].Type())
 		}
 		if idx.Value < 0 || idx.Value >= int64(len(vec.Elements)) {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
 		}
-		return &object.Option{IsSome: true, Value: vec.Elements[idx.Value]}
+		return &object.Result{IsOk: true, Value: vec.Elements[idx.Value]}
 
 	case "contains":
 		if len(args) != 1 {
@@ -3233,9 +3233,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		runes := []rune(str.Value)
 		if idx.Value < 0 || idx.Value >= int64(len(runes)) {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
 		}
-		return &object.Option{IsSome: true, Value: &object.Char{Value: runes[idx.Value]}}
+		return &object.Result{IsOk: true, Value: &object.Char{Value: runes[idx.Value]}}
 	case "byteAt", "byte_at":
 		if len(args) != 1 {
 			return newError("byteAt: wrong number of arguments. got=%d, want=1", len(args))
@@ -3245,9 +3245,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return newError("byteAt: argument must be INTEGER, got %s", args[0].Type())
 		}
 		if idx.Value < 0 || idx.Value >= int64(len(str.Value)) {
-			return &object.Option{IsSome: false, Value: nil}
+			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
 		}
-		return &object.Option{IsSome: true, Value: &object.Integer{Value: int64(str.Value[idx.Value])}}
+		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(str.Value[idx.Value])}}
 	case "get":
 		if len(args) != 1 {
 			return newError("get: wrong number of arguments. got=%d, want=1", len(args))

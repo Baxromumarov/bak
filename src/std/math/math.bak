@@ -14,6 +14,7 @@ pub const EPSILON: float64 = 0.000000000001
 pub const SERIES_LIMIT: int = 60
 
 // Basic integer utilities
+// Deprecated: use abs_int.
 pub func absInt(value: int) -> (int) {
     if value < 0 {
         return -value
@@ -21,6 +22,7 @@ pub func absInt(value: int) -> (int) {
     return value
 }
 
+// Deprecated: use sign_int.
 pub func signInt(value: int) -> (int) {
     if value < 0 {
         return -1
@@ -31,6 +33,7 @@ pub func signInt(value: int) -> (int) {
     return 0
 }
 
+// Deprecated: use min_int.
 pub func minInt(left: int, right: int) -> (int) {
     if left < right {
         return left
@@ -38,6 +41,7 @@ pub func minInt(left: int, right: int) -> (int) {
     return right
 }
 
+// Deprecated: use max_int.
 pub func maxInt(left: int, right: int) -> (int) {
     if left > right {
         return left
@@ -45,6 +49,7 @@ pub func maxInt(left: int, right: int) -> (int) {
     return right
 }
 
+// Deprecated: use clamp_int.
 pub func clampInt(value: int, minVal: int, maxVal: int) -> (int) {
     if value < minVal {
         return minVal
@@ -56,6 +61,7 @@ pub func clampInt(value: int, minVal: int, maxVal: int) -> (int) {
 }
 
 // Floating point helpers
+// Deprecated: use abs_float.
 pub func absFloat(value: float64) -> (float64) {
     if value < 0.0 {
         return -value
@@ -63,6 +69,7 @@ pub func absFloat(value: float64) -> (float64) {
     return value
 }
 
+// Deprecated: use sign_float.
 pub func signFloat(value: float64) -> (float64) {
     if value < 0.0 {
         return -1.0
@@ -73,6 +80,7 @@ pub func signFloat(value: float64) -> (float64) {
     return 0.0
 }
 
+// Deprecated: use min_float.
 pub func minFloat(left: float64, right: float64) -> (float64) {
     if left < right {
         return left
@@ -80,6 +88,7 @@ pub func minFloat(left: float64, right: float64) -> (float64) {
     return right
 }
 
+// Deprecated: use max_float.
 pub func maxFloat(left: float64, right: float64) -> (float64) {
     if left > right {
         return left
@@ -87,6 +96,7 @@ pub func maxFloat(left: float64, right: float64) -> (float64) {
     return right
 }
 
+// Deprecated: use clamp_float.
 pub func clampFloat(value: float64, minVal: float64, maxVal: float64) -> (float64) {
     if value < minVal {
         return minVal

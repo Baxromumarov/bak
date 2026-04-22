@@ -1,6 +1,6 @@
 # Core Language Spec (Frozen v0.1)
 
-Last updated: 2026-04-19
+Last updated: 2026-04-22
 
 This document is the canonical compatibility contract for the Bak language.
 
@@ -32,6 +32,22 @@ That means:
 - parity tests are part of the compatibility contract for the frozen language line.
 
 Performance, tracing depth details, and exact diagnostic wording may differ, but stable program meaning must not.
+
+## Current Runtime Guardrails (Parity-Locked)
+
+The following runtime-visible behaviors are currently guarded by evaluator/VM/native parity tests and release smoke tests:
+
+- `Vec.pop()`, `Vec.first()`, `Vec.last()`, `Vec.get(index)`, `Vec.remove(index)` return `Result<_, string>`.
+- `string.get(index)` returns `Result<char, string>`.
+- Current error payload conventions:
+  - empty vector for `pop/first/last` -> `Err("vec is empty")`
+  - out-of-range index for `Vec.get/remove` and `string.get` -> `Err("index out of bounds")`
+
+If this behavior changes, treat it as a user-visible compatibility event:
+
+- update migration notes,
+- update parity/smoke guardrails,
+- update examples/docs that rely on this contract.
 
 ## Stable Surface
 

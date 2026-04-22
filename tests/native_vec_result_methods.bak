@@ -1,0 +1,79 @@
+package main
+
+func main() -> (int) {
+    mut var score: int = 0
+
+    mut var empty: Vec<int, _> = Vec.new()
+    if empty.first().is_err() {
+        score = score + 1
+    }
+    if empty.last().is_err() {
+        score = score + 1
+    }
+    if empty.pop().is_err() {
+        score = score + 1
+    }
+
+    mut var v: Vec<int, _> = Vec.from([10, 20, 30])
+    switch v.remove(1) {
+        case Ok(mid) {
+            if mid == 20 {
+                score = score + 1
+            }
+        }
+        case Err(_) {}
+    }
+
+    switch v.first() {
+        case Ok(first) {
+            if first == 10 {
+                score = score + 1
+            }
+        }
+        case Err(_) {}
+    }
+
+    switch v.last() {
+        case Ok(last) {
+            if last == 30 {
+                score = score + 1
+            }
+        }
+        case Err(_) {}
+    }
+
+    if v.get(-1).is_err() {
+        score = score + 1
+    }
+    if v.get(99).is_err() {
+        score = score + 1
+    }
+
+    switch v.pop() {
+        case Ok(x) {
+            if x == 30 {
+                score = score + 1
+            }
+        }
+        case Err(_) {}
+    }
+
+    var s: string = "abc"
+    switch s.get(2) {
+        case Ok(ch) {
+            if ch == char('c') {
+                score = score + 1
+            }
+        }
+        case Err(_) {}
+    }
+
+    if s.get(-1).is_err() {
+        score = score + 1
+    }
+    if s.get(3).is_err() {
+        score = score + 1
+    }
+
+    return score
+}

@@ -1979,9 +1979,21 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			idx := int(args[0].AsInt)
 			runes := []rune(str)
 			if idx < 0 || idx >= len(runes) {
-				result = compiler.Value{Type: compiler.VAL_OPTION, AsObject: &compiler.OptionInstance{IsSome: false}}
+				result = compiler.Value{
+					Type: compiler.VAL_RESULT,
+					AsObject: &compiler.ResultInstance{
+						IsErr: true,
+						Value: compiler.NewString("index out of bounds"),
+					},
+				}
 			} else {
-				result = compiler.Value{Type: compiler.VAL_OPTION, AsObject: &compiler.OptionInstance{IsSome: true, Value: compiler.NewChar(runes[idx])}}
+				result = compiler.Value{
+					Type: compiler.VAL_RESULT,
+					AsObject: &compiler.ResultInstance{
+						IsErr: false,
+						Value: compiler.NewChar(runes[idx]),
+					},
+				}
 			}
 		case "contains":
 			if len(args) != 1 {

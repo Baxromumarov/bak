@@ -1,10 +1,13 @@
 package native
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -53,6 +56,21 @@ func TestEvaluatorVMNativeParityMatrix(t *testing.T) {
 			permissions: runtimecap.Permissions{},
 		},
 		{
+			name:        "result_surface",
+			sourcePath:  filepath.Join(root, "tests", "native_result_surface.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "vec_result_methods",
+			sourcePath:  filepath.Join(root, "tests", "native_vec_result_methods.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
+			name:        "result_migration_guardrail",
+			sourcePath:  filepath.Join(root, "tests", "native_result_migration_guardrail.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+		{
 			name:        "vec_struct_push",
 			sourcePath:  filepath.Join(root, "tests", "native_vec_struct_push.bak"),
 			permissions: runtimecap.Permissions{},
@@ -89,9 +107,52 @@ func TestEvaluatorVMNativeParityMatrix(t *testing.T) {
 	}
 }
 
+func TestEvaluatorVMNativeOutputParityMatrix(t *testing.T) {
+	root := findRepoRoot(t)
+
+	tests := []struct {
+		name        string
+		sourcePath  string
+		permissions runtimecap.Permissions
+	}{
+		{
+			name:        "output_result_parity",
+			sourcePath:  filepath.Join(root, "tests", "native_output_result_parity.bak"),
+			permissions: runtimecap.Permissions{},
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			evaluatorExit, evaluatorOut := runEvaluatorProgramFromFileWithOutput(t, testCase.sourcePath, testCase.permissions)
+			vmExit, vmOut := runVMProgramFromFileWithOutput(t, testCase.sourcePath, testCase.permissions)
+			nativeExit, nativeOut := runNativeProgramFromFileWithOutput(t, testCase.sourcePath, testCase.permissions)
+
+			if evaluatorExit != vmExit {
+				t.Fatalf("evaluator/VM exit mismatch for %s: evaluator=%d vm=%d", testCase.sourcePath, evaluatorExit, vmExit)
+			}
+			if vmExit != nativeExit {
+				t.Fatalf("VM/native exit mismatch for %s: vm=%d native=%d", testCase.sourcePath, vmExit, nativeExit)
+			}
+
+			if evaluatorOut != vmOut {
+				t.Fatalf("evaluator/VM output mismatch for %s:\n--- evaluator ---\n%s\n--- vm ---\n%s", testCase.sourcePath, evaluatorOut, vmOut)
+			}
+			if vmOut != nativeOut {
+				t.Fatalf("VM/native output mismatch for %s:\n--- vm ---\n%s\n--- native ---\n%s", testCase.sourcePath, vmOut, nativeOut)
+			}
+		})
+	}
+}
+
 func runEvaluatorProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {
 	t.Helper()
+	exit, _ := runEvaluatorProgramFromFileWithOutput(t, sourcePath, permissions)
+	return exit
+}
 
+func runEvaluatorProgramFromFileWithOutput(t *testing.T, sourcePath string, permissions runtimecap.Permissions) (int, string) {
+	t.Helper()
 	program := loadProgramFromFile(t, sourcePath)
 	restorePermissions := runtimecap.SetCurrent(permissions)
 	t.Cleanup(restorePermissions)
@@ -100,32 +161,51 @@ func runEvaluatorProgramFromFile(t *testing.T, sourcePath string, permissions ru
 	evaluator.ResetState()
 	t.Cleanup(evaluator.ResetState)
 
-	result := evaluator.Eval(program, object.NewEnvironment())
+	var result object.Object
+	output := captureStdout(t, func() {
+		result = evaluator.Eval(program, object.NewEnvironment())
+	})
 	intResult, ok := result.(*object.Integer)
 	if !ok {
 		t.Fatalf("evaluator result for %s has type %T, want *object.Integer", sourcePath, result)
 	}
-	return int(intResult.Value)
+	return int(intResult.Value), output
 }
 
 func runVMProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {
 	t.Helper()
+	exit, _ := runVMProgramFromFileWithOutput(t, sourcePath, permissions)
+	return exit
+}
 
+func runVMProgramFromFileWithOutput(t *testing.T, sourcePath string, permissions runtimecap.Permissions) (int, string) {
+	t.Helper()
 	program := loadProgramFromFile(t, sourcePath)
 	module := compileModuleForParity(t, program, sourcePath)
-	value, err := vm.NewWithPermissions(module, permissions).Run()
+	var (
+		value compiler.Value
+		err   error
+	)
+	output := captureStdout(t, func() {
+		value, err = vm.NewWithPermissions(module, permissions).Run()
+	})
 	if err != nil {
 		t.Fatalf("VM run failed for %s: %v", sourcePath, err)
 	}
 	if value.Type != compiler.VAL_INT {
 		t.Fatalf("VM result for %s has type %s, want int", sourcePath, value.Type.String())
 	}
-	return int(value.AsInt)
+	return int(value.AsInt), output
 }
 
 func runNativeProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {
 	t.Helper()
+	exit, _ := runNativeProgramFromFileWithOutput(t, sourcePath, permissions)
+	return exit
+}
 
+func runNativeProgramFromFileWithOutput(t *testing.T, sourcePath string, permissions runtimecap.Permissions) (int, string) {
+	t.Helper()
 	program := loadProgramFromFile(t, sourcePath)
 	binary, err := BuildExecutable(program, permissions)
 	if err != nil {
@@ -140,7 +220,7 @@ func runNativeProgramFromFile(t *testing.T, sourcePath string, permissions runti
 	cmd := exec.Command(binPath)
 	output, err := cmd.CombinedOutput()
 	if err == nil {
-		return 0
+		return 0, normalizeOutput(string(output))
 	}
 
 	var exitErr *exec.ExitError
@@ -150,7 +230,39 @@ func runNativeProgramFromFile(t *testing.T, sourcePath string, permissions runti
 	if exitErr.ExitCode() < 0 {
 		t.Fatalf("native binary for %s terminated abnormally\noutput:\n%s", sourcePath, string(output))
 	}
-	return exitErr.ExitCode()
+	return exitErr.ExitCode(), normalizeOutput(string(output))
+}
+
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	originalStdout := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("creating stdout pipe: %v", err)
+	}
+	os.Stdout = w
+	defer func() {
+		os.Stdout = originalStdout
+	}()
+
+	done := make(chan string, 1)
+	go func() {
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, r)
+		done <- buf.String()
+	}()
+
+	fn()
+	_ = w.Close()
+	out := <-done
+	_ = r.Close()
+	return normalizeOutput(out)
+}
+
+func normalizeOutput(s string) string {
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	return strings.TrimRight(s, "\n")
 }
 
 func loadProgramFromFile(t *testing.T, sourcePath string) *ast.Program {

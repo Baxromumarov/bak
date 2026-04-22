@@ -255,6 +255,18 @@ func main() -> (void) {
 `, "deprecated function alias 'strconv.parseInt'; use 'strconv.parse_int'")
 }
 
+func TestCheck_DeprecatedAliasWarningMentionsCompatibility(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/strings/strings.bak" as strings
+func main() -> (void) {
+	var value: string = "baklang"
+	var ok: bool = strings.startsWith(&value, &"bak")
+	println(ok)
+}
+`, "compatibility alias")
+}
+
 func TestCheck_DeprecatedStringsFunctionAliasWarns(t *testing.T) {
 	expectError(t, `
 package main
@@ -373,6 +385,30 @@ func main() -> (void) {
 	var _b = &nums
 }
 `, "where borrowed: active mutable borrow of 'nums' starts here")
+}
+
+func TestCheck_TypeMismatchIncludesHowToFixHint(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var x: int = 1
+	x = "hello"
+}
+`, "how to fix:")
+}
+
+func TestCheck_UseAfterMoveIncludesHowToFixHint(t *testing.T) {
+	expectError(t, `
+package main
+func consume(v string) -> (void) {
+	println(v)
+}
+func main() -> (void) {
+	var value: string = "hello"
+	consume(value)
+	println(value)
+}
+`, "how to fix:")
 }
 
 // =============================================================================

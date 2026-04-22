@@ -1,0 +1,55 @@
+package main
+
+func main() -> (int) {
+    mut var score: int = 0
+
+    mut var v: Vec<int, _> = Vec.new()
+    if v.pop().unwrap_err() == "vec is empty" {
+        score = score + 1
+    }
+    if v.first().unwrap_err() == "vec is empty" {
+        score = score + 1
+    }
+    if v.last().unwrap_err() == "vec is empty" {
+        score = score + 1
+    }
+    if v.get(0).unwrap_err() == "index out of bounds" {
+        score = score + 1
+    }
+    if v.remove(0).unwrap_err() == "index out of bounds" {
+        score = score + 1
+    }
+
+    v.push(4)
+    v.push(5)
+    v.push(6)
+
+    if v.first().unwrap() == 4 {
+        score = score + 1
+    }
+    if v.last().unwrap() == 6 {
+        score = score + 1
+    }
+    if v.get(1).unwrap() == 5 {
+        score = score + 1
+    }
+    if v.remove(1).unwrap() == 5 {
+        score = score + 1
+    }
+    if v.get(-1).unwrap_err() == "index out of bounds" {
+        score = score + 1
+    }
+    if v.remove(-1).unwrap_err() == "index out of bounds" {
+        score = score + 1
+    }
+
+    var s: string = "abc"
+    if s.get(1).unwrap() == char('b') {
+        score = score + 1
+    }
+    if s.get(9).unwrap_err() == "index out of bounds" {
+        score = score + 1
+    }
+
+    return score
+}

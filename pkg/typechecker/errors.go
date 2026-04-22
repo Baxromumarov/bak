@@ -82,19 +82,19 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 // --- Ownership-specific error builders ---
 
 func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo *MoveInfo) {
-	help := fmt.Sprintf("consider borrowing instead: &%s", varName)
+	help := fmt.Sprintf("how to fix: consider borrowing instead: &%s", varName)
 	if moveInfo != nil {
 		switch moveInfo.Reason {
 		case MovedByCall:
 			if moveInfo.Detail != "" {
-				help = fmt.Sprintf("borrow '&%s' if '%s' accepts a reference, or clone '%s' before the call", varName, moveInfo.Detail, varName)
+				help = fmt.Sprintf("how to fix: borrow '&%s' if '%s' accepts a reference, or clone '%s' before the call", varName, moveInfo.Detail, varName)
 			} else {
-				help = fmt.Sprintf("borrow '&%s' if the callee accepts a reference, or clone '%s' before the call", varName, varName)
+				help = fmt.Sprintf("how to fix: borrow '&%s' if the callee accepts a reference, or clone '%s' before the call", varName, varName)
 			}
 		case MovedByAssignment:
-			help = fmt.Sprintf("borrow '&%s' or clone '%s' before assigning it elsewhere", varName, varName)
+			help = fmt.Sprintf("how to fix: borrow '&%s' or clone '%s' before assigning it elsewhere", varName, varName)
 		case MovedByReturn:
-			help = fmt.Sprintf("return a borrow if the signature allows it, or clone '%s' before returning", varName)
+			help = fmt.Sprintf("how to fix: return a borrow if the signature allows it, or clone '%s' before returning", varName)
 		}
 	}
 	err := TypeError{
@@ -122,7 +122,7 @@ func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason str
 		Line:    line,
 		Column:  col,
 		Message: fmt.Sprintf("cannot move '%s' because it is %s", varName, reason),
-		Help:    fmt.Sprintf("finish active borrows of '%s' before moving it, or clone '%s' first", varName, varName),
+		Help:    fmt.Sprintf("how to fix: finish active borrows of '%s' before moving it, or clone '%s' first", varName, varName),
 	}
 	if borrowInfo != nil && borrowInfo.Line > 0 {
 		state := "borrowed"
@@ -152,6 +152,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 	case attemptedBorrow == "borrow as immutable" && existingState == "mutably borrowed":
 		help = fmt.Sprintf("finish the mutable borrow of '%s' before taking '&%s'", varName, varName)
 	}
+	help = "how to fix: " + help
 	diag := TypeError{
 		Code:   diagnostics.ErrBorrowConflict,
 		Tier:   TierFatal,
@@ -220,6 +221,9 @@ func (tc *TypeChecker) errorTypeMismatch(
 		} else {
 			help = fmt.Sprintf("convert the value to %s, or change the expected type", expected)
 		}
+	}
+	if !strings.HasPrefix(help, "how to fix: ") {
+		help = "how to fix: " + help
 	}
 	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrTypeMismatch,
@@ -302,6 +306,7 @@ func (tc *TypeChecker) warnDeprecatedAlias(kind, alias, canonical string, line, 
 	if kind != "" {
 		message = fmt.Sprintf("deprecated %s alias '%s'; use '%s'", kind, alias, canonical)
 	}
+	message = message + " (compatibility alias)"
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.DiagnosticCode("W0910"),
 		Level:   diagnostics.LevelWarning,
@@ -309,7 +314,7 @@ func (tc *TypeChecker) warnDeprecatedAlias(kind, alias, canonical string, line, 
 		Line:    line,
 		Column:  col,
 		File:    tc.currentPkgPath,
-		Help:    fmt.Sprintf("replace '%s' with '%s'", alias, canonical),
+		Help:    fmt.Sprintf("replace '%s' with '%s'; compatibility aliases may be removed in a future release", alias, canonical),
 	})
 }
 

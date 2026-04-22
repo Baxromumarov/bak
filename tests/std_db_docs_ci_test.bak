@@ -1,0 +1,63 @@
+package main
+
+import "src/std/db/db.bak" as db
+import "src/std/test/test.bak" as test
+
+func test_db_docs_queryresult_row_access() -> (void) {
+    mut var t: test.T = test.new("test_db_docs_queryresult_row_access")
+
+    var qr: db.QueryResult = db.QueryResult{
+        Columns: Vec.from(["id", "name", "active", "balance"]),
+        Rows: Vec.from([
+            Vec.from(["7", "Ada", "true", "10.25"]),
+            Vec.from(["8", "Bob", "false", "0.0"]),
+        ]),
+    }
+
+    var rows: Vec<db.Row, _> = db.rows(&qr)
+    t.eq(rows.len(), 2)
+
+    var first: db.Row = rows[0]
+    switch first.get_int("id") {
+        case Ok(v) { t.eq(v, 7) }
+        case Err(err) { t.fail("id parse failed: " + err) }
+    }
+    switch first.get_string("name") {
+        case Ok(v) { t.eq_string(v, "Ada") }
+        case Err(err) { t.fail("name read failed: " + err) }
+    }
+    switch first.get_bool("active") {
+        case Ok(v) { t.is_true(v) }
+        case Err(err) { t.fail("active read failed: " + err) }
+    }
+    switch first.get_float("balance") {
+        case Ok(v) { t.eq_float(v, 10.25) }
+        case Err(err) { t.fail("balance read failed: " + err) }
+    }
+
+    switch first.get_index(1) {
+        case Ok(v) { t.eq_string(v, "Ada") }
+        case Err(err) { t.fail("index read failed: " + err) }
+    }
+
+    t.finish()
+}
+
+func test_db_docs_errors_and_nulls() -> (void) {
+    mut var t: test.T = test.new("test_db_docs_errors_and_nulls")
+
+    var qr: db.QueryResult = db.QueryResult{
+        Columns: Vec.from(["id", "name", "active"]),
+        Rows: Vec.from([
+            Vec.from(["9", "NULL", "wat"]),
+        ]),
+    }
+    var row: db.Row = db.rows(&qr)[0]
+
+    t.is_true(row.get("missing").is_err())
+    t.is_true(row.get_string("name").is_err())
+    t.is_true(row.get_bool("active").is_err())
+    t.is_true(row.get_index(5).is_err())
+
+    t.finish()
+}

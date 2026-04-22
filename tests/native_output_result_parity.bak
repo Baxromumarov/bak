@@ -1,0 +1,47 @@
+package main
+
+func main() -> (int) {
+    mut var v: Vec<int, _> = Vec.new()
+    if v.pop().unwrap_err() == "vec is empty" {
+        println("pop-empty-ok")
+    } else {
+        println("pop-empty-bad")
+    }
+    if v.get(0).unwrap_err() == "index out of bounds" {
+        println("get-empty-oob-ok")
+    } else {
+        println("get-empty-oob-bad")
+    }
+
+    v.push(11)
+    v.push(22)
+    if v.first().unwrap() == 11 {
+        println("first-ok")
+    } else {
+        println("first-bad")
+    }
+    if v.last().unwrap() == 22 {
+        println("last-ok")
+    } else {
+        println("last-bad")
+    }
+    if v.remove(0).unwrap() == 11 {
+        println("remove-mid-ok")
+    } else {
+        println("remove-mid-bad")
+    }
+
+    var s: string = "abc"
+    if s.get(1).unwrap() == char('b') {
+        println("string-get-ok")
+    } else {
+        println("string-get-bad")
+    }
+    if s.get(5).unwrap_err() == "index out of bounds" {
+        println("string-get-oob-ok")
+    } else {
+        println("string-get-oob-bad")
+    }
+
+    return 0
+}

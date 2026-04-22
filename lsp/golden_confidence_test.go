@@ -37,6 +37,11 @@ func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
 	if !containsLabel(resultLabels, "to_string") || containsLabel(resultLabels, "toString") {
 		t.Fatalf("unexpected Result completion labels: %#v", resultLabels)
 	}
+	for _, forbidden := range []string{"is_some", "is_none"} {
+		if containsLabel(resultLabels, forbidden) {
+			t.Fatalf("unexpected Option-only method %q in Result completions: %#v", forbidden, resultLabels)
+		}
+	}
 
 	hashMapLabels := completionLabelsAt(t, s, uri, src, "m.")
 	for _, want := range []string{"insert", "get", "is_empty"} {
@@ -212,6 +217,30 @@ func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
 	help := s.handleSignatureHelp(mustRequest(t, params))
 	if help != nil && len(help.Signatures) > 0 {
 		t.Fatalf("expected no Option signature suggestions, got %#v", help.Signatures)
+	}
+}
+
+func TestCompletionDoesNotAdvertiseOptionMethods(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    x.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	labels := completionLabelsAt(t, s, uri, src, "x.")
+	for _, forbidden := range []string{"is_some", "is_none"} {
+		if containsLabel(labels, forbidden) {
+			t.Fatalf("expected no Option completion %q, got %#v", forbidden, labels)
+		}
 	}
 }
 

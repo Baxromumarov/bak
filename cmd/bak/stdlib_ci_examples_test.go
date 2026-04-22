@@ -11,9 +11,11 @@ func TestStdlibCoreExamplesCompileAndRun(t *testing.T) {
 	root := findRepoRootForGuardrail(t)
 	targets := []string{
 		filepath.Join(root, "src", "std", "path", "path_test.bak"),
+		filepath.Join(root, "tests", "std_path_ci_test.bak"),
 		filepath.Join(root, "tests", "std_strings_ci_test.bak"),
 		filepath.Join(root, "tests", "std_strings_path_enhancements_test.bak"),
 		filepath.Join(root, "tests", "std_db_ci_test.bak"),
+		filepath.Join(root, "tests", "std_db_docs_ci_test.bak"),
 		filepath.Join(root, "src", "std", "db", "postgres_test.bak"),
 	}
 

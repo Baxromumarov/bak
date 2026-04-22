@@ -4185,6 +4185,23 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			return s.emitLen(fa)
 		case "pop":
 			return s.emitVecPop(fa)
+		case "first":
+			return s.emitVecFirst(fa)
+		case "last":
+			return s.emitVecLast(fa)
+		case "remove":
+			if len(e.Arguments) != 1 {
+				return fmt.Errorf("native: remove expects 1 argument")
+			}
+			return s.emitVecRemove(fa, e.Arguments[0])
+		case "get":
+			if len(e.Arguments) != 1 {
+				return fmt.Errorf("native: get expects 1 argument")
+			}
+			if s.isStringExpression(fa) {
+				return s.emitStringGet(fa, e.Arguments[0])
+			}
+			return s.emitVecGet(fa, e.Arguments[0])
 		case "is_empty", "isEmpty":
 			return s.emitIsEmpty(fa)
 		case "contains":
@@ -4260,6 +4277,27 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	case "pop":
 		// vec.pop()
 		return s.emitVecPop(e.Object)
+	case "first":
+		// vec.first()
+		return s.emitVecFirst(e.Object)
+	case "last":
+		// vec.last()
+		return s.emitVecLast(e.Object)
+	case "remove":
+		// vec.remove(index)
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: remove expects 1 argument")
+		}
+		return s.emitVecRemove(e.Object, e.Arguments[0])
+	case "get":
+		// vec.get(index) or string.get(index)
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: get expects 1 argument")
+		}
+		if s.isStringExpression(e.Object) {
+			return s.emitStringGet(e.Object, e.Arguments[0])
+		}
+		return s.emitVecGet(e.Object, e.Arguments[0])
 	case "bytes":
 		// string.bytes() - convert string to Vec<int, _>
 		return s.emitStringBytes(e.Object)
@@ -5831,7 +5869,7 @@ func (s *EmitState) emitLen(obj ast.Expression) error {
 	return nil
 }
 
-// emitVecPop implements vec.pop() -> Option<T>
+// emitVecPop implements vec.pop() -> Result<T, string>
 func (s *EmitState) emitVecPop(obj ast.Expression) error {
 	if err := s.emitExpression(obj); err != nil {
 		return err
@@ -5840,76 +5878,327 @@ func (s *EmitState) emitVecPop(obj ast.Expression) error {
 	if s.isRefExpression(obj) {
 		s.emitSafeRefDeref()
 	}
-	// Treat misaligned/tagged immediates as null pointers.
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xA9, 0x07, 0x00, 0x00, 0x00) // test rax, 7
-	jzAlignedVec := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz aligned
-	emitMovRegImm32(&s.Code, RAX, 0)
-	alignedVecPos := len(s.Code)
-	patchRel32(&s.Code, jzAlignedVec+2, alignedVecPos)
-	// If vec pointer is null, return Option::None.
-	emitTestRegReg(&s.Code, RAX, RAX)
-	jnzVecPtr := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz has-vec
 
-	emitMovRegImm32(&s.Code, RDI, 16)
-	callNoneNull := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callNoneNull, Target: "__rt_alloc"})
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX)            // tag = 0 (None)
-	emitMovMemBaseDispReg(&s.Code, RAX, 8, RCX) // payload = 0
-	jmpDoneNull := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
-
-	hasVecPos := len(s.Code)
-	patchRel32(&s.Code, jnzVecPtr+2, hasVecPos)
-
-	// Keep vec pointer in R11.
+	// Preserve vec header pointer.
 	emitMovRegReg(&s.Code, R11, RAX)
-	emitMovRegMemBaseDisp(&s.Code, R10, R11, 8) // r10 = len
+	// len = vec.len (safe load: invalid pointers become 0)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
 
-	// If len == 0, return Option::None.
+	// If len == 0 => Err("vec is empty")
 	emitTestRegReg(&s.Code, R10, R10)
-	jnzHasItems := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz has-items
-
-	emitMovRegImm32(&s.Code, RDI, 16)
-	callNoneEmpty := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callNoneEmpty, Target: "__rt_alloc"})
-	emitMovRegImm32(&s.Code, RCX, 0)
-	emitMovMemReg(&s.Code, RAX, RCX)            // tag = 0 (None)
-	emitMovMemBaseDispReg(&s.Code, RAX, 8, RCX) // payload = 0
-	jmpDoneEmpty := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
+	jnzHasItems := emitJnzRel32(&s.Code, 0)
+	if err := s.emitResultErrStr("vec is empty"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
 
 	hasItemsPos := len(s.Code)
-	patchRel32(&s.Code, jnzHasItems+2, hasItemsPos)
+	patchRel32(&s.Code, jnzHasItems, hasItemsPos)
 
-	// len-- and write it back.
+	// new_len = len - 1; vec.len = new_len
 	emitMovRegImm32(&s.Code, RCX, 1)
 	emitSubRegReg(&s.Code, R10, RCX)
 	emitMovMemBaseDispReg(&s.Code, R11, 8, R10)
 
-	// Load element: elem = data[len-1]
-	emitMovRegMemBaseDisp(&s.Code, RDX, R11, 0) // rdx = data ptr
-	emitMovRegReg(&s.Code, R8, R10)
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, R8), 0x03) // shl r8, 3
-	emitAddRegReg(&s.Code, R8, RDX)
-	emitMovRegMemBaseDisp(&s.Code, R9, R8, 0) // r9 = elem
+	// data = vec.ptr (safe load)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0)
+	emitMovRegReg(&s.Code, R12, RAX)
 
-	// Build Option::Some(elem) => {tag=1, payload=elem}
-	emitPushReg(&s.Code, R9)
-	emitMovRegImm32(&s.Code, RDI, 16)
-	callSome := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSome, Target: "__rt_alloc"})
-	emitPopReg(&s.Code, R9)
-	emitMovRegImm32(&s.Code, RCX, 1)
-	emitMovMemReg(&s.Code, RAX, RCX)
-	emitMovMemBaseDispReg(&s.Code, RAX, 8, R9)
+	// elem = data[new_len]
+	emitMovRegReg(&s.Code, R13, R10)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R13)), 0xC1, modRM(3, 4, R13), 0x03) // shl r13, 3
+	emitAddRegReg(&s.Code, R13, R12)
+	emitMovRegMemBaseDisp(&s.Code, RAX, R13, 0)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
 
 	donePos := len(s.Code)
-	patchRel32(&s.Code, jmpDoneNull+1, donePos)
-	patchRel32(&s.Code, jmpDoneEmpty+1, donePos)
+	patchRel32(&s.Code, jmpDone, donePos)
+	return nil
+}
+
+// emitVecFirst implements vec.first() -> Result<T, string>
+func (s *EmitState) emitVecFirst(obj ast.Expression) error {
+	if err := s.emitExpression(obj); err != nil {
+		return err
+	}
+	if s.isRefExpression(obj) {
+		s.emitSafeRefDeref()
+	}
+
+	emitMovRegReg(&s.Code, R11, RAX)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
+
+	emitTestRegReg(&s.Code, R10, R10)
+	jnzHasItems := emitJnzRel32(&s.Code, 0)
+	if err := s.emitResultErrStr("vec is empty"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	hasItemsPos := len(s.Code)
+	patchRel32(&s.Code, jnzHasItems, hasItemsPos)
+
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0)
+	emitMovRegReg(&s.Code, R12, RAX)
+	emitMovRegMemBaseDisp(&s.Code, RAX, R12, 0)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpDone, donePos)
+	return nil
+}
+
+// emitVecLast implements vec.last() -> Result<T, string>
+func (s *EmitState) emitVecLast(obj ast.Expression) error {
+	if err := s.emitExpression(obj); err != nil {
+		return err
+	}
+	if s.isRefExpression(obj) {
+		s.emitSafeRefDeref()
+	}
+
+	emitMovRegReg(&s.Code, R11, RAX)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
+
+	emitTestRegReg(&s.Code, R10, R10)
+	jnzHasItems := emitJnzRel32(&s.Code, 0)
+	if err := s.emitResultErrStr("vec is empty"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	hasItemsPos := len(s.Code)
+	patchRel32(&s.Code, jnzHasItems, hasItemsPos)
+
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0)
+	emitMovRegReg(&s.Code, R12, RAX)
+	emitMovRegReg(&s.Code, R13, R10)
+	emitSubRegImm32(&s.Code, R13, 1)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R13)), 0xC1, modRM(3, 4, R13), 0x03) // shl r13, 3
+	emitAddRegReg(&s.Code, R13, R12)
+	emitMovRegMemBaseDisp(&s.Code, RAX, R13, 0)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpDone, donePos)
+	return nil
+}
+
+// emitVecGet implements vec.get(index) -> Result<T, string>
+func (s *EmitState) emitVecGet(obj ast.Expression, index ast.Expression) error {
+	if err := s.emitExpression(index); err != nil {
+		return err
+	}
+	emitPushReg(&s.Code, RAX) // save index
+
+	if err := s.emitExpression(obj); err != nil {
+		return err
+	}
+	if s.isRefExpression(obj) {
+		s.emitSafeRefDeref()
+	}
+	emitMovRegReg(&s.Code, R11, RAX)
+	emitPopReg(&s.Code, R13) // index
+
+	// len = vec.len (safe load: invalid pointers become 0)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
+
+	// if index < 0 => Err
+	emitCmpRegImm32(&s.Code, R13, 0)
+	jlErrNeg := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl err
+
+	// if index < len => inBounds, else Err
+	emitCmpRegReg(&s.Code, R13, R10)
+	jlInBounds := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl inBounds
+
+	errPos := len(s.Code)
+	if err := s.emitResultErrStr("index out of bounds"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	inBoundsPos := len(s.Code)
+	patchRel32(&s.Code, jlErrNeg+2, errPos)
+	patchRel32(&s.Code, jlInBounds+2, inBoundsPos)
+
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0)
+	emitMovRegReg(&s.Code, R12, RAX)
+	emitMovRegReg(&s.Code, R14, R13)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R14)), 0xC1, modRM(3, 4, R14), 0x03) // shl r14, 3
+	emitAddRegReg(&s.Code, R14, R12)
+	emitMovRegMemBaseDisp(&s.Code, RAX, R14, 0)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpDone, donePos)
+	return nil
+}
+
+// emitVecRemove implements vec.remove(index) -> Result<T, string>
+func (s *EmitState) emitVecRemove(obj ast.Expression, index ast.Expression) error {
+	if err := s.emitExpression(index); err != nil {
+		return err
+	}
+	emitPushReg(&s.Code, RAX) // save index
+
+	if err := s.emitExpression(obj); err != nil {
+		return err
+	}
+	if s.isRefExpression(obj) {
+		s.emitSafeRefDeref()
+	}
+	emitMovRegReg(&s.Code, R11, RAX)
+	emitPopReg(&s.Code, R13) // index
+
+	// len = vec.len (safe load: invalid pointers become 0)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
+
+	// Bounds check: index >= 0 && index < len
+	emitCmpRegImm32(&s.Code, R13, 0)
+	jlErrNeg := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl err
+	emitCmpRegReg(&s.Code, R13, R10)
+	jlInBounds := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl inBounds
+
+	errPos := len(s.Code)
+	if err := s.emitResultErrStr("index out of bounds"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	inBoundsPos := len(s.Code)
+	patchRel32(&s.Code, jlErrNeg+2, errPos)
+	patchRel32(&s.Code, jlInBounds+2, inBoundsPos)
+
+	// data = vec.ptr (safe load)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0)
+	emitMovRegReg(&s.Code, R12, RAX)
+
+	// removed = data[index]
+	emitMovRegReg(&s.Code, R14, R13)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R14)), 0xC1, modRM(3, 4, R14), 0x03) // shl r14, 3
+	emitAddRegReg(&s.Code, R14, R12)
+	emitMovRegMemBaseDisp(&s.Code, R9, R14, 0) // removed value
+
+	// Shift elements left: for i=index; i < len-1; i++ { data[i] = data[i+1] }
+	emitMovRegReg(&s.Code, R8, R13)  // i = index
+	emitMovRegReg(&s.Code, RDX, R10) // len
+	emitSubRegImm32(&s.Code, RDX, 1) // len-1
+	loopStart := len(s.Code)
+	emitCmpRegReg(&s.Code, R8, RDX)
+	jgeDone := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0) // jge done
+
+	// nextVal = data[i+1]
+	emitMovRegReg(&s.Code, RCX, R8)
+	emitAddRegImm32(&s.Code, RCX, 1)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(RCX)), 0xC1, modRM(3, 4, RCX), 0x03) // shl rcx, 3
+	emitAddRegReg(&s.Code, RCX, R12)
+	emitMovRegMemBaseDisp(&s.Code, RAX, RCX, 0)
+
+	// data[i] = nextVal
+	emitMovRegReg(&s.Code, R14, R8)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R14)), 0xC1, modRM(3, 4, R14), 0x03) // shl r14, 3
+	emitAddRegReg(&s.Code, R14, R12)
+	emitMovMemBaseDispReg(&s.Code, R14, 0, RAX)
+
+	emitAddRegImm32(&s.Code, R8, 1)
+	jmpLoop := emitJmpRel32(&s.Code, 0)
+
+	loopDonePos := len(s.Code)
+	patchRel32(&s.Code, jgeDone+2, loopDonePos)
+	patchRel32(&s.Code, jmpLoop, loopStart)
+
+	// len--
+	emitSubRegImm32(&s.Code, R10, 1)
+	emitMovMemBaseDispReg(&s.Code, R11, 8, R10)
+
+	// return Ok(removed)
+	emitMovRegReg(&s.Code, RAX, R9)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpDone, donePos)
+	return nil
+}
+
+// emitStringGet implements string.get(index) -> Result<char, string>
+func (s *EmitState) emitStringGet(obj ast.Expression, index ast.Expression) error {
+	if err := s.emitExpression(index); err != nil {
+		return err
+	}
+	emitPushReg(&s.Code, RAX) // save index
+
+	if err := s.emitExpression(obj); err != nil {
+		return err
+	}
+	if s.isRefExpression(obj) {
+		s.emitSafeRefDeref()
+	}
+	emitMovRegReg(&s.Code, R11, RAX) // string header
+	emitPopReg(&s.Code, R13)         // index
+
+	// len = string.len (safe load: invalid pointers become 0)
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(8)
+	emitMovRegReg(&s.Code, R10, RAX)
+
+	emitCmpRegImm32(&s.Code, R13, 0)
+	jlErrNeg := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl err
+
+	emitCmpRegReg(&s.Code, R13, R10)
+	jlInBounds := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x8C, 0, 0, 0, 0) // jl inBounds
+
+	errPos := len(s.Code)
+	if err := s.emitResultErrStr("index out of bounds"); err != nil {
+		return err
+	}
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	inBoundsPos := len(s.Code)
+	patchRel32(&s.Code, jlErrNeg+2, errPos)
+	patchRel32(&s.Code, jlInBounds+2, inBoundsPos)
+
+	emitMovRegReg(&s.Code, RAX, R11)
+	s.emitSafeLoadRaxFromRaxDisp(0) // string data ptr
+	emitMovRegReg(&s.Code, R12, RAX)
+	emitMovzxRaxMem8BaseIdx(&s.Code, R12, R13)
+	if err := s.emitResultOkFromRax(); err != nil {
+		return err
+	}
+
+	donePos := len(s.Code)
+	patchRel32(&s.Code, jmpDone, donePos)
 	return nil
 }
 
@@ -5993,10 +6282,10 @@ func (s *EmitState) emitResultErrStr(msg string) error {
 	return nil
 }
 
-// emitResultOkStr creates a Result::Ok(str) struct where str is a string pointer in RAX
+// emitResultOkFromRax creates a Result::Ok(value) from the value currently in RAX.
 // Assumes the value to wrap is already in RAX
 // Result layout: [tag: 8 bytes][value: 8 bytes]
-// Ok has tag = 1
+// Ok has tag = 0
 func (s *EmitState) emitResultOkFromRax() error {
 	emitPushReg(&s.Code, RAX) // save value
 
@@ -6009,8 +6298,8 @@ func (s *EmitState) emitResultOkFromRax() error {
 	// Pop value
 	emitPopReg(&s.Code, RDX)
 
-	// Store tag = 1 (Ok)
-	emitMovRegImm32(&s.Code, RAX, 1)
+	// Store tag = 0 (Ok)
+	emitMovRegImm32(&s.Code, RAX, 0)
 	emitMovMemReg(&s.Code, RCX, RAX)
 	// Store value at offset 8
 	emitMovMemBaseDispReg(&s.Code, RCX, 8, RDX)
