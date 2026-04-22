@@ -31,8 +31,20 @@ pub func readFile(path: string) -> (Result<string, string>) {
 // read_file_bytes reads the raw bytes of a file and returns Result<Vec<int,_>, string>.
 pub func read_file_bytes(path: &string) -> (Result<Vec<int, _>, string>) {
     var pathValue: string = clone_ref_string(path)
-    var _pathLen: int = pathValue.len()
-    return Ok(Vec.new())
+    switch read_file(pathValue) {
+        case Ok(text) {
+            mut var out: Vec<int, _> = Vec.new()
+            mut var i: int = 0
+            while i < text.len() {
+                out.push(int(text[i]))
+                i = i + 1
+            }
+            return Ok(out)
+        }
+        case Err(err) {
+            return Err(err)
+        }
+    }
 }
 
 // Deprecated: use read_file_bytes.

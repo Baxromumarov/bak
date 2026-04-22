@@ -432,6 +432,38 @@ func (tc *TypeChecker) errorArgumentCountMismatch(
 	tc.emitError(diag)
 }
 
+func (tc *TypeChecker) errorArgumentCountRangeMismatch(
+	name string,
+	minExpected,
+	maxExpected,
+	got int,
+	line,
+	col int,
+) {
+	help := ""
+	switch {
+	case got < minExpected:
+		help = fmt.Sprintf("add at least %d more argument(s)", minExpected-got)
+	case maxExpected >= 0 && got > maxExpected:
+		help = fmt.Sprintf("remove %d argument(s)", got-maxExpected)
+	}
+
+	rangeHint := fmt.Sprintf("between %d and %d", minExpected, maxExpected)
+	if maxExpected < 0 {
+		rangeHint = fmt.Sprintf("at least %d", minExpected)
+	}
+
+	tc.emitError(diagnostics.Diagnostic{
+		Code:    diagnostics.ErrArgumentCount,
+		Level:   diagnostics.LevelError,
+		Message: fmt.Sprintf("function '%s' expects %s argument(s), but got %d", name, rangeHint, got),
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    help,
+	})
+}
+
 func (tc *TypeChecker) errorMethodArgumentCountMismatch(
 	typeName,
 	method string,

@@ -72,6 +72,12 @@ func validateVMDestructivePath(pathValue, op string) error {
 	if cleaned == string(filepath.Separator) {
 		return fmt.Errorf("%s: refusing to operate on root directory", op)
 	}
+	// Reject directory traversal attempts for parity with evaluator builtins.
+	for _, part := range strings.Split(cleaned, string(filepath.Separator)) {
+		if part == ".." {
+			return fmt.Errorf("%s: refusing path containing directory traversal (..)", op)
+		}
+	}
 	return nil
 }
 
@@ -104,11 +110,6 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			}
 		}
 		return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
-	}
-
-	makeOption := func(isSome bool, val compiler.Value) compiler.Value {
-		opt := &compiler.OptionInstance{IsSome: isSome, Value: val}
-		return compiler.Value{Type: compiler.VAL_OPTION, AsObject: opt}
 	}
 
 	makeStruct := func(typeName string, fieldValues map[string]compiler.Value) (compiler.Value, error) {
@@ -548,9 +549,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		val, ok := os.LookupEnv(args[0].AsString)
 		if !ok {
-			return makeOption(false, compiler.NewNil()), nil
+			return makeResult(false, compiler.NewString("environment variable '"+args[0].AsString+"' is not set")), nil
 		}
-		return makeOption(true, compiler.NewString(val)), nil
+		return makeResult(true, compiler.NewString(val)), nil
 
 	case compiler.BUILTIN_SETENV:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
@@ -1008,6 +1009,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return makeResult(false, compiler.NewString("invalid socket fd")), nil
 		}
 
+		if args[1].AsInt < 0 {
+			return makeResult(false, compiler.NewString("socket read count must be non-negative")), nil
+		}
 		buf := make([]byte, int(args[1].AsInt))
 		n, err := conn.Read(buf)
 		if err != nil {

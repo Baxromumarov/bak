@@ -33,6 +33,12 @@ jobs:
             - name: Run repository tests
               run: go test ./...
 
+            - name: Run go vet
+              run: go vet ./...
+
+            - name: Run govulncheck
+              run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
     frozen-surface:
         runs-on: ubuntu-latest
         steps:
@@ -47,6 +53,7 @@ jobs:
             - name: Run frozen language conformance and docs guardrails
               run: |
                   go test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint|TestFrozenSurfaceRejectsOptionConstructorsAndTypes'
+                  go test ./pkg/typechecker -run 'TestFrozenSurfaceRejectsOptionMethods'
                   go test ./pkg/typechecker -run 'TestCheck_TypeMismatchIncludesWhereInferredNote|TestCheck_TypeMismatchIdentifierIncludesDeclarationInferenceNote|TestCheck_UseAfterMoveIncludesWhereMovedNote|TestCheck_CannotMoveWhileMutablyBorrowedIncludesWhereBorrowedNote|TestCheck_BorrowConflictIncludesWhereBorrowedNote|TestCheck_DeprecatedFSFunctionAliasWarns|TestCheck_DeprecatedSyncFunctionAliasWarns|TestCheck_DeprecatedMathFunctionAliasWarns'
                   go test ./pkg/typestr -run 'TestRenderTypeGoldenSnapshots|TestRenderTypeForSyntaxGoldenSnapshots'
                   go test ./lsp -run 'TestCompletionGoldenCanonicalCoreMethods|TestSignatureHelpGoldenCoreTypes|TestHoverAndInlayGoldenCoreTypes|TestInlayHintGoldenTypeStringSnapshotsCoreTypes|TestSignatureHelpDoesNotAdvertiseOptionMethods'
@@ -65,4 +72,10 @@ jobs:
                   go-version-file: go.mod
 
             - name: Run evaluator/vm/native parity matrix
-              run: go test ./pkg/backend/native -run TestEvaluatorVMNativeParityMatrix
+              run: |
+                  go test ./pkg/backend/native -run 'TestEvaluatorVMNativeParityMatrix|TestEvaluatorVMNativeOutputParityMatrix'
+
+            - name: Run differential fuzz smoke
+              env:
+                  FUZZ_TIME: 30s
+              run: bash scripts/run_differential_fuzz.sh

@@ -4075,29 +4075,75 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	}
 
 	if sig != nil {
-		// Skip arity/type check for builtins
-		if tc.isBuiltin(funcName) {
-			if funcName == "cfg" {
-				if len(ce.Arguments) != 1 {
-					tc.addError(ce.Token.Line, ce.Token.Column,
-						"cfg requires exactly 1 string literal argument")
-				} else if _, ok := ce.Arguments[0].(*ast.StringLiteral); !ok {
+		isBuiltinCall := tc.isBuiltin(funcName)
+		if isBuiltinCall {
+			if funcName == "cfg" && len(ce.Arguments) == 1 {
+				if _, ok := ce.Arguments[0].(*ast.StringLiteral); !ok {
 					tc.addError(ce.Token.Line, ce.Token.Column,
 						"cfg() requires a string literal feature name")
 				}
 			}
-			for _, arg := range ce.Arguments {
-				tc.inferType(arg)
-			}
-			return sig.ReturnType
-		}
 
-		// Record the function as used so it won't be reported as unused.
-		if funcName != "" {
-			if tc.env.used == nil {
-				tc.env.used = make(map[string]bool)
+			builtinSpec, ok := tc.getBuiltinCallSpec(funcName)
+			if !ok {
+				for _, arg := range ce.Arguments {
+					tc.inferType(arg)
+				}
+				return sig.ReturnType
 			}
-			tc.env.used[funcName] = true
+
+			if !builtinSpec.acceptsArgCount(len(ce.Arguments)) {
+				if builtinSpec.MinArgs == builtinSpec.MaxArgs {
+					tc.errorArgumentCountMismatch(
+						funcName,
+						builtinSpec.MinArgs,
+						len(ce.Arguments),
+						ce.Token.Line,
+						ce.Token.Column,
+						nil,
+					)
+				} else {
+					tc.errorArgumentCountRangeMismatch(
+						funcName,
+						builtinSpec.MinArgs,
+						builtinSpec.MaxArgs,
+						len(ce.Arguments),
+						ce.Token.Line,
+						ce.Token.Column,
+					)
+				}
+				for _, arg := range ce.Arguments {
+					tc.inferType(arg)
+				}
+				tc.clearBorrows(ce.Arguments)
+				return builtinSpec.Signature.ReturnType
+			}
+
+			if !builtinSpec.CheckArgTypes {
+				for _, arg := range ce.Arguments {
+					tc.inferType(arg)
+				}
+				return builtinSpec.Signature.ReturnType
+			}
+
+			params := builtinSpec.Signature.Params
+			// For optional trailing parameters, only validate the arguments
+			// actually present at this call site.
+			if builtinSpec.MaxArgs > builtinSpec.MinArgs && len(ce.Arguments) < len(params) {
+				params = params[:len(ce.Arguments)]
+			}
+			sig = &FunctionSig{
+				Parameters: params,
+				ReturnType: builtinSpec.Signature.ReturnType,
+			}
+		} else {
+			// Record the function as used so it won't be reported as unused.
+			if funcName != "" {
+				if tc.env.used == nil {
+					tc.env.used = make(map[string]bool)
+				}
+				tc.env.used[funcName] = true
+			}
 		}
 		// Check argument count matches parameter count
 		if len(ce.Arguments) != len(sig.Parameters) {

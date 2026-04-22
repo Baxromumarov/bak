@@ -268,3 +268,22 @@ func main() -> (void) {
 		t.Fatalf("expected Option surface rejection diagnostic, got %v", typeErrs)
 	}
 }
+
+func TestFrozenSurfaceRejectsOptionMethods(t *testing.T) {
+	source := `package main
+
+func main() -> (void) {
+    var r: Result<int, string> = Ok(1)
+    var _legacy = r.is_some()
+    return void
+}`
+
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	if len(parseErrs) > 0 {
+		t.Fatalf("unexpected parser errors: %v", parseErrs)
+	}
+	joined := strings.Join(typeErrs, "\n")
+	if !strings.Contains(joined, "undefined method 'is_some' for Result") {
+		t.Fatalf("expected Option method surface rejection diagnostic, got %v", typeErrs)
+	}
+}

@@ -11,6 +11,8 @@ import (
 const (
 	HeaderContentLength = "Content-Length: "
 	HeaderContentType   = "Content-Type: application/vscode-jsonrpc; charset=utf-8"
+	maxHeaderBytes      = 16 * 1024
+	maxContentBytes     = 16 * 1024 * 1024
 )
 
 type BaseMessage struct {
@@ -46,7 +48,8 @@ type ResponseError struct {
 func EncodeMessage(msg any) []byte {
 	content, err := json.Marshal(msg)
 	if err != nil {
-		panic(err)
+		// Never panic the LSP process on malformed payloads.
+		content = []byte(`{"jsonrpc":"2.0","error":{"code":-32603,"message":"failed to encode message"}}`)
 	}
 	return fmt.Appendf(nil, "Content-Length: %d\r\n\r\n%s", len(content), content)
 }
@@ -61,6 +64,9 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 			return nil, 0, err
 		}
 		header = append(header, b...)
+		if len(header) > maxHeaderBytes {
+			return nil, 0, fmt.Errorf("message header too large")
+		}
 		if len(header) >= 4 && string(header[len(header)-4:]) == "\r\n\r\n" {
 			break
 		}
@@ -82,8 +88,11 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 		}
 	}
 
-	if contentLength == 0 {
+	if contentLength <= 0 {
 		return nil, 0, fmt.Errorf("missing content length")
+	}
+	if contentLength > maxContentBytes {
+		return nil, 0, fmt.Errorf("content length exceeds max size: %d", contentLength)
 	}
 
 	// Read content

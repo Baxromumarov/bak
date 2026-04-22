@@ -1,6 +1,7 @@
 package builtins
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -166,6 +167,36 @@ func TestOsExecTruncatesOutput(t *testing.T) {
 	}
 	if !requireBoolValue(t, execResult.Fields["Truncated"]) {
 		t.Fatalf("expected truncation flag")
+	}
+}
+
+func TestSocketReadRejectsNegativeCount(t *testing.T) {
+	setBuiltinPermissions(t, runtimecap.Permissions{AllowNet: true})
+
+	left, right := net.Pipe()
+	defer left.Close()
+	defer right.Close()
+
+	connMu.Lock()
+	fd := nextConnID
+	nextConnID++
+	activeConns[fd] = left
+	connMu.Unlock()
+	t.Cleanup(func() {
+		connMu.Lock()
+		delete(activeConns, fd)
+		connMu.Unlock()
+	})
+
+	result := requireResult(t, builtinSocketRead(
+		&object.Integer{Value: int64(fd)},
+		&object.Integer{Value: -1},
+	))
+	if result.IsOk {
+		t.Fatalf("expected negative read count to be rejected")
+	}
+	if got := requireStringValue(t, result.Value); !strings.Contains(got, "non-negative") {
+		t.Fatalf("unexpected error message: %q", got)
 	}
 }
 

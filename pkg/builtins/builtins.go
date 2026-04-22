@@ -1,4 +1,4 @@
-// Package builtins provides the built-in functions for the bak language.
+	// Package builtins provides the built-in functions for the bak language.
 package builtins
 
 import (
@@ -453,6 +453,10 @@ func builtinSocketRead(args ...object.Object) object.Object {
 			IsOk:  false,
 			Value: &object.String{Value: runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet)},
 		}
+	}
+
+	if nObj.Value < 0 {
+		return &object.Result{IsOk: false, Value: &object.String{Value: "socket read count must be non-negative"}}
 	}
 
 	buf := make([]byte, int(nObj.Value))

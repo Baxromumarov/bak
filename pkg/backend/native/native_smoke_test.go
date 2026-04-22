@@ -47,9 +47,9 @@ func TestNativePermissionedSmokeMatrix(t *testing.T) {
 		expectedExit int
 		permissions  runtimecap.Permissions
 	}{
-		{name: "os_getenv_none", sourcePath: filepath.Join(root, "tests", "native_os_getenv_none_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
-		{name: "os_cwd", sourcePath: filepath.Join(root, "tests", "native_os_cwd_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
-		{name: "os_chdir", sourcePath: filepath.Join(root, "tests", "native_os_chdir_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{AllowExec: true}},
+		{name: "os_getenv_none", sourcePath: filepath.Join(root, "tests", "native_os_getenv_none_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{}},
+		{name: "os_cwd", sourcePath: filepath.Join(root, "tests", "native_os_cwd_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{}},
+		{name: "os_chdir", sourcePath: filepath.Join(root, "tests", "native_os_chdir_test.bak"), expectedExit: 0, permissions: runtimecap.Permissions{}},
 	}
 
 	for _, testCase := range tests {

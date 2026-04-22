@@ -189,6 +189,43 @@ func main() -> (void) {
 	}
 }
 
+func TestBuildExecutableDoesNotRequireExecForImportedOSModule(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	typechecker.ResetCache()
+	t.Cleanup(typechecker.ResetCache)
+
+	source := `package main
+
+import "std/os"
+
+func main() -> (int) {
+	var g: Result<string, string> = os.getenv("PATH")
+	if g.is_ok() {
+		return 0
+	}
+	return 1
+}
+`
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+
+	tc := typechecker.NewWithPath("native_exec_import_gate.bak")
+	tc.SetSuppressUnused(true)
+	if errs := tc.Check(program); len(errs) > 0 {
+		t.Fatalf("type errors: %v", errs)
+	}
+
+	if _, err := BuildExecutable(program, runtimecap.Permissions{}); err != nil {
+		t.Fatalf("expected BuildExecutable to succeed without --allow-exec for os.getenv path: %v", err)
+	}
+}
+
 func TestBuildExecutableLoadsImportsWithoutPreloadedRegistry(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

@@ -1,8 +1,10 @@
 package vm
 
 import (
+	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,6 +108,51 @@ func main() -> (Result<void, string>) {
 	}
 	if got, want := result.Value.AsString, runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate); got != want {
 		t.Fatalf("unexpected error message: got %q want %q", got, want)
+	}
+}
+
+func TestVMRejectsTraversalPathsForMutators(t *testing.T) {
+	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{AllowFSMutate: true})
+	val, err := vm.callBuiltin(compiler.BUILTIN_REMOVE, []compiler.Value{
+		compiler.NewString("../victim.txt"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result := requireVMResult(t, val)
+	if !result.IsErr {
+		t.Fatalf("expected traversal path to be rejected")
+	}
+	if got := result.Value.AsString; !strings.Contains(got, "directory traversal") {
+		t.Fatalf("expected traversal error, got %q", got)
+	}
+}
+
+func TestVMSocketReadRejectsNegativeCount(t *testing.T) {
+	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{AllowNet: true})
+	left, right := net.Pipe()
+	defer left.Close()
+	defer right.Close()
+
+	vm.connMu.Lock()
+	fd := vm.nextConnID
+	vm.nextConnID++
+	vm.conns[fd] = left
+	vm.connMu.Unlock()
+
+	val, err := vm.callBuiltin(compiler.BUILTIN_SOCKET_READ, []compiler.Value{
+		compiler.NewInt(int64(fd)),
+		compiler.NewInt(-1),
+	})
+	if err != nil {
+		t.Fatalf("unexpected VM builtin error: %v", err)
+	}
+	result := requireVMResult(t, val)
+	if !result.IsErr {
+		t.Fatalf("expected negative read count to be rejected")
+	}
+	if got := result.Value.AsString; !strings.Contains(got, "non-negative") {
+		t.Fatalf("unexpected error message: %q", got)
 	}
 }
 

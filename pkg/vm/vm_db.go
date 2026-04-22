@@ -132,7 +132,10 @@ func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
 	}
 	defer rows.Close()
 
-	columns, _ := rows.Columns()
+	columns, err := rows.Columns()
+	if err != nil {
+		return compiler.NewNil(), err
+	}
 	colElements := make([]compiler.Value, len(columns))
 	for i, col := range columns {
 		colElements[i] = compiler.NewString(col)
@@ -146,7 +149,9 @@ func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
 		for i := range values {
 			valuePtrs[i] = &values[i]
 		}
-		rows.Scan(valuePtrs...)
+		if err := rows.Scan(valuePtrs...); err != nil {
+			return compiler.NewNil(), err
+		}
 
 		rowCells := make([]compiler.Value, len(columns))
 		for i, val := range values {
@@ -162,6 +167,9 @@ func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
 		}
 		rowVec := &compiler.ArrayInstance{Elements: rowCells}
 		rowElements = append(rowElements, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: rowVec})
+	}
+	if err := rows.Err(); err != nil {
+		return compiler.NewNil(), err
 	}
 
 	rowsVec := &compiler.ArrayInstance{Elements: rowElements}
