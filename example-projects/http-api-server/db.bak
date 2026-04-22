@@ -143,14 +143,14 @@ func map_query_result_to_user(result: db.QueryResult) -> (Result<user, string>) 
 
 func get_required_string(row: &db.Row, name: string) -> (Result<string, string>) {
     switch row.get(name) {
-        case Some(v) { return Ok(v) }
-        case None { return Err("column '" + name + "' is NULL or missing") }
+        case Ok(v) { return Ok(v) }
+        case Err(_) { return Err("column '" + name + "' is NULL or missing") }
     }
 }
 
 func get_float_or(row: &db.Row, name: string, fallback: float64) -> (Result<float64, string>) {
     switch row.get(name) {
-        case Some(v) { return v.parse_float() }
-        case None { return Ok(fallback) }
+        case Ok(v) { return v.parse_float() }
+        case Err(_) { return Ok(fallback) }
     }
 }

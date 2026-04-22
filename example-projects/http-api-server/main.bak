@@ -120,7 +120,7 @@ func delete_user_handler(req: http.Request) -> (http.Response) {
 }
 
 func main() -> (void){
-    var router = http.new_router()
+    mut var router = http.new_router()
     router.get("/users", users_handler)
     router.get("/users/:id", user_by_id_handler)
     router.post("/users", create_user_handler)
@@ -144,11 +144,11 @@ func user_to_json(u: models.user) -> (json.Json) {
 }
 
 func parse_id_param(req: &http.Request) -> (Result<int, string>) {
-    var id_opt = req.param("id")
-    if id_opt.is_none() {
+    var id_param = req.param("id")
+    if id_param.is_err() {
         return Err("missing id param")
     }
-    var id_result = id_opt.unwrap().parse_int()
+    var id_result = id_param.unwrap().parse_int()
     if id_result.is_err() {
         return Err("invalid id param")
     }

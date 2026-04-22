@@ -1,6 +1,0 @@
-package main
-
-func main() -> (void) {
-    println("hello from tmp")
-    return void
-}
