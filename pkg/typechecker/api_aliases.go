@@ -68,6 +68,34 @@ var strconvFunctionAliasCanonical = map[string]string{
 	"formatBool":   "format_bool",
 }
 
+var fsFunctionAliasCanonical = map[string]string{
+	"readFile":       "read_file",
+	"readFileBytes":  "read_file_bytes",
+	"writeFile":      "write_file",
+	"writeFileBytes": "write_file_bytes",
+	"appendFile":     "append_file",
+	"isFile":         "is_file",
+	"isDir":          "is_dir",
+	"readDir":        "read_dir",
+}
+
+var syncFunctionAliasCanonical = map[string]string{
+	"NewMutex": "new_mutex",
+}
+
+var mathFunctionAliasCanonical = map[string]string{
+	"absInt":     "abs_int",
+	"signInt":    "sign_int",
+	"minInt":     "min_int",
+	"maxInt":     "max_int",
+	"clampInt":   "clamp_int",
+	"absFloat":   "abs_float",
+	"signFloat":  "sign_float",
+	"minFloat":   "min_float",
+	"maxFloat":   "max_float",
+	"clampFloat": "clamp_float",
+}
+
 func normalizeAlias(aliasMap map[string]string, name string) (string, bool) {
 	canonical, ok := aliasMap[name]
 	if !ok {
@@ -118,7 +146,22 @@ func isStdStrconvImportPath(path string) bool {
 	return strings.Contains(normalized, "std/strconv/strconv")
 }
 
-func (tc *TypeChecker) canonicalizeStringsModuleFunction(moduleAlias, name string, line, col int) string {
+func isStdFSImportPath(path string) bool {
+	normalized := strings.ReplaceAll(path, "\\", "/")
+	return strings.Contains(normalized, "std/fs/fs")
+}
+
+func isStdSyncImportPath(path string) bool {
+	normalized := strings.ReplaceAll(path, "\\", "/")
+	return strings.Contains(normalized, "std/sync/sync")
+}
+
+func isStdMathImportPath(path string) bool {
+	normalized := strings.ReplaceAll(path, "\\", "/")
+	return strings.Contains(normalized, "std/math/math")
+}
+
+func (tc *TypeChecker) canonicalizeStdModuleFunction(moduleAlias, name string, line, col int) string {
 	path := tc.importedPkgPaths[moduleAlias]
 	if isStdStringsImportPath(path) {
 		if canonical, deprecated := normalizeAlias(stringsFunctionAliasCanonical, name); deprecated {
@@ -128,6 +171,24 @@ func (tc *TypeChecker) canonicalizeStringsModuleFunction(moduleAlias, name strin
 	}
 	if isStdStrconvImportPath(path) {
 		if canonical, deprecated := normalizeAlias(strconvFunctionAliasCanonical, name); deprecated {
+			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
+			return canonical
+		}
+	}
+	if isStdFSImportPath(path) {
+		if canonical, deprecated := normalizeAlias(fsFunctionAliasCanonical, name); deprecated {
+			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
+			return canonical
+		}
+	}
+	if isStdSyncImportPath(path) {
+		if canonical, deprecated := normalizeAlias(syncFunctionAliasCanonical, name); deprecated {
+			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
+			return canonical
+		}
+	}
+	if isStdMathImportPath(path) {
+		if canonical, deprecated := normalizeAlias(mathFunctionAliasCanonical, name); deprecated {
 			tc.warnDeprecatedAlias("function", moduleAlias+"."+name, moduleAlias+"."+canonical, line, col)
 			return canonical
 		}

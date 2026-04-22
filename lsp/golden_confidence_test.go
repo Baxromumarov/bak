@@ -57,7 +57,6 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 		"    r.unwrap_err()",
 		"    mut var m: HashMap<string, int> = HashMap.new()",
 		"    m.insert(\"k\", 1)",
-		"    x.is_some()",
 		"}",
 		"",
 	}, "\n")
@@ -72,7 +71,6 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 		"Vec":     signatureLabelAt(t, s, uri, src, "v.push("),
 		"Result":  signatureLabelAt(t, s, uri, src, "r.unwrap_err("),
 		"HashMap": signatureLabelAt(t, s, uri, src, "m.insert("),
-		"Option":  signatureLabelAt(t, s, uri, src, "x.is_some("),
 	}
 
 	if !strings.Contains(sigs["Vec"], "Vec.push") {
@@ -83,9 +81,6 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 	}
 	if !strings.Contains(sigs["HashMap"], "HashMap.insert") {
 		t.Fatalf("HashMap signature mismatch: %q", sigs["HashMap"])
-	}
-	if !strings.Contains(sigs["Option"], "Option.is_some") {
-		t.Fatalf("Option signature mismatch: %q", sigs["Option"])
 	}
 }
 
@@ -107,7 +102,6 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 		"    println(inferredvec)",
 		"    println(inferredresult)",
 		"    println(mapval)",
-		"    x.is_some()",
 		"}",
 		"",
 	}, "\n")
@@ -132,12 +126,6 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 	if !strings.Contains(hoverMap, "insert(key: K, value: V)") {
 		t.Fatalf("unexpected HashMap hover: %q", hoverMap)
 	}
-
-	hoverOptionMethod := hoverAt(t, s, uri, src, "is_some")
-	if !strings.Contains(hoverOptionMethod, "is_some() -> (bool)") {
-		t.Fatalf("unexpected Option hover: %q", hoverOptionMethod)
-	}
-
 }
 
 func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
@@ -194,6 +182,36 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 		if snapshot[i] != want[i] {
 			t.Fatalf("inlay snapshot mismatch at %d:\n got=%q\nwant=%q\nall=%v", i, snapshot[i], want[i], snapshot)
 		}
+	}
+}
+
+func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    x.is_some()",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	line, col := findLineCol(src, "x.is_some(")
+	if line < 0 {
+		t.Fatalf("signature target not found")
+	}
+	params := SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("x.is_some(")},
+	}
+	help := s.handleSignatureHelp(mustRequest(t, params))
+	if help != nil && len(help.Signatures) > 0 {
+		t.Fatalf("expected no Option signature suggestions, got %#v", help.Signatures)
 	}
 }
 

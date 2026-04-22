@@ -255,6 +255,48 @@ func main() -> (void) {
 `, "deprecated function alias 'strconv.parseInt'; use 'strconv.parse_int'")
 }
 
+func TestCheck_DeprecatedStringsFunctionAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/strings/strings.bak" as strings
+func main() -> (void) {
+	var value: string = "baklang"
+	var ok: bool = strings.startsWith(&value, &"bak")
+	println(ok)
+}
+`, "deprecated function alias 'strings.startsWith'; use 'strings.starts_with'")
+}
+
+func TestCheck_DeprecatedFSFunctionAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/fs/fs.bak" as fs
+func main() -> (void) {
+	var _ok: bool = fs.isFile("README.md")
+}
+`, "deprecated function alias 'fs.isFile'; use 'fs.is_file'")
+}
+
+func TestCheck_DeprecatedSyncFunctionAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/sync/sync.bak" as sync
+func main() -> (void) {
+	var _m: sync.Mutex = sync.NewMutex()
+}
+`, "deprecated function alias 'sync.NewMutex'; use 'sync.new_mutex'")
+}
+
+func TestCheck_DeprecatedMathFunctionAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+import "src/std/math/math.bak" as math
+func main() -> (void) {
+	var _v: int = math.absInt(-10)
+}
+`, "deprecated function alias 'math.absInt'; use 'math.abs_int'")
+}
+
 func TestCheck_TypeMismatchIncludesWhereInferredNote(t *testing.T) {
 	expectError(t, `
 package main
@@ -272,6 +314,17 @@ func main() -> (void) {
 `, "where expected: assignment to variable 'x' expects type int")
 }
 
+func TestCheck_TypeMismatchIdentifierIncludesDeclarationInferenceNote(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var x: int = 1
+	var s: string = "hello"
+	x = s
+}
+`, "where inferred: 's' has declared type string")
+}
+
 func TestCheck_UseAfterMoveIncludesWhereMovedNote(t *testing.T) {
 	expectError(t, `
 package main
@@ -284,6 +337,42 @@ func main() -> (void) {
 	println(value)
 }
 `, "where moved: value was moved by function call")
+}
+
+func TestCheck_CannotMoveWhileMutablyBorrowedIncludesWhereBorrowedNote(t *testing.T) {
+	expectError(t, `
+package main
+func consume(v: Vec<int, _>) -> (void) {
+	println(v.len())
+}
+func main() -> (void) {
+	mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+	var _borrow = &mut nums
+	consume(nums)
+}
+`, "where borrowed: 'nums' became mutably borrowed here")
+	expectError(t, `
+package main
+func consume(v: Vec<int, _>) -> (void) {
+	println(v.len())
+}
+func main() -> (void) {
+	mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+	var _borrow = &mut nums
+	consume(nums)
+}
+`, "finish active borrows of 'nums' before moving it, or clone 'nums' first")
+}
+
+func TestCheck_BorrowConflictIncludesWhereBorrowedNote(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	mut var nums: Vec<int, _> = Vec.from([1, 2])
+	var _a = &mut nums
+	var _b = &nums
+}
+`, "where borrowed: active mutable borrow of 'nums' starts here")
 }
 
 // =============================================================================

@@ -244,3 +244,27 @@ func main() -> (void) {
 		t.Fatalf("expected stdlib replacement hint, got %v", typeErrs)
 	}
 }
+
+func TestFrozenSurfaceRejectsOptionConstructorsAndTypes(t *testing.T) {
+	source := `package main
+
+func main() -> (void) {
+    var _legacy: Option<int> = Some(1)
+    var _none = None
+    return void
+}`
+
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	if len(parseErrs) > 0 {
+		joinedParse := strings.Join(parseErrs, "\n")
+		if !strings.Contains(joinedParse, "experimental and disabled by default") &&
+			!strings.Contains(joinedParse, "Option") {
+			t.Fatalf("expected Option parser rejection, got %v", parseErrs)
+		}
+		return
+	}
+	joined := strings.Join(typeErrs, "\n")
+	if !strings.Contains(joined, "Option<T> is not supported") && !strings.Contains(joined, "undefined: Some") {
+		t.Fatalf("expected Option surface rejection diagnostic, got %v", typeErrs)
+	}
+}

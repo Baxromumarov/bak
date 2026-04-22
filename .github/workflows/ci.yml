@@ -46,7 +46,11 @@ jobs:
 
             - name: Run frozen language conformance and docs guardrails
               run: |
-                  go test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint'
+                  go test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint|TestFrozenSurfaceRejectsOptionConstructorsAndTypes'
+                  go test ./pkg/typechecker -run 'TestCheck_TypeMismatchIncludesWhereInferredNote|TestCheck_TypeMismatchIdentifierIncludesDeclarationInferenceNote|TestCheck_UseAfterMoveIncludesWhereMovedNote|TestCheck_CannotMoveWhileMutablyBorrowedIncludesWhereBorrowedNote|TestCheck_BorrowConflictIncludesWhereBorrowedNote|TestCheck_DeprecatedFSFunctionAliasWarns|TestCheck_DeprecatedSyncFunctionAliasWarns|TestCheck_DeprecatedMathFunctionAliasWarns'
+                  go test ./pkg/typestr -run 'TestRenderTypeGoldenSnapshots|TestRenderTypeForSyntaxGoldenSnapshots'
+                  go test ./lsp -run 'TestCompletionGoldenCanonicalCoreMethods|TestSignatureHelpGoldenCoreTypes|TestHoverAndInlayGoldenCoreTypes|TestInlayHintGoldenTypeStringSnapshotsCoreTypes|TestSignatureHelpDoesNotAdvertiseOptionMethods'
+                  go test ./cmd/bak -run 'TestStdlibCoreExamplesCompileAndRun|TestStdlibCollectionsExamplesCompileAndRun|TestExampleProjectsSmokeCheck'
                   go test ./cmd/bak -run 'TestPublicDocsAndExamplesLabelExperimentalSurface|TestPublicConformanceTestsLabelExperimentalSurface|TestResolveProjectFeaturesByLanguageMode'
 
     native-parity:

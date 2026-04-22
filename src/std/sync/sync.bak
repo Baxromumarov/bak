@@ -10,6 +10,11 @@ pub func NewMutex() -> (Mutex) {
     }
 }
 
+// Preferred snake_case API.
+pub func new_mutex() -> (Mutex) {
+    return NewMutex()
+}
+
 impl Mutex as m {
     pub func lock() -> (void) {
         __builtin_mutex_lock(m.handle)

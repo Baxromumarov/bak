@@ -109,12 +109,6 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"to_string":  {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Result."},
 		"toString":   {Signature: "func toString() -> (string)", Doc: "Deprecated: use to_string."},
 	},
-	"Option": {
-		"is_some":   {Signature: "func is_some() -> (bool)", Doc: "Returns true if the option is Some."},
-		"is_none":   {Signature: "func is_none() -> (bool)", Doc: "Returns true if the option is None."},
-		"unwrap":    {Signature: "func unwrap() -> (T)", Doc: "Returns the Some value. Panics if None."},
-		"to_string": {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Option."},
-	},
 }
 
 var builtinStaticMethods = map[string]map[string]builtinMethodInfo{
@@ -5678,7 +5672,7 @@ func builtinMethodSignatureInfo(typeName, methodName string, info builtinMethodI
 	if after, ok := strings.CutPrefix(label, "func "); ok {
 		label = after
 	}
-	
+
 	label = typeName + "." + methodName
 	if open := strings.Index(label, "("); open != -1 {
 		label = label[open:]

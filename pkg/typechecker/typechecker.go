@@ -135,6 +135,13 @@ type MoveInfo struct {
 	Detail string // e.g., function name that consumed it
 }
 
+// BorrowInfo tracks where a borrow originated.
+type BorrowInfo struct {
+	Line    int
+	Column  int
+	Mutable bool
+}
+
 // TypeError represents a type error with rich context
 type TypeError struct {
 	Code    diagnostics.DiagnosticCode
@@ -266,38 +273,42 @@ type ImportInfo struct {
 
 // TypeEnv represents the type environment (symbol table)
 type TypeEnv struct {
-	symbols      map[string]*TypeInfo
-	functions    map[string]*FunctionSig
-	structs      map[string]*StructDef
-	enums        map[string]*EnumDef
-	aliases      map[string]*AliasDef // alias Name -> underlying type
-	typedefs     map[string]*TypeDef  // type Name -> underlying type
-	moved        map[string]bool      // tracks which variables have been moved
-	moveInfo     map[string]*MoveInfo // tracks where/why variables were moved
-	borrowedMut  map[string]bool      // tracks which variables are mutably borrowed
-	borrowedIm   map[string]int       // counts active immutable borrows per variable
-	used         map[string]bool      // tracks which variables/symbols have been used
-	poisoned     map[string]bool      // tracks variables that should suppress further errors
-	isolated     bool                 // if true, moves don't propagate to parent
-	nonCapturing bool                 // if true, only local and root symbols are visible
-	parent       *TypeEnv
+	symbols       map[string]*TypeInfo
+	functions     map[string]*FunctionSig
+	structs       map[string]*StructDef
+	enums         map[string]*EnumDef
+	aliases       map[string]*AliasDef // alias Name -> underlying type
+	typedefs      map[string]*TypeDef  // type Name -> underlying type
+	moved         map[string]bool      // tracks which variables have been moved
+	moveInfo      map[string]*MoveInfo // tracks where/why variables were moved
+	borrowedMut   map[string]bool      // tracks which variables are mutably borrowed
+	borrowedMutAt map[string]*BorrowInfo
+	borrowedIm    map[string]int // counts active immutable borrows per variable
+	borrowedImAt  map[string]*BorrowInfo
+	used          map[string]bool // tracks which variables/symbols have been used
+	poisoned      map[string]bool // tracks variables that should suppress further errors
+	isolated      bool            // if true, moves don't propagate to parent
+	nonCapturing  bool            // if true, only local and root symbols are visible
+	parent        *TypeEnv
 }
 
 // NewTypeEnv creates a new type environment
 func NewTypeEnv() *TypeEnv {
 	env := &TypeEnv{
-		symbols:     make(map[string]*TypeInfo),
-		functions:   make(map[string]*FunctionSig),
-		structs:     make(map[string]*StructDef),
-		enums:       make(map[string]*EnumDef),
-		aliases:     make(map[string]*AliasDef),
-		typedefs:    make(map[string]*TypeDef),
-		moved:       make(map[string]bool),
-		moveInfo:    make(map[string]*MoveInfo),
-		borrowedMut: make(map[string]bool),
-		borrowedIm:  make(map[string]int),
-		used:        make(map[string]bool),
-		poisoned:    make(map[string]bool),
+		symbols:       make(map[string]*TypeInfo),
+		functions:     make(map[string]*FunctionSig),
+		structs:       make(map[string]*StructDef),
+		enums:         make(map[string]*EnumDef),
+		aliases:       make(map[string]*AliasDef),
+		typedefs:      make(map[string]*TypeDef),
+		moved:         make(map[string]bool),
+		moveInfo:      make(map[string]*MoveInfo),
+		borrowedMut:   make(map[string]bool),
+		borrowedMutAt: make(map[string]*BorrowInfo),
+		borrowedIm:    make(map[string]int),
+		borrowedImAt:  make(map[string]*BorrowInfo),
+		used:          make(map[string]bool),
+		poisoned:      make(map[string]bool),
 	}
 
 	// register Result enum (mock for now to pass lookup)
@@ -316,19 +327,21 @@ func NewTypeEnv() *TypeEnv {
 // since those are inherited from the parent (root) environment.
 func NewEnclosedTypeEnv(parent *TypeEnv) *TypeEnv {
 	env := &TypeEnv{
-		symbols:     make(map[string]*TypeInfo),
-		functions:   make(map[string]*FunctionSig),
-		structs:     make(map[string]*StructDef),
-		enums:       make(map[string]*EnumDef),
-		aliases:     make(map[string]*AliasDef),
-		typedefs:    make(map[string]*TypeDef),
-		moved:       make(map[string]bool),
-		moveInfo:    make(map[string]*MoveInfo),
-		borrowedMut: make(map[string]bool),
-		borrowedIm:  make(map[string]int),
-		used:        make(map[string]bool),
-		poisoned:    make(map[string]bool),
-		parent:      parent,
+		symbols:       make(map[string]*TypeInfo),
+		functions:     make(map[string]*FunctionSig),
+		structs:       make(map[string]*StructDef),
+		enums:         make(map[string]*EnumDef),
+		aliases:       make(map[string]*AliasDef),
+		typedefs:      make(map[string]*TypeDef),
+		moved:         make(map[string]bool),
+		moveInfo:      make(map[string]*MoveInfo),
+		borrowedMut:   make(map[string]bool),
+		borrowedMutAt: make(map[string]*BorrowInfo),
+		borrowedIm:    make(map[string]int),
+		borrowedImAt:  make(map[string]*BorrowInfo),
+		used:          make(map[string]bool),
+		poisoned:      make(map[string]bool),
+		parent:        parent,
 	}
 	return env
 }
@@ -536,13 +549,23 @@ func (e *TypeEnv) IsPoisoned(name string) bool {
 
 // MarkBorrowedMut marks a variable as mutably borrowed in the CURRENT scope only.
 func (e *TypeEnv) MarkBorrowedMut(name string) {
+	e.MarkBorrowedMutAt(name, 0, 0)
+}
+
+// MarkBorrowedMutAt marks a variable as mutably borrowed in the current scope
+// and records where the borrow started.
+func (e *TypeEnv) MarkBorrowedMutAt(name string, line, col int) {
 	// Always mark in current environment to support lexical scoping (cleared on scope exit)
 	e.borrowedMut[name] = true
+	if line > 0 {
+		e.borrowedMutAt[name] = &BorrowInfo{Line: line, Column: col, Mutable: true}
+	}
 }
 
 // ClearBorrowedMut clears a mutable borrow from the CURRENT scope only.
 func (e *TypeEnv) ClearBorrowedMut(name string) {
 	delete(e.borrowedMut, name)
+	delete(e.borrowedMutAt, name)
 }
 
 // IsBorrowedMut checks if a variable is mutably borrowed
@@ -559,8 +582,31 @@ func (e *TypeEnv) IsBorrowedMut(name string) bool {
 	return false
 }
 
+// GetBorrowedMutInfo returns origin info for an active mutable borrow.
+func (e *TypeEnv) GetBorrowedMutInfo(name string) *BorrowInfo {
+	if e.borrowedMut[name] {
+		if info, ok := e.borrowedMutAt[name]; ok {
+			return info
+		}
+		return nil
+	}
+	if e.parent != nil {
+		return e.parent.GetBorrowedMutInfo(name)
+	}
+	return nil
+}
+
 // MarkBorrowedIm records an immutable borrow for the named variable in the CURRENT scope.
 func (e *TypeEnv) MarkBorrowedIm(name string) {
+	e.MarkBorrowedImAt(name, 0, 0)
+}
+
+// MarkBorrowedImAt records an immutable borrow and, for the first active borrow
+// in this scope, where it started.
+func (e *TypeEnv) MarkBorrowedImAt(name string, line, col int) {
+	if e.borrowedIm[name] == 0 && line > 0 {
+		e.borrowedImAt[name] = &BorrowInfo{Line: line, Column: col, Mutable: false}
+	}
 	e.borrowedIm[name]++
 }
 
@@ -569,6 +615,7 @@ func (e *TypeEnv) ClearBorrowedIm(name string) {
 	if cnt, ok := e.borrowedIm[name]; ok {
 		if cnt <= 1 {
 			delete(e.borrowedIm, name)
+			delete(e.borrowedImAt, name)
 		} else {
 			e.borrowedIm[name] = cnt - 1
 		}
@@ -584,6 +631,20 @@ func (e *TypeEnv) IsBorrowedIm(name string) bool {
 		return e.parent.IsBorrowedIm(name)
 	}
 	return false
+}
+
+// GetBorrowedImInfo returns origin info for an active immutable borrow.
+func (e *TypeEnv) GetBorrowedImInfo(name string) *BorrowInfo {
+	if e.borrowedIm[name] > 0 {
+		if info, ok := e.borrowedImAt[name]; ok {
+			return info
+		}
+		return nil
+	}
+	if e.parent != nil {
+		return e.parent.GetBorrowedImInfo(name)
+	}
+	return nil
 }
 
 // DefineFunction defines a function signature
@@ -1055,7 +1116,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, line, col, "mutably borrowed")
+			tc.errorCannotMove(e.Value, line, col, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -1088,7 +1149,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, line, col, "mutably borrowed")
+			tc.errorCannotMove(e.Value, line, col, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -2510,14 +2571,28 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 		if be.Mutable {
 			return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
 		}
-		tc.errorBorrowConflict(varName, line, column, "borrow as immutable", "mutably borrowed")
+		tc.errorBorrowConflict(
+			varName,
+			line,
+			column,
+			"borrow as immutable",
+			"mutably borrowed",
+			tc.env.GetBorrowedMutInfo(varName),
+		)
 		return nil
 	}
 
 	// If taking a mutable borrow, ensure there are no existing immutable borrows
 	if be.Mutable {
 		if tc.env.IsBorrowedIm(varName) {
-			tc.errorBorrowConflict(varName, line, column, "borrow as mutable", "immutably borrowed")
+			tc.errorBorrowConflict(
+				varName,
+				line,
+				column,
+				"borrow as mutable",
+				"immutably borrowed",
+				tc.env.GetBorrowedImInfo(varName),
+			)
 			return nil
 		}
 		// Check that the variable is mutable
@@ -2530,10 +2605,10 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 			)
 			return nil
 		}
-		tc.env.MarkBorrowedMut(varName)
+		tc.env.MarkBorrowedMutAt(varName, line, column)
 	} else {
 		// Immutable borrow: mark an immutable borrow (allows multiple immutable borrows)
-		tc.env.MarkBorrowedIm(varName)
+		tc.env.MarkBorrowedImAt(varName, line, column)
 	}
 
 	return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
@@ -3180,7 +3255,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			// We need to handle it here because the parser might have created a MethodCallExpression
 
 			methodName := mc.Method.Value
-			canonicalMethod := tc.canonicalizeStringsModuleFunction(ident.Value, methodName, mc.Token.Line, mc.Token.Column)
+			canonicalMethod := tc.canonicalizeStdModuleFunction(ident.Value, methodName, mc.Token.Line, mc.Token.Column)
 			if canonicalMethod != methodName {
 				if _, ok := symbols[canonicalMethod]; ok {
 					methodName = canonicalMethod
@@ -3790,7 +3865,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			}
 			if symbols, exists := tc.importedSymbols[modIdent.Value]; exists {
 				methodName := fa.Field.Value
-				canonicalMethod := tc.canonicalizeStringsModuleFunction(modIdent.Value, methodName, ce.Token.Line, ce.Token.Column)
+				canonicalMethod := tc.canonicalizeStdModuleFunction(modIdent.Value, methodName, ce.Token.Line, ce.Token.Column)
 				if canonicalMethod != methodName {
 					if _, ok := symbols[canonicalMethod]; ok {
 						methodName = canonicalMethod
@@ -4102,7 +4177,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						if !tc.env.IsPoisoned(ident.Value) {
 							// Cannot consume a mutably borrowed variable
 							if tc.env.IsBorrowedMut(ident.Value) {
-								tc.errorCannotMove(ident.Value, ce.Token.Line, ce.Token.Column, "mutably borrowed")
+								tc.errorCannotMove(
+									ident.Value,
+									ce.Token.Line,
+									ce.Token.Column,
+									"mutably borrowed",
+									tc.env.GetBorrowedMutInfo(ident.Value),
+								)
 								tc.env.MarkPoisoned(ident.Value)
 							}
 							// Track move with info
@@ -4122,7 +4203,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						if !tc.env.IsPoisoned(mutIdent.Value) {
 							// Cannot consume a mutably borrowed variable
 							if tc.env.IsBorrowedMut(mutIdent.Value) {
-								tc.errorCannotMove(mutIdent.Value, ce.Token.Line, ce.Token.Column, "mutably borrowed")
+								tc.errorCannotMove(
+									mutIdent.Value,
+									ce.Token.Line,
+									ce.Token.Column,
+									"mutably borrowed",
+									tc.env.GetBorrowedMutInfo(mutIdent.Value),
+								)
 								tc.env.MarkPoisoned(mutIdent.Value)
 							}
 							// Track move with info

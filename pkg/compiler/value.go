@@ -23,6 +23,8 @@ const (
 	VAL_RANGE
 	VAL_CHAR
 	VAL_BUILTIN
+	// VAL_OPTION is kept for runtime/internal compatibility only.
+	// The frozen user-facing surface is Result-first and rejects Option<T>.
 	VAL_OPTION
 	VAL_BOX
 	VAL_TUPLE
@@ -308,7 +310,9 @@ type EnumInstance struct {
 	Payload     []Value
 }
 
-// OptionInstance represents an Option value (Some/None) at runtime.
+// OptionInstance is runtime-internal compatibility state for legacy bytecode
+// and box-optional lowering. User-facing Option<T> syntax is not part of the
+// frozen language surface.
 type OptionInstance struct {
 	IsSome bool
 	Value  Value

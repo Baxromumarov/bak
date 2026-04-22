@@ -1,0 +1,45 @@
+package main
+
+import "src/std/db/db.bak" as db
+import "src/std/test/test.bak" as test
+
+func test_db_row_getters_and_errors() -> (void) {
+    mut var t: test.T = test.new("test_db_row_getters_and_errors")
+
+    var columns: Vec<string, _> = Vec.from(["id", "name", "active", "balance"])
+    var rows: Vec<Vec<string, _>, _> = Vec.from([
+        Vec.from(["1", "Ada", "true", "10.5"]),
+        Vec.from(["2", "NULL", "false", "0.0"]),
+    ])
+    var qr: db.QueryResult = db.QueryResult{
+        Columns: columns,
+        Rows: rows,
+    }
+
+    var parsed_rows: Vec<db.Row, _> = db.rows(&qr)
+    t.eq(parsed_rows.len(), 2)
+
+    var first: db.Row = parsed_rows[0]
+    switch first.get_int("id") {
+        case Ok(v) { t.eq(v, 1) }
+        case Err(err) { t.fail("get_int failed: " + err) }
+    }
+    switch first.get_string("name") {
+        case Ok(v) { t.eq_string(v, "Ada") }
+        case Err(err) { t.fail("get_string failed: " + err) }
+    }
+    switch first.get_bool("active") {
+        case Ok(v) { t.is_true(v) }
+        case Err(err) { t.fail("get_bool failed: " + err) }
+    }
+    switch first.get_float("balance") {
+        case Ok(v) { t.eq_float(v, 10.5) }
+        case Err(err) { t.fail("get_float failed: " + err) }
+    }
+
+    var second: db.Row = parsed_rows[1]
+    t.is_true(second.get("missing_column").is_err())
+    t.is_true(second.get_string("name").is_err())
+
+    t.finish()
+}

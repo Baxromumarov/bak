@@ -115,15 +115,26 @@ func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo
 	tc.addFatalError(err)
 }
 
-func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason string) {
-	tc.addFatalError(TypeError{
+func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason string, borrowInfo *BorrowInfo) {
+	diag := TypeError{
 		Code:    diagnostics.ErrMoveWhileBorrowed,
 		Tier:    TierFatal,
 		Line:    line,
 		Column:  col,
 		Message: fmt.Sprintf("cannot move '%s' because it is %s", varName, reason),
-		Help:    fmt.Sprintf("consider borrowing with '&%s' or clone the value first", varName),
-	})
+		Help:    fmt.Sprintf("finish active borrows of '%s' before moving it, or clone '%s' first", varName, varName),
+	}
+	if borrowInfo != nil && borrowInfo.Line > 0 {
+		state := "borrowed"
+		if borrowInfo.Mutable {
+			state = "mutably borrowed"
+		} else {
+			state = "immutably borrowed"
+		}
+		diag.Note = fmt.Sprintf("where borrowed: '%s' became %s here", varName, state)
+		diag.NoteLoc = fmt.Sprintf("line %d:%d", borrowInfo.Line, borrowInfo.Column)
+	}
+	tc.addFatalError(diag)
 }
 
 func (tc *TypeChecker) errorBorrowConflict(
@@ -132,6 +143,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 	col int,
 	attemptedBorrow,
 	existingState string,
+	borrowInfo *BorrowInfo,
 ) {
 	help := "reorder operations or introduce a new scope to separate borrows"
 	switch {
@@ -140,7 +152,7 @@ func (tc *TypeChecker) errorBorrowConflict(
 	case attemptedBorrow == "borrow as immutable" && existingState == "mutably borrowed":
 		help = fmt.Sprintf("finish the mutable borrow of '%s' before taking '&%s'", varName, varName)
 	}
-	tc.addFatalError(TypeError{
+	diag := TypeError{
 		Code:   diagnostics.ErrBorrowConflict,
 		Tier:   TierFatal,
 		Line:   line,
@@ -151,7 +163,16 @@ func (tc *TypeChecker) errorBorrowConflict(
 			existingState,
 		),
 		Help: help,
-	})
+	}
+	if borrowInfo != nil && borrowInfo.Line > 0 {
+		state := "immutable borrow"
+		if borrowInfo.Mutable {
+			state = "mutable borrow"
+		}
+		diag.Note = fmt.Sprintf("where borrowed: active %s of '%s' starts here", state, varName)
+		diag.NoteLoc = fmt.Sprintf("line %d:%d", borrowInfo.Line, borrowInfo.Column)
+	}
+	tc.addFatalError(diag)
 }
 
 func (tc *TypeChecker) errorMutabilityRequired(
@@ -212,6 +233,16 @@ func (tc *TypeChecker) errorTypeMismatch(
 	if context != "" {
 		diag.Notes = append(diag.Notes, tc.expectedTypeOriginNote(context, expected))
 	}
+	if ident, ok := extractIdentifierName(node); ok {
+		if info, found := tc.lookupSymbolWithoutMark(ident); found && info.Line > 0 {
+			diag.Notes = append(diag.Notes, diagnostics.Note{
+				Message: fmt.Sprintf("where inferred: '%s' has declared type %s", ident, typeToString(info.Type)),
+				Line:    info.Line,
+				Column:  info.Column,
+				File:    tc.currentPkgPath,
+			})
+		}
+	}
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
 		diag.Notes = append(diag.Notes, diagnostics.Note{
 			Message: fmt.Sprintf("where inferred: this expression has type %s", got),
@@ -221,6 +252,17 @@ func (tc *TypeChecker) errorTypeMismatch(
 		})
 	}
 	tc.emitError(diag)
+}
+
+func extractIdentifierName(node ast.Node) (string, bool) {
+	switch n := node.(type) {
+	case *ast.Identifier:
+		return n.Value, true
+	case *ast.MutableIdentifier:
+		return n.Value, true
+	default:
+		return "", false
+	}
 }
 
 func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnostics.Note {

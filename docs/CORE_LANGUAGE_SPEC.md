@@ -148,7 +148,9 @@ Diagnostic wording may improve over time. Exact message text is not frozen, but 
 
 - accurate source location,
 - non-zero failure on invalid programs,
-- actionable help where available.
+- actionable help where available,
+- contextual notes for key ownership/type failures (`where inferred`, `where moved`, or borrow origin),
+- a concrete fix hint in `help` when a safe rewrite is known.
 
 ## Explicitly Not Frozen
 
@@ -158,6 +160,7 @@ These are currently not frozen:
 
 - `unsafe`
 - user-defined generics beyond the stable built-in surface already listed above
+- any internal runtime-only compatibility representation of `Option`/`Some`/`None`
 - FFI
 - callback/async cross-language interop
 - any syntax or semantics documented only in design-note files

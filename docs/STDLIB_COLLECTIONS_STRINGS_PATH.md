@@ -8,6 +8,14 @@ This page documents recently added helper APIs in:
 
 It is intended as practical usage guidance with short examples.
 
+## API naming policy
+
+Canonical stdlib API names use `snake_case`.
+
+- Use snake_case names in new code.
+- CamelCase aliases are compatibility shims and should be treated as deprecated.
+- The typechecker emits deprecation warnings for known aliases (for example, `strings.startsWith` -> `strings.starts_with`).
+
 ## Quick reference
 
 | Module | Function | Signature |
@@ -176,4 +184,7 @@ path.with_ext(&"README", &"txt")               // "README.txt"
 ## Tests covering these APIs
 
 - `tests/collections_set_queue_test.bak`
+- `tests/std_collections_ci_test.bak`
+- `tests/std_db_ci_test.bak`
+- `tests/std_strings_ci_test.bak`
 - `tests/std_strings_path_enhancements_test.bak`

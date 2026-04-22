@@ -1815,6 +1815,8 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pushMethodResult(result, discardReturn)
 		return nil
 	case compiler.VAL_OPTION:
+		// Internal compatibility path only. Frozen user code cannot define/use
+		// Option<T>, but VM still supports this value kind for legacy artifacts.
 		opt := receiver.AsObject.(*compiler.OptionInstance)
 		args := make([]compiler.Value, argc-1)
 		for i := argc - 2; i >= 0; i-- {

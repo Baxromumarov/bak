@@ -97,6 +97,20 @@ pub func clampFloat(value: float64, minVal: float64, maxVal: float64) -> (float6
     return value
 }
 
+// Preferred snake_case APIs.
+pub func abs_int(value: int) -> (int) { return absInt(value) }
+pub func sign_int(value: int) -> (int) { return signInt(value) }
+pub func min_int(left: int, right: int) -> (int) { return minInt(left, right) }
+pub func max_int(left: int, right: int) -> (int) { return maxInt(left, right) }
+pub func clamp_int(value: int, minVal: int, maxVal: int) -> (int) { return clampInt(value, minVal, maxVal) }
+pub func abs_float(value: float64) -> (float64) { return absFloat(value) }
+pub func sign_float(value: float64) -> (float64) { return signFloat(value) }
+pub func min_float(left: float64, right: float64) -> (float64) { return minFloat(left, right) }
+pub func max_float(left: float64, right: float64) -> (float64) { return maxFloat(left, right) }
+pub func clamp_float(value: float64, minVal: float64, maxVal: float64) -> (float64) {
+    return clampFloat(value, minVal, maxVal)
+}
+
 pub func floor(value: float64) -> (float64) {
     var truncated: int = int(value)
     var truncatedFloat: float64 = float64(truncated)
