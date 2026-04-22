@@ -81,6 +81,19 @@ func validateVMDestructivePath(pathValue, op string) error {
 	return nil
 }
 
+func vmPermissionAllowed(perms runtimecap.Permissions, flag string) bool {
+	switch flag {
+	case runtimecap.FlagAllowExec:
+		return perms.AllowExec
+	case runtimecap.FlagAllowNet:
+		return perms.AllowNet
+	case runtimecap.FlagAllowFSMutate:
+		return perms.AllowFSMutate
+	default:
+		return true
+	}
+}
+
 // callBuiltin handles builtin function calls
 func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compiler.Value, error) {
 	// Debug: print builtin id and known constants to detect mismatches
@@ -131,6 +144,15 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			Fields:   fields,
 		}
 		return compiler.Value{Type: compiler.VAL_STRUCT, AsObject: inst}, nil
+	}
+
+	if contract, ok := compiler.BuiltinContractByID(id); ok {
+		if !contract.AcceptsArity(len(args)) {
+			return compiler.NewNil(), fmt.Errorf("%s expects %s argument(s), got %d", contract.Name, contract.ArityDescription(), len(args))
+		}
+		if contract.PermissionFlag != "" && !vmPermissionAllowed(vm.permissions, contract.PermissionFlag) {
+			return makeResult(false, compiler.NewString(contract.PermissionDeniedError())), nil
+		}
 	}
 
 	// Quick numeric checks for commonly used Result inspectors (robust against switch mismatches)

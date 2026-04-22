@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/compiler"
 )
 
 type builtinCallSpec struct {
@@ -42,37 +43,10 @@ func buildBuiltinCallSpec(sig *ast.FunctionType) builtinCallSpec {
 }
 
 func (tc *TypeChecker) isBuiltin(name string) bool {
-	switch name {
-	case "print",
-		"println",
-		"len",
-		"push",
-		"pop",
-		"first",
-		"last",
-		"rest",
-		"type",
-		"typeof",
-		"int",
-		"float",
-		"string",
-		"char",
-		"Box",
-		"unbox",
-		"unwrap",
-		"is_ok",
-		"is_err",
-		"unwrap_err",
-		"cfg",
-		"Vec",
-		"__alloc_array",
-		"__alloc_array_zeroed",
-		"__vec_alloc",
-		"__vec_len",
-		"__vec_cap",
-		"__vec_get",
-		"__vec_set",
-		"__vec_grow":
+	if name == "Vec" {
+		return true
+	}
+	if _, ok := compiler.LookupBuiltinID(name); ok {
 		return true
 	}
 	return strings.HasPrefix(name, "__builtin_")
@@ -84,17 +58,10 @@ func (tc *TypeChecker) getBuiltinCallSpec(name string) (builtinCallSpec, bool) {
 		return builtinCallSpec{}, false
 	}
 	spec := buildBuiltinCallSpec(sig)
-
-	// Optional-parameter contracts and explicit arity for dynamic builtins.
-	switch name {
-	case "__builtin_pg_query":
-		spec.MinArgs = 2
-		spec.MaxArgs = 3
-		spec.CheckArgTypes = true
-	case "type", "typeof", "int", "float", "string", "char":
-		spec.MinArgs = 1
-		spec.MaxArgs = 1
-		spec.CheckArgTypes = false
+	if contract, ok := compiler.BuiltinContractByName(name); ok {
+		spec.MinArgs = contract.MinArgs
+		spec.MaxArgs = contract.MaxArgs
+		spec.CheckArgTypes = contract.CheckArgTypes && sig.Params != nil
 	}
 
 	return spec, true

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
@@ -184,6 +185,67 @@ func (s *EmitState) requirePermission(allowed bool, action string, flag string) 
 		return nil
 	}
 	return fmt.Errorf("native: %s requires %s or a matching [permissions] entry in bak.toml", action, flag)
+}
+
+func nativePermissionAllowed(perms runtimecap.Permissions, flag string) bool {
+	switch flag {
+	case runtimecap.FlagAllowExec:
+		return perms.AllowExec
+	case runtimecap.FlagAllowNet:
+		return perms.AllowNet
+	case runtimecap.FlagAllowFSMutate:
+		return perms.AllowFSMutate
+	default:
+		return true
+	}
+}
+
+func nativePermissionMask(flag string) int {
+	switch flag {
+	case runtimecap.FlagAllowExec:
+		return 0x01
+	case runtimecap.FlagAllowNet:
+		return 0x02
+	case runtimecap.FlagAllowFSMutate:
+		return 0x04
+	default:
+		return 0
+	}
+}
+
+func (s *EmitState) enforceModuleMethodBuiltinContract(moduleName string, methodName string, argCount int) error {
+	builtinName, ok := compiler.LookupBuiltinNameForModuleMethod(moduleName, methodName)
+	if !ok {
+		return nil
+	}
+
+	contract, ok := compiler.BuiltinContractByName(builtinName)
+	if !ok {
+		return nil
+	}
+
+	if !contract.AcceptsArity(argCount) {
+		return fmt.Errorf("native: %s.%s expects %s argument(s)", moduleName, methodName, contract.ArityDescription())
+	}
+
+	if contract.PermissionFlag == "" {
+		return nil
+	}
+
+	action := contract.PermissionOp
+	if action == "" {
+		action = moduleName + "." + methodName
+	}
+
+	if err := s.requirePermission(nativePermissionAllowed(s.Permissions, contract.PermissionFlag), action, contract.PermissionFlag); err != nil {
+		return err
+	}
+
+	if mask := nativePermissionMask(contract.PermissionFlag); mask != 0 {
+		s.emitRuntimePermissionCheck(mask)
+	}
+
+	return nil
 }
 
 // emitRuntimePermissionCheck emits a runtime call to __rt_check_perm with the
@@ -3439,6 +3501,12 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		return nil
 	}
 
+	if contract, ok := compiler.BuiltinContractByName(funcName); ok {
+		if !contract.AcceptsArity(len(e.Arguments)) {
+			return fmt.Errorf("native: %s expects %s argument(s), got %d", funcName, contract.ArityDescription(), len(e.Arguments))
+		}
+	}
+
 	// Handle built-in println
 	if funcName == "println" {
 		return s.emitBuiltinPrintln(e)
@@ -4012,6 +4080,10 @@ func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
 func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	// Module-qualified calls: module.func(args)
 	if id, ok := e.Object.(*ast.Identifier); ok {
+		if err := s.enforceModuleMethodBuiltinContract(id.Value, e.Method.Value, len(e.Arguments)); err != nil {
+			return err
+		}
+
 		// Handle os.* functions
 		if id.Value == "os" {
 			switch e.Method.Value {
@@ -4092,22 +4164,22 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 					return fmt.Errorf("native: fs.exists expects 1 argument")
 				}
 				return s.emitFsExists(e.Arguments[0])
-			case "isFile":
+			case "isFile", "is_file":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isFile expects 1 argument")
 				}
 				return s.emitFsIsFile(e.Arguments[0])
-			case "isDir":
+			case "isDir", "is_dir":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isDir expects 1 argument")
 				}
 				return s.emitFsIsDir(e.Arguments[0])
-			case "readFile":
+			case "readFile", "read_file":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.readFile expects 1 argument")
 				}
 				return s.emitFsReadFile(e.Arguments[0])
-			case "writeFile":
+			case "writeFile", "write_file":
 				if len(e.Arguments) != 2 {
 					return fmt.Errorf("native: fs.writeFile expects 2 arguments")
 				}

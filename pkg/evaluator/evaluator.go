@@ -10,6 +10,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/builtins"
+	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/packages"
 )
@@ -2395,6 +2396,12 @@ func evalCallExpression(ce *ast.CallExpression, env *object.Environment) object.
 			cancelled := cancelTokens[int(handle.Value)]
 			cancelTokensMu.Unlock()
 			return nativeBoolToBooleanObject(cancelled)
+		}
+
+		if contract, ok := compiler.BuiltinContractByName(ident.Value); ok {
+			if !contract.AcceptsArity(len(ce.Arguments)) {
+				return newError("%s: wrong number of arguments. got=%d, want=%s", ident.Value, len(ce.Arguments), contract.ArityDescription())
+			}
 		}
 	}
 

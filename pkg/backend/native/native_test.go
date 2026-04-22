@@ -160,6 +160,36 @@ func main() -> (void) {
 	}
 }
 
+func TestBuildExecutableRejectsOsExecWithoutPermission(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	typechecker.ResetCache()
+	t.Cleanup(typechecker.ResetCache)
+
+	root := findRepoRoot(t)
+	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
+	source := fmt.Sprintf(`package main
+
+	import %q as os
+
+func main() -> (void) {
+    var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
+    if result.is_err() {
+        return void
+    }
+    return void
+}
+`, osImport)
+
+	err := buildNativeProgramError(t, source, runtimecap.Permissions{})
+	if err == nil {
+		t.Fatalf("expected BuildExecutable to reject os.exec without permission")
+	}
+	if !strings.Contains(err.Error(), runtimecap.FlagAllowExec) {
+		t.Fatalf("expected exec permission error, got %v", err)
+	}
+}
+
 func TestBuildExecutableAllowsExecWithPermission(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)
@@ -187,6 +217,57 @@ func main() -> (void) {
 	if _, err := BuildExecutable(program, runtimecap.Permissions{AllowExec: true}); err != nil {
 		t.Fatalf("expected BuildExecutable to allow __builtin_exec with permission: %v", err)
 	}
+}
+
+func TestBuildExecutableRejectsFsWriteFileWithoutPermission(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	typechecker.ResetCache()
+	t.Cleanup(typechecker.ResetCache)
+
+	root := findRepoRoot(t)
+	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
+	source := fmt.Sprintf(`package main
+
+	import %q as fs
+
+func main() -> (void) {
+    var result: Result<void, string> = fs.write_file("native_permission_gate.tmp", "bak")
+    if result.is_err() {
+        return void
+    }
+    return void
+}
+`, fsImport)
+
+	err := buildNativeProgramError(t, source, runtimecap.Permissions{})
+	if err == nil {
+		t.Fatalf("expected BuildExecutable to reject fs.writeFile without permission")
+	}
+	if !strings.Contains(err.Error(), runtimecap.FlagAllowFSMutate) {
+		t.Fatalf("expected fs mutation permission error, got %v", err)
+	}
+}
+
+func TestBuildExecutableAllowsFsWriteFileWithPermission(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+	typechecker.ResetCache()
+	t.Cleanup(typechecker.ResetCache)
+
+	root := findRepoRoot(t)
+	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
+	source := fmt.Sprintf(`package main
+
+	import %q as fs
+
+func main() -> (void) {
+    fs.write_file("native_permission_gate_allow.tmp", "bak")
+    return void
+}
+`, fsImport)
+
+	buildNativeProgram(t, source, runtimecap.Permissions{AllowFSMutate: true})
 }
 
 func TestBuildExecutableDoesNotRequireExecForImportedOSModule(t *testing.T) {

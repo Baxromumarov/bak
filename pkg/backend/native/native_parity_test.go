@@ -3,6 +3,7 @@ package native
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -145,6 +146,115 @@ func TestEvaluatorVMNativeOutputParityMatrix(t *testing.T) {
 	}
 }
 
+func TestEvaluatorVMNativeExecPermissionContract(t *testing.T) {
+	root := findRepoRoot(t)
+	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
+	source := fmt.Sprintf(`package main
+
+import %q as os
+
+func main() -> (int) {
+    var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
+    if result.is_err() {
+        return 7
+    }
+    return 1
+}
+`, osImport)
+	sourcePath := writeTempParityProgram(t, "parity_exec_permission_denied.bak", source)
+	permissions := runtimecap.Permissions{}
+
+	evaluatorExit, evaluatorOut := runEvaluatorProgramFromFileWithOutput(t, sourcePath, permissions)
+	vmExit, vmOut := runVMProgramFromFileWithOutput(t, sourcePath, permissions)
+
+	if evaluatorExit != 7 {
+		t.Fatalf("expected evaluator exit 7 (permission denied), got %d\noutput:\n%s", evaluatorExit, evaluatorOut)
+	}
+	if vmExit != 7 {
+		t.Fatalf("expected VM exit 7 (permission denied), got %d\noutput:\n%s", vmExit, vmOut)
+	}
+	if evaluatorOut != vmOut {
+		t.Fatalf("permission contract output mismatch:\n--- evaluator ---\n%s\n--- vm ---\n%s", evaluatorOut, vmOut)
+	}
+	nativeBuildErr := buildNativeProgramError(t, source, permissions)
+	if nativeBuildErr == nil {
+		t.Fatalf("expected native build to be denied without exec permission")
+	}
+	if !strings.Contains(nativeBuildErr.Error(), runtimecap.FlagAllowExec) {
+		t.Fatalf("expected native allow-exec error, got %v", nativeBuildErr)
+	}
+}
+
+func TestEvaluatorVMNativePgQueryOptionalArgsParity(t *testing.T) {
+	sourcePath := writeTempParityProgram(t, "parity_pg_query_optional_args.bak", `package main
+
+func main() -> (int) {
+    if __builtin_pg_query(999, "select 1", ["x"]).is_err() {
+        return 23
+    }
+    return 0
+}
+`)
+	permissions := runtimecap.Permissions{AllowNet: true}
+
+	evaluatorExit, evaluatorOut := runEvaluatorProgramFromFileWithOutput(t, sourcePath, permissions)
+	vmExit, vmOut := runVMProgramFromFileWithOutput(t, sourcePath, permissions)
+	nativeExit, nativeOut := runNativeProgramFromFileWithOutput(t, sourcePath, permissions)
+
+	if evaluatorExit != 23 {
+		t.Fatalf("expected evaluator exit 23 for 3-arg pg_query path, got %d\noutput:\n%s", evaluatorExit, evaluatorOut)
+	}
+	if vmExit != 23 {
+		t.Fatalf("expected VM exit 23 for 3-arg pg_query path, got %d\noutput:\n%s", vmExit, vmOut)
+	}
+	if nativeExit != 23 {
+		t.Fatalf("expected native exit 23 for 3-arg pg_query path, got %d\noutput:\n%s", nativeExit, nativeOut)
+	}
+	if evaluatorOut != vmOut || vmOut != nativeOut {
+		t.Fatalf("pg_query parity output mismatch:\n--- evaluator ---\n%s\n--- vm ---\n%s\n--- native ---\n%s", evaluatorOut, vmOut, nativeOut)
+	}
+}
+
+func TestEvaluatorVMNativeFsWriteFilePermissionContract(t *testing.T) {
+	root := findRepoRoot(t)
+	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
+	source := fmt.Sprintf(`package main
+
+import %q as fs
+
+func main() -> (int) {
+    var result: Result<void, string> = fs.write_file("parity_permission_gate.tmp", "bak")
+    if result.is_err() {
+        return 19
+    }
+    return 1
+}
+`, fsImport)
+	sourcePath := writeTempParityProgram(t, "parity_fs_write_permission_denied.bak", source)
+	permissions := runtimecap.Permissions{}
+
+	evaluatorExit, evaluatorOut := runEvaluatorProgramFromFileWithOutput(t, sourcePath, permissions)
+	vmExit, vmOut := runVMProgramFromFileWithOutput(t, sourcePath, permissions)
+
+	if evaluatorExit != 19 {
+		t.Fatalf("expected evaluator exit 19 (permission denied), got %d\noutput:\n%s", evaluatorExit, evaluatorOut)
+	}
+	if vmExit != 19 {
+		t.Fatalf("expected VM exit 19 (permission denied), got %d\noutput:\n%s", vmExit, vmOut)
+	}
+	if evaluatorOut != vmOut {
+		t.Fatalf("permission contract output mismatch:\n--- evaluator ---\n%s\n--- vm ---\n%s", evaluatorOut, vmOut)
+	}
+
+	nativeBuildErr := buildNativeProgramError(t, source, permissions)
+	if nativeBuildErr == nil {
+		t.Fatalf("expected native build to be denied without fs mutate permission")
+	}
+	if !strings.Contains(nativeBuildErr.Error(), runtimecap.FlagAllowFSMutate) {
+		t.Fatalf("expected native allow-fs-mutate error, got %v", nativeBuildErr)
+	}
+}
+
 func runEvaluatorProgramFromFile(t *testing.T, sourcePath string, permissions runtimecap.Permissions) int {
 	t.Helper()
 	exit, _ := runEvaluatorProgramFromFileWithOutput(t, sourcePath, permissions)
@@ -263,6 +373,16 @@ func captureStdout(t *testing.T, fn func()) string {
 func normalizeOutput(s string) string {
 	s = strings.ReplaceAll(s, "\r\n", "\n")
 	return strings.TrimRight(s, "\n")
+}
+
+func writeTempParityProgram(t *testing.T, name string, source string) string {
+	t.Helper()
+
+	sourcePath := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(sourcePath, []byte(source), 0644); err != nil {
+		t.Fatalf("writing parity source %s: %v", sourcePath, err)
+	}
+	return sourcePath
 }
 
 func loadProgramFromFile(t *testing.T, sourcePath string) *ast.Program {
