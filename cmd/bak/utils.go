@@ -40,15 +40,30 @@ func injectPrelude(program *ast.Program) []string {
 	stdLibPath := getStdLibPath()
 	var warnings []string
 
-	if w := injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "hashmap.bak"), "HashMap"); w != "" {
+	if w := injectStructPrelude(
+		program,
+		filepath.Join(stdLibPath, "collections", "hashmap.bak"),
+		"HashMap",
+	); w != "" {
 		warnings = append(warnings, w)
 	}
-	if w := injectStructPrelude(program, filepath.Join(stdLibPath, "collections", "vec.bak"), "Vec"); w != "" {
+
+	if w := injectStructPrelude(
+		program,
+		filepath.Join(stdLibPath, "collections", "vec.bak"),
+		"Vec",
+	); w != "" {
 		warnings = append(warnings, w)
 	}
-	if w := injectImplPrelude(program, filepath.Join(stdLibPath, "result.bak"), "Result"); w != "" {
+
+	if w := injectImplPrelude(
+		program,
+		filepath.Join(stdLibPath, "result.bak"),
+		"Result",
+	); w != "" {
 		warnings = append(warnings, w)
 	}
+
 	return warnings
 }
 

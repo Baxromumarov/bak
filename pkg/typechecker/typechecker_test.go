@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 )
@@ -20,6 +21,20 @@ func checkSource(t *testing.T, source string) []string {
 	tc := New()
 	tc.SetSuppressUnused(true)
 	return tc.Check(program)
+}
+
+func checkSourceStructured(t *testing.T, source string) []TypeError {
+	t.Helper()
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+	tc := New()
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	return tc.GetErrors()
 }
 
 func expectNoErrors(t *testing.T, source string) {
@@ -701,6 +716,134 @@ func main() -> (void) {
 	println(result.is_err())
 }
 `, "did you mean 'isErr'")
+}
+
+func TestCheck_UndefinedMethodSuggestionIncludesStructuredFix(t *testing.T) {
+	source := `
+package main
+func main() -> (void) {
+	var result: Result<int, string> = Ok(1)
+	println(result.is_err())
+}
+`
+	found := false
+	for _, err := range checkSourceStructured(t, source) {
+		if err.Code != diagnostics.ErrUndefinedMethod {
+			continue
+		}
+		if len(err.Fixes) == 0 {
+			t.Fatalf("expected undefined method error to carry fix-it data")
+		}
+		fix := err.Fixes[0]
+		if fix.Replacement != "isErr" {
+			t.Fatalf("expected replacement isErr, got %q", fix.Replacement)
+		}
+		if fix.StartLine <= 0 || fix.StartColumn <= 0 || fix.EndColumn <= fix.StartColumn {
+			t.Fatalf("unexpected fix range: %+v", fix)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected undefined method diagnostic")
+	}
+}
+
+func TestCheck_UndefinedFunctionSuggestionIncludesMultipleFixes(t *testing.T) {
+	source := `
+package main
+func fetchData() -> (void) {
+	return void
+}
+func fetchDate() -> (void) {
+	return void
+}
+func main() -> (void) {
+	fetchDta()
+}
+`
+	found := false
+	for _, err := range checkSourceStructured(t, source) {
+		if err.Code != diagnostics.ErrUndefinedFunction {
+			continue
+		}
+		if len(err.Fixes) < 2 {
+			t.Fatalf("expected multiple function fixes, got %+v", err.Fixes)
+		}
+		replacements := map[string]bool{}
+		for _, fix := range err.Fixes {
+			replacements[fix.Replacement] = true
+		}
+		if !replacements["fetchData"] {
+			t.Fatalf("expected fetchData replacement in fixes: %+v", err.Fixes)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected undefined function diagnostic")
+	}
+}
+
+func TestCheck_UndefinedFieldSuggestionIncludesMultipleFixes(t *testing.T) {
+	source := `
+package main
+struct User {
+	firstName: string
+	firstNames: string
+}
+func main() -> (void) {
+	var user: User = User{firstName: "A", firstNames: "B"}
+	println(user.firstNam)
+}
+`
+	found := false
+	for _, err := range checkSourceStructured(t, source) {
+		if !strings.Contains(err.Message, "has no field 'firstNam'") {
+			continue
+		}
+		if len(err.Fixes) < 2 {
+			t.Fatalf("expected multiple field fixes, got %+v", err.Fixes)
+		}
+		replacements := map[string]bool{}
+		for _, fix := range err.Fixes {
+			replacements[fix.Replacement] = true
+		}
+		if !replacements["firstName"] || !replacements["firstNames"] {
+			t.Fatalf("expected field replacements in fixes: %+v", err.Fixes)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected field diagnostic with structured fixes")
+	}
+}
+
+func TestCheck_TypeMismatchIncludesCoercionFix(t *testing.T) {
+	source := `
+package main
+func takeInt(value int) -> (void) {
+	return void
+}
+func main() -> (void) {
+	takeInt(1.5)
+}
+`
+	found := false
+	for _, err := range checkSourceStructured(t, source) {
+		if err.Code != diagnostics.ErrTypeMismatch {
+			continue
+		}
+		replacements := map[string]bool{}
+		for _, fix := range err.Fixes {
+			replacements[fix.Replacement] = true
+		}
+		if !replacements["int(1.5)"] {
+			t.Fatalf("expected coercion fix int(1.5), got %+v", err.Fixes)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected type mismatch diagnostic with coercion fix")
+	}
 }
 
 func TestCheck_UndefinedTypeSuggestion(t *testing.T) {

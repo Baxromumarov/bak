@@ -153,6 +153,7 @@ type TypeError struct {
 	Note    string // Additional context (e.g., "value was moved here")
 	NoteLoc string // Location for the note
 	Help    string // Suggestion for fixing
+	Fixes   []diagnostics.Fix
 }
 
 func (e *TypeError) Error() string {
@@ -1025,6 +1026,7 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 			File:    d.File,
 			Message: d.Message,
 			Help:    d.Help,
+			Fixes:   d.Fixes,
 		})
 	}
 	return result
@@ -2890,14 +2892,14 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			return retType
 		}
 
-		// Field not found in struct - provide suggestion
-		errMsg := fmt.Sprintf("struct '%s' has no field '%s'", structName, fa.Field.Value)
-		if fields := tc.getStructFieldNames(structName); len(fields) > 0 {
-			if suggestion := tc.suggestField(fa.Field.Value, fields); suggestion != "" {
-				errMsg += fmt.Sprintf(", did you mean '%s'?", suggestion)
-			}
-		}
-		tc.addError(fa.Token.Line, fa.Token.Column, "%s", errMsg)
+		// Field not found in struct - provide structured suggestions.
+		tc.errorStructHasNoField(
+			structName,
+			fa.Field.Value,
+			fa.Token.Line,
+			fa.Token.Column,
+			tc.getStructFieldNames(structName),
+		)
 
 		return nil
 	}
@@ -2934,12 +2936,18 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 						}
 					}
 					// Found struct but not field
-					tc.addError(
-						fa.Token.Line,
-						fa.Token.Column,
-						"struct '%s' has no field '%s'",
+					fieldNames := make([]string, 0, len(sDecl.Fields))
+					for _, f := range sDecl.Fields {
+						if f.Name != nil && f.Name.Value != "" {
+							fieldNames = append(fieldNames, f.Name.Value)
+						}
+					}
+					tc.errorStructHasNoField(
 						structName,
 						fa.Field.Value,
+						fa.Token.Line,
+						fa.Token.Column,
+						fieldNames,
 					)
 					return nil
 				}
@@ -2958,12 +2966,12 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 	}
 
 	// Not a struct or struct not found
-	tc.addError(
-		fa.Token.Line,
-		fa.Token.Column,
-		"type '%s' has no field '%s'",
+	tc.errorTypeHasNoField(
 		typeToString(objType),
 		fa.Field.Value,
+		fa.Token.Line,
+		fa.Token.Column,
+		nil,
 	)
 	return nil
 }
@@ -3775,6 +3783,7 @@ func isToStringMethod(name string) bool {
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {
 	funcName := ""
 	var sig *FunctionSig
+	unresolvedDirectFunction := ""
 
 	// Handle direct function calls (funcName())
 	if ident, ok := ce.Function.(*ast.Identifier); ok {
@@ -3839,6 +3848,14 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				}
 				tc.clearBorrows(ce.Arguments)
 				return &ast.SimpleType{Name: funcName}
+			}
+
+			// Defer undefined-function reporting until after we confirm this isn't
+			// a function-typed symbol (higher-order function call) or builtin.
+			if !tc.isBuiltin(funcName) {
+				if _, ok := tc.lookupSymbolWithoutMark(funcName); !ok {
+					unresolvedDirectFunction = funcName
+				}
 			}
 		}
 	} else if fa, ok := ce.Function.(*ast.FieldAccessExpression); ok {
@@ -3972,6 +3989,17 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	}
 
 	if sig == nil {
+		if unresolvedDirectFunction != "" {
+			if suggestions := tc.suggestFunctionNames(unresolvedDirectFunction, 1); len(suggestions) > 0 {
+				tc.errorUndefinedFunction(unresolvedDirectFunction, ce.Token.Line, ce.Token.Column)
+				for _, arg := range ce.Arguments {
+					tc.inferType(arg)
+				}
+				tc.clearBorrows(ce.Arguments)
+				return nil
+			}
+		}
+
 		// Try to infer the type of the callee expression
 		calleeType := tc.inferType(ce.Function)
 		if ft, ok := calleeType.(*ast.FunctionType); ok {

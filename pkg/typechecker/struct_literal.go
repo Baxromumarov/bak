@@ -85,8 +85,11 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 		// 1. Check if field exists
 		fieldDef, exists := structDef.Fields[fieldName]
 		if !exists {
-			tc.addError(sl.Token.Line, sl.Token.Column,
-				"struct '%s' has no field named '%s'", structName, fieldName)
+			fieldNames := make([]string, 0, len(structDef.Fields))
+			for candidate := range structDef.Fields {
+				fieldNames = append(fieldNames, candidate)
+			}
+			tc.errorStructHasNoField(structName, fieldName, sl.Token.Line, sl.Token.Column, fieldNames)
 			continue
 		}
 

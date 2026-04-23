@@ -11,21 +11,41 @@ import (
 
 // enum payload error helpers
 func (tc *TypeChecker) errorEnumRequiresPayload(line, col int, variantName string) {
-	tc.addErrorWithHelp(line, col,
+	tc.addErrorWithHelp(
+		line,
+		col,
 		fmt.Sprintf("provide payload arguments like `%s(value)`", variantName),
-		"enum variant '%s' requires payload", variantName)
+		"enum variant '%s' requires payload",
+		variantName,
+	)
 }
 
 func (tc *TypeChecker) errorEnumNoPayload(line, col int, variantName string) {
-	tc.addErrorWithHelp(line, col,
+	tc.addErrorWithHelp(
+		line,
+		col,
 		fmt.Sprintf("remove the parentheses from `%s()`", variantName),
-		"enum variant '%s' does not accept payload", variantName)
+		"enum variant '%s' does not accept payload",
+		variantName,
+	)
 }
 
-func (tc *TypeChecker) errorEnumPayloadCount(line, col int, variantName string, expected, got int) {
-	tc.addErrorWithHelp(line, col,
+func (tc *TypeChecker) errorEnumPayloadCount(
+	line int,
+	col int,
+	variantName string,
+	expected int,
+	got int,
+) {
+	tc.addErrorWithHelp(
+		line,
+		col,
 		fmt.Sprintf("provide exactly %d payload field(s) in order", expected),
-		"enum variant '%s' expects %d payload fields, but got %d", variantName, expected, got)
+		"enum variant '%s' expects %d payload fields, but got %d",
+		variantName,
+		expected,
+		got,
+	)
 }
 
 // checkStatement type checks a statement
@@ -84,7 +104,12 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 		}
 	case *ast.UnsafeBlock:
 		if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
-			tc.addExperimentalFeatureError(s.Token.Line, s.Token.Column, "`unsafe` blocks", runtimecap.ExperimentalFeatureUnsafe)
+			tc.addExperimentalFeatureError(
+				s.Token.Line,
+				s.Token.Column,
+				"`unsafe` blocks",
+				runtimecap.ExperimentalFeatureUnsafe,
+			)
 		}
 		if s.Body != nil {
 			tc.checkBlockStatement(s.Body)
@@ -115,14 +140,25 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 				if ident, ok := caseValue.(*ast.Identifier); ok {
 					if variant, found := enumDef.Variants[ident.Value]; found {
 						if variant.HasPayload {
-							tc.errorEnumRequiresPayload(ident.Token.Line, ident.Token.Column, ident.Value)
+							tc.errorEnumRequiresPayload(
+								ident.Token.Line,
+								ident.Token.Column,
+								ident.Value,
+							)
 						}
+
 						isEffected = true
 					}
 				} else if ev, ok := caseValue.(*ast.EnumVariantExpression); ok {
 					if variant, found := enumDef.Variants[ev.Variant.Value]; found {
 						if !variant.HasPayload && len(ev.Values) > 0 {
-							tc.errorEnumNoPayload(ev.Token.Line, ev.Token.Column, ev.Variant.Value)
+
+							tc.errorEnumNoPayload(
+								ev.Token.Line,
+								ev.Token.Column,
+								ev.Variant.Value,
+							)
+
 						} else if variant.HasPayload {
 							if len(ev.Values) == len(variant.Fields) {
 								for i, val := range ev.Values {
@@ -134,7 +170,13 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 									}
 								}
 							} else {
-								tc.errorEnumPayloadCount(ev.Token.Line, ev.Token.Column, ev.Variant.Value, len(variant.Fields), len(ev.Values))
+								tc.errorEnumPayloadCount(
+									ev.Token.Line,
+									ev.Token.Column,
+									ev.Variant.Value,
+									len(variant.Fields),
+									len(ev.Values),
+								)
 							}
 						}
 						isEffected = true

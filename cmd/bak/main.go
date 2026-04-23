@@ -1613,15 +1613,19 @@ func validateFrozenLockfile(dir string, lock *manifest.Lockfile) error {
 func frozenLockfileVersionMatches(expected, actual string) bool {
 	expected = strings.TrimSpace(expected)
 	actual = strings.TrimSpace(actual)
+	
 	if expected == "" || actual == "" {
 		return expected == actual
 	}
+	
 	if expected == actual {
 		return true
 	}
+
 	if expected == "latest" || actual == "latest" {
 		return expected == actual
 	}
+	
 	return strings.TrimPrefix(expected, "v") == strings.TrimPrefix(actual, "v")
 }
 

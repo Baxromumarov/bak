@@ -636,6 +636,215 @@ func TestCodeActionSuggestsStdlibAutoImport(t *testing.T) {
 	}
 }
 
+func TestCodeActionOffersStructuredMethodRenameFix(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var result: Result<int, string> = Ok(1)",
+		"    println(result.is_err())",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode diagnostics message: %v", err)
+	}
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var published PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &published); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	foundDiag := false
+	for _, diag := range published.Diagnostics {
+		if strings.Contains(diag.Message, "undefined method 'is_err'") {
+			foundDiag = true
+			if diag.Data == nil {
+				t.Fatalf("expected structured fix data on undefined method diagnostic")
+			}
+		}
+	}
+	if !foundDiag {
+		t.Fatalf("expected undefined method diagnostic, got %#v", published.Diagnostics)
+	}
+
+	params := CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 4, Character: 12},
+			End:   Position{Line: 4, Character: 18},
+		},
+		Context: CodeActionContext{
+			Diagnostics: published.Diagnostics,
+		},
+	}
+	actions := s.handleCodeAction(mustRequest(t, params))
+
+	foundFix := false
+	for _, action := range actions {
+		if action.Title != "Replace with 'isErr'" {
+			continue
+		}
+		if action.Edit == nil {
+			t.Fatalf("expected edit on action %+v", action)
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 {
+			t.Fatalf("expected one method-rename edit, got %#v", action.Edit.Changes)
+		}
+		if edits[0].NewText != "isErr" {
+			t.Fatalf("expected replacement isErr, got %q", edits[0].NewText)
+		}
+		foundFix = true
+	}
+	if !foundFix {
+		t.Fatalf("expected structured method quick fix action, got %#v", actions)
+	}
+}
+
+func TestCodeActionOffersMultipleFunctionRenameFixes(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func fetchData() -> (void) {",
+		"    return void",
+		"}",
+		"func fetchDate() -> (void) {",
+		"    return void",
+		"}",
+		"func main() -> (void) {",
+		"    fetchDta()",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode diagnostics message: %v", err)
+	}
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var published PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &published); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	params := CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 8, Character: 4},
+			End:   Position{Line: 8, Character: 12},
+		},
+		Context: CodeActionContext{
+			Diagnostics: published.Diagnostics,
+		},
+	}
+	actions := s.handleCodeAction(mustRequest(t, params))
+
+	foundData := false
+	foundDate := false
+	for _, action := range actions {
+		switch action.Title {
+		case "Replace with 'fetchData'":
+			foundData = true
+		case "Replace with 'fetchDate'":
+			foundDate = true
+		}
+	}
+	if !foundData || !foundDate {
+		t.Fatalf("expected multiple function rename quick fixes, got %#v", actions)
+	}
+}
+
+func TestCodeActionOffersTypeCoercionFix(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func takeInt(value int) -> (void) {",
+		"    return void",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    takeInt(1.5)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode diagnostics message: %v", err)
+	}
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var published PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &published); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	params := CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 6, Character: 12},
+			End:   Position{Line: 6, Character: 15},
+		},
+		Context: CodeActionContext{
+			Diagnostics: published.Diagnostics,
+		},
+	}
+	actions := s.handleCodeAction(mustRequest(t, params))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Convert to int(...)" {
+			continue
+		}
+		if action.Edit == nil {
+			t.Fatalf("expected edit on coercion action %+v", action)
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 {
+			t.Fatalf("expected one coercion edit, got %#v", action.Edit.Changes)
+		}
+		if edits[0].NewText != "int(1.5)" {
+			t.Fatalf("expected coercion replacement int(1.5), got %q", edits[0].NewText)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("expected coercion quick fix action, got %#v", actions)
+	}
+}
+
 func writeTempBakFile(t *testing.T, src string) string {
 	t.Helper()
 

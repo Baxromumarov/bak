@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
@@ -27,6 +28,123 @@ func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 		}
 	}
 	return []diagnostics.Note{noteDiag}
+}
+
+func replacementFix(title, fromText, toText string, line, col int) diagnostics.Fix {
+	width := utf8.RuneCountInString(fromText)
+	if width <= 0 {
+		width = 1
+	}
+	startLine := line
+	if startLine <= 0 {
+		startLine = 1
+	}
+	startColumn := col
+	if startColumn <= 0 {
+		startColumn = 1
+	}
+	return diagnostics.Fix{
+		Title:       title,
+		Replacement: toText,
+		StartLine:   startLine,
+		StartColumn: startColumn,
+		EndLine:     startLine,
+		EndColumn:   startColumn + width,
+	}
+}
+
+func suggestionsHelp(suggestions []string, fallback string) string {
+	if len(suggestions) == 0 {
+		return fallback
+	}
+	help := fmt.Sprintf("did you mean '%s'?", suggestions[0])
+	if len(suggestions) > 1 {
+		help = fmt.Sprintf("%s alternatives: %s", help, strings.Join(suggestions[1:], ", "))
+	}
+	return help
+}
+
+func suggestionFixes(fromText string, suggestions []string, line, col int) []diagnostics.Fix {
+	if len(suggestions) == 0 {
+		return nil
+	}
+	fixes := make([]diagnostics.Fix, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		fixes = append(fixes, replacementFix(
+			fmt.Sprintf("Replace with '%s'", suggestion),
+			fromText,
+			suggestion,
+			line,
+			col,
+		))
+	}
+	return fixes
+}
+
+func fixFromNodeReplacement(title, replacement string, node ast.Node, fallbackLine, fallbackCol int) (diagnostics.Fix, bool) {
+	textProvider, ok := node.(interface{ String() string })
+	if !ok || strings.TrimSpace(textProvider.String()) == "" {
+		return diagnostics.Fix{}, false
+	}
+	line := fallbackLine
+	col := fallbackCol
+	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
+		line = tok.Line
+		col = tok.Column
+	}
+	return replacementFix(title, textProvider.String(), replacement, line, col), true
+}
+
+func (tc *TypeChecker) typeMismatchFixes(expected, got string, node ast.Node, line, col int) []diagnostics.Fix {
+	if node == nil {
+		return nil
+	}
+	addFix := func(fixes []diagnostics.Fix, title, replacement string) []diagnostics.Fix {
+		fix, ok := fixFromNodeReplacement(title, replacement, node, line, col)
+		if !ok {
+			return fixes
+		}
+		for _, existing := range fixes {
+			if existing.Replacement == fix.Replacement {
+				return fixes
+			}
+		}
+		return append(fixes, fix)
+	}
+	textProvider, ok := node.(interface{ String() string })
+	if !ok {
+		return nil
+	}
+	expr := strings.TrimSpace(textProvider.String())
+	if expr == "" {
+		return nil
+	}
+
+	fixes := make([]diagnostics.Fix, 0, 2)
+
+	if strings.HasPrefix(expected, "float") && (got == "int" || strings.HasPrefix(got, "int")) {
+		fixes = addFix(fixes, fmt.Sprintf("Convert to %s(...)", expected), fmt.Sprintf("%s(%s)", expected, expr))
+	}
+	if (expected == "int" || strings.HasPrefix(expected, "int")) && strings.HasPrefix(got, "float") {
+		fixes = addFix(fixes, "Convert to int(...)", fmt.Sprintf("int(%s)", expr))
+	}
+	if expected == "string" && (got == "int" || strings.HasPrefix(got, "int") || strings.HasPrefix(got, "float") || got == "bool" || got == "char") {
+		fixes = addFix(fixes, "Convert to string", fmt.Sprintf("%s.toString()", expr))
+	}
+	if strings.HasPrefix(expected, "&") && !strings.HasPrefix(got, "&") {
+		fixes = addFix(fixes, "Borrow value", "&"+expr)
+	}
+	if !strings.HasPrefix(expected, "&") && strings.HasPrefix(got, "&") {
+		fixes = addFix(fixes, "Dereference value", "*"+expr)
+	}
+	if strings.HasPrefix(expected, "box") && !strings.HasPrefix(got, "box") {
+		fixes = addFix(fixes, "Box value", fmt.Sprintf("box(%s)", expr))
+	}
+	if !strings.HasPrefix(expected, "box") && strings.HasPrefix(got, "box") {
+		fixes = addFix(fixes, "Unbox value", "*"+expr)
+	}
+
+	return fixes
 }
 
 // addError adds a type error (legacy support, treated as fatal)
@@ -75,6 +193,7 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 		File:    tc.currentPkgPath,
 		Help:    err.Help,
 		Notes:   tc.buildNotes(err.Note, err.NoteLoc),
+		Fixes:   err.Fixes,
 	})
 	tc.hasFatalError = true
 }
@@ -233,6 +352,7 @@ func (tc *TypeChecker) errorTypeMismatch(
 		File:    tc.currentPkgPath,
 		Message: msg,
 		Help:    help,
+		Fixes:   tc.typeMismatchFixes(expected, got, node, line, col),
 	}
 	if context != "" {
 		diag.Notes = append(diag.Notes, tc.expectedTypeOriginNote(context, expected))
@@ -303,13 +423,9 @@ func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 }
 
 func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
-	help := ""
-	if suggestion := tc.suggestIdentifier(name); suggestion != "" {
-		help = fmt.Sprintf("did you mean '%s'?", suggestion)
-	} else {
-		help = "check for a typo or missing import"
-	}
-	tc.emitError(diagnostics.Diagnostic{
+	suggestions := tc.suggestIdentifiers(name, 3)
+	help := suggestionsHelp(suggestions, "check for a typo or missing import")
+	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrUndefinedVariable,
 		Level:   diagnostics.LevelError,
 		Message: fmt.Sprintf("undefined: %s", name),
@@ -317,7 +433,9 @@ func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
 		Column:  col,
 		File:    tc.currentPkgPath,
 		Help:    help,
-	})
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) errorUndefinedType(name string, line, col int) {
@@ -325,14 +443,12 @@ func (tc *TypeChecker) errorUndefinedType(name string, line, col int) {
 }
 
 func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file string) {
-	help := ""
-	if suggestion := tc.suggestTypeName(name); suggestion != "" {
-		help = fmt.Sprintf("did you mean '%s'?", suggestion)
-	}
+	suggestions := tc.suggestTypeNames(name, 3)
+	help := suggestionsHelp(suggestions, "")
 	if file == "" {
 		file = tc.currentPkgPath
 	}
-	tc.emitError(diagnostics.Diagnostic{
+	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrUnknownType,
 		Level:   diagnostics.LevelError,
 		Message: fmt.Sprintf("undefined type: %s", name),
@@ -340,7 +456,9 @@ func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file
 		Column:  col,
 		File:    file,
 		Help:    help,
-	})
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) errorUndefinedMethod(typeName, method string, line, col int, candidates []string) {
@@ -348,9 +466,10 @@ func (tc *TypeChecker) errorUndefinedMethod(typeName, method string, line, col i
 }
 
 func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, line, col int, candidates []string, extraHelp string) {
+	suggestions := bestSuggestions(method, candidates, 3)
 	help := ""
-	if suggestion := bestSuggestion(method, candidates); suggestion != "" {
-		help = fmt.Sprintf("did you mean '%s'?", suggestion)
+	if len(suggestions) > 0 {
+		help = suggestionsHelp(suggestions, "")
 	} else if len(candidates) > 0 && len(candidates) <= 6 {
 		sort.Strings(candidates)
 		help = fmt.Sprintf("available methods: %s", strings.Join(candidates, ", "))
@@ -362,7 +481,7 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, lin
 			help = extraHelp
 		}
 	}
-	tc.emitError(diagnostics.Diagnostic{
+	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrUndefinedMethod,
 		Level:   diagnostics.LevelError,
 		Message: fmt.Sprintf("undefined method '%s' for %s", method, typeName),
@@ -370,7 +489,57 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, lin
 		Column:  col,
 		File:    tc.currentPkgPath,
 		Help:    help,
-	})
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(method, suggestions, line, col)...)
+	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) errorUndefinedFunction(name string, line, col int) {
+	suggestions := tc.suggestFunctionNames(name, 3)
+	help := suggestionsHelp(suggestions, "check for a typo or define the function before calling it")
+	diag := diagnostics.Diagnostic{
+		Code:    diagnostics.ErrUndefinedFunction,
+		Level:   diagnostics.LevelError,
+		Message: fmt.Sprintf("undefined function '%s'", name),
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    help,
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
+	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) errorStructHasNoField(structName, field string, line, col int, candidates []string) {
+	suggestions := tc.suggestFields(field, candidates, 3)
+	help := suggestionsHelp(suggestions, "")
+	diag := diagnostics.Diagnostic{
+		Code:    diagnostics.ErrGeneric,
+		Level:   diagnostics.LevelError,
+		Message: fmt.Sprintf("struct '%s' has no field '%s'", structName, field),
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    help,
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(field, suggestions, line, col)...)
+	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) errorTypeHasNoField(typeName, field string, line, col int, candidates []string) {
+	suggestions := tc.suggestFields(field, candidates, 3)
+	help := suggestionsHelp(suggestions, "")
+	diag := diagnostics.Diagnostic{
+		Code:    diagnostics.ErrGeneric,
+		Level:   diagnostics.LevelError,
+		Message: fmt.Sprintf("type '%s' has no field '%s'", typeName, field),
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    help,
+	}
+	diag.Fixes = append(diag.Fixes, suggestionFixes(field, suggestions, line, col)...)
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) errorArgumentCountMismatch(

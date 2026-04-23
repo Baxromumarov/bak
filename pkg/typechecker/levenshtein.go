@@ -9,6 +9,10 @@ func (tc *TypeChecker) suggestField(name string, structFields []string) string {
 	return bestSuggestion(name, structFields)
 }
 
+func (tc *TypeChecker) suggestFields(name string, structFields []string, limit int) []string {
+	return bestSuggestions(name, structFields, limit)
+}
+
 // getStructFieldNames returns a list of field names for a given struct type.
 // It searches through the environment chain to find the struct definition.
 func (tc *TypeChecker) getStructFieldNames(structName string) []string {

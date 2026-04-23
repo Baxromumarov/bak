@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -564,8 +565,20 @@ func (tc *TypeChecker) suggestIdentifier(name string) string {
 	return bestSuggestion(name, tc.collectIdentifierCandidates())
 }
 
+func (tc *TypeChecker) suggestIdentifiers(name string, limit int) []string {
+	return bestSuggestions(name, tc.collectIdentifierCandidates(), limit)
+}
+
 func (tc *TypeChecker) suggestTypeName(name string) string {
 	return bestSuggestion(name, tc.collectTypeCandidates())
+}
+
+func (tc *TypeChecker) suggestTypeNames(name string, limit int) []string {
+	return bestSuggestions(name, tc.collectTypeCandidates(), limit)
+}
+
+func (tc *TypeChecker) suggestFunctionNames(name string, limit int) []string {
+	return bestSuggestions(name, tc.collectFunctionCandidates(), limit)
 }
 
 func (tc *TypeChecker) suggestTypeFix(expected, got string) string {
@@ -743,15 +756,52 @@ func (tc *TypeChecker) collectTypeCandidates() []string {
 	return candidates
 }
 
+func (tc *TypeChecker) collectFunctionCandidates() []string {
+	unique := make(map[string]struct{})
+	add := func(name string) {
+		if name == "" || strings.HasPrefix(name, "__") {
+			return
+		}
+		unique[name] = struct{}{}
+	}
+
+	for env := tc.env; env != nil; env = env.parent {
+		for name := range env.functions {
+			add(name)
+		}
+	}
+
+	candidates := make([]string, 0, len(unique))
+	for name := range unique {
+		candidates = append(candidates, name)
+	}
+	return candidates
+}
+
 func bestSuggestion(name string, candidates []string) string {
-	name = strings.TrimSpace(name)
-	if name == "" || len(candidates) == 0 {
+	suggestions := bestSuggestions(name, candidates, 1)
+	if len(suggestions) == 0 {
 		return ""
 	}
+	return suggestions[0]
+}
+
+func bestSuggestions(name string, candidates []string, limit int) []string {
+	name = strings.TrimSpace(name)
+	if name == "" || len(candidates) == 0 || limit <= 0 {
+		return nil
+	}
+
+	type scoredSuggestion struct {
+		name      string
+		nameLower string
+		dist      int
+		lenDelta  int
+	}
+
 	target := strings.ToLower(name)
-	best := ""
-	bestLower := ""
-	bestDist := -1
+	byName := make(map[string]scoredSuggestion)
+
 	for _, cand := range candidates {
 		if cand == "" {
 			continue
@@ -760,25 +810,57 @@ func bestSuggestion(name string, candidates []string) string {
 		if candLower == target {
 			continue
 		}
+
 		dist := levenshteinDistance(target, candLower)
-		if bestDist == -1 || dist < bestDist {
-			bestDist = dist
-			best = cand
-			bestLower = candLower
+		threshold := suggestionThreshold(target)
+		looksLikePrefix := strings.HasPrefix(candLower, target) || strings.HasPrefix(target, candLower)
+		if dist > threshold {
+			if !looksLikePrefix || absInt(len(candLower)-len(target)) > 4 {
+				continue
+			}
 		}
-	}
-	if best == "" {
-		return ""
-	}
-	if bestDist <= suggestionThreshold(target) {
-		return best
-	}
-	if strings.HasPrefix(bestLower, target) || strings.HasPrefix(target, bestLower) {
-		if absInt(len(bestLower)-len(target)) <= 4 {
-			return best
+
+		scored := scoredSuggestion{
+			name:      cand,
+			nameLower: candLower,
+			dist:      dist,
+			lenDelta:  absInt(len(candLower) - len(target)),
 		}
+		if existing, ok := byName[candLower]; ok {
+			if scored.dist < existing.dist || (scored.dist == existing.dist && scored.lenDelta < existing.lenDelta) {
+				byName[candLower] = scored
+			}
+			continue
+		}
+		byName[candLower] = scored
 	}
-	return ""
+
+	if len(byName) == 0 {
+		return nil
+	}
+
+	ranked := make([]scoredSuggestion, 0, len(byName))
+	for _, scored := range byName {
+		ranked = append(ranked, scored)
+	}
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].dist != ranked[j].dist {
+			return ranked[i].dist < ranked[j].dist
+		}
+		if ranked[i].lenDelta != ranked[j].lenDelta {
+			return ranked[i].lenDelta < ranked[j].lenDelta
+		}
+		return ranked[i].nameLower < ranked[j].nameLower
+	})
+
+	if limit > len(ranked) {
+		limit = len(ranked)
+	}
+	suggestions := make([]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		suggestions = append(suggestions, ranked[i].name)
+	}
+	return suggestions
 }
 
 func suggestionThreshold(name string) int {

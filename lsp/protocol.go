@@ -67,6 +67,18 @@ type Diagnostic struct {
 	Severity int    `json:"severity"`
 	Source   string `json:"source"`
 	Message  string `json:"message"`
+	Code     any    `json:"code,omitempty"`
+	Data     any    `json:"data,omitempty"`
+}
+
+type DiagnosticData struct {
+	Fixes []DiagnosticFix `json:"fixes,omitempty"`
+}
+
+type DiagnosticFix struct {
+	Title   string `json:"title"`
+	Range   Range  `json:"range"`
+	NewText string `json:"newText"`
 }
 
 type Range struct {

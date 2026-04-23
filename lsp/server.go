@@ -1437,6 +1437,27 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 
 	actions := []CodeAction{}
 	for _, diag := range params.Context.Diagnostics {
+		for _, fix := range diagnosticFixesFromData(diag.Data) {
+			title := strings.TrimSpace(fix.Title)
+			if title == "" {
+				title = "Apply suggested fix"
+			}
+			actions = append(actions, CodeAction{
+				Title:       title,
+				Kind:        "quickfix",
+				Diagnostics: []Diagnostic{diag},
+				Edit: &WorkspaceEdit{
+					Changes: map[string][]TextEdit{
+						params.TextDocument.URI: {
+							{
+								Range:   fix.Range,
+								NewText: fix.NewText,
+							},
+						},
+					},
+				},
+			})
+		}
 		if strings.Contains(diag.Message, "unused") {
 			actions = append(actions, CodeAction{
 				Title:       "Remove unused declaration",
@@ -1525,6 +1546,28 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 	}
 
 	return actions
+}
+
+func diagnosticFixesFromData(data any) []DiagnosticFix {
+	if data == nil {
+		return nil
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+	var payload DiagnosticData
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil
+	}
+	fixes := make([]DiagnosticFix, 0, len(payload.Fixes))
+	for _, fix := range payload.Fixes {
+		if fix.NewText == "" {
+			continue
+		}
+		fixes = append(fixes, fix)
+	}
+	return fixes
 }
 
 // extractUndefinedSymbol extracts the symbol name from "undefined: X" or "undefined type: X" messages.
@@ -4684,7 +4727,7 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 			if typeErr.Tier == typechecker.TierWarning {
 				severity = 2
 			}
-			diagnostics = append(diagnostics, Diagnostic{
+			diag := Diagnostic{
 				Range: Range{
 					Start: Position{Line: typeErr.Line - 1, Character: typeErr.Column - 1},
 					End:   Position{Line: typeErr.Line - 1, Character: typeErr.Column},
@@ -4692,7 +4735,14 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 				Severity: severity,
 				Source:   "bak-typechecker",
 				Message:  typeErr.Message,
-			})
+			}
+			if typeErr.Code != "" {
+				diag.Code = string(typeErr.Code)
+			}
+			if lspFixes := typeErrorFixesToLSP(typeErr); len(lspFixes) > 0 {
+				diag.Data = DiagnosticData{Fixes: lspFixes}
+			}
+			diagnostics = append(diagnostics, diag)
 		}
 	}
 
@@ -4745,6 +4795,43 @@ func samePath(a, b string) bool {
 		b = bb
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {
+	if len(typeErr.Fixes) == 0 {
+		return nil
+	}
+	fixes := make([]DiagnosticFix, 0, len(typeErr.Fixes))
+	for _, fix := range typeErr.Fixes {
+		startLine := fix.StartLine - 1
+		startCharacter := fix.StartColumn - 1
+		endLine := fix.EndLine - 1
+		endCharacter := fix.EndColumn - 1
+		if startLine < 0 {
+			startLine = 0
+		}
+		if startCharacter < 0 {
+			startCharacter = 0
+		}
+		if endLine < startLine {
+			endLine = startLine
+		}
+		if endCharacter < 0 {
+			endCharacter = startCharacter + 1
+		}
+		if endLine == startLine && endCharacter <= startCharacter {
+			endCharacter = startCharacter + 1
+		}
+		fixes = append(fixes, DiagnosticFix{
+			Title: fix.Title,
+			Range: Range{
+				Start: Position{Line: startLine, Character: startCharacter},
+				End:   Position{Line: endLine, Character: endCharacter},
+			},
+			NewText: fix.Replacement,
+		})
+	}
+	return fixes
 }
 
 func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
