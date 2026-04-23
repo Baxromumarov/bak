@@ -693,6 +693,16 @@ func main() -> (void) {
 `, "did you mean 'unwrapErr'")
 }
 
+func TestCheck_SnakeCaseMethodSuggestionUsesCamelCase(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var result: Result<int, string> = Ok(1)
+	println(result.is_err())
+}
+`, "did you mean 'isErr'")
+}
+
 func TestCheck_UndefinedTypeSuggestion(t *testing.T) {
 	expectError(t, `
 package main

@@ -26,6 +26,9 @@ jobs:
                     exit 1
                   fi
 
+            - name: Enforce camelCase surface policy
+              run: bash scripts/check_camelcase_surface.sh
+
             - name: Run focused package tests
               run: |
                   go test ./pkg/formatter ./pkg/linter ./pkg/parser ./pkg/typechecker ./pkg/compiler ./pkg/vm ./pkg/backend/native ./pkg/builtins ./pkg/runtimecap

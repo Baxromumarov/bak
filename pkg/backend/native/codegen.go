@@ -482,7 +482,7 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 		// Methods that return strings
 		methodName := e.Method.Value
 		if methodName == "toString" || methodName == "substring" || methodName == "trim" ||
-			methodName == "to_lowercase" || methodName == "to_uppercase" || methodName == "formatAll" {
+			methodName == "toLowerCase" || methodName == "toUpperCase" || methodName == "formatAll" {
 			return true
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, methodName); ok {
