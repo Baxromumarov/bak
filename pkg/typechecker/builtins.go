@@ -74,53 +74,53 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "type", "typeof":
 		return &ast.FunctionType{
 			Params:     nil,
-			ReturnType: &ast.SimpleType{Name: "string"},
+			ReturnType: ast.NewSimpleType("string"),
 		}
 	case "int":
 		return &ast.FunctionType{
 			Params:     nil,
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "float":
 		return &ast.FunctionType{
 			Params:     nil,
-			ReturnType: &ast.SimpleType{Name: "float64"},
+			ReturnType: ast.NewSimpleType("float64"),
 		}
 	case "string":
 		return &ast.FunctionType{
 			Params:     nil,
-			ReturnType: &ast.SimpleType{Name: "string"},
+			ReturnType: ast.NewSimpleType("string"),
 		}
 	case "char":
 		return &ast.FunctionType{
 			Params:     nil,
-			ReturnType: &ast.SimpleType{Name: "char"},
+			ReturnType: ast.NewSimpleType("char"),
 		}
 	case "__builtin_read_file":
 		return &ast.FunctionType{
-			Params: []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
+			Params: []ast.TypeExpression{ast.NewSimpleType("string")},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "string"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_read_file_bytes":
 		return &ast.FunctionType{
-			Params: []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
+			Params: []ast.TypeExpression{ast.NewSimpleType("string")},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.GenericType{
 						Name: "Vec",
 						TypeParams: []ast.TypeExpression{
-							&ast.SimpleType{Name: "int"},
+							ast.NewSimpleType("int"),
 							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -130,7 +130,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			ReturnType: &ast.GenericType{
 				Name: "Vec",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 					&ast.SizeExpression{IsDynamic: true},
 				},
 			},
@@ -141,85 +141,85 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "int"},
+						ast.NewSimpleType("int"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
 			},
-			ReturnType: &ast.SimpleType{Name: "string"},
+			ReturnType: ast.NewSimpleType("string"),
 		}
 	case "__builtin_string_ptr":
 		return &ast.FunctionType{
-			Params:     []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			Params:     []ast.TypeExpression{ast.NewSimpleType("string")},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 
 	// File System Builtins
 	case "__builtin_write_file":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_append_file":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_remove", "__builtin_mkdir", "__builtin_chdir":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_setenv":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_exec":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "string"},
+						ast.NewSimpleType("string"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
@@ -228,31 +228,31 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.SimpleType{Name: "ExecResult"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_getenv":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "string"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_write_file_bytes":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "int"},
+						ast.NewSimpleType("int"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
@@ -261,33 +261,33 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_chmod":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("string"),
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_file_exists", "__builtin_is_file", "__builtin_is_dir":
 		return &ast.FunctionType{
-			Params:     []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
-			ReturnType: &ast.SimpleType{Name: "bool"},
+			Params:     []ast.TypeExpression{ast.NewSimpleType("string")},
+			ReturnType: ast.NewSimpleType("bool"),
 		}
 	case "__builtin_read_dir":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("string"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
@@ -299,7 +299,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -310,8 +310,8 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "string"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -319,12 +319,12 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	// Database builtins
 	case "__builtin_pg_connect", "__builtin_mysql_connect":
 		return &ast.FunctionType{
-			Params: []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
+			Params: []ast.TypeExpression{ast.NewSimpleType("string")},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "int"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("int"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -332,12 +332,12 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_pg_query":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("string"),
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "string"},
+						ast.NewSimpleType("string"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
@@ -346,19 +346,19 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.SimpleType{Name: "QueryResult"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_mysql_query":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "string"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("string"),
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "string"},
+						ast.NewSimpleType("string"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
@@ -367,24 +367,24 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.SimpleType{Name: "QueryResult"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 
 	case "isErr", "isOk":
 		return &ast.FunctionType{
-			ReturnType: &ast.SimpleType{Name: "bool"},
+			ReturnType: ast.NewSimpleType("bool"),
 		}
 
 	case "__builtin_pg_close", "__builtin_mysql_close":
 		return &ast.FunctionType{
-			Params: []ast.TypeExpression{&ast.SimpleType{Name: "int"}},
+			Params: []ast.TypeExpression{ast.NewSimpleType("int")},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "void"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("void"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -392,16 +392,16 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_db_config":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "void"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("void"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -409,7 +409,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_temp_dir":
 		return &ast.FunctionType{
 			Params:     []ast.TypeExpression{},
-			ReturnType: &ast.SimpleType{Name: "string"},
+			ReturnType: ast.NewSimpleType("string"),
 		}
 
 	// Input/Output builtins
@@ -419,8 +419,8 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "string"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -429,35 +429,35 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_socket_connect", "__builtin_socket_connect_tls", "__builtin_socket_bind":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "string"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("string"),
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "int"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("int"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_socket_accept":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "int"},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("int"),
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_socket_read":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
@@ -465,22 +465,22 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 					&ast.GenericType{
 						Name: "Vec",
 						TypeParams: []ast.TypeExpression{
-							&ast.SimpleType{Name: "int"},
+							ast.NewSimpleType("int"),
 							&ast.SizeExpression{IsDynamic: true},
 						},
 					},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_socket_write":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 				&ast.GenericType{
 					Name: "Vec",
 					TypeParams: []ast.TypeExpression{
-						&ast.SimpleType{Name: "int"},
+						ast.NewSimpleType("int"),
 						&ast.SizeExpression{IsDynamic: true},
 					},
 				},
@@ -489,20 +489,20 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_socket_close":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
@@ -511,103 +511,103 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__vec_len", "__vec_cap":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
+				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
 			},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "__vec_alloc":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "any"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("any"),
 			},
-			ReturnType: &ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
+			ReturnType: &ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
 		}
 	case "__vec_get":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
-				&ast.SimpleType{Name: "int"},
+				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
+				ast.NewSimpleType("int"),
 			},
-			ReturnType: &ast.SimpleType{Name: "any"},
+			ReturnType: ast.NewSimpleType("any"),
 		}
 	case "__vec_set":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "any"},
+				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("any"),
 			},
-			ReturnType: &ast.SimpleType{Name: "void"},
+			ReturnType: ast.NewSimpleType("void"),
 		}
 	case "__vec_grow":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
-				&ast.SimpleType{Name: "int"},
+				&ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
+				ast.NewSimpleType("int"),
 			},
-			ReturnType: &ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "any"}}},
+			ReturnType: &ast.GenericType{Name: "__Array", TypeParams: []ast.TypeExpression{ast.NewSimpleType("any")}},
 		}
 	case "__builtin_socket_set_timeout":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",
 				TypeParams: []ast.TypeExpression{
 					&ast.VoidType{},
-					&ast.SimpleType{Name: "string"},
+					ast.NewSimpleType("string"),
 				},
 			},
 		}
 	case "__builtin_sleep":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.VoidType{},
 		}
 	case "__builtin_join":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "any"},
+				ast.NewSimpleType("any"),
 			},
 			ReturnType: &ast.VoidType{},
 		}
 	case "__builtin_thread_id":
 		return &ast.FunctionType{
 			Params:     []ast.TypeExpression{},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "__builtin_spawn":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "any"},
-				&ast.SimpleType{Name: "any"},
+				ast.NewSimpleType("any"),
+				ast.NewSimpleType("any"),
 			},
 			ReturnType: &ast.SimpleType{Name: "Thread"},
 		}
 	case "__builtin_time_now", "__builtin_monotonic_now":
 		return &ast.FunctionType{
 			Params:     []ast.TypeExpression{},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "cfg":
 		return &ast.FunctionType{
-			Params:     []ast.TypeExpression{&ast.SimpleType{Name: "string"}},
-			ReturnType: &ast.SimpleType{Name: "bool"},
+			Params:     []ast.TypeExpression{ast.NewSimpleType("string")},
+			ReturnType: ast.NewSimpleType("bool"),
 		}
 	case "__builtin_time_parts":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Vec",
 				TypeParams: []ast.TypeExpression{
-					&ast.SimpleType{Name: "int"},
+					ast.NewSimpleType("int"),
 					&ast.SizeExpression{IsDynamic: true},
 				},
 			},
@@ -615,41 +615,41 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_mutex_new":
 		return &ast.FunctionType{
 			Params:     []ast.TypeExpression{},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "__builtin_mutex_lock", "__builtin_mutex_unlock":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.VoidType{},
 		}
 	case "__builtin_cancel_new":
 		return &ast.FunctionType{
 			Params:     []ast.TypeExpression{},
-			ReturnType: &ast.SimpleType{Name: "int"},
+			ReturnType: ast.NewSimpleType("int"),
 		}
 	case "__builtin_cancel":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
 			ReturnType: &ast.VoidType{},
 		}
 	case "__builtin_is_cancelled":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
+				ast.NewSimpleType("int"),
 			},
-			ReturnType: &ast.SimpleType{Name: "bool"},
+			ReturnType: ast.NewSimpleType("bool"),
 		}
 	case "__alloc_array", "__alloc_array_zeroed":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				&ast.SimpleType{Name: "int"},
-				&ast.SimpleType{Name: "any"},
+				ast.NewSimpleType("int"),
+				ast.NewSimpleType("any"),
 			},
-			ReturnType: &ast.SimpleType{Name: "any"},
+			ReturnType: ast.NewSimpleType("any"),
 		}
 	}
 

@@ -37,7 +37,7 @@ func osArgs(args ...object.Object) object.Object {
 	osArgs := os.Args
 	elements := make([]object.Object, len(osArgs))
 	for i, arg := range osArgs {
-		elements[i] = &object.String{Value: arg}
+		elements[i] = object.NewString(arg)
 	}
 
 	return &object.Vec{
@@ -60,7 +60,7 @@ func osExit(args ...object.Object) object.Object {
 	}
 
 	os.Exit(int(code.Value))
-	return &object.Void{} // Never reached
+	return object.NewVoid() // Never reached
 }
 
 // osGetenv gets an environment variable, returns Result<string, string>
@@ -79,7 +79,7 @@ func osGetenv(args ...object.Object) object.Object {
 		return resultErrString("environment variable '" + name.Value + "' is not set")
 	}
 
-	return resultOk(&object.String{Value: value})
+	return resultOk(object.NewString(value))
 }
 
 // osSetenv sets an environment variable
@@ -118,7 +118,7 @@ func osHasenv(args ...object.Object) object.Object {
 	}
 
 	_, exists := os.LookupEnv(name.Value)
-	return &object.Boolean{Value: exists}
+	return object.NewBool(exists)
 }
 
 // osCwd returns the current working directory
@@ -132,7 +132,7 @@ func osCwd(args ...object.Object) object.Object {
 		return resultErr(err)
 	}
 
-	return resultOk(&object.String{Value: cwd})
+	return resultOk(object.NewString(cwd))
 }
 
 // osChdir changes the current working directory
@@ -165,7 +165,7 @@ func osExecutable(args ...object.Object) object.Object {
 		return resultErr(err)
 	}
 
-	return resultOk(&object.String{Value: path})
+	return resultOk(object.NewString(path))
 }
 
 // osHostname returns the system hostname
@@ -185,7 +185,7 @@ func osTempDir(args ...object.Object) object.Object {
 	if len(args) != 0 {
 		return argCountError("os.tempDir", len(args), "0")
 	}
-	return &object.String{Value: os.TempDir()}
+	return object.NewString(os.TempDir())
 }
 
 // osUserHomeDir returns the user home directory path
@@ -271,12 +271,12 @@ func osExec(args ...object.Object) object.Object {
 	return resultOk(&object.Struct{
 		Name: "ExecResult",
 		Fields: map[string]object.Object{
-			"Output":    &object.String{Value: execResult.Output},
-			"Stdout":    &object.String{Value: execResult.Stdout},
-			"Stderr":    &object.String{Value: execResult.Stderr},
-			"ExitCode":  &object.Integer{Value: execResult.ExitCode},
-			"TimedOut":  &object.Boolean{Value: execResult.TimedOut},
-			"Truncated": &object.Boolean{Value: execResult.Truncated},
+			"Output":    object.NewString(execResult.Output),
+			"Stdout":    object.NewString(execResult.Stdout),
+			"Stderr":    object.NewString(execResult.Stderr),
+			"ExitCode":  object.NewInteger(execResult.ExitCode),
+			"TimedOut":  object.NewBool(execResult.TimedOut),
+			"Truncated": object.NewBool(execResult.Truncated),
 		},
 	})
 }

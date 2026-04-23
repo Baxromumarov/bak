@@ -1685,6 +1685,20 @@ func (vm *VM) pushMethodResult(result compiler.Value, discardReturn bool) {
 	vm.push(result)
 }
 
+func vmArgCountError(method string, want int) error {
+	if want == 0 {
+		return fmt.Errorf("%s() requires 0 arguments", method)
+	}
+	if want == 1 {
+		return fmt.Errorf("%s() requires 1 argument", method)
+	}
+	return fmt.Errorf("%s() requires %d arguments", method, want)
+}
+
+func vmUndefinedMethodError(typ, method string) error {
+	return fmt.Errorf("undefined method: %s.%s", typ, method)
+}
+
 func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip int, discardReturn bool) error {
 	receiver := vm.derefAll(vm.peek(argc - 1))
 
@@ -1711,31 +1725,32 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		return vm.callWithFlags(fnObj, len(callArgs), discardReturn)
 	}
 
+	// Pop arguments and receiver (common for all built-in type methods)
+	args := make([]compiler.Value, argc-1)
+	for i := argc - 2; i >= 0; i-- {
+		args[i] = vm.pop()
+	}
+	vm.pop() // pop receiver
+
 	// Handle built-in type methods directly
 	switch receiver.Type {
 	case compiler.VAL_INT:
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		switch methodName {
 		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("toString() requires 0 arguments")
+				return vmArgCountError("toString", 0)
 			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatInt(receiver.AsInt, 10)), discardReturn)
 			return nil
 		case "toFloat":
 			if len(args) != 0 {
-				return fmt.Errorf("toFloat() requires 0 arguments")
+				return vmArgCountError("toFloat", 0)
 			}
 			vm.pushMethodResult(compiler.NewFloat(float64(receiver.AsInt)), discardReturn)
 			return nil
 		case "abs":
 			if len(args) != 0 {
-				return fmt.Errorf("abs() requires 0 arguments")
+				return vmArgCountError("abs", 0)
 			}
 			if receiver.AsInt < 0 {
 				vm.pushMethodResult(compiler.NewInt(-receiver.AsInt), discardReturn)
@@ -1744,31 +1759,25 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			return nil
 		default:
-			return fmt.Errorf("undefined method: int.%s", methodName)
+			return vmUndefinedMethodError("int", methodName)
 		}
 	case compiler.VAL_FLOAT:
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		switch methodName {
 		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("toString() requires 0 arguments")
+				return vmArgCountError("toString", 0)
 			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', -1, 64)), discardReturn)
 			return nil
 		case "toInt":
 			if len(args) != 0 {
-				return fmt.Errorf("toInt() requires 0 arguments")
+				return vmArgCountError("toInt", 0)
 			}
 			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsFloat)), discardReturn)
 			return nil
 		case "toFixed":
 			if len(args) != 1 {
-				return fmt.Errorf("toFixed() requires 1 argument")
+				return vmArgCountError("toFixed", 1)
 			}
 			if args[0].Type != compiler.VAL_INT {
 				return fmt.Errorf("toFixed() requires precision (int)")
@@ -1778,42 +1787,36 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			return nil
 		case "abs":
 			if len(args) != 0 {
-				return fmt.Errorf("abs() requires 0 arguments")
+				return vmArgCountError("abs", 0)
 			}
 			vm.pushMethodResult(compiler.NewFloat(math.Abs(receiver.AsFloat)), discardReturn)
 			return nil
 		case "floor":
 			if len(args) != 0 {
-				return fmt.Errorf("floor() requires 0 arguments")
+				return vmArgCountError("floor", 0)
 			}
 			vm.pushMethodResult(compiler.NewFloat(math.Floor(receiver.AsFloat)), discardReturn)
 			return nil
 		case "ceil":
 			if len(args) != 0 {
-				return fmt.Errorf("ceil() requires 0 arguments")
+				return vmArgCountError("ceil", 0)
 			}
 			vm.pushMethodResult(compiler.NewFloat(math.Ceil(receiver.AsFloat)), discardReturn)
 			return nil
 		case "round":
 			if len(args) != 0 {
-				return fmt.Errorf("round() requires 0 arguments")
+				return vmArgCountError("round", 0)
 			}
 			vm.pushMethodResult(compiler.NewFloat(math.Round(receiver.AsFloat)), discardReturn)
 			return nil
 		default:
-			return fmt.Errorf("undefined method: float.%s", methodName)
+			return vmUndefinedMethodError("float", methodName)
 		}
 	case compiler.VAL_BOOL:
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		switch methodName {
 		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("toString() requires 0 arguments")
+				return vmArgCountError("toString", 0)
 			}
 			if receiver.AsBool {
 				vm.pushMethodResult(compiler.NewString("true"), discardReturn)
@@ -1822,38 +1825,32 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			return nil
 		default:
-			return fmt.Errorf("undefined method: bool.%s", methodName)
+			return vmUndefinedMethodError("bool", methodName)
 		}
 	case compiler.VAL_CHAR:
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		switch methodName {
 		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("toString() requires 0 arguments")
+				return vmArgCountError("toString", 0)
 			}
 			vm.pushMethodResult(compiler.NewString(string(receiver.AsChar)), discardReturn)
 			return nil
 		case "isDigit":
 			if len(args) != 0 {
-				return fmt.Errorf("isDigit() requires 0 arguments")
+				return vmArgCountError("isDigit", 0)
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= '0' && receiver.AsChar <= '9'), discardReturn)
 			return nil
 		case "isLetter", "isAlpha":
 			if len(args) != 0 {
-				return fmt.Errorf("%s() requires 0 arguments", methodName)
+				return vmArgCountError(methodName, 0)
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z')
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
 		case "isAlphaNum":
 			if len(args) != 0 {
-				return fmt.Errorf("isAlphaNum() requires 0 arguments")
+				return vmArgCountError("isAlphaNum", 0)
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
 				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
@@ -1862,39 +1859,39 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			return nil
 		case "isWhitespace":
 			if len(args) != 0 {
-				return fmt.Errorf("isWhitespace() requires 0 arguments")
+				return vmArgCountError("isWhitespace", 0)
 			}
 			v := receiver.AsChar == ' ' || receiver.AsChar == '\t' || receiver.AsChar == '\n' || receiver.AsChar == '\r'
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
 		case "isUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("isUpper() requires 0 arguments")
+				return vmArgCountError("isUpper", 0)
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z'), discardReturn)
 			return nil
 		case "isLower":
 			if len(args) != 0 {
-				return fmt.Errorf("isLower() requires 0 arguments")
+				return vmArgCountError("isLower", 0)
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'a' && receiver.AsChar <= 'z'), discardReturn)
 			return nil
 		case "isAscii":
 			if len(args) != 0 {
-				return fmt.Errorf("isAscii() requires 0 arguments")
+				return vmArgCountError("isAscii", 0)
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 0 && receiver.AsChar <= 127), discardReturn)
 			return nil
 		case "isIdentStart":
 			if len(args) != 0 {
-				return fmt.Errorf("isIdentStart() requires 0 arguments")
+				return vmArgCountError("isIdentStart", 0)
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') || receiver.AsChar == '_'
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
 		case "isIdentPart":
 			if len(args) != 0 {
-				return fmt.Errorf("isIdentPart() requires 0 arguments")
+				return vmArgCountError("isIdentPart", 0)
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
 				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
@@ -1904,13 +1901,13 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			return nil
 		case "toAscii":
 			if len(args) != 0 {
-				return fmt.Errorf("toAscii() requires 0 arguments")
+				return vmArgCountError("toAscii", 0)
 			}
 			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsChar)), discardReturn)
 			return nil
 		case "toUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("toUpper() requires 0 arguments")
+				return vmArgCountError("toUpper", 0)
 			}
 			if receiver.AsChar >= 'a' && receiver.AsChar <= 'z' {
 				vm.pushMethodResult(compiler.NewChar(receiver.AsChar-32), discardReturn)
@@ -1920,7 +1917,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			return nil
 		case "toLower":
 			if len(args) != 0 {
-				return fmt.Errorf("toLower() requires 0 arguments")
+				return vmArgCountError("toLower", 0)
 			}
 			if receiver.AsChar >= 'A' && receiver.AsChar <= 'Z' {
 				vm.pushMethodResult(compiler.NewChar(receiver.AsChar+32), discardReturn)
@@ -1929,30 +1926,24 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			return nil
 		default:
-			return fmt.Errorf("undefined method: char.%s", methodName)
+			return vmUndefinedMethodError("char", methodName)
 		}
 	case compiler.VAL_BOX:
 		box := receiver.AsObject.(*compiler.BoxInstance)
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		var result compiler.Value
 		switch methodName {
 		case "isNil":
 			result = compiler.NewBool(box.IsNil)
 		case "unwrap":
 			if len(args) != 0 {
-				return fmt.Errorf("unwrap() requires 0 arguments")
+				return vmArgCountError("unwrap", 0)
 			}
 			if box.IsNil {
 				return fmt.Errorf("unwrap called on nil box")
 			}
 			result = box.Value
 		default:
-			return fmt.Errorf("undefined method: Box.%s", methodName)
+			return vmUndefinedMethodError("Box", methodName)
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
@@ -1960,14 +1951,8 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		// Internal compatibility path only. Frozen user code cannot define/use
 		// Option<T>, but VM still supports this value kind for legacy artifacts.
 		opt := receiver.AsObject.(*compiler.OptionInstance)
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
+			return vmArgCountError(methodName, 0)
 		}
 
 		var result compiler.Value
@@ -1982,20 +1967,14 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			result = opt.Value
 		default:
-			return fmt.Errorf("undefined method: Option.%s", methodName)
+			return vmUndefinedMethodError("Option", methodName)
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
 	case compiler.VAL_RESULT:
 		res := receiver.AsObject.(*compiler.ResultInstance)
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
+			return vmArgCountError(methodName, 0)
 		}
 
 		var result compiler.Value
@@ -2015,7 +1994,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			result = res.Value
 		default:
-			return fmt.Errorf("undefined method: Result.%s", methodName)
+			return vmUndefinedMethodError("Result", methodName)
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
@@ -2025,17 +2004,11 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		// Handle static struct type method calls (e.g., "hashmap.HashMap" -> HashMap.new())
 		if after, ok := strings.CutPrefix(str, "__struct__:"); ok {
 			structTypeName := after
-			args := make([]compiler.Value, argc-1)
-			for i := argc - 2; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
-			vm.pop() // pop receiver (the __struct__: string)
-
 			// Look up the static method on this struct type
 			fullMethodName := structTypeName + "." + methodName
 			if fnIdx, ok := vm.module.FunctionIndices[fullMethodName]; ok {
 				fn := vm.module.Functions[fnIdx]
-				// Push function args onto stack and call
+				// Push function args back onto stack and call
 				for _, a := range args {
 					vm.push(a)
 				}
@@ -2043,12 +2016,6 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			return fmt.Errorf("undefined static method: %s.%s", structTypeName, methodName)
 		}
-
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
 
 		var result compiler.Value
 		resultOk := func(v compiler.Value) compiler.Value {
@@ -2072,17 +2039,17 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		switch methodName {
 		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("toString() requires 0 arguments")
+				return vmArgCountError("toString", 0)
 			}
 			result = compiler.NewString(str)
 		case "len":
 			if len(args) != 0 {
-				return fmt.Errorf("len() requires 0 arguments")
+				return vmArgCountError("len", 0)
 			}
 			result = compiler.NewInt(int64(utf8.RuneCountInString(str)))
 		case "hash":
 			if len(args) != 0 {
-				return fmt.Errorf("hash() requires 0 arguments")
+				return vmArgCountError("hash", 0)
 			}
 			var h uint32 = 2166136261
 			for i := 0; i < len(str); i++ {
@@ -2091,7 +2058,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewInt(int64(h))
 		case "bytes":
 			if len(args) != 0 {
-				return fmt.Errorf("bytes() requires 0 arguments")
+				return vmArgCountError("bytes", 0)
 			}
 			bytes := []byte(str)
 			values := make([]compiler.Value, len(bytes))
@@ -2101,7 +2068,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
 		case "chars":
 			if len(args) != 0 {
-				return fmt.Errorf("chars() requires 0 arguments")
+				return vmArgCountError("chars", 0)
 			}
 			runes := []rune(str)
 			values := make([]compiler.Value, len(runes))
@@ -2111,27 +2078,27 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
 		case "isEmpty":
 			if len(args) != 0 {
-				return fmt.Errorf("isEmpty() requires 0 arguments")
+				return vmArgCountError("isEmpty", 0)
 			}
 			result = compiler.NewBool(len(str) == 0)
 		case "toLower":
 			if len(args) != 0 {
-				return fmt.Errorf("toLower() requires 0 arguments")
+				return vmArgCountError("toLower", 0)
 			}
 			result = compiler.NewString(strings.ToLower(str))
 		case "toUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("toUpper() requires 0 arguments")
+				return vmArgCountError("toUpper", 0)
 			}
 			result = compiler.NewString(strings.ToUpper(str))
 		case "trimSpace":
 			if len(args) != 0 {
-				return fmt.Errorf("trimSpace() requires 0 arguments")
+				return vmArgCountError("trimSpace", 0)
 			}
 			result = compiler.NewString(strings.TrimSpace(str))
 		case "trimPrefix":
 			if len(args) != 1 {
-				return fmt.Errorf("trimPrefix() requires 1 argument")
+				return vmArgCountError("trimPrefix", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("trimPrefix() requires a string")
@@ -2139,7 +2106,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewString(strings.TrimPrefix(str, args[0].AsString))
 		case "trimSuffix":
 			if len(args) != 1 {
-				return fmt.Errorf("trimSuffix() requires 1 argument")
+				return vmArgCountError("trimSuffix", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("trimSuffix() requires a string")
@@ -2147,7 +2114,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewString(strings.TrimSuffix(str, args[0].AsString))
 		case "split":
 			if len(args) != 1 {
-				return fmt.Errorf("split() requires 1 argument")
+				return vmArgCountError("split", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("split() requires a string")
@@ -2160,7 +2127,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}
 		case "get":
 			if len(args) != 1 {
-				return fmt.Errorf("get() requires 1 argument")
+				return vmArgCountError("get", 1)
 			}
 			if args[0].Type != compiler.VAL_INT {
 				return fmt.Errorf("get() requires an integer index")
@@ -2174,7 +2141,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "indexOf":
 			if len(args) != 1 {
-				return fmt.Errorf("indexOf() requires 1 argument")
+				return vmArgCountError("indexOf", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("indexOf() requires a string")
@@ -2187,7 +2154,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "lastIndexOf":
 			if len(args) != 1 {
-				return fmt.Errorf("lastIndexOf() requires 1 argument")
+				return vmArgCountError("lastIndexOf", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("lastIndexOf() requires a string")
@@ -2200,7 +2167,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "contains":
 			if len(args) != 1 {
-				return fmt.Errorf("contains() requires 1 argument")
+				return vmArgCountError("contains", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("contains() requires a string")
@@ -2208,7 +2175,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewBool(strings.Contains(str, args[0].AsString))
 		case "startsWith":
 			if len(args) != 1 {
-				return fmt.Errorf("startsWith() requires 1 argument")
+				return vmArgCountError("startsWith", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("startsWith() requires a string")
@@ -2216,7 +2183,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewBool(strings.HasPrefix(str, args[0].AsString))
 		case "endsWith":
 			if len(args) != 1 {
-				return fmt.Errorf("endsWith() requires 1 argument")
+				return vmArgCountError("endsWith", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("endsWith() requires a string")
@@ -2224,7 +2191,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewBool(strings.HasSuffix(str, args[0].AsString))
 		case "replace":
 			if len(args) != 2 {
-				return fmt.Errorf("replace() requires 2 arguments")
+				return vmArgCountError("replace", 2)
 			}
 			if args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 				return fmt.Errorf("replace() requires string arguments")
@@ -2232,7 +2199,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewString(strings.ReplaceAll(str, args[0].AsString, args[1].AsString))
 		case "parseInt":
 			if len(args) != 0 {
-				return fmt.Errorf("parseInt() requires 0 arguments")
+				return vmArgCountError("parseInt", 0)
 			}
 			var i int64
 			if _, err := fmt.Sscanf(str, "%d", &i); err != nil {
@@ -2242,7 +2209,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = resultOk(compiler.NewInt(i))
 		case "parseFloat":
 			if len(args) != 0 {
-				return fmt.Errorf("parseFloat() requires 0 arguments")
+				return vmArgCountError("parseFloat", 0)
 			}
 			var f float64
 			if _, err := fmt.Sscanf(str, "%f", &f); err != nil {
@@ -2252,7 +2219,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = resultOk(compiler.NewFloat(f))
 		case "substring":
 			if len(args) != 2 {
-				return fmt.Errorf("substring() requires 2 arguments")
+				return vmArgCountError("substring", 2)
 			}
 			if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
 				return fmt.Errorf("substring() requires integer indices")
@@ -2275,18 +2242,12 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			result = compiler.NewString(string(runes[start:end]))
 		default:
-			return fmt.Errorf("undefined method: string.%s", methodName)
+			return vmUndefinedMethodError("string", methodName)
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
 	case compiler.VAL_ARRAY:
 		arr := receiver.AsObject.(*compiler.ArrayInstance)
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		resultOk := func(v compiler.Value) compiler.Value {
 			return compiler.Value{
 				Type: compiler.VAL_RESULT,
@@ -2310,22 +2271,22 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		switch methodName {
 		case "len":
 			if len(args) != 0 {
-				return fmt.Errorf("len() requires 0 arguments")
+				return vmArgCountError("len", 0)
 			}
 			result = compiler.NewInt(int64(len(arr.Elements)))
 		case "cap":
 			if len(args) != 0 {
-				return fmt.Errorf("cap() requires 0 arguments")
+				return vmArgCountError("cap", 0)
 			}
 			result = compiler.NewInt(int64(cap(arr.Elements)))
 		case "isEmpty":
 			if len(args) != 0 {
-				return fmt.Errorf("isEmpty() requires 0 arguments")
+				return vmArgCountError("isEmpty", 0)
 			}
 			result = compiler.NewBool(len(arr.Elements) == 0)
 		case "get":
 			if len(args) != 1 {
-				return fmt.Errorf("get() requires 1 argument")
+				return vmArgCountError("get", 1)
 			}
 			if args[0].Type != compiler.VAL_INT {
 				return fmt.Errorf("get() requires an integer index")
@@ -2338,7 +2299,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "set":
 			if len(args) != 2 {
-				return fmt.Errorf("set() requires 2 arguments")
+				return vmArgCountError("set", 2)
 			}
 			if args[0].Type != compiler.VAL_INT {
 				return fmt.Errorf("set() requires an integer index")
@@ -2351,13 +2312,13 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewNil()
 		case "push":
 			if len(args) != 1 {
-				return fmt.Errorf("push() requires 1 argument")
+				return vmArgCountError("push", 1)
 			}
 			arr.Elements = append(arr.Elements, args[0])
 			result = compiler.NewNil()
 		case "pop":
 			if len(args) != 0 {
-				return fmt.Errorf("pop() requires 0 arguments")
+				return vmArgCountError("pop", 0)
 			}
 			if len(arr.Elements) == 0 {
 				result = resultErr("vec is empty")
@@ -2367,7 +2328,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			arr.Elements = arr.Elements[:len(arr.Elements)-1]
 		case "append":
 			if len(args) != 1 {
-				return fmt.Errorf("append() requires 1 argument")
+				return vmArgCountError("append", 1)
 			}
 			if args[0].Type != compiler.VAL_ARRAY {
 				return fmt.Errorf("append() requires a vector/array argument")
@@ -2377,7 +2338,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewNil()
 		case "remove":
 			if len(args) != 1 {
-				return fmt.Errorf("remove() requires 1 argument")
+				return vmArgCountError("remove", 1)
 			}
 			if args[0].Type != compiler.VAL_INT {
 				return fmt.Errorf("remove() requires an integer index")
@@ -2392,7 +2353,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = resultOk(removed)
 		case "first":
 			if len(args) != 0 {
-				return fmt.Errorf("first() requires 0 arguments")
+				return vmArgCountError("first", 0)
 			}
 			if len(arr.Elements) == 0 {
 				result = resultErr("vec is empty")
@@ -2401,7 +2362,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "last":
 			if len(args) != 0 {
-				return fmt.Errorf("last() requires 0 arguments")
+				return vmArgCountError("last", 0)
 			}
 			if len(arr.Elements) == 0 {
 				result = resultErr("vec is empty")
@@ -2410,7 +2371,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		case "contains":
 			if len(args) != 1 {
-				return fmt.Errorf("contains() requires 1 argument")
+				return vmArgCountError("contains", 1)
 			}
 			found := false
 			for _, elem := range arr.Elements {
@@ -2422,7 +2383,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewBool(found)
 		case "join":
 			if len(args) != 1 {
-				return fmt.Errorf("join() requires 1 argument")
+				return vmArgCountError("join", 1)
 			}
 			if args[0].Type != compiler.VAL_STRING {
 				return fmt.Errorf("join() requires a string separator")
@@ -2434,7 +2395,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewString(strings.Join(parts, args[0].AsString))
 		case "reverse":
 			if len(args) != 0 {
-				return fmt.Errorf("reverse() requires 0 arguments")
+				return vmArgCountError("reverse", 0)
 			}
 			for i, j := 0, len(arr.Elements)-1; i < j; i, j = i+1, j-1 {
 				arr.Elements[i], arr.Elements[j] = arr.Elements[j], arr.Elements[i]
@@ -2442,13 +2403,13 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.NewNil()
 		case "clear":
 			if len(args) != 0 {
-				return fmt.Errorf("clear() requires 0 arguments")
+				return vmArgCountError("clear", 0)
 			}
 			arr.Elements = arr.Elements[:0]
 			result = compiler.NewNil()
 		case "slice":
 			if len(args) != 2 {
-				return fmt.Errorf("slice() requires 2 arguments")
+				return vmArgCountError("slice", 2)
 			}
 			if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
 				return fmt.Errorf("slice() requires integer start/end")
@@ -2469,25 +2430,19 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: sliced}}
 		case "toVec":
 			if len(args) != 0 {
-				return fmt.Errorf("toVec() requires 0 arguments")
+				return vmArgCountError("toVec", 0)
 			}
 			dup := make([]compiler.Value, len(arr.Elements))
 			copy(dup, arr.Elements)
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: dup}}
 		default:
-			return fmt.Errorf("undefined method: array.%s", methodName)
+			return vmUndefinedMethodError("array", methodName)
 		}
 		vm.pushMethodResult(result, discardReturn)
 		return nil
 	case compiler.VAL_THREAD:
-		args := make([]compiler.Value, argc-1)
-		for i := argc - 2; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
-		vm.pop() // pop receiver
-
 		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
+			return vmArgCountError(methodName, 0)
 		}
 
 		switch methodName {
@@ -2499,8 +2454,14 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			vm.pushMethodResult(result, discardReturn)
 			return nil
 		default:
-			return fmt.Errorf("undefined method: thread.%s", methodName)
+			return vmUndefinedMethodError("thread", methodName)
 		}
+	}
+
+	// Restore receiver and args on the stack for fallback method lookup
+	vm.push(receiver)
+	for _, a := range args {
+		vm.push(a)
 	}
 
 	// Get type name from receiver
@@ -2575,7 +2536,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 					}
 				}
 			}
-			return fmt.Errorf("undefined method: %s.%s", typeName, methodName)
+			return vmUndefinedMethodError(typeName, methodName)
 		}
 	}
 

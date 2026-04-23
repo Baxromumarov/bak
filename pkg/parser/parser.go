@@ -345,6 +345,10 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 	p.errors = append(p.errors, msg)
 }
 
+func (p *Parser) ident() *ast.Identifier {
+	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
 func (p *Parser) formatMessage(line, col int, core string, help string) string {
 	return p.formatMessageWithSummary(line, col, core, true, help)
 }
@@ -658,7 +662,7 @@ func (p *Parser) parsePackageStatement() *ast.PackageStatement {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 	return stmt
 }
 
@@ -867,7 +871,7 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	// Check for type annotation (colon optional)
 	if p.peekTokenIs(token.COLON) {
@@ -904,7 +908,7 @@ func (p *Parser) parseMultiVarStatement(varToken token.Token, mutable bool) *ast
 		return nil
 	}
 	p.nextToken()
-	stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	stmt.Names = append(stmt.Names, p.ident())
 
 	// Parse remaining identifiers
 	for p.peekTokenIs(token.COMMA) {
@@ -914,7 +918,7 @@ func (p *Parser) parseMultiVarStatement(varToken token.Token, mutable bool) *ast
 			return nil
 		}
 		p.nextToken()
-		stmt.Names = append(stmt.Names, &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal})
+		stmt.Names = append(stmt.Names, p.ident())
 	}
 
 	if !p.expectPeek(token.RPAREN) {
@@ -938,7 +942,7 @@ func (p *Parser) parseConstStatement() *ast.ConstStatement {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	// Type is required for constants (colon optional)
 	if p.peekTokenIs(token.COLON) {
@@ -974,7 +978,7 @@ func (p *Parser) parseVarBlock() *ast.VarBlock {
 		}
 
 		varStmt := &ast.VarStatement{Token: p.curToken, Mutable: false}
-		varStmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		varStmt.Name = p.ident()
 
 		// Parse type (required in block syntax)
 		if !p.expectPeek(token.COLON) {
@@ -1018,7 +1022,7 @@ func (p *Parser) parseConstBlock() *ast.ConstBlock {
 		}
 
 		constStmt := &ast.ConstStatement{Token: p.curToken}
-		constStmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		constStmt.Name = p.ident()
 
 		// Type is required (colon optional)
 		if p.peekTokenIs(token.COLON) {
@@ -1157,7 +1161,7 @@ func (p *Parser) parseForStatement() *ast.ForStatement {
 		return nil
 	}
 
-	stmt.Variable = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Variable = p.ident()
 
 	if !p.expectPeek(token.IN) {
 		return nil
@@ -1565,7 +1569,7 @@ func (p *Parser) parseFunctionDecl() *ast.FunctionDecl {
 		return nil
 	}
 
-	fn.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	fn.Name = p.ident()
 
 	// Check for generic type parameters: func name<T, U>(...)
 	if p.peekTokenIs(token.LT) {
@@ -1712,7 +1716,7 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 	p.nextToken()
 	param := &ast.TypeParameter{
 		Token: p.curToken,
-		Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		Name:  p.ident(),
 	}
 	if p.peekTokenIs(token.COLON) {
 		p.errors = append(p.errors, p.formatMessage(
@@ -1737,7 +1741,7 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 		p.nextToken() // move to next identifier
 		param := &ast.TypeParameter{
 			Token: p.curToken,
-			Name:  &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+			Name:  p.ident(),
 		}
 		if p.peekTokenIs(token.COLON) {
 			p.errors = append(p.errors, p.formatMessage(
@@ -1819,7 +1823,7 @@ func (p *Parser) parseParameter() *ast.Parameter {
 		p.nextToken()
 	}
 
-	param.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	param.Name = p.ident()
 
 	if p.peekTokenIs(token.COLON) {
 		p.nextToken() // consume :
@@ -1843,7 +1847,7 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	// Check for generic type parameters: struct Name<T, U> { ... }
 	if p.peekTokenIs(token.LT) {
@@ -1892,7 +1896,7 @@ func (p *Parser) parseStructField() *ast.StructField {
 		return nil
 	}
 
-	field.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	field.Name = p.ident()
 
 	if !p.expectPeek(token.COLON) {
 		return nil
@@ -1911,7 +1915,7 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	// Check for type parameters
 	if p.peekTokenIs(token.LT) {
@@ -1946,7 +1950,7 @@ func (p *Parser) parseEnumVariant() *ast.EnumVariant {
 	}
 
 	variant := &ast.EnumVariant{Token: p.curToken}
-	variant.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	variant.Name = p.ident()
 
 	if p.peekTokenIs(token.LPAREN) {
 		p.nextToken()
@@ -1993,7 +1997,7 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	if !p.expectPeek(token.ASSIGN) {
 		return nil
@@ -2013,7 +2017,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 		return nil
 	}
 
-	stmt.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	stmt.Name = p.ident()
 
 	if !p.expectPeek(token.ASSIGN) {
 		return nil
@@ -2037,7 +2041,7 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 	p.nextToken()
 
 	// Parse the first identifier
-	firstIdent := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	firstIdent := p.ident()
 	var firstParams []*ast.TypeParameter
 
 	if p.peekTokenIs(token.LT) {
@@ -2061,7 +2065,7 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 		if !p.expectPeek(token.IDENT) {
 			return nil
 		}
-		stmt.TypeName = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		stmt.TypeName = p.ident()
 		if p.peekTokenIs(token.LT) {
 			if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
 				p.reportExperimentalFeature(p.peekToken, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
@@ -2081,7 +2085,7 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 		if !p.expectPeek(token.IDENT) {
 			return nil
 		}
-		stmt.Receiver = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		stmt.Receiver = p.ident()
 	}
 
 	if !p.expectPeek(token.LBRACE) {
@@ -2124,7 +2128,7 @@ func (p *Parser) parseMethodDecl() *ast.MethodDecl {
 		return nil
 	}
 
-	method.Name = &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	method.Name = p.ident()
 
 	// Check for generic type parameters: func name<T, U>(...)
 	if p.peekTokenIs(token.LT) {
@@ -2187,7 +2191,7 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 }
 
 func (p *Parser) parseIdentifier() ast.Expression {
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	ident := p.ident()
 
 	// Check if this is a struct literal
 	if p.peekTokenIs(token.LBRACE) && p.looksLikeStructLiteral() {
@@ -2214,7 +2218,7 @@ func (p *Parser) parseWildcardExpression() ast.Expression {
 // parseTypeIdentifier handles type keywords (Vec, Result) that can appear as identifiers
 // This supports generic helper invocations where a type name appears as an identifier.
 func (p *Parser) parseTypeIdentifier() ast.Expression {
-	ident := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	ident := p.ident()
 
 	// Check if this is a struct literal
 	if p.peekTokenIs(token.LBRACE) && p.looksLikeStructLiteral() {
@@ -2651,7 +2655,7 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 	}
 	p.nextToken()
 
-	field := &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	field := p.ident()
 
 	// Check if it's a method call
 	if p.peekTokenIs(token.LPAREN) {
@@ -2869,7 +2873,7 @@ func (p *Parser) parseInferredStructLiteral() ast.Expression {
 func (p *Parser) parseEnumVariantExpression() ast.Expression {
 	ev := &ast.EnumVariantExpression{
 		Token:   p.curToken,
-		Variant: &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal},
+		Variant: p.ident(),
 	}
 
 	if p.peekTokenIs(token.LPAREN) {

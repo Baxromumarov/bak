@@ -115,7 +115,7 @@ func builtinConcat(args ...object.Object) object.Object {
 		out.WriteString(ch.Value)
 	}
 
-	return &object.String{Value: out.String()}
+	return object.NewString(out.String())
 }
 
 func builtinCfg(args ...object.Object) object.Object {
@@ -126,7 +126,7 @@ func builtinCfg(args ...object.Object) object.Object {
 	if !ok {
 		return argTypeError("cfg", args[0], "string")
 	}
-	return &object.Boolean{Value: runtimecap.CurrentFeatureEnabled(featureName.Value)}
+	return object.NewBool(runtimecap.CurrentFeatureEnabled(featureName.Value))
 }
 
 // builtinFromChars: primitive to convert Vec<char, _> to string
@@ -150,7 +150,7 @@ func builtinFromChars(args ...object.Object) object.Object {
 		}
 		runes[i] = ch.Value
 	}
-	return &object.String{Value: string(runes)}
+	return object.NewString(string(runes))
 }
 
 // builtinStringFromBytes: optimized string construction from Vec<int, _> bytes
@@ -198,7 +198,7 @@ func builtinStringFromBytes(args ...object.Object) object.Object {
 		}
 		builder.WriteByte(byte(b.Value))
 	}
-	return &object.String{Value: builder.String()}
+	return object.NewString(builder.String())
 }
 
 // builtinStringPtr: mocked for evaluator - not meant to be used literally there, but registered.
@@ -206,7 +206,7 @@ func builtinStringPtr(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("", len(args), "1")
 	}
-	return &object.Integer{Value: 0}
+	return object.NewInteger(0)
 }
 
 func builtinPrint(args ...object.Object) object.Object {
@@ -223,7 +223,7 @@ func builtinPrint(args ...object.Object) object.Object {
 			fmt.Print(arg.Inspect())
 		}
 	}
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 func builtinPrintln(args ...object.Object) object.Object {
@@ -241,7 +241,7 @@ func builtinPrintln(args ...object.Object) object.Object {
 		}
 	}
 	fmt.Println()
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 func builtinEprint(args ...object.Object) object.Object {
@@ -258,7 +258,7 @@ func builtinEprint(args ...object.Object) object.Object {
 			fmt.Fprint(os.Stderr, arg.Inspect())
 		}
 	}
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 func builtinEprintln(args ...object.Object) object.Object {
@@ -276,7 +276,7 @@ func builtinEprintln(args ...object.Object) object.Object {
 		}
 	}
 	fmt.Fprintln(os.Stderr)
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 func builtinType(args ...object.Object) object.Object {
@@ -284,7 +284,7 @@ func builtinType(args ...object.Object) object.Object {
 		return argCountError("", len(args), "1")
 	}
 
-	return &object.String{Value: string(args[0].Type())}
+	return object.NewString(string(args[0].Type()))
 }
 
 func builtinInt(args ...object.Object) object.Object {
@@ -309,9 +309,9 @@ func builtinInt(args ...object.Object) object.Object {
 		return resultOkInt(val)
 	case *object.Boolean:
 		if arg.Value {
-			return &object.Integer{Value: 1}
+			return object.NewInteger(1)
 		}
-		return &object.Integer{Value: 0}
+		return object.NewInteger(0)
 	default:
 		return newError("cannot convert %s to int", args[0].Type())
 	}
@@ -326,14 +326,14 @@ func builtinFloat(args ...object.Object) object.Object {
 	case *object.Float:
 		return arg
 	case *object.Integer:
-		return &object.Float{Value: float64(arg.Value)}
+		return object.NewFloat(float64(arg.Value))
 	case *object.String:
 		var val float64
 		_, err := fmt.Sscanf(arg.Value, "%f", &val)
 		if err != nil {
 			return resultErrString("invalid float")
 		}
-		return resultOk(&object.Float{Value: val})
+		return resultOk(object.NewFloat(val))
 	default:
 		return newError("cannot convert %s to float", args[0].Type())
 	}
@@ -344,7 +344,7 @@ func builtinString(args ...object.Object) object.Object {
 		return argCountError("", len(args), "1")
 	}
 
-	return &object.String{Value: args[0].Inspect()}
+	return object.NewString(args[0].Inspect())
 }
 
 // builtinChar creates a character from an ASCII code
@@ -355,7 +355,7 @@ func builtinChar(args ...object.Object) object.Object {
 
 	switch arg := args[0].(type) {
 	case *object.Integer:
-		return &object.Char{Value: rune(arg.Value)}
+		return object.NewChar(rune(arg.Value))
 	case *object.Char:
 		return arg
 	default:
@@ -384,7 +384,7 @@ func builtinUnbox(args ...object.Object) object.Object {
 	}
 
 	if box.Value == nil {
-		return &object.Void{}
+		return object.NewVoid()
 	}
 
 	return box.Value
@@ -483,7 +483,7 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	// This is inefficient but consistent.
 	elements := make([]object.Object, n)
 	for i := range n {
-		elements[i] = &object.Integer{Value: int64(buf[i])}
+		elements[i] = object.NewInteger(int64(buf[i]))
 	}
 	vec := &object.Vec{
 		Elements: elements,
@@ -774,7 +774,7 @@ func builtinSleep(args ...object.Object) object.Object {
 }
 
 func builtinTimeNow(args ...object.Object) object.Object {
-	return &object.Integer{Value: time.Now().UnixNano()}
+	return object.NewInteger(time.Now().UnixNano())
 }
 
 func builtinTimeParts(args ...object.Object) object.Object {
@@ -793,14 +793,14 @@ func builtinTimeParts(args ...object.Object) object.Object {
 	weekday := int(tm.Weekday())
 
 	parts := []object.Object{
-		&object.Integer{Value: int64(year)},
-		&object.Integer{Value: int64(month)},
-		&object.Integer{Value: int64(day)},
-		&object.Integer{Value: int64(hour)},
-		&object.Integer{Value: int64(m)},
-		&object.Integer{Value: int64(sec)},
-		&object.Integer{Value: int64(nsec)},
-		&object.Integer{Value: int64(weekday)},
+		object.NewInteger(int64(year)),
+		object.NewInteger(int64(month)),
+		object.NewInteger(int64(day)),
+		object.NewInteger(int64(hour)),
+		object.NewInteger(int64(m)),
+		object.NewInteger(int64(sec)),
+		object.NewInteger(int64(nsec)),
+		object.NewInteger(int64(weekday)),
 	}
 
 	return &object.Vec{
@@ -813,12 +813,12 @@ func builtinTimeParts(args ...object.Object) object.Object {
 
 func builtinMonotonicNow(args ...object.Object) object.Object {
 	// Approximation for interpreter
-	return &object.Integer{Value: time.Now().UnixNano()}
+	return object.NewInteger(time.Now().UnixNano())
 }
 
 func builtinThreadID(args ...object.Object) object.Object {
 	// Interpreter is currently single-threaded for evaluation
-	return &object.Integer{Value: 0}
+	return object.NewInteger(0)
 }
 
 func builtinMutexNew(args ...object.Object) object.Object {
@@ -827,7 +827,7 @@ func builtinMutexNew(args ...object.Object) object.Object {
 	id := nextMutexID
 	nextMutexID++
 	mutexes[id] = &sync.Mutex{}
-	return &object.Integer{Value: int64(id)}
+	return object.NewInteger(int64(id))
 }
 
 func builtinAllocArray(args ...object.Object) object.Object {
@@ -897,7 +897,7 @@ func builtinVecLen(args ...object.Object) object.Object {
 	if !ok {
 		return argTypeError("__vec_len", args[0], "Vec")
 	}
-	return &object.Integer{Value: int64(len(vec.Elements))}
+	return object.NewInteger(int64(len(vec.Elements)))
 }
 
 // builtinVecCap: returns capacity of the underlying buffer
@@ -909,7 +909,7 @@ func builtinVecCap(args ...object.Object) object.Object {
 	if !ok {
 		return argTypeError("__vec_cap", args[0], "Vec")
 	}
-	return &object.Integer{Value: int64(cap(vec.Elements))}
+	return object.NewInteger(int64(cap(vec.Elements)))
 }
 
 // builtinVecGet: returns element at index (no Option wrapper)
@@ -950,7 +950,7 @@ func builtinVecSet(args ...object.Object) object.Object {
 		return newError("__vec_set: index out of range")
 	}
 	vec.Elements[idx] = args[2]
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 // builtinVecGrow: grow underlying buffer to at least newcap, returns new Vec buffer
@@ -999,7 +999,7 @@ func builtinMutexLock(args ...object.Object) object.Object {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
 	mu.Lock()
-	return &object.Void{}
+	return object.NewVoid()
 }
 
 func builtinMutexUnlock(args ...object.Object) object.Object {
@@ -1017,5 +1017,5 @@ func builtinMutexUnlock(args ...object.Object) object.Object {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
 	mu.Unlock()
-	return &object.Void{}
+	return object.NewVoid()
 }

@@ -16,14 +16,14 @@ func newError(format string, a ...any) *object.Error {
 func resultErrString(errStr string) *object.Result {
 	return &object.Result{
 		IsOk:  false,
-		Value: &object.String{Value: errStr},
+		Value: object.NewString(errStr),
 	}
 }
 
 func resultOkVoid() *object.Result {
 	return &object.Result{
 		IsOk:  true,
-		Value: &object.Void{},
+		Value: object.NewVoid(),
 	}
 }
 
@@ -37,21 +37,21 @@ func resultOk(value object.Object) *object.Result {
 func resultErr(err error) *object.Result {
 	return &object.Result{
 		IsOk:  false,
-		Value: &object.String{Value: err.Error()},
+		Value: object.NewString(err.Error()),
 	}
 }
 
 func resultOkString(s string) *object.Result {
 	return &object.Result{
 		IsOk:  true,
-		Value: &object.String{Value: s},
+		Value: object.NewString(s),
 	}
 }
 
 func resultOkInt(n int64) *object.Result {
 	return &object.Result{
 		IsOk:  true,
-		Value: &object.Integer{Value: n},
+		Value: object.NewInteger(n),
 	}
 }
 

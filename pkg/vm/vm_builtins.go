@@ -95,6 +95,39 @@ func vmPermissionAllowed(perms runtimecap.Permissions, flag string) bool {
 	}
 }
 
+func vmBuiltinArgCountError(name string, want int) error {
+	if want == 1 {
+		return fmt.Errorf("%s requires 1 argument", name)
+	}
+	return fmt.Errorf("%s requires %d arguments", name, want)
+}
+
+func vmBuiltinExactArgCountError(name string, want int) error {
+	if want == 1 {
+		return fmt.Errorf("%s requires exactly 1 argument", name)
+	}
+	return fmt.Errorf("%s requires exactly %d arguments", name, want)
+}
+
+func vmBuiltinTypeError(name string, argIdx int, wantType string) error {
+	if argIdx < 0 {
+		return fmt.Errorf("%s argument must be %s", name, wantType)
+	}
+	return fmt.Errorf("%s argument %d must be %s", name, argIdx, wantType)
+}
+
+func vmBuiltinNegSizeError(name string) error {
+	return fmt.Errorf("%s cannot be negative", name)
+}
+
+func vmBuiltinInvalidHandleError(kind string, id int) error {
+	return fmt.Errorf("invalid %s handle: %d", kind, id)
+}
+
+func vmBuiltinOutOfRangeError(name string) error {
+	return fmt.Errorf("%s: index out of range", name)
+}
+
 // callBuiltin handles builtin function calls
 func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compiler.Value, error) {
 	// Debug: print builtin id and known constants to detect mismatches
@@ -161,14 +194,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 	switch id {
 	case compiler.BUILTIN_ALLOC_ARRAY:
 		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__alloc_array requires 2 arguments")
+			return compiler.NewNil(), vmBuiltinArgCountError("__alloc_array", 2)
 		}
 		if args[0].Type != compiler.VAL_INT {
-			return compiler.NewNil(), fmt.Errorf("__alloc_array size must be int")
+			return compiler.NewNil(), vmBuiltinTypeError("__alloc_array", -1, "int")
 		}
 		size := int(args[0].AsInt)
 		if size < 0 {
-			return compiler.NewNil(), fmt.Errorf("array size cannot be negative")
+			return compiler.NewNil(), vmBuiltinNegSizeError("array size")
 		}
 		defaultVal := args[1]
 		elements := make([]compiler.Value, size)
@@ -181,14 +214,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 	case compiler.BUILTIN_VEC_ALLOC:
 		// identical semantics to __alloc_array at VM level
 		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__vec_alloc requires 2 arguments")
+			return compiler.NewNil(), vmBuiltinArgCountError("__vec_alloc", 2)
 		}
 		if args[0].Type != compiler.VAL_INT {
-			return compiler.NewNil(), fmt.Errorf("__vec_alloc size must be int")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_alloc", -1, "int")
 		}
 		sizeV := int(args[0].AsInt)
 		if sizeV < 0 {
-			return compiler.NewNil(), fmt.Errorf("vec size cannot be negative")
+			return compiler.NewNil(), vmBuiltinNegSizeError("vec size")
 		}
 		defaultVal := args[1]
 		elements := make([]compiler.Value, sizeV)
@@ -203,7 +236,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__vec_len requires 1 argument")
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__vec_len argument must be array")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_len", -1, "array")
 		}
 		arr := args[0].AsObject.(*compiler.ArrayInstance)
 		return compiler.NewInt(int64(len(arr.Elements))), nil
@@ -213,20 +246,20 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__vec_cap requires 1 argument")
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__vec_cap argument must be array")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_cap", -1, "array")
 		}
 		arrCap := args[0].AsObject.(*compiler.ArrayInstance)
 		return compiler.NewInt(int64(len(arrCap.Elements))), nil
 
 	case compiler.BUILTIN_VEC_GET:
 		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__vec_get requires 2 arguments")
+			return compiler.NewNil(), vmBuiltinArgCountError("__vec_get", 2)
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__vec_get argument 0 must be array")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_get", 0, "array")
 		}
 		if args[1].Type != compiler.VAL_INT {
-			return compiler.NewNil(), fmt.Errorf("__vec_get argument 1 must be int")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_get", 1, "int")
 		}
 		arrObj := args[0].AsObject.(*compiler.ArrayInstance)
 		idx := int(args[1].AsInt)
@@ -237,31 +270,31 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	case compiler.BUILTIN_VEC_SET:
 		if len(args) != 3 {
-			return compiler.NewNil(), fmt.Errorf("__vec_set requires 3 arguments")
+			return compiler.NewNil(), vmBuiltinArgCountError("__vec_set", 3)
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__vec_set argument 0 must be array")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_set", 0, "array")
 		}
 		if args[1].Type != compiler.VAL_INT {
-			return compiler.NewNil(), fmt.Errorf("__vec_set argument 1 must be int")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_set", 1, "int")
 		}
 		arrObj := args[0].AsObject.(*compiler.ArrayInstance)
 		idx := int(args[1].AsInt)
 		if idx < 0 || idx >= len(arrObj.Elements) {
-			return compiler.NewNil(), fmt.Errorf("__vec_set: index out of range")
+			return compiler.NewNil(), vmBuiltinOutOfRangeError("__vec_set")
 		}
 		arrObj.Elements[idx] = args[2]
 		return compiler.NewNil(), nil
 
 	case compiler.BUILTIN_VEC_GROW:
 		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__vec_grow requires 2 arguments")
+			return compiler.NewNil(), vmBuiltinArgCountError("__vec_grow", 2)
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
-			return compiler.NewNil(), fmt.Errorf("__vec_grow argument 0 must be array")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_grow", 0, "array")
 		}
 		if args[1].Type != compiler.VAL_INT {
-			return compiler.NewNil(), fmt.Errorf("__vec_grow argument 1 must be int")
+			return compiler.NewNil(), vmBuiltinTypeError("__vec_grow", 1, "int")
 		}
 		arrObj := args[0].AsObject.(*compiler.ArrayInstance)
 		newCap := int(args[1].AsInt)
@@ -332,7 +365,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	case compiler.BUILTIN_PUSH:
 		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("push() requires exactly 2 arguments")
+			return compiler.NewNil(), vmBuiltinExactArgCountError("push()", 2)
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
 			return compiler.NewNil(), fmt.Errorf("push() requires a vector as first argument")
@@ -862,7 +895,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	case compiler.BUILTIN_STRING_FROM_BYTES:
 		if len(args) != 3 {
-			return compiler.NewNil(), fmt.Errorf("__builtin_string_from_bytes() requires exactly 3 arguments")
+			return compiler.NewNil(), vmBuiltinExactArgCountError("__builtin_string_from_bytes()", 3)
 		}
 		if args[0].Type != compiler.VAL_ARRAY {
 			return compiler.NewNil(), fmt.Errorf("__builtin_string_from_bytes() requires a vector of bytes as first argument")
@@ -1403,7 +1436,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		mu, ok := vm.mutexes[id]
 		vm.mutexMu.Unlock()
 		if !ok {
-			return compiler.NewNil(), fmt.Errorf("invalid mutex handle: %d", id)
+			return compiler.NewNil(), vmBuiltinInvalidHandleError("mutex", id)
 		}
 		mu.Lock()
 		return compiler.NewNil(), nil
@@ -1417,7 +1450,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		mu, ok := vm.mutexes[id]
 		vm.mutexMu.Unlock()
 		if !ok {
-			return compiler.NewNil(), fmt.Errorf("invalid mutex handle: %d", id)
+			return compiler.NewNil(), vmBuiltinInvalidHandleError("mutex", id)
 		}
 		mu.Unlock()
 		return compiler.NewNil(), nil
@@ -1443,7 +1476,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		flag, ok := vm.cancelTokens[id]
 		vm.cancelMu.Unlock()
 		if !ok {
-			return compiler.NewNil(), fmt.Errorf("invalid cancel handle: %d", id)
+			return compiler.NewNil(), vmBuiltinInvalidHandleError("cancel", id)
 		}
 		flag.Store(1)
 		return compiler.NewNil(), nil
@@ -1457,7 +1490,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		flag, ok := vm.cancelTokens[id]
 		vm.cancelMu.Unlock()
 		if !ok {
-			return compiler.NewNil(), fmt.Errorf("invalid cancel handle: %d", id)
+			return compiler.NewNil(), vmBuiltinInvalidHandleError("cancel", id)
 		}
 		return compiler.NewBool(flag.Load() == 1), nil
 

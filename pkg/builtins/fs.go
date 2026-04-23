@@ -63,7 +63,7 @@ func fsReadFile(args ...object.Object) object.Object {
 		return resultErr(err)
 	}
 
-	return resultOk(&object.String{Value: string(content)})
+	return resultOk(object.NewString(string(content)))
 }
 
 // fsReadFileBytes reads a file and returns Result<Vec<int, _>, string>
@@ -84,7 +84,7 @@ func fsReadFileBytes(args ...object.Object) object.Object {
 
 	elements := make([]object.Object, len(content))
 	for i, b := range content {
-		elements[i] = &object.Integer{Value: int64(b)}
+		elements[i] = object.NewInteger(int64(b))
 	}
 
 	return resultOk(&object.Vec{
@@ -152,7 +152,7 @@ func fsReadLines(args ...object.Object) object.Object {
 	lines := strings.Split(string(content), "\n")
 	elements := make([]object.Object, len(lines))
 	for i, line := range lines {
-		elements[i] = &object.String{Value: line}
+		elements[i] = object.NewString(line)
 	}
 
 	return resultOk(&object.Vec{
@@ -175,7 +175,7 @@ func fsExists(args ...object.Object) object.Object {
 	}
 
 	_, err := os.Stat(path.Value)
-	return &object.Boolean{Value: err == nil}
+	return object.NewBool(err == nil)
 }
 
 // fsIsDir checks if path is a directory
@@ -191,9 +191,9 @@ func fsIsDir(args ...object.Object) object.Object {
 
 	info, err := os.Stat(path.Value)
 	if err != nil {
-		return &object.Boolean{Value: false}
+		return object.NewBool(false)
 	}
-	return &object.Boolean{Value: info.IsDir()}
+	return object.NewBool(info.IsDir())
 }
 
 // fsIsFile checks if path is a regular file
@@ -209,9 +209,9 @@ func fsIsFile(args ...object.Object) object.Object {
 
 	info, err := os.Stat(path.Value)
 	if err != nil {
-		return &object.Boolean{Value: false}
+		return object.NewBool(false)
 	}
-	return &object.Boolean{Value: !info.IsDir()}
+	return object.NewBool(!info.IsDir())
 }
 
 // fsReadDir lists directory contents, returns Result<Vec<DirEntry, _>, string>
@@ -287,7 +287,7 @@ func fsJoin(args ...object.Object) object.Object {
 		parts[i] = str.Value
 	}
 
-	return &object.String{Value: filepath.Join(parts...)}
+	return object.NewString(filepath.Join(parts...))
 }
 
 // fsExt returns the file extension
@@ -301,7 +301,7 @@ func fsExt(args ...object.Object) object.Object {
 		return argTypeError("fs.ext", args[0], "STRING")
 	}
 
-	return &object.String{Value: filepath.Ext(path.Value)}
+	return object.NewString(filepath.Ext(path.Value))
 }
 
 // fsBase returns the last element of path (file name)
@@ -315,7 +315,7 @@ func fsBase(args ...object.Object) object.Object {
 		return argTypeError("fs.base", args[0], "STRING")
 	}
 
-	return &object.String{Value: filepath.Base(path.Value)}
+	return object.NewString(filepath.Base(path.Value))
 }
 
 // fsDir returns all but the last element of path (directory)
@@ -329,7 +329,7 @@ func fsDir(args ...object.Object) object.Object {
 		return argTypeError("fs.dir", args[0], "STRING")
 	}
 
-	return &object.String{Value: filepath.Dir(path.Value)}
+	return object.NewString(filepath.Dir(path.Value))
 }
 
 // fsAbs returns the absolute path
@@ -348,7 +348,7 @@ func fsAbs(args ...object.Object) object.Object {
 		return resultErr(err)
 	}
 
-	return resultOk(&object.String{Value: absPath})
+	return resultOk(object.NewString(absPath))
 }
 
 // fsWriteFile writes content to a file (creates or overwrites)

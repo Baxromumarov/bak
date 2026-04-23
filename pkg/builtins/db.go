@@ -309,7 +309,7 @@ func rowsToResult(rows *sql.Rows) object.Object {
 	// Build columns Vec<string, _>
 	colElements := make([]object.Object, len(columns))
 	for i, col := range columns {
-		colElements[i] = &object.String{Value: col}
+		colElements[i] = object.NewString(col)
 	}
 
 	columnsVec := &object.Vec{
@@ -344,7 +344,7 @@ func rowsToResult(rows *sql.Rows) object.Object {
 			} else {
 				strVal = fmt.Sprintf("%v", val)
 			}
-			rowCells[i] = &object.String{Value: strVal}
+			rowCells[i] = object.NewString(strVal)
 		}
 
 		rowVec := &object.Vec{

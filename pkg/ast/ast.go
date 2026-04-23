@@ -1519,3 +1519,21 @@ func (fl *FunctionLiteral) String() string {
 	out.WriteString(fl.Body.String())
 	return out.String()
 }
+
+// Constructors for common AST nodes
+
+func NewSimpleType(name string) *SimpleType {
+	return &SimpleType{Name: name}
+}
+
+func NewErrorType(msg string) *ErrorType {
+	return &ErrorType{Message: msg}
+}
+
+func NewVoidType() *VoidType {
+	return &VoidType{}
+}
+
+func NewIdentifier(value string) *Identifier {
+	return &Identifier{Value: value}
+}

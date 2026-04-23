@@ -18,8 +18,8 @@ import (
 
 var (
 	NULL  = &object.Null{}
-	TRUE  = &object.Boolean{Value: true}
-	FALSE = &object.Boolean{Value: false}
+	TRUE  = object.NewBool(true)
+	FALSE = object.NewBool(false)
 
 	threads   = make(map[int64]chan bool)
 	threadsMu sync.Mutex
@@ -166,10 +166,10 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Integer{Value: node.Value, Bits: 64}
 
 	case *ast.FloatLiteral:
-		return &object.Float{Value: node.Value}
+		return object.NewFloat(node.Value)
 
 	case *ast.StringLiteral:
-		return &object.String{Value: node.Value}
+		return object.NewString(node.Value)
 
 	case *ast.FStringLiteral:
 		var result strings.Builder
@@ -184,10 +184,10 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 				result.WriteString(val.Inspect())
 			}
 		}
-		return &object.String{Value: result.String()}
+		return object.NewString(result.String())
 
 	case *ast.CharLiteral:
-		return &object.Char{Value: node.Value}
+		return object.NewChar(node.Value)
 
 	case *ast.BooleanLiteral:
 		return nativeBoolToBooleanObject(node.Value)
@@ -276,15 +276,15 @@ func evalReturnStatement(node *ast.ReturnStatement, env *object.Environment) obj
 	if node.ReturnValue == nil {
 		nakedVal := collectNamedReturns(env)
 		if nakedVal != nil {
-			return &object.ReturnValue{Value: nakedVal}
+			return object.NewReturnValue(nakedVal)
 		}
-		return &object.ReturnValue{Value: NULL}
+		return object.NewReturnValue(NULL)
 	}
 	val := Eval(node.ReturnValue, env)
 	if isError(val) {
 		return val
 	}
-	return &object.ReturnValue{Value: val}
+	return object.NewReturnValue(val)
 }
 
 func evalUnwrapExpression(node *ast.UnwrapExpression, env *object.Environment) object.Object {
@@ -300,21 +300,21 @@ func evalUnwrapExpression(node *ast.UnwrapExpression, env *object.Environment) o
 				return ev.Values[0]
 			}
 		case "Err", "None":
-			return &object.ReturnValue{Value: inner}
+			return object.NewReturnValue(inner)
 		}
 	} else if r, ok := inner.(*object.Result); ok {
 		if r.IsOk {
 			return r.Value
 		}
-		return &object.ReturnValue{Value: inner}
+		return object.NewReturnValue(inner)
 	} else if o, ok := inner.(*object.Option); ok {
 		if o.IsSome {
 			return o.Value
 		}
-		return &object.ReturnValue{Value: inner}
+		return object.NewReturnValue(inner)
 	} else if inner == NULL {
 		// None represented as NULL (box?)
-		return &object.ReturnValue{Value: NULL}
+		return object.NewReturnValue(NULL)
 	} else if box, ok := inner.(*object.Box); ok {
 		// box? -> Unwrap box
 		return box
@@ -1059,19 +1059,19 @@ func evalForStatement(fs *ast.ForStatement, env *object.Environment) object.Obje
 			}
 		}
 		if elements == nil {
-			return newError("cannot iterate over %s", iterable.Type())
+			return evalCannotIterate(iterable.Type())
 		}
 	case *object.Range:
 		// Use the Range's iterator which respects StartInclusive and EndInclusive
 		for _, i := range iter.Iterator() {
-			elements = append(elements, &object.Integer{Value: i})
+			elements = append(elements, object.NewInteger(i))
 		}
 	case *object.String:
 		for _, ch := range iter.Value {
-			elements = append(elements, &object.Char{Value: rune(ch)})
+			elements = append(elements, object.NewChar(rune(ch)))
 		}
 	default:
-		return newError("cannot iterate over %s", iterable.Type())
+		return evalCannotIterate(iterable.Type())
 	}
 
 	for _, elem := range elements {
@@ -1353,7 +1353,7 @@ func evalAssignmentStatement(as *ast.AssignmentStatement, env *object.Environmen
 					vec.Elements[idx.Value] = val
 					return val
 				}
-				return newError("index out of bounds: %d", idx.Value)
+				return evalIndexOutOfBounds(idx.Value)
 			}
 		}
 		// Support Vec struct assignment
@@ -1365,7 +1365,7 @@ func evalAssignmentStatement(as *ast.AssignmentStatement, env *object.Environmen
 							vec.Elements[idx.Value] = val
 							return val
 						}
-						return newError("index out of bounds: %d", idx.Value)
+						return evalIndexOutOfBounds(idx.Value)
 					}
 				}
 			}
@@ -1597,7 +1597,7 @@ func evalBitwiseNotInteger(val *object.Integer) object.Object {
 		return &object.Integer{Value: int64(masked), Bits: bits, Unsigned: true}
 	}
 	if bits == 0 {
-		return &object.Integer{Value: ^val.Value}
+		return object.NewInteger(^val.Value)
 	}
 	return &object.Integer{Value: ^val.Value, Bits: bits, Unsigned: false}
 }
@@ -1605,9 +1605,9 @@ func evalBitwiseNotInteger(val *object.Integer) object.Object {
 func evalMinusPrefixOperatorExpression(right object.Object) object.Object {
 	switch obj := right.(type) {
 	case *object.Integer:
-		return &object.Integer{Value: -obj.Value}
+		return object.NewInteger(-obj.Value)
 	case *object.Float:
-		return &object.Float{Value: -obj.Value}
+		return object.NewFloat(-obj.Value)
 	default:
 		return newError("unknown operator: -%s", right.Type())
 	}
@@ -1700,7 +1700,7 @@ func evalInfixExpression(node *ast.InfixExpression, env *object.Environment) obj
 	case left.Type() != right.Type():
 		return newError("type mismatch: %s %s %s", left.Type(), operator, right.Type())
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return evalUnknownOperator(left, operator, right)
 	}
 }
 
@@ -1822,7 +1822,7 @@ func evalCharInfixExpression(operator string, left, right object.Object) object.
 	case ">=":
 		return nativeBoolToBooleanObject(leftVal >= rightVal)
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return evalUnknownOperator(left, operator, right)
 	}
 }
 
@@ -1835,21 +1835,21 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 
 	switch operator {
 	case "+":
-		return &object.Integer{Value: leftVal + rightVal}
+		return object.NewInteger(leftVal + rightVal)
 	case "-":
-		return &object.Integer{Value: leftVal - rightVal}
+		return object.NewInteger(leftVal - rightVal)
 	case "*":
-		return &object.Integer{Value: leftVal * rightVal}
+		return object.NewInteger(leftVal * rightVal)
 	case "/":
 		if rightVal == 0 {
-			return newError("division by zero")
+			return evalDivisionByZero()
 		}
-		return &object.Integer{Value: leftVal / rightVal}
+		return object.NewInteger(leftVal / rightVal)
 	case "%":
 		if rightVal == 0 {
 			return newError("modulo by zero")
 		}
-		return &object.Integer{Value: leftVal % rightVal}
+		return object.NewInteger(leftVal % rightVal)
 	case "&":
 		val := leftVal & rightVal
 		if hasMeta {
@@ -1858,7 +1858,7 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 			}
 			return &object.Integer{Value: val, Bits: bits, Unsigned: unsigned}
 		}
-		return &object.Integer{Value: val}
+		return object.NewInteger(val)
 	case "|":
 		val := leftVal | rightVal
 		if hasMeta {
@@ -1867,7 +1867,7 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 			}
 			return &object.Integer{Value: val, Bits: bits, Unsigned: unsigned}
 		}
-		return &object.Integer{Value: val}
+		return object.NewInteger(val)
 	case "^":
 		val := leftVal ^ rightVal
 		if hasMeta {
@@ -1876,13 +1876,13 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 			}
 			return &object.Integer{Value: val, Bits: bits, Unsigned: unsigned}
 		}
-		return &object.Integer{Value: val}
+		return object.NewInteger(val)
 	case "<<":
 		if rightVal < 0 {
-			return newError("negative shift count: %d", rightVal)
+			return evalNegativeShift(rightVal)
 		}
 		if hasMeta && bits > 0 && rightVal >= int64(bits) {
-			return newError("shift count out of range: %d", rightVal)
+			return evalShiftOutOfRange(rightVal)
 		}
 		shift := uint(rightVal)
 		if unsigned {
@@ -1898,15 +1898,15 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 		}
 		val := leftVal << shift
 		if hasMeta {
-			return applyIntegerMeta(&object.Integer{Value: val}, bits, false)
+			return applyIntegerMeta(object.NewInteger(val), bits, false)
 		}
-		return &object.Integer{Value: val}
+		return object.NewInteger(val)
 	case ">>":
 		if rightVal < 0 {
-			return newError("negative shift count: %d", rightVal)
+			return evalNegativeShift(rightVal)
 		}
 		if hasMeta && bits > 0 && rightVal >= int64(bits) {
-			return newError("shift count out of range: %d", rightVal)
+			return evalShiftOutOfRange(rightVal)
 		}
 		shift := uint(rightVal)
 		if unsigned {
@@ -1922,9 +1922,9 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 		}
 		val := leftVal >> shift
 		if hasMeta {
-			return applyIntegerMeta(&object.Integer{Value: val}, bits, false)
+			return applyIntegerMeta(object.NewInteger(val), bits, false)
 		}
-		return &object.Integer{Value: val}
+		return object.NewInteger(val)
 	case "<":
 		return nativeBoolToBooleanObject(leftVal < rightVal)
 	case ">":
@@ -1938,7 +1938,7 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 	case "!=":
 		return nativeBoolToBooleanObject(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return evalUnknownOperator(left, operator, right)
 	}
 }
 
@@ -1961,16 +1961,16 @@ func evalFloatInfixExpression(operator string, left, right object.Object) object
 
 	switch operator {
 	case "+":
-		return &object.Float{Value: leftVal + rightVal}
+		return object.NewFloat(leftVal + rightVal)
 	case "-":
-		return &object.Float{Value: leftVal - rightVal}
+		return object.NewFloat(leftVal - rightVal)
 	case "*":
-		return &object.Float{Value: leftVal * rightVal}
+		return object.NewFloat(leftVal * rightVal)
 	case "/":
 		if rightVal == 0 {
-			return newError("division by zero")
+			return evalDivisionByZero()
 		}
-		return &object.Float{Value: leftVal / rightVal}
+		return object.NewFloat(leftVal / rightVal)
 	case "<":
 		return nativeBoolToBooleanObject(leftVal < rightVal)
 	case ">":
@@ -1984,7 +1984,7 @@ func evalFloatInfixExpression(operator string, left, right object.Object) object
 	case "!=":
 		return nativeBoolToBooleanObject(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return evalUnknownOperator(left, operator, right)
 	}
 }
 
@@ -1994,13 +1994,13 @@ func evalStringInfixExpression(operator string, left, right object.Object) objec
 
 	switch operator {
 	case "+":
-		return &object.String{Value: leftVal + rightVal}
+		return object.NewString(leftVal + rightVal)
 	case "==":
 		return nativeBoolToBooleanObject(leftVal == rightVal)
 	case "!=":
 		return nativeBoolToBooleanObject(leftVal != rightVal)
 	default:
-		return newError("unknown operator: %s %s %s", left.Type(), operator, right.Type())
+		return evalUnknownOperator(left, operator, right)
 	}
 }
 
@@ -2053,7 +2053,7 @@ func evalStringIndexExpression(str, index object.Object) object.Object {
 		return NULL
 	}
 
-	return &object.Char{Value: runes[idx]}
+	return object.NewChar(runes[idx])
 }
 
 func evalTypeConversion(tc *ast.TypeConversion, env *object.Environment) object.Object {
@@ -2197,7 +2197,7 @@ func applyIntegerMeta(val *object.Integer, bits int, unsigned bool) *object.Inte
 		return val
 	}
 	if bits <= 0 {
-		return &object.Integer{Value: val.Value}
+		return object.NewInteger(val.Value)
 	}
 	return &object.Integer{Value: val.Value, Bits: bits, Unsigned: unsigned}
 }
@@ -2207,7 +2207,7 @@ func coerceIntegerToMeta(val *object.Integer, bits int, unsigned bool) *object.I
 		return val
 	}
 	if bits <= 0 {
-		return &object.Integer{Value: val.Value}
+		return object.NewInteger(val.Value)
 	}
 	if unsigned {
 		masked := uint64(val.Value) & maskForBits(bits)
@@ -2242,13 +2242,13 @@ func convertToFloat64(val object.Object) object.Object {
 	case *object.Float:
 		return v
 	case *object.Integer:
-		return &object.Float{Value: float64(v.Value)}
+		return object.NewFloat(float64(v.Value))
 	case *object.String:
 		f, err := strconv.ParseFloat(v.Value, 64)
 		if err != nil {
 			return newError("cannot convert string %q to float", v.Value)
 		}
-		return &object.Float{Value: f}
+		return object.NewFloat(f)
 	default:
 		return newError("cannot convert %s to float", val.Type())
 	}
@@ -2259,15 +2259,15 @@ func convertToString(val object.Object) object.Object {
 	case *object.String:
 		return v
 	case *object.Integer:
-		return &object.String{Value: strconv.FormatInt(v.Value, 10)}
+		return object.NewString(strconv.FormatInt(v.Value, 10))
 	case *object.Float:
-		return &object.String{Value: strconv.FormatFloat(v.Value, 'f', -1, 64)}
+		return object.NewString(strconv.FormatFloat(v.Value, 'f', -1, 64))
 	case *object.Boolean:
-		return &object.String{Value: strconv.FormatBool(v.Value)}
+		return object.NewString(strconv.FormatBool(v.Value))
 	case *object.Char:
-		return &object.String{Value: string(v.Value)}
+		return object.NewString(string(v.Value))
 	default:
-		return &object.String{Value: val.Inspect()}
+		return object.NewString(val.Inspect())
 	}
 }
 
@@ -2289,11 +2289,11 @@ func convertToChar(val object.Object) object.Object {
 	case *object.Char:
 		return v
 	case *object.Integer:
-		return &object.Char{Value: rune(v.Value)}
+		return object.NewChar(rune(v.Value))
 	case *object.String:
 		if len(v.Value) > 0 {
 			runes := []rune(v.Value)
-			return &object.Char{Value: runes[0]}
+			return object.NewChar(runes[0])
 		}
 		return newError("cannot convert empty string to char")
 	default:
@@ -2357,7 +2357,7 @@ func evalCallExpression(ce *ast.CallExpression, env *object.Environment) object.
 				delete(threads, t.ID)
 				threadsMu.Unlock()
 			}
-			return &object.Void{}
+			return object.NewVoid()
 
 		case "__builtin_cancel_new":
 			if len(ce.Arguments) != 0 {
@@ -2368,7 +2368,7 @@ func evalCallExpression(ce *ast.CallExpression, env *object.Environment) object.
 			nextCancelTokenID++
 			cancelTokens[id] = false
 			cancelTokensMu.Unlock()
-			return &object.Integer{Value: int64(id)}
+			return object.NewInteger(int64(id))
 
 		case "__builtin_cancel":
 			if len(ce.Arguments) != 1 {
@@ -2382,7 +2382,7 @@ func evalCallExpression(ce *ast.CallExpression, env *object.Environment) object.
 			cancelTokensMu.Lock()
 			cancelTokens[int(handle.Value)] = true
 			cancelTokensMu.Unlock()
-			return &object.Void{}
+			return object.NewVoid()
 
 		case "__builtin_is_cancelled":
 			if len(ce.Arguments) != 1 {
@@ -2557,15 +2557,15 @@ func zeroValueForType(t ast.TypeExpression) object.Object {
 	case *ast.SimpleType:
 		switch typ.Name {
 		case "int":
-			return &object.Integer{Value: 0}
+			return object.NewInteger(0)
 		case "float64", "float":
-			return &object.Float{Value: 0.0}
+			return object.NewFloat(0.0)
 		case "bool":
 			return FALSE
 		case "string":
-			return &object.String{Value: ""}
+			return object.NewString("")
 		case "char":
-			return &object.Char{Value: 0}
+			return object.NewChar(0)
 		default:
 			return NULL
 		}
@@ -2704,7 +2704,7 @@ func evalFieldAccessExpression(fa *ast.FieldAccessExpression, env *object.Enviro
 	case *object.Vec:
 		switch fa.Field.Value {
 		case "len":
-			return &object.Integer{Value: int64(len(obj.Elements))}
+			return object.NewInteger(int64(len(obj.Elements)))
 		}
 
 	case *object.EnumDef:
@@ -3020,7 +3020,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		}
 		// Returns Result<T, string> - Err if empty
 		if len(vec.Elements) == 0 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
+			return &object.Result{IsOk: false, Value: object.NewString("vec is empty")}
 		}
 		last := vec.Elements[len(vec.Elements)-1]
 		vec.Elements = vec.Elements[:len(vec.Elements)-1]
@@ -3064,7 +3064,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		}
 		// Returns Result<T, string> - Err if out of bounds
 		if idx.Value < 0 || idx.Value >= int64(len(vec.Elements)) {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
+			return &object.Result{IsOk: false, Value: object.NewString("index out of bounds")}
 		}
 		// Get the element to return
 		elem := vec.Elements[idx.Value]
@@ -3081,14 +3081,14 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 
 	case "len":
 		// Works for both fixed-size and dynamic Vec
-		return &object.Integer{Value: int64(len(vec.Elements))}
+		return object.NewInteger(int64(len(vec.Elements)))
 
 	case "cap":
 		// Only allowed on dynamic Vec (Size == -1)
 		if vec.Size >= 0 {
 			return newError("cannot get capacity of fixed-size Vec<T, %d>", vec.Size)
 		}
-		return &object.Integer{Value: int64(cap(vec.Elements))}
+		return object.NewInteger(int64(cap(vec.Elements)))
 
 	case "slice":
 		if len(args) != 2 {
@@ -3135,17 +3135,17 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		for i, elem := range vec.Elements {
 			parts[i] = elem.Inspect()
 		}
-		return &object.String{Value: strings.Join(parts, delimiter.Value)}
+		return object.NewString(strings.Join(parts, delimiter.Value))
 
 	case "first":
 		if len(vec.Elements) == 0 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
+			return &object.Result{IsOk: false, Value: object.NewString("vec is empty")}
 		}
 		return &object.Result{IsOk: true, Value: vec.Elements[0]}
 
 	case "last":
 		if len(vec.Elements) == 0 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "vec is empty"}}
+			return &object.Result{IsOk: false, Value: object.NewString("vec is empty")}
 		}
 		return &object.Result{IsOk: true, Value: vec.Elements[len(vec.Elements)-1]}
 
@@ -3158,7 +3158,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 			return newError("get: argument must be INTEGER, got %s", args[0].Type())
 		}
 		if idx.Value < 0 || idx.Value >= int64(len(vec.Elements)) {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
+			return &object.Result{IsOk: false, Value: object.NewString("index out of bounds")}
 		}
 		return &object.Result{IsOk: true, Value: vec.Elements[idx.Value]}
 
@@ -3265,10 +3265,10 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		return str
 	// === Length and Emptiness ===
 	case "len":
-		return &object.Integer{Value: int64(len([]rune(str.Value)))}
+		return object.NewInteger(int64(len([]rune(str.Value))))
 	case "charCount":
 		// Count Unicode characters (runes)
-		return &object.Integer{Value: int64(len([]rune(str.Value)))}
+		return object.NewInteger(int64(len([]rune(str.Value))))
 	case "isEmpty":
 		return nativeBoolToBooleanObject(len(str.Value) == 0)
 	case "hash":
@@ -3276,7 +3276,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		for i := 0; i < len(str.Value); i++ {
 			h = (h ^ uint32(str.Value[i])) * 16777619
 		}
-		return &object.Integer{Value: int64(h)}
+		return object.NewInteger(int64(h))
 
 	// === Character Access ===
 	case "charAt":
@@ -3289,9 +3289,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		runes := []rune(str.Value)
 		if idx.Value < 0 || idx.Value >= int64(len(runes)) {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
+			return &object.Result{IsOk: false, Value: object.NewString("index out of bounds")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Char{Value: runes[idx.Value]}}
+		return &object.Result{IsOk: true, Value: object.NewChar(runes[idx.Value])}
 	case "byteAt":
 		if len(args) != 1 {
 			return newError("byteAt: wrong number of arguments. got=%d, want=1", len(args))
@@ -3301,9 +3301,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			return newError("byteAt: argument must be INTEGER, got %s", args[0].Type())
 		}
 		if idx.Value < 0 || idx.Value >= int64(len(str.Value)) {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
+			return &object.Result{IsOk: false, Value: object.NewString("index out of bounds")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(str.Value[idx.Value])}}
+		return &object.Result{IsOk: true, Value: object.NewInteger(int64(str.Value[idx.Value]))}
 	case "get":
 		if len(args) != 1 {
 			return newError("get: wrong number of arguments. got=%d, want=1", len(args))
@@ -3314,9 +3314,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		runes := []rune(str.Value)
 		if idx.Value < 0 || idx.Value >= int64(len(runes)) {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "index out of bounds"}}
+			return &object.Result{IsOk: false, Value: object.NewString("index out of bounds")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Char{Value: runes[idx.Value]}}
+		return &object.Result{IsOk: true, Value: object.NewChar(runes[idx.Value])}
 
 	// === Substrings ===
 	case "substring":
@@ -3336,9 +3336,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			end.Value = int64(len(runes))
 		}
 		if start.Value >= end.Value {
-			return &object.String{Value: ""}
+			return object.NewString("")
 		}
-		return &object.String{Value: string(runes[start.Value:end.Value])}
+		return object.NewString(string(runes[start.Value:end.Value]))
 	case "substringFrom":
 		if len(args) != 1 {
 			return newError("substringFrom: wrong number of arguments. got=%d, want=1", len(args))
@@ -3352,9 +3352,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			start.Value = 0
 		}
 		if start.Value >= int64(len(runes)) {
-			return &object.String{Value: ""}
+			return object.NewString("")
 		}
-		return &object.String{Value: string(runes[start.Value:])}
+		return object.NewString(string(runes[start.Value:]))
 	case "substringTo":
 		if len(args) != 1 {
 			return newError("substringTo: wrong number of arguments. got=%d, want=1", len(args))
@@ -3368,9 +3368,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 			end.Value = int64(len(runes))
 		}
 		if end.Value <= 0 {
-			return &object.String{Value: ""}
+			return object.NewString("")
 		}
-		return &object.String{Value: string(runes[:end.Value])}
+		return object.NewString(string(runes[:end.Value]))
 
 	// === Searching ===
 	case "indexOf":
@@ -3383,9 +3383,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		idx := runeIndexOf(str.Value, substr.Value)
 		if idx == -1 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
+			return &object.Result{IsOk: false, Value: object.NewString("substring not found")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: idx}}
+		return &object.Result{IsOk: true, Value: object.NewInteger(idx)}
 	case "lastIndexOf":
 		if len(args) != 1 {
 			return newError("lastIndexOf: wrong number of arguments. got=%d, want=1", len(args))
@@ -3396,9 +3396,9 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		}
 		idx := runeLastIndexOf(str.Value, substr.Value)
 		if idx == -1 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
+			return &object.Result{IsOk: false, Value: object.NewString("substring not found")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: idx}}
+		return &object.Result{IsOk: true, Value: object.NewInteger(idx)}
 	case "contains":
 		if len(args) != 1 {
 			return newError("contains: wrong number of arguments. got=%d, want=1", len(args))
@@ -3439,24 +3439,24 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		parts := strings.Split(str.Value, delimiter.Value)
 		elements := make([]object.Object, len(parts))
 		for i, part := range parts {
-			elements[i] = &object.String{Value: part}
+			elements[i] = object.NewString(part)
 		}
 		return &object.Vec{Elements: elements, ElemType: "string", Size: -1, Mutable: false}
 	case "splitLines":
 		lines := strings.Split(str.Value, "\n")
 		elements := make([]object.Object, len(lines))
 		for i, line := range lines {
-			elements[i] = &object.String{Value: line}
+			elements[i] = object.NewString(line)
 		}
 		return &object.Vec{Elements: elements, ElemType: "string", Size: -1, Mutable: false}
 
 	// === Trimming ===
 	case "trim":
-		return &object.String{Value: strings.TrimSpace(str.Value)}
+		return object.NewString(strings.TrimSpace(str.Value))
 	case "trimStart":
-		return &object.String{Value: strings.TrimLeft(str.Value, " \t\n\r")}
+		return object.NewString(strings.TrimLeft(str.Value, " \t\n\r"))
 	case "trimEnd":
-		return &object.String{Value: strings.TrimRight(str.Value, " \t\n\r")}
+		return object.NewString(strings.TrimRight(str.Value, " \t\n\r"))
 	case "trimChars":
 		if len(args) != 1 {
 			return newError("trimChars: wrong number of arguments. got=%d, want=1", len(args))
@@ -3465,13 +3465,13 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if !ok {
 			return newError("trimChars: argument must be STRING, got %s", args[0].Type())
 		}
-		return &object.String{Value: strings.Trim(str.Value, chars.Value)}
+		return object.NewString(strings.Trim(str.Value, chars.Value))
 
 	// === Case Conversion ===
 	case "toUpper":
-		return &object.String{Value: strings.ToUpper(str.Value)}
+		return object.NewString(strings.ToUpper(str.Value))
 	case "toLower":
-		return &object.String{Value: strings.ToLower(str.Value)}
+		return object.NewString(strings.ToLower(str.Value))
 
 	// === Replacement ===
 	case "replace":
@@ -3483,7 +3483,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if !ok1 || !ok2 {
 			return newError("replace: arguments must be STRING")
 		}
-		return &object.String{Value: strings.ReplaceAll(str.Value, old.Value, new.Value)}
+		return object.NewString(strings.ReplaceAll(str.Value, old.Value, new.Value))
 	case "replaceFirst":
 		if len(args) != 2 {
 			return newError("replaceFirst: wrong number of arguments. got=%d, want=2", len(args))
@@ -3493,7 +3493,7 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if !ok1 || !ok2 {
 			return newError("replaceFirst: arguments must be STRING")
 		}
-		return &object.String{Value: strings.Replace(str.Value, old.Value, new.Value, 1)}
+		return object.NewString(strings.Replace(str.Value, old.Value, new.Value, 1))
 
 	// === Repeat ===
 	case "repeat":
@@ -3507,36 +3507,36 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if count.Value < 0 {
 			return newError("repeat: count cannot be negative")
 		}
-		return &object.String{Value: strings.Repeat(str.Value, int(count.Value))}
+		return object.NewString(strings.Repeat(str.Value, int(count.Value)))
 
 	// === Parsing ===
 	case "parseInt":
 		var val int64
 		_, err := fmt.Sscanf(str.Value, "%d", &val)
 		if err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid integer"}}
+			return &object.Result{IsOk: false, Value: object.NewString("invalid integer")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: val}}
+		return &object.Result{IsOk: true, Value: object.NewInteger(val)}
 	case "parseFloat":
 		var val float64
 		_, err := fmt.Sscanf(str.Value, "%f", &val)
 		if err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid float"}}
+			return &object.Result{IsOk: false, Value: object.NewString("invalid float")}
 		}
-		return &object.Result{IsOk: true, Value: &object.Float{Value: val}}
+		return &object.Result{IsOk: true, Value: object.NewFloat(val)}
 
 	// === Conversion to chars ===
 	case "chars":
 		runes := []rune(str.Value)
 		elements := make([]object.Object, len(runes))
 		for i, r := range runes {
-			elements[i] = &object.Char{Value: r}
+			elements[i] = object.NewChar(r)
 		}
 		return &object.Vec{Elements: elements, ElemType: "char", Size: -1, Mutable: false}
 	case "bytes":
 		elements := make([]object.Object, len(str.Value))
 		for i, b := range []byte(str.Value) {
-			elements[i] = &object.Integer{Value: int64(b)}
+			elements[i] = object.NewInteger(int64(b))
 		}
 		return &object.Vec{Elements: elements, ElemType: "int", Size: -1, Mutable: false}
 
@@ -3573,19 +3573,19 @@ func evalCharMethod(ch *object.Char, method string, args []object.Object) object
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_')
 	// Conversion
 	case "toAscii":
-		return &object.Integer{Value: int64(r)}
+		return object.NewInteger(int64(r))
 	case "toUpper":
 		if r >= 'a' && r <= 'z' {
-			return &object.Char{Value: r - 32}
+			return object.NewChar(r - 32)
 		}
 		return ch
 	case "toLower":
 		if r >= 'A' && r <= 'Z' {
-			return &object.Char{Value: r + 32}
+			return object.NewChar(r + 32)
 		}
 		return ch
 	case "toString":
-		return &object.String{Value: string(r)}
+		return object.NewString(string(r))
 	default:
 		return newError("undefined method: %s for Char", method)
 	}
@@ -3596,12 +3596,12 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 
 	switch method {
 	case "toString":
-		return &object.String{Value: fmt.Sprintf("%d", num.Value)}
+		return object.NewString(fmt.Sprintf("%d", num.Value))
 	case "toFloat":
-		return &object.Float{Value: float64(num.Value)}
+		return object.NewFloat(float64(num.Value))
 	case "abs":
 		if num.Value < 0 {
-			return &object.Integer{Value: -num.Value}
+			return object.NewInteger(-num.Value)
 		}
 		return num
 	default:
@@ -3612,9 +3612,9 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 func evalFloatMethod(num *object.Float, method string, args []object.Object) object.Object {
 	switch method {
 	case "toString":
-		return &object.String{Value: fmt.Sprintf("%g", num.Value)}
+		return object.NewString(fmt.Sprintf("%g", num.Value))
 	case "toInt":
-		return &object.Integer{Value: int64(num.Value)}
+		return object.NewInteger(int64(num.Value))
 	case "toFixed":
 		if len(args) != 1 {
 			return newError("toFixed: wrong number of arguments. got=%d, want=1", len(args))
@@ -3623,18 +3623,18 @@ func evalFloatMethod(num *object.Float, method string, args []object.Object) obj
 		if !ok {
 			return newError("toFixed: argument must be INTEGER, got %s", args[0].Type())
 		}
-		return &object.String{Value: fmt.Sprintf("%.*f", precision.Value, num.Value)}
+		return object.NewString(fmt.Sprintf("%.*f", precision.Value, num.Value))
 	case "abs":
 		if num.Value < 0 {
-			return &object.Float{Value: -num.Value}
+			return object.NewFloat(-num.Value)
 		}
 		return num
 	case "floor":
-		return &object.Float{Value: math.Floor(num.Value)}
+		return object.NewFloat(math.Floor(num.Value))
 	case "ceil":
-		return &object.Float{Value: math.Ceil(num.Value)}
+		return object.NewFloat(math.Ceil(num.Value))
 	case "round":
-		return &object.Float{Value: math.Round(num.Value)}
+		return object.NewFloat(math.Round(num.Value))
 	default:
 		return newError("undefined method: %s for Float", method)
 	}
@@ -3644,11 +3644,11 @@ func evalDirEntryMethod(entry *object.DirEntry, method string, args []object.Obj
 	_ = args // No methods currently take arguments
 	switch method {
 	case "name":
-		return &object.String{Value: entry.FileName}
+		return object.NewString(entry.FileName)
 	case "isDir":
 		return nativeBoolToBooleanObject(entry.IsDir)
 	case "path":
-		return &object.String{Value: entry.FullPath}
+		return object.NewString(entry.FullPath)
 	default:
 		return newError("undefined method: %s for DirEntry", method)
 	}
@@ -3659,11 +3659,11 @@ func evalFileInfoMethod(info *object.FileInfo, method string, args []object.Obje
 
 	switch method {
 	case "name":
-		return &object.String{Value: info.FileName}
+		return object.NewString(info.FileName)
 	case "size":
-		return &object.Integer{Value: info.FileSize}
+		return object.NewInteger(info.FileSize)
 	case "modTime":
-		return &object.Integer{Value: info.ModTime}
+		return object.NewInteger(info.ModTime)
 	case "isDir":
 		return nativeBoolToBooleanObject(info.IsDir)
 	default:
@@ -3696,7 +3696,7 @@ func evalResultMethod(result *object.Result, method string, args []object.Object
 		}
 		return newError("called unwrapErr on Ok: %s", result.Value.Inspect())
 	case "toString":
-		return &object.String{Value: result.Inspect()}
+		return object.NewString(result.Inspect())
 	default:
 		fullName := fmt.Sprintf("Result.%s", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
@@ -3726,7 +3726,7 @@ func evalOptionMethod(option *object.Option, method string, args []object.Object
 	case "isNone":
 		return nativeBoolToBooleanObject(!option.IsSome)
 	case "toString":
-		return &object.String{Value: option.Inspect()}
+		return object.NewString(option.Inspect())
 	default:
 		fullName := fmt.Sprintf("Option.%s", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
@@ -3748,7 +3748,7 @@ func evalThreadMethod(thread *object.Thread, method string, args []object.Object
 			delete(threads, thread.ID)
 			threadsMu.Unlock()
 		}
-		return &object.Void{}
+		return object.NewVoid()
 	default:
 		return newError("undefined method: %s for Thread", method)
 	}
@@ -4030,7 +4030,7 @@ func evalBoxMethod(box *object.Box, method string, args []object.Object) object.
 			return newError("wrong number of arguments for Box.set(). got=%d, want=1", len(args))
 		}
 		box.Value = args[0]
-		return &object.Void{}
+		return object.NewVoid()
 
 	case "isNil":
 		// Check if the box contains nil or None
@@ -4088,6 +4088,30 @@ func isBoxNil(box *object.Box) bool {
 
 func newError(format string, a ...any) *object.Error {
 	return &object.Error{Message: fmt.Sprintf(format, a...)}
+}
+
+func evalUnknownOperator(left object.Object, operator string, right object.Object) *object.Error {
+	return evalUnknownOperator(left, operator, right)
+}
+
+func evalIndexOutOfBounds(idx int64) *object.Error {
+	return newError("index out of bounds: %d", idx)
+}
+
+func evalDivisionByZero() *object.Error {
+	return evalDivisionByZero()
+}
+
+func evalNegativeShift(count int64) *object.Error {
+	return evalNegativeShift(count)
+}
+
+func evalShiftOutOfRange(count int64) *object.Error {
+	return evalShiftOutOfRange(count)
+}
+
+func evalCannotIterate(typ object.ObjectType) *object.Error {
+	return newError("cannot iterate over %s", typ)
 }
 
 func isError(obj object.Object) bool {
@@ -4275,7 +4299,7 @@ func defaultValueForTypeWithSeen(typeExpr ast.TypeExpression, env *object.Enviro
 	case *ast.SimpleType:
 		return defaultValueForSimpleType(te.Name, env, seen)
 	case *ast.VoidType:
-		return &object.Void{}
+		return object.NewVoid()
 	case *ast.GenericType:
 		return defaultValueForGenericType(te, env, seen)
 	case *ast.BoxType:
@@ -4301,22 +4325,22 @@ func defaultValueForSimpleType(typeName string, env *object.Environment, seen ma
 		if bits, unsigned, ok := integerTypeInfo(typeName); ok {
 			return &object.Integer{Value: 0, Bits: bits, Unsigned: unsigned}
 		}
-		return &object.Integer{Value: 0}
+		return object.NewInteger(0)
 	case "uint", "uint8", "uint16", "uint32", "uint64":
 		if bits, unsigned, ok := integerTypeInfo(typeName); ok {
 			return &object.Integer{Value: 0, Bits: bits, Unsigned: unsigned}
 		}
-		return &object.Integer{Value: 0}
+		return object.NewInteger(0)
 	case "float32", "float64":
-		return &object.Float{Value: 0}
+		return object.NewFloat(0)
 	case "bool":
-		return &object.Boolean{Value: false}
+		return object.NewBool(false)
 	case "string":
-		return &object.String{Value: ""}
+		return object.NewString("")
 	case "char":
-		return &object.Char{Value: 0}
+		return object.NewChar(0)
 	case "void":
-		return &object.Void{}
+		return object.NewVoid()
 	default:
 		return defaultStructValue(typeName, env, seen)
 	}

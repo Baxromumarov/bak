@@ -646,3 +646,61 @@ type Thread struct {
 
 func (t *Thread) Type() ObjectType { return THREAD_OBJ }
 func (t *Thread) Inspect() string  { return fmt.Sprintf("Thread(%d)", t.ID) }
+
+// Constructors
+
+func NewInteger(v int64) *Integer {
+	return &Integer{Value: v}
+}
+
+func NewFloat(v float64) *Float {
+	return &Float{Value: v}
+}
+
+func NewString(v string) *String {
+	return &String{Value: v}
+}
+
+func NewChar(v rune) *Char {
+	return &Char{Value: v}
+}
+
+func NewBool(v bool) *Boolean {
+	return &Boolean{Value: v}
+}
+
+func NewVoid() *Void {
+	return &Void{}
+}
+
+func NewNull() *Null {
+	return &Null{}
+}
+
+func NewResult(isOk bool, value Object) *Result {
+	return &Result{IsOk: isOk, Value: value}
+}
+
+func NewResultOk(value Object) *Result {
+	return &Result{IsOk: true, Value: value}
+}
+
+func NewResultErr(msg string) *Result {
+	return &Result{IsOk: false, Value: &String{Value: msg}}
+}
+
+func NewOption(isSome bool, value Object) *Option {
+	return &Option{IsSome: isSome, Value: value}
+}
+
+func NewVec(elements []Object, elemType string) *Vec {
+	return &Vec{Elements: elements, ElemType: elemType, Size: -1, Mutable: true}
+}
+
+func NewReturnValue(value Object) *ReturnValue {
+	return &ReturnValue{Value: value}
+}
+
+func NewError(msg string) *Error {
+	return &Error{Message: msg}
+}
