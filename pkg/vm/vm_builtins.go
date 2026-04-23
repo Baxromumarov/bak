@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
@@ -47,7 +48,7 @@ func (vm *VM) registerBuiltins() {
 		}
 		switch args[0].Type {
 		case compiler.VAL_STRING:
-			return compiler.NewInt(int64(len(args[0].AsString)))
+			return compiler.NewInt(int64(utf8.RuneCountInString(args[0].AsString)))
 		case compiler.VAL_ARRAY:
 			arr := args[0].AsObject.(*compiler.ArrayInstance)
 			return compiler.NewInt(int64(len(arr.Elements)))
@@ -309,7 +310,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		switch args[0].Type {
 		case compiler.VAL_STRING:
-			return compiler.NewInt(int64(len(args[0].AsString))), nil
+			return compiler.NewInt(int64(utf8.RuneCountInString(args[0].AsString))), nil
 		case compiler.VAL_ARRAY:
 			arr := args[0].AsObject.(*compiler.ArrayInstance)
 			return compiler.NewInt(int64(len(arr.Elements))), nil

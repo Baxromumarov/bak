@@ -17,7 +17,23 @@ var stringMethodAliasCanonical = map[string]string{
 }
 
 var primitiveMethodAliasCanonical = map[string]string{
-	"toString": "to_string",
+	"toString":     "to_string",
+	"toFloat":      "to_float",
+	"toInt":        "to_int",
+	"toFixed":      "to_fixed",
+	"isDigit":      "is_digit",
+	"isLetter":     "is_letter",
+	"isAlpha":      "is_alpha",
+	"isAlphaNum":   "is_alpha_num",
+	"isWhitespace": "is_whitespace",
+	"isUpper":      "is_upper",
+	"isLower":      "is_lower",
+	"isAscii":      "is_ascii",
+	"isIdentStart": "is_ident_start",
+	"isIdentPart":  "is_ident_part",
+	"toAscii":      "to_ascii",
+	"toUpper":      "to_upper",
+	"toLower":      "to_lower",
 }
 
 var resultMethodAliasCanonical = map[string]string{

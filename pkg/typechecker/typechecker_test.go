@@ -309,6 +309,44 @@ func main() -> (void) {
 `, "deprecated function alias 'math.absInt'; use 'math.abs_int'")
 }
 
+func TestCheck_PrimitiveMethodSurfaceExtended(t *testing.T) {
+	expectNoErrors(t, `
+package main
+func main() -> (void) {
+	var i: int = -7
+	var fi: float64 = i.to_float()
+	var ai: int = i.abs()
+
+	var f: float64 = -1.7
+	var ii: int = f.to_int()
+	var fs: string = f.to_fixed(2)
+	var fa: float64 = f.abs()
+	var ff: float64 = f.floor()
+	var fc: float64 = f.ceil()
+	var fr: float64 = f.round()
+
+	var ch: char = 'A'
+	var b1: bool = ch.is_upper()
+	var b2: bool = ch.is_ident_start()
+	var b3: bool = ch.is_ascii()
+	var lowered: char = ch.to_lower()
+	var code: int = ch.to_ascii()
+	println(fi, ai, ii, fs, fa, ff, fc, fr, b1, b2, b3, lowered, code)
+}
+`)
+}
+
+func TestCheck_DeprecatedPrimitiveMethodAliasWarns(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var i: int = 7
+	var f: float64 = i.toFloat()
+	println(f)
+}
+`, "deprecated method alias 'toFloat'; use 'to_float'")
+}
+
 func TestCheck_TypeMismatchIncludesWhereInferredNote(t *testing.T) {
 	expectError(t, `
 package main

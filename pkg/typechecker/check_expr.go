@@ -272,24 +272,111 @@ func (tc *TypeChecker) checkMutableReceiver(expr ast.Expression) bool {
 
 func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
 	method := tc.canonicalizePrimitiveMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
-	for _, arg := range mc.Arguments {
-		tc.inferType(arg)
+	argTypes := make([]ast.TypeExpression, len(mc.Arguments))
+	for i, arg := range mc.Arguments {
+		argTypes[i] = tc.inferType(arg)
 	}
-	if method == "to_string" {
-		if len(mc.Arguments) != 0 {
+
+	requireArgs := func(want int) {
+		if len(mc.Arguments) != want {
 			tc.errorMethodArgumentCountMismatch(
 				typeName,
 				method,
-				0,
+				want,
 				len(mc.Arguments),
 				mc.Token.Line,
 				mc.Token.Column,
 				nil,
 			)
 		}
+	}
+
+	isIntegerName := func(name string) bool {
+		switch name {
+		case "int",
+			"int8",
+			"int16",
+			"int32",
+			"int64",
+			"uint",
+			"uint8",
+			"uint16",
+			"uint32",
+			"uint64":
+			return true
+		}
+
+		return false
+	}
+
+	if method == "to_string" {
+		requireArgs(0)
 		return &ast.SimpleType{Name: "string"}
 	}
-	tc.errorUndefinedMethod(typeName, method, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
+
+	switch {
+	case isIntegerName(typeName):
+		switch method {
+		case "to_float":
+			requireArgs(0)
+			return &ast.SimpleType{Name: "float64"}
+		case "abs":
+			requireArgs(0)
+			return &ast.SimpleType{Name: typeName}
+		}
+	case typeName == "float32" || typeName == "float64":
+		switch method {
+		case "to_int":
+			requireArgs(0)
+			return &ast.SimpleType{Name: "int"}
+		case "to_fixed":
+			requireArgs(1)
+			if len(argTypes) == 1 && !tc.isIntegerType(argTypes[0]) {
+				tc.errorTypeMismatch(
+					mc.Token.Line,
+					mc.Token.Column,
+					"int",
+					typeToString(argTypes[0]),
+					"to_fixed precision argument",
+					mc.Arguments[0],
+				)
+			}
+			return &ast.SimpleType{Name: "string"}
+		case "abs", "floor", "ceil", "round":
+			requireArgs(0)
+			return &ast.SimpleType{Name: typeName}
+		}
+	case typeName == "char":
+		switch method {
+		case "is_digit",
+			"is_letter",
+			"is_alpha",
+			"is_alpha_num",
+			"is_whitespace",
+			"is_upper",
+			"is_lower",
+			"is_ascii",
+			"is_ident_start",
+			"is_ident_part":
+			requireArgs(0)
+			return &ast.SimpleType{Name: "bool"}
+		case "to_ascii":
+			requireArgs(0)
+			return &ast.SimpleType{Name: "int"}
+		case "to_upper", "to_lower":
+			requireArgs(0)
+			return &ast.SimpleType{Name: "char"}
+		}
+	}
+
+	tc.errorUndefinedMethod(
+		typeName,
+		method,
+		mc.Token.Line,
+		mc.Token.Column,
+		primitiveMethodCandidates,
+	)
+
 	return nil
 }
 

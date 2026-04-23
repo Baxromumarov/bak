@@ -409,13 +409,18 @@ func (tc *TypeChecker) errorArgumentCountMismatch(
 		help = fmt.Sprintf("remove %d argument(s)", got-expected)
 	}
 	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrArgumentCount,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("function '%s' expects %d argument(s), but got %d", name, expected, got),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
+		Code:  diagnostics.ErrArgumentCount,
+		Level: diagnostics.LevelError,
+		Message: fmt.Sprintf(
+			"function '%s' expects %d argument(s), but got %d",
+			name,
+			expected,
+			got,
+		),
+		Line:   line,
+		Column: col,
+		File:   tc.currentPkgPath,
+		Help:   help,
 	}
 	if sig != nil && sig.Line > 0 {
 		noteFile := sig.PackagePath
@@ -480,13 +485,19 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatch(
 		help = fmt.Sprintf("remove %d argument(s)", got-expected)
 	}
 	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrArgumentCount,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("method '%s.%s' expects %d argument(s), but got %d", typeName, method, expected, got),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
+		Code:  diagnostics.ErrArgumentCount,
+		Level: diagnostics.LevelError,
+		Message: fmt.Sprintf(
+			"method '%s.%s' expects %d argument(s), but got %d",
+			typeName,
+			method,
+			expected,
+			got,
+		),
+		Line:   line,
+		Column: col,
+		File:   tc.currentPkgPath,
+		Help:   help,
 	}
 	if sig != nil && sig.Line > 0 {
 		noteFile := sig.PackagePath
@@ -494,10 +505,14 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatch(
 			noteFile = tc.currentPkgPath
 		}
 		diag.Notes = append(diag.Notes, diagnostics.Note{
-			Message: fmt.Sprintf("method '%s.%s' declared here", typeName, method),
-			Line:    sig.Line,
-			Column:  sig.Column,
-			File:    noteFile,
+			Message: fmt.Sprintf(
+				"method '%s.%s' declared here",
+				typeName,
+				method,
+			),
+			Line:   sig.Line,
+			Column: sig.Column,
+			File:   noteFile,
 		})
 	}
 	tc.emitError(diag)

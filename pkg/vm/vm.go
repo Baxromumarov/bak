@@ -3,6 +3,7 @@ package vm
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unicode/utf8"
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
@@ -1143,7 +1145,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vec := obj.AsObject.(*compiler.ArrayInstance)
 				vm.push(compiler.NewInt(int64(len(vec.Elements))))
 			case compiler.VAL_STRING:
-				vm.push(compiler.NewInt(int64(len(obj.AsString))))
+				vm.push(compiler.NewInt(int64(utf8.RuneCountInString(obj.AsString))))
 			case compiler.VAL_RANGE:
 				r := obj.AsObject.(*compiler.RangeObj)
 				start := r.Start
@@ -1161,10 +1163,8 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vm.push(compiler.NewInt(end - start + 1))
 			case compiler.VAL_STRUCT:
 				inst := obj.AsObject.(*compiler.StructInstance)
-				if inst.TypeName == "Vec" {
-					// Hardcode index 1 for length for now, or look up if possible
-					// Fields are: 0: data, 1: length, 2: capacity
-					vm.push(inst.Fields[1])
+				if _, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
+					vm.push(compiler.NewInt(int64(vecLen)))
 					break
 				}
 				return compiler.NewNil(), fmt.Errorf("len() requires a vector, string, or range (got struct %s)", inst.TypeName)
@@ -1192,9 +1192,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vm.push(compiler.NewChar(runes[i]))
 			case compiler.VAL_STRUCT:
 				inst := obj.AsObject.(*compiler.StructInstance)
-				if vecArr, ok := vecArrayFromStruct(inst); ok {
+				if vecArr, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
 					i := int(idx.AsInt)
-					if i < 0 || i >= len(vecArr.Elements) {
+					if i < 0 || i >= vecLen {
 						return compiler.NewNil(), fmt.Errorf("Vec index out of bounds: %d", i)
 					}
 					vm.push(vecArr.Elements[i])
@@ -1237,9 +1237,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vec.Elements[i] = value
 			case compiler.VAL_STRUCT:
 				inst := obj.AsObject.(*compiler.StructInstance)
-				if vecArr, ok := vecArrayFromStruct(inst); ok {
+				if vecArr, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
 					i := int(idx.AsInt)
-					if i < 0 || i >= len(vecArr.Elements) {
+					if i < 0 || i >= vecLen {
 						return compiler.NewNil(), fmt.Errorf("index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
 					}
 					vecArr.Elements[i] = value
@@ -1720,13 +1720,28 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pop() // pop receiver
 
-		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
-		}
-
 		switch methodName {
 		case "toString", "to_string":
+			if len(args) != 0 {
+				return fmt.Errorf("to_string() requires 0 arguments")
+			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatInt(receiver.AsInt, 10)), discardReturn)
+			return nil
+		case "toFloat", "to_float":
+			if len(args) != 0 {
+				return fmt.Errorf("to_float() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewFloat(float64(receiver.AsInt)), discardReturn)
+			return nil
+		case "abs":
+			if len(args) != 0 {
+				return fmt.Errorf("abs() requires 0 arguments")
+			}
+			if receiver.AsInt < 0 {
+				vm.pushMethodResult(compiler.NewInt(-receiver.AsInt), discardReturn)
+			} else {
+				vm.pushMethodResult(receiver, discardReturn)
+			}
 			return nil
 		default:
 			return fmt.Errorf("undefined method: int.%s", methodName)
@@ -1738,13 +1753,52 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pop() // pop receiver
 
-		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
-		}
-
 		switch methodName {
 		case "toString", "to_string":
+			if len(args) != 0 {
+				return fmt.Errorf("to_string() requires 0 arguments")
+			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', -1, 64)), discardReturn)
+			return nil
+		case "toInt", "to_int":
+			if len(args) != 0 {
+				return fmt.Errorf("to_int() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsFloat)), discardReturn)
+			return nil
+		case "toFixed", "to_fixed":
+			if len(args) != 1 {
+				return fmt.Errorf("to_fixed() requires 1 argument")
+			}
+			if args[0].Type != compiler.VAL_INT {
+				return fmt.Errorf("to_fixed() requires precision (int)")
+			}
+			precision := int(args[0].AsInt)
+			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', precision, 64)), discardReturn)
+			return nil
+		case "abs":
+			if len(args) != 0 {
+				return fmt.Errorf("abs() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewFloat(math.Abs(receiver.AsFloat)), discardReturn)
+			return nil
+		case "floor":
+			if len(args) != 0 {
+				return fmt.Errorf("floor() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewFloat(math.Floor(receiver.AsFloat)), discardReturn)
+			return nil
+		case "ceil":
+			if len(args) != 0 {
+				return fmt.Errorf("ceil() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewFloat(math.Ceil(receiver.AsFloat)), discardReturn)
+			return nil
+		case "round":
+			if len(args) != 0 {
+				return fmt.Errorf("round() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewFloat(math.Round(receiver.AsFloat)), discardReturn)
 			return nil
 		default:
 			return fmt.Errorf("undefined method: float.%s", methodName)
@@ -1756,12 +1810,11 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pop() // pop receiver
 
-		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
-		}
-
 		switch methodName {
 		case "toString", "to_string":
+			if len(args) != 0 {
+				return fmt.Errorf("to_string() requires 0 arguments")
+			}
 			if receiver.AsBool {
 				vm.pushMethodResult(compiler.NewString("true"), discardReturn)
 			} else {
@@ -1778,13 +1831,102 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 		vm.pop() // pop receiver
 
-		if len(args) != 0 {
-			return fmt.Errorf("%s() requires 0 arguments", methodName)
-		}
-
 		switch methodName {
 		case "toString", "to_string":
+			if len(args) != 0 {
+				return fmt.Errorf("to_string() requires 0 arguments")
+			}
 			vm.pushMethodResult(compiler.NewString(string(receiver.AsChar)), discardReturn)
+			return nil
+		case "isDigit", "is_digit":
+			if len(args) != 0 {
+				return fmt.Errorf("is_digit() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= '0' && receiver.AsChar <= '9'), discardReturn)
+			return nil
+		case "isLetter", "is_letter", "isAlpha", "is_alpha":
+			if len(args) != 0 {
+				return fmt.Errorf("is_letter() requires 0 arguments")
+			}
+			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z')
+			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
+			return nil
+		case "isAlphaNum", "is_alpha_num":
+			if len(args) != 0 {
+				return fmt.Errorf("is_alpha_num() requires 0 arguments")
+			}
+			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
+				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
+				(receiver.AsChar >= '0' && receiver.AsChar <= '9')
+			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
+			return nil
+		case "isWhitespace", "is_whitespace":
+			if len(args) != 0 {
+				return fmt.Errorf("is_whitespace() requires 0 arguments")
+			}
+			v := receiver.AsChar == ' ' || receiver.AsChar == '\t' || receiver.AsChar == '\n' || receiver.AsChar == '\r'
+			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
+			return nil
+		case "isUpper", "is_upper":
+			if len(args) != 0 {
+				return fmt.Errorf("is_upper() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z'), discardReturn)
+			return nil
+		case "isLower", "is_lower":
+			if len(args) != 0 {
+				return fmt.Errorf("is_lower() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'a' && receiver.AsChar <= 'z'), discardReturn)
+			return nil
+		case "isAscii", "is_ascii":
+			if len(args) != 0 {
+				return fmt.Errorf("is_ascii() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 0 && receiver.AsChar <= 127), discardReturn)
+			return nil
+		case "isIdentStart", "is_ident_start":
+			if len(args) != 0 {
+				return fmt.Errorf("is_ident_start() requires 0 arguments")
+			}
+			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') || receiver.AsChar == '_'
+			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
+			return nil
+		case "isIdentPart", "is_ident_part":
+			if len(args) != 0 {
+				return fmt.Errorf("is_ident_part() requires 0 arguments")
+			}
+			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
+				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
+				(receiver.AsChar >= '0' && receiver.AsChar <= '9') ||
+				receiver.AsChar == '_'
+			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
+			return nil
+		case "toAscii", "to_ascii":
+			if len(args) != 0 {
+				return fmt.Errorf("to_ascii() requires 0 arguments")
+			}
+			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsChar)), discardReturn)
+			return nil
+		case "toUpper", "to_upper":
+			if len(args) != 0 {
+				return fmt.Errorf("to_upper() requires 0 arguments")
+			}
+			if receiver.AsChar >= 'a' && receiver.AsChar <= 'z' {
+				vm.pushMethodResult(compiler.NewChar(receiver.AsChar-32), discardReturn)
+			} else {
+				vm.pushMethodResult(receiver, discardReturn)
+			}
+			return nil
+		case "toLower", "to_lower":
+			if len(args) != 0 {
+				return fmt.Errorf("to_lower() requires 0 arguments")
+			}
+			if receiver.AsChar >= 'A' && receiver.AsChar <= 'Z' {
+				vm.pushMethodResult(compiler.NewChar(receiver.AsChar+32), discardReturn)
+			} else {
+				vm.pushMethodResult(receiver, discardReturn)
+			}
 			return nil
 		default:
 			return fmt.Errorf("undefined method: char.%s", methodName)
@@ -1909,6 +2051,24 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pop() // pop receiver
 
 		var result compiler.Value
+		resultOk := func(v compiler.Value) compiler.Value {
+			return compiler.Value{
+				Type: compiler.VAL_RESULT,
+				AsObject: &compiler.ResultInstance{
+					IsErr: false,
+					Value: v,
+				},
+			}
+		}
+		resultErr := func(msg string) compiler.Value {
+			return compiler.Value{
+				Type: compiler.VAL_RESULT,
+				AsObject: &compiler.ResultInstance{
+					IsErr: true,
+					Value: compiler.NewString(msg),
+				},
+			}
+		}
 		switch methodName {
 		case "toString", "to_string":
 			if len(args) != 0 {
@@ -1919,7 +2079,36 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			if len(args) != 0 {
 				return fmt.Errorf("len() requires 0 arguments")
 			}
-			result = compiler.NewInt(int64(len(str)))
+			result = compiler.NewInt(int64(utf8.RuneCountInString(str)))
+		case "hash":
+			if len(args) != 0 {
+				return fmt.Errorf("hash() requires 0 arguments")
+			}
+			var h uint32 = 2166136261
+			for i := 0; i < len(str); i++ {
+				h = (h ^ uint32(str[i])) * 16777619
+			}
+			result = compiler.NewInt(int64(h))
+		case "bytes":
+			if len(args) != 0 {
+				return fmt.Errorf("bytes() requires 0 arguments")
+			}
+			bytes := []byte(str)
+			values := make([]compiler.Value, len(bytes))
+			for i, b := range bytes {
+				values[i] = compiler.NewInt(int64(b))
+			}
+			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
+		case "chars":
+			if len(args) != 0 {
+				return fmt.Errorf("chars() requires 0 arguments")
+			}
+			runes := []rune(str)
+			values := make([]compiler.Value, len(runes))
+			for i, r := range runes {
+				values[i] = compiler.NewChar(r)
+			}
+			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
 		case "is_empty", "isEmpty":
 			if len(args) != 0 {
 				return fmt.Errorf("is_empty() requires 0 arguments")
@@ -1979,21 +2168,35 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			idx := int(args[0].AsInt)
 			runes := []rune(str)
 			if idx < 0 || idx >= len(runes) {
-				result = compiler.Value{
-					Type: compiler.VAL_RESULT,
-					AsObject: &compiler.ResultInstance{
-						IsErr: true,
-						Value: compiler.NewString("index out of bounds"),
-					},
-				}
+				result = resultErr("index out of bounds")
 			} else {
-				result = compiler.Value{
-					Type: compiler.VAL_RESULT,
-					AsObject: &compiler.ResultInstance{
-						IsErr: false,
-						Value: compiler.NewChar(runes[idx]),
-					},
-				}
+				result = resultOk(compiler.NewChar(runes[idx]))
+			}
+		case "index_of", "indexOf":
+			if len(args) != 1 {
+				return fmt.Errorf("index_of() requires 1 argument")
+			}
+			if args[0].Type != compiler.VAL_STRING {
+				return fmt.Errorf("index_of() requires a string")
+			}
+			idx := stringIndexOfRunes(str, args[0].AsString)
+			if idx < 0 {
+				result = resultErr("substring not found")
+			} else {
+				result = resultOk(compiler.NewInt(int64(idx)))
+			}
+		case "last_index_of", "lastIndexOf":
+			if len(args) != 1 {
+				return fmt.Errorf("last_index_of() requires 1 argument")
+			}
+			if args[0].Type != compiler.VAL_STRING {
+				return fmt.Errorf("last_index_of() requires a string")
+			}
+			idx := stringLastIndexOfRunes(str, args[0].AsString)
+			if idx < 0 {
+				result = resultErr("substring not found")
+			} else {
+				result = resultOk(compiler.NewInt(int64(idx)))
 			}
 		case "contains":
 			if len(args) != 1 {
@@ -2027,6 +2230,26 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("replace() requires string arguments")
 			}
 			result = compiler.NewString(strings.ReplaceAll(str, args[0].AsString, args[1].AsString))
+		case "parse_int", "parseInt":
+			if len(args) != 0 {
+				return fmt.Errorf("parse_int() requires 0 arguments")
+			}
+			var i int64
+			if _, err := fmt.Sscanf(str, "%d", &i); err != nil {
+				result = resultErr("invalid integer")
+				break
+			}
+			result = resultOk(compiler.NewInt(i))
+		case "parse_float", "parseFloat":
+			if len(args) != 0 {
+				return fmt.Errorf("parse_float() requires 0 arguments")
+			}
+			var f float64
+			if _, err := fmt.Sscanf(str, "%f", &f); err != nil {
+				result = resultErr("invalid float")
+				break
+			}
+			result = resultOk(compiler.NewFloat(f))
 		case "substring":
 			if len(args) != 2 {
 				return fmt.Errorf("substring() requires 2 arguments")
@@ -2036,19 +2259,21 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			start := int(args[0].AsInt)
 			end := int(args[1].AsInt)
+			runes := []rune(str)
+			runeLen := len(runes)
 			if start < 0 {
 				start = 0
 			}
 			if end < start {
 				end = start
 			}
-			if end > len(str) {
-				end = len(str)
+			if end > runeLen {
+				end = runeLen
 			}
-			if start > len(str) {
-				start = len(str)
+			if start > runeLen {
+				start = runeLen
 			}
-			result = compiler.NewString(str[start:end])
+			result = compiler.NewString(string(runes[start:end]))
 		default:
 			return fmt.Errorf("undefined method: string.%s", methodName)
 		}
@@ -2361,6 +2586,54 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 	vm.sp++
 
 	return vm.callWithFlags(methodFn, argc, discardReturn)
+}
+
+func stringIndexOfRunes(haystack, needle string) int {
+	h := []rune(haystack)
+	n := []rune(needle)
+	if len(n) == 0 {
+		return 0
+	}
+	if len(n) > len(h) {
+		return -1
+	}
+	for i := 0; i <= len(h)-len(n); i++ {
+		match := true
+		for j := range n {
+			if h[i+j] != n[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
+}
+
+func stringLastIndexOfRunes(haystack, needle string) int {
+	h := []rune(haystack)
+	n := []rune(needle)
+	if len(n) == 0 {
+		return len(h)
+	}
+	if len(n) > len(h) {
+		return -1
+	}
+	for i := len(h) - len(n); i >= 0; i-- {
+		match := true
+		for j := range n {
+			if h[i+j] != n[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return -1
 }
 
 func (vm *VM) executeDefer(action DeferAction, fnName string, ip int) error {

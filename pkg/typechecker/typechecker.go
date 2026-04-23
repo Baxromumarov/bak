@@ -3739,6 +3739,26 @@ var vecMethodCandidates = []string{
 
 var primitiveMethodCandidates = []string{
 	"to_string",
+	"to_float",
+	"to_int",
+	"to_fixed",
+	"abs",
+	"floor",
+	"ceil",
+	"round",
+	"is_digit",
+	"is_letter",
+	"is_alpha",
+	"is_alpha_num",
+	"is_whitespace",
+	"is_upper",
+	"is_lower",
+	"is_ascii",
+	"is_ident_start",
+	"is_ident_part",
+	"to_ascii",
+	"to_upper",
+	"to_lower",
 }
 
 var resultMethodCandidates = []string{

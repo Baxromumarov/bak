@@ -3,6 +3,7 @@ package evaluator
 import (
 	"fmt"
 	"maps"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -3207,6 +3208,54 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 	}
 }
 
+func runeIndexOf(haystack, needle string) int64 {
+	h := []rune(haystack)
+	n := []rune(needle)
+	if len(n) == 0 {
+		return 0
+	}
+	if len(n) > len(h) {
+		return -1
+	}
+	for i := 0; i <= len(h)-len(n); i++ {
+		match := true
+		for j := range n {
+			if h[i+j] != n[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return int64(i)
+		}
+	}
+	return -1
+}
+
+func runeLastIndexOf(haystack, needle string) int64 {
+	h := []rune(haystack)
+	n := []rune(needle)
+	if len(n) == 0 {
+		return int64(len(h))
+	}
+	if len(n) > len(h) {
+		return -1
+	}
+	for i := len(h) - len(n); i >= 0; i-- {
+		match := true
+		for j := range n {
+			if h[i+j] != n[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return int64(i)
+		}
+	}
+	return -1
+}
+
 func evalStringMethod(str *object.String, method string, args []object.Object) object.Object {
 	switch method {
 	case "toString", "to_string":
@@ -3332,11 +3381,11 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if !ok {
 			return newError("indexOf: argument must be STRING, got %s", args[0].Type())
 		}
-		idx := strings.Index(str.Value, substr.Value)
+		idx := runeIndexOf(str.Value, substr.Value)
 		if idx == -1 {
 			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(idx)}}
+		return &object.Result{IsOk: true, Value: &object.Integer{Value: idx}}
 	case "lastIndexOf", "last_index_of":
 		if len(args) != 1 {
 			return newError("lastIndexOf: wrong number of arguments. got=%d, want=1", len(args))
@@ -3345,11 +3394,11 @@ func evalStringMethod(str *object.String, method string, args []object.Object) o
 		if !ok {
 			return newError("lastIndexOf: argument must be STRING, got %s", args[0].Type())
 		}
-		idx := strings.LastIndex(str.Value, substr.Value)
+		idx := runeLastIndexOf(str.Value, substr.Value)
 		if idx == -1 {
 			return &object.Result{IsOk: false, Value: &object.String{Value: "substring not found"}}
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(idx)}}
+		return &object.Result{IsOk: true, Value: &object.Integer{Value: idx}}
 	case "contains":
 		if len(args) != 1 {
 			return newError("contains: wrong number of arguments. got=%d, want=1", len(args))
@@ -3502,35 +3551,35 @@ func evalCharMethod(ch *object.Char, method string, args []object.Object) object
 	r := ch.Value
 	switch method {
 	// Character classification
-	case "isDigit":
+	case "isDigit", "is_digit":
 		return nativeBoolToBooleanObject(r >= '0' && r <= '9')
-	case "isLetter":
+	case "isLetter", "is_letter":
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z'))
-	case "isAlpha":
+	case "isAlpha", "is_alpha":
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z'))
-	case "isAlphaNum":
+	case "isAlphaNum", "is_alpha_num":
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'))
-	case "isWhitespace":
+	case "isWhitespace", "is_whitespace":
 		return nativeBoolToBooleanObject(r == ' ' || r == '\t' || r == '\n' || r == '\r')
-	case "isUpper":
+	case "isUpper", "is_upper":
 		return nativeBoolToBooleanObject(r >= 'A' && r <= 'Z')
-	case "isLower":
+	case "isLower", "is_lower":
 		return nativeBoolToBooleanObject(r >= 'a' && r <= 'z')
-	case "isAscii":
+	case "isAscii", "is_ascii":
 		return nativeBoolToBooleanObject(r >= 0 && r <= 127)
-	case "isIdentStart":
+	case "isIdentStart", "is_ident_start":
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_')
-	case "isIdentPart":
+	case "isIdentPart", "is_ident_part":
 		return nativeBoolToBooleanObject((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_')
 	// Conversion
-	case "toAscii":
+	case "toAscii", "to_ascii":
 		return &object.Integer{Value: int64(r)}
-	case "toUpper":
+	case "toUpper", "to_upper":
 		if r >= 'a' && r <= 'z' {
 			return &object.Char{Value: r - 32}
 		}
 		return ch
-	case "toLower":
+	case "toLower", "to_lower":
 		if r >= 'A' && r <= 'Z' {
 			return &object.Char{Value: r + 32}
 		}
@@ -3548,7 +3597,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 	switch method {
 	case "toString", "to_string":
 		return &object.String{Value: fmt.Sprintf("%d", num.Value)}
-	case "toFloat":
+	case "toFloat", "to_float":
 		return &object.Float{Value: float64(num.Value)}
 	case "abs":
 		if num.Value < 0 {
@@ -3564,9 +3613,9 @@ func evalFloatMethod(num *object.Float, method string, args []object.Object) obj
 	switch method {
 	case "toString", "to_string":
 		return &object.String{Value: fmt.Sprintf("%g", num.Value)}
-	case "toInt":
+	case "toInt", "to_int":
 		return &object.Integer{Value: int64(num.Value)}
-	case "toFixed":
+	case "toFixed", "to_fixed":
 		if len(args) != 1 {
 			return newError("toFixed: wrong number of arguments. got=%d, want=1", len(args))
 		}
@@ -3581,15 +3630,11 @@ func evalFloatMethod(num *object.Float, method string, args []object.Object) obj
 		}
 		return num
 	case "floor":
-		return &object.Float{Value: float64(int64(num.Value))}
+		return &object.Float{Value: math.Floor(num.Value)}
 	case "ceil":
-		val := float64(int64(num.Value))
-		if num.Value > val {
-			val++
-		}
-		return &object.Float{Value: val}
+		return &object.Float{Value: math.Ceil(num.Value)}
 	case "round":
-		return &object.Float{Value: float64(int64(num.Value + 0.5))}
+		return &object.Float{Value: math.Round(num.Value)}
 	default:
 		return newError("undefined method: %s for Float", method)
 	}

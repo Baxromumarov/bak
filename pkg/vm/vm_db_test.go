@@ -114,3 +114,56 @@ func TestDBQueryArgs_RejectsNonStringElement(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestVecDataAndLengthFromStruct(t *testing.T) {
+	vecData := &compiler.ArrayInstance{
+		Elements: []compiler.Value{
+			compiler.NewInt(1),
+			compiler.NewInt(2),
+			compiler.NewInt(3),
+		},
+	}
+	inst := &compiler.StructInstance{
+		TypeName: "db.Vec",
+		Fields: []compiler.Value{
+			{Type: compiler.VAL_ARRAY, AsObject: vecData},
+			compiler.NewInt(2),
+			compiler.NewInt(3),
+		},
+	}
+
+	arr, vecLen, ok := vecDataAndLengthFromStruct(inst)
+	if !ok {
+		t.Fatalf("expected Vec struct to be recognized")
+	}
+	if arr != vecData {
+		t.Fatalf("unexpected vec backing array: got %#v want %#v", arr, vecData)
+	}
+	if vecLen != 2 {
+		t.Fatalf("unexpected vec length: got %d want 2", vecLen)
+	}
+}
+
+func TestVecDataAndLengthFromStruct_ClampsLength(t *testing.T) {
+	inst := &compiler.StructInstance{
+		TypeName: "Vec",
+		Fields: []compiler.Value{
+			{
+				Type: compiler.VAL_ARRAY,
+				AsObject: &compiler.ArrayInstance{
+					Elements: []compiler.Value{compiler.NewInt(1), compiler.NewInt(2)},
+				},
+			},
+			compiler.NewInt(5),
+			compiler.NewInt(8),
+		},
+	}
+
+	_, vecLen, ok := vecDataAndLengthFromStruct(inst)
+	if !ok {
+		t.Fatalf("expected Vec struct to be recognized")
+	}
+	if vecLen != 2 {
+		t.Fatalf("expected clamped vec length to equal backing array length, got %d", vecLen)
+	}
+}

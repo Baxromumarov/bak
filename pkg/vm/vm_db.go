@@ -313,6 +313,30 @@ func vecArrayFromStruct(inst *compiler.StructInstance) (*compiler.ArrayInstance,
 	return arr, true
 }
 
+func vecDataAndLengthFromStruct(inst *compiler.StructInstance) (*compiler.ArrayInstance, int, bool) {
+	arr, ok := vecArrayFromStruct(inst)
+	if !ok {
+		return nil, 0, false
+	}
+	if len(inst.Fields) < 2 {
+		return nil, 0, false
+	}
+
+	lengthField := inst.Fields[1]
+	if lengthField.Type != compiler.VAL_INT {
+		return nil, 0, false
+	}
+	length := int(lengthField.AsInt)
+	if length < 0 {
+		length = 0
+	}
+	if length > len(arr.Elements) {
+		length = len(arr.Elements)
+	}
+
+	return arr, length, true
+}
+
 func isVecTypeName(name string) bool {
 	return name == "Vec" || strings.HasSuffix(name, ".Vec")
 }
