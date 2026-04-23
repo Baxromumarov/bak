@@ -66,7 +66,15 @@ func (s *Scope) Exit(status string, err error) {
 	s.active = false
 }
 
-func (r *Runtime) emit(event string, fn string, depth int, thread int, status string, durationNS int64, errText string) {
+func (r *Runtime) emit(
+	event string,
+	fn string,
+	depth int,
+	thread int,
+	status string,
+	durationNS int64,
+	errText string,
+) {
 	if r == nil {
 		return
 	}

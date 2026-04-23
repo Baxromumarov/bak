@@ -3263,7 +3263,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			// We need to handle it here because the parser might have created a MethodCallExpression
 
 			methodName := mc.Method.Value
-			canonicalMethod := tc.canonicalizeStdModuleFunction(ident.Value, methodName, mc.Token.Line, mc.Token.Column)
+			canonicalMethod := methodName
 			if canonicalMethod != methodName {
 				if _, ok := symbols[canonicalMethod]; ok {
 					methodName = canonicalMethod
@@ -3902,7 +3902,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			}
 			if symbols, exists := tc.importedSymbols[modIdent.Value]; exists {
 				methodName := fa.Field.Value
-				canonicalMethod := tc.canonicalizeStdModuleFunction(modIdent.Value, methodName, ce.Token.Line, ce.Token.Column)
+				canonicalMethod := methodName
 				if canonicalMethod != methodName {
 					if _, ok := symbols[canonicalMethod]; ok {
 						methodName = canonicalMethod

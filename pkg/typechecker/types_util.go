@@ -1123,7 +1123,7 @@ func getStmtToken(s ast.Statement) token.Token {
 }
 
 func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resType *ast.GenericType) ast.TypeExpression {
-	method := tc.canonicalizeResultMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
+	method := mc.Method.Value
 	if len(resType.TypeParams) < 2 {
 		return nil
 	}

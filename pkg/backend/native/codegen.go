@@ -911,28 +911,6 @@ func (s *EmitState) updateFunctionOffset(name string, offset int) {
 	}
 }
 
-// findFunctionOffset returns the code offset for a function, or -1 if not found.
-func (s *EmitState) findFunctionOffset(name string) (int, bool) {
-	// First try exact match
-	for _, f := range s.Functions {
-		if f.Name == name {
-			return f.Offset, true
-		}
-	}
-
-	// If not found and we have a current module, try with module prefix
-	if s.CurrentModule != "" && s.CurrentModule != "main" && !strings.Contains(name, ".") {
-		qualifiedName := s.CurrentModule + "." + name
-		for _, f := range s.Functions {
-			if f.Name == qualifiedName {
-				return f.Offset, true
-			}
-		}
-	}
-
-	return -1, false
-}
-
 // findFunctionParamCount returns the parameter count for a function.
 func (s *EmitState) findFunctionParamCount(name string) (int, bool) {
 	for _, f := range s.Functions {
@@ -3023,6 +3001,7 @@ func (s *EmitState) emitInfix(e *ast.InfixExpression) error {
 
 // emitDivMod handles / and % operators properly (idiv needs special register handling).
 func (s *EmitState) emitDivMod(e *ast.InfixExpression, isMod bool) error {
+	_ = e
 	// We need to redo the emission because idiv uses rdx:rax / operand
 	// Re-emit: left -> rax, right -> r11, then cqo, idiv r11
 	// Pop off the values we already pushed (they're already consumed from the stack)
@@ -4661,6 +4640,7 @@ func (s *EmitState) getFieldTypeSize(fieldType ast.TypeExpression) int {
 // Vec is 8 bytes (pointer to 24-byte header), string is 8 bytes (pointer to header), etc.
 // Structs with Vec/string fields store POINTERS to heap-allocated headers, not inline data.
 func (s *EmitState) getFieldStorageSize(fieldType ast.TypeExpression) int {
+	_ = fieldType
 	// All types are stored as 8-byte values (pointers or primitives)
 	// Vec header, string header, and other complex types are heap-allocated
 	// and the struct stores a pointer to them

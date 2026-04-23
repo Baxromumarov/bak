@@ -271,7 +271,7 @@ func (tc *TypeChecker) checkMutableReceiver(expr ast.Expression) bool {
 }
 
 func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
-	method := tc.canonicalizePrimitiveMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
+	method := mc.Method.Value
 	argTypes := make([]ast.TypeExpression, len(mc.Arguments))
 	for i, arg := range mc.Arguments {
 		argTypes[i] = tc.inferType(arg)
@@ -381,7 +381,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 }
 
 func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
-	method := tc.canonicalizePrimitiveMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
+	method := mc.Method.Value
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}
@@ -405,7 +405,7 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 
 // checkStringMethodCall type checks String method calls
 func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.TypeExpression {
-	method := tc.canonicalizeStringMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
+	method := mc.Method.Value
 	switch method {
 	case "len":
 		return &ast.SimpleType{Name: "int"}
@@ -466,7 +466,7 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 // checkVecMethodCall type checks Vec method calls and enforces fixed-size vs dynamic restrictions
 // Also enforces ownership and mutability rules for Vec operations
 func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType *ast.GenericType) ast.TypeExpression {
-	method := tc.canonicalizeVecMethod(mc.Method.Value, mc.Token.Line, mc.Token.Column)
+	method := mc.Method.Value
 
 	// Get the variable name if the object is an identifier
 	var varName string
