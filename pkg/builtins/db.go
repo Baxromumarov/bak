@@ -21,31 +21,18 @@ var (
 	nextDBID = 1
 )
 
-// Helpers
-func resultErrString(errStr string) *object.Result {
-	return &object.Result{
-		IsOk:  false,
-		Value: &object.String{Value: errStr},
-	}
-}
 
-func resultOkVoid() *object.Result {
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
-}
 
 // pgConnect opens a PostgreSQL connection.
 // __builtin_pg_connect(connStr: string) -> Result<int, string>
 func pgConnect(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_pg_connect: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_pg_connect", len(args), "1")
 	}
 
 	connStr, ok := args[0].(*object.String)
 	if !ok {
-		return newError("__builtin_pg_connect: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("__builtin_pg_connect", args[0], "STRING")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -69,27 +56,24 @@ func pgConnect(args ...object.Object) object.Object {
 	dbConns[id] = db
 	dbMu.Unlock()
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Integer{Value: int64(id)},
-	}
+	return resultOkInt(int64(id))
 }
 
 // pgQuery executes a SQL query on a PostgreSQL connection.
 // __builtin_pg_query(handle: int, sql: string, params: Vec<string, _>) -> Result<QueryResult, string>
 func pgQuery(args ...object.Object) object.Object {
 	if len(args) < 2 || len(args) > 3 {
-		return newError("__builtin_pg_query: wrong number of arguments. got=%d, want=2 or 3", len(args))
+		return argCountError("__builtin_pg_query", len(args), "2 or 3")
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_pg_query: first argument must be INT (handle), got %s", args[0].Type())
+		return firstArgTypeError("__builtin_pg_query", args[0], "INT (handle)")
 	}
 
 	sqlStr, ok := args[1].(*object.String)
 	if !ok {
-		return newError("__builtin_pg_query: second argument must be STRING (sql), got %s", args[1].Type())
+		return secondArgTypeError("__builtin_pg_query", args[1], "STRING (sql)")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -126,12 +110,12 @@ func pgQuery(args ...object.Object) object.Object {
 // __builtin_pg_close(handle: int) -> Result<void, string>
 func pgClose(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_pg_close: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_pg_close", len(args), "1")
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_pg_close: argument must be INT (handle), got %s", args[0].Type())
+		return argTypeError("__builtin_pg_close", args[0], "INT (handle)")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -160,12 +144,12 @@ func pgClose(args ...object.Object) object.Object {
 // __builtin_mysql_connect(connStr: string) -> Result<int, string>
 func mysqlConnect(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_mysql_connect: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_mysql_connect", len(args), "1")
 	}
 
 	connStr, ok := args[0].(*object.String)
 	if !ok {
-		return newError("__builtin_mysql_connect: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("__builtin_mysql_connect", args[0], "STRING")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -189,27 +173,24 @@ func mysqlConnect(args ...object.Object) object.Object {
 	dbConns[id] = db
 	dbMu.Unlock()
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Integer{Value: int64(id)},
-	}
+	return resultOkInt(int64(id))
 }
 
 // mysqlQuery executes a SQL query on a MySQL connection.
 // __builtin_mysql_query(handle: int, sql: string, params?: Vec<string, _>) -> Result<QueryResult, string>
 func mysqlQuery(args ...object.Object) object.Object {
 	if len(args) < 2 || len(args) > 3 {
-		return newError("__builtin_mysql_query: wrong number of arguments. got=%d, want=2 or 3", len(args))
+		return argCountError("__builtin_mysql_query", len(args), "2 or 3")
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_mysql_query: first argument must be INT (handle), got %s", args[0].Type())
+		return firstArgTypeError("__builtin_mysql_query", args[0], "INT (handle)")
 	}
 
 	sqlStr, ok := args[1].(*object.String)
 	if !ok {
-		return newError("__builtin_mysql_query: second argument must be STRING (sql), got %s", args[1].Type())
+		return secondArgTypeError("__builtin_mysql_query", args[1], "STRING (sql)")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -246,24 +227,24 @@ func mysqlQuery(args ...object.Object) object.Object {
 // __builtin_db_config(handle: int, max_open: int, max_idle: int, max_life_sec: int) -> Result<void, string>
 func dbConfig(args ...object.Object) object.Object {
 	if len(args) != 4 {
-		return newError("__builtin_db_config: wrong number of arguments. got=%d, want=4", len(args))
+		return argCountError("__builtin_db_config", len(args), "4")
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_db_config: argument 1 must be INT (handle), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_db_config", 1, args[0], "INT (handle)")
 	}
 	maxOpenObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_db_config: argument 2 must be INT (max_open), got %s", args[1].Type())
+		return nthArgTypeError("__builtin_db_config", 2, args[1], "INT (max_open)")
 	}
 	maxIdleObj, ok := args[2].(*object.Integer)
 	if !ok {
-		return newError("__builtin_db_config: argument 3 must be INT (max_idle), got %s", args[2].Type())
+		return nthArgTypeError("__builtin_db_config", 3, args[2], "INT (max_idle)")
 	}
 	maxLifeObj, ok := args[3].(*object.Integer)
 	if !ok {
-		return newError("__builtin_db_config: argument 4 must be INT (max_life_sec), got %s", args[3].Type())
+		return nthArgTypeError("__builtin_db_config", 4, args[3], "INT (max_life_sec)")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -288,12 +269,12 @@ func dbConfig(args ...object.Object) object.Object {
 // __builtin_mysql_close(handle: int) -> Result<void, string>
 func mysqlClose(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_mysql_close: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_mysql_close", len(args), "1")
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_mysql_close: argument must be INT (handle), got %s", args[0].Type())
+		return argTypeError("__builtin_mysql_close", args[0], "INT (handle)")
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -387,16 +368,13 @@ func rowsToResult(rows *sql.Rows) object.Object {
 	}
 
 	// Return QueryResult struct
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Struct{
-			Name: "QueryResult",
-			Fields: map[string]object.Object{
-				"Columns": columnsVec,
-				"Rows":    rowsVec,
-			},
+	return resultOk(&object.Struct{
+		Name: "QueryResult",
+		Fields: map[string]object.Object{
+			"Columns": columnsVec,
+			"Rows":    rowsVec,
 		},
-	}
+	})
 }
 
 func dbQueryParams(fnName string, paramsArg object.Object) ([]any, *object.Error) {

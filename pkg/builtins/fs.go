@@ -44,54 +44,42 @@ func requireFSMutatePermission(op string) *object.Result {
 	if runtimecap.Current().AllowFSMutate {
 		return nil
 	}
-	return &object.Result{
-		IsOk:  false,
-		Value: &object.String{Value: runtimecap.PermissionError(op, runtimecap.FlagAllowFSMutate)},
-	}
+	return resultErrString(runtimecap.PermissionError(op, runtimecap.FlagAllowFSMutate))
 }
 
 // fsReadFile reads a file and returns Result<string, string>
 func fsReadFile(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.readFile: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.readFile", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.readFile: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.readFile", args[0], "STRING")
 	}
 
 	content, err := os.ReadFile(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.String{Value: string(content)},
-	}
+	return resultOk(&object.String{Value: string(content)})
 }
 
 // fsReadFileBytes reads a file and returns Result<Vec<int, _>, string>
 func fsReadFileBytes(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.readFileBytes: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.readFileBytes", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.readFileBytes: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.readFileBytes", args[0], "STRING")
 	}
 
 	content, err := os.ReadFile(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	elements := make([]object.Object, len(content))
@@ -99,37 +87,34 @@ func fsReadFileBytes(args ...object.Object) object.Object {
 		elements[i] = &object.Integer{Value: int64(b)}
 	}
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Vec{
+	return resultOk(&object.Vec{
 			Elements: elements,
 			ElemType: "int",
 			Size:     -1,
 			Mutable:  false,
-		},
-	}
+		})
 }
 
 // fsWriteFileBytes writes raw bytes (Vec<int, _>) to a file
 func fsWriteFileBytes(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("fs.writeFileBytes: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("fs.writeFileBytes", len(args), "2")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.writeFileBytes: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("fs.writeFileBytes", args[0], "STRING")
 	}
 
 	dataObj, ok := args[1].(*object.Vec)
 	if !ok {
-		return newError("fs.writeFileBytes: second argument must be Vec<int, _>, got %s", args[1].Type())
+		return secondArgTypeError("fs.writeFileBytes", args[1], "Vec<int, _>")
 	}
 	if denied := requireFSMutatePermission("fs.writeFileBytes"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.writeFileBytes"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	bytes := make([]byte, len(dataObj.Elements))
@@ -143,28 +128,25 @@ func fsWriteFileBytes(args ...object.Object) object.Object {
 
 	err := os.WriteFile(path.Value, bytes, 0644)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return resultOkVoid()
 }
 
 // fsReadLines reads a file and returns Result<Vec<string, _>, string>
 func fsReadLines(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.readLines: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.readLines", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.readLines: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.readLines", args[0], "STRING")
 	}
 
 	content, err := os.ReadFile(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	lines := strings.Split(string(content), "\n")
@@ -173,26 +155,23 @@ func fsReadLines(args ...object.Object) object.Object {
 		elements[i] = &object.String{Value: line}
 	}
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Vec{
+	return resultOk(&object.Vec{
 			Elements: elements,
 			ElemType: "string",
 			Size:     -1,
 			Mutable:  false,
-		},
-	}
+		})
 }
 
 // fsExists checks if a file or directory exists
 func fsExists(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.exists: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.exists", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.exists: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.exists", args[0], "STRING")
 	}
 
 	_, err := os.Stat(path.Value)
@@ -202,12 +181,12 @@ func fsExists(args ...object.Object) object.Object {
 // fsIsDir checks if path is a directory
 func fsIsDir(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.isDir: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.isDir", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.isDir: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.isDir", args[0], "STRING")
 	}
 
 	info, err := os.Stat(path.Value)
@@ -220,12 +199,12 @@ func fsIsDir(args ...object.Object) object.Object {
 // fsIsFile checks if path is a regular file
 func fsIsFile(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.isFile: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.isFile", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.isFile: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.isFile", args[0], "STRING")
 	}
 
 	info, err := os.Stat(path.Value)
@@ -238,20 +217,17 @@ func fsIsFile(args ...object.Object) object.Object {
 // fsReadDir lists directory contents, returns Result<Vec<DirEntry, _>, string>
 func fsReadDir(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.readDir: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.readDir", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.readDir: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.readDir", args[0], "STRING")
 	}
 
 	entries, err := os.ReadDir(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	elements := make([]object.Object, len(entries))
@@ -264,45 +240,36 @@ func fsReadDir(args ...object.Object) object.Object {
 		}
 	}
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Vec{
+	return resultOk(&object.Vec{
 			Elements: elements,
 			ElemType: "DirEntry",
 			Size:     -1,
 			Mutable:  false,
-		},
-	}
+		})
 }
 
 // fsStat returns file info, returns Result<FileInfo, string>
 func fsStat(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.stat: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.stat", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.stat: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.stat", args[0], "STRING")
 	}
 
 	info, err := os.Stat(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.FileInfo{
+	return resultOk(&object.FileInfo{
 			FileName: info.Name(),
 			FileSize: info.Size(),
 			ModTime:  info.ModTime().Unix(),
 			IsDir:    info.IsDir(),
-		},
-	}
+		})
 }
 
 // fsJoin joins path elements
@@ -326,12 +293,12 @@ func fsJoin(args ...object.Object) object.Object {
 // fsExt returns the file extension
 func fsExt(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.ext: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.ext", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.ext: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.ext", args[0], "STRING")
 	}
 
 	return &object.String{Value: filepath.Ext(path.Value)}
@@ -340,12 +307,12 @@ func fsExt(args ...object.Object) object.Object {
 // fsBase returns the last element of path (file name)
 func fsBase(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.base: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.base", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.base: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.base", args[0], "STRING")
 	}
 
 	return &object.String{Value: filepath.Base(path.Value)}
@@ -354,12 +321,12 @@ func fsBase(args ...object.Object) object.Object {
 // fsDir returns all but the last element of path (directory)
 func fsDir(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.dir: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.dir", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.dir: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.dir", args[0], "STRING")
 	}
 
 	return &object.String{Value: filepath.Dir(path.Value)}
@@ -368,233 +335,188 @@ func fsDir(args ...object.Object) object.Object {
 // fsAbs returns the absolute path
 func fsAbs(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.abs: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.abs", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.abs: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.abs", args[0], "STRING")
 	}
 
 	absPath, err := filepath.Abs(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.String{Value: absPath},
-	}
+	return resultOk(&object.String{Value: absPath})
 }
 
 // fsWriteFile writes content to a file (creates or overwrites)
 func fsWriteFile(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("fs.writeFile: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("fs.writeFile", len(args), "2")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.writeFile: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("fs.writeFile", args[0], "STRING")
 	}
 
 	content, ok := args[1].(*object.String)
 	if !ok {
-		return newError("fs.writeFile: second argument must be STRING, got %s", args[1].Type())
+		return secondArgTypeError("fs.writeFile", args[1], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.writeFile"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.writeFile"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.WriteFile(path.Value, []byte(content.Value), 0644)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsAppendFile appends content to a file
 func fsAppendFile(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("fs.appendFile: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("fs.appendFile", len(args), "2")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.appendFile: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("fs.appendFile", args[0], "STRING")
 	}
 
 	content, ok := args[1].(*object.String)
 	if !ok {
-		return newError("fs.appendFile: second argument must be STRING, got %s", args[1].Type())
+		return secondArgTypeError("fs.appendFile", args[1], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.appendFile"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.appendFile"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	f, err := os.OpenFile(path.Value, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 	defer f.Close()
 
 	_, err = f.WriteString(content.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsMkdir creates a directory
 func fsMkdir(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.mkdir: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.mkdir", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.mkdir: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.mkdir", args[0], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.mkdir"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.mkdir"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.Mkdir(path.Value, 0755)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsMkdirAll creates a directory and all parent directories
 func fsMkdirAll(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.mkdirAll: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.mkdirAll", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.mkdirAll: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.mkdirAll", args[0], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.mkdirAll"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.mkdirAll"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.MkdirAll(path.Value, 0755)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsRemove removes a file or empty directory
 func fsRemove(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.remove: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.remove", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.remove: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.remove", args[0], "STRING")
 	}
 
 	if denied := requireFSMutatePermission("fs.remove"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.remove"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.Remove(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsRemoveAll removes a file or directory recursively
 func fsRemoveAll(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fs.removeAll: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fs.removeAll", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.removeAll: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("fs.removeAll", args[0], "STRING")
 	}
 
 	if denied := requireFSMutatePermission("fs.removeAll"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "fs.removeAll"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.RemoveAll(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 func validateDestructivePath(pathValue, op string) error {
@@ -617,87 +539,72 @@ func validateDestructivePath(pathValue, op string) error {
 // fsRename renames (moves) a file or directory
 func fsRename(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("fs.rename: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("fs.rename", len(args), "2")
 	}
 
 	oldPath, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.rename: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("fs.rename", args[0], "STRING")
 	}
 
 	newPath, ok := args[1].(*object.String)
 	if !ok {
-		return newError("fs.rename: second argument must be STRING, got %s", args[1].Type())
+		return secondArgTypeError("fs.rename", args[1], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.rename"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(oldPath.Value, "fs.rename"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 	if err := validateDestructivePath(newPath.Value, "fs.rename"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.Rename(oldPath.Value, newPath.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // fsCopy copies a file
 func fsCopy(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("fs.copy: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("fs.copy", len(args), "2")
 	}
 
 	srcPath, ok := args[0].(*object.String)
 	if !ok {
-		return newError("fs.copy: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("fs.copy", args[0], "STRING")
 	}
 
 	dstPath, ok := args[1].(*object.String)
 	if !ok {
-		return newError("fs.copy: second argument must be STRING, got %s", args[1].Type())
+		return secondArgTypeError("fs.copy", args[1], "STRING")
 	}
 	if denied := requireFSMutatePermission("fs.copy"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(srcPath.Value, "fs.copy"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 	if err := validateDestructivePath(dstPath.Value, "fs.copy"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	// Read source file
 	content, err := os.ReadFile(srcPath.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	// Write to destination
 	err = os.WriteFile(dstPath.Value, content, 0644)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }

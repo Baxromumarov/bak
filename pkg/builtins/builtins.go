@@ -101,7 +101,7 @@ var Builtins = map[string]*object.Builtin{
 // builtinConcat concatenates two strings
 func builtinConcat(args ...object.Object) object.Object {
 	if len(args) == 0 {
-		return newError("concat: wrong number of arguments. got=%d, want at least 1", len(args))
+		return argCountError("concat", len(args), "at least 1")
 	}
 
 	var out strings.Builder
@@ -120,11 +120,11 @@ func builtinConcat(args ...object.Object) object.Object {
 
 func builtinCfg(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("cfg: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("cfg", len(args), "1")
 	}
 	featureName, ok := args[0].(*object.String)
 	if !ok {
-		return newError("cfg: argument must be string, got %s", args[0].Type())
+		return argTypeError("cfg", args[0], "string")
 	}
 	return &object.Boolean{Value: runtimecap.CurrentFeatureEnabled(featureName.Value)}
 }
@@ -132,11 +132,11 @@ func builtinCfg(args ...object.Object) object.Object {
 // builtinFromChars: primitive to convert Vec<char, _> to string
 func builtinFromChars(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("fromChars: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("fromChars", len(args), "1")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("fromChars: argument must be Vec<char, _>, got %s", args[0].Type())
+		return argTypeError("fromChars", args[0], "Vec<char, _>")
 	}
 	// Check element type
 	if vec.ElemType != "char" {
@@ -156,7 +156,7 @@ func builtinFromChars(args ...object.Object) object.Object {
 // builtinStringFromBytes: optimized string construction from Vec<int, _> bytes
 func builtinStringFromBytes(args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return newError("wrong number of arguments. got=%d, want=3", len(args))
+		return argCountError("", len(args), "3")
 	}
 	// Support both raw *object.Vec and *object.Struct (Vec from stdlib)
 	var vec *object.Vec
@@ -177,11 +177,11 @@ func builtinStringFromBytes(args ...object.Object) object.Object {
 	}
 	start, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("start argument must be int, got %s", args[1].Type())
+		return argTypeError("", args[1], "start argument must be int")
 	}
 	end, ok := args[2].(*object.Integer)
 	if !ok {
-		return newError("end argument must be int, got %s", args[2].Type())
+		return argTypeError("", args[2], "end argument must be int")
 	}
 	s := start.Value
 	e := end.Value
@@ -204,13 +204,9 @@ func builtinStringFromBytes(args ...object.Object) object.Object {
 // builtinStringPtr: mocked for evaluator - not meant to be used literally there, but registered.
 func builtinStringPtr(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 	return &object.Integer{Value: 0}
-}
-
-func newError(format string, a ...any) *object.Error {
-	return &object.Error{Message: fmt.Sprintf(format, a...)}
 }
 
 func builtinPrint(args ...object.Object) object.Object {
@@ -285,7 +281,7 @@ func builtinEprintln(args ...object.Object) object.Object {
 
 func builtinType(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	return &object.String{Value: string(args[0].Type())}
@@ -293,7 +289,7 @@ func builtinType(args ...object.Object) object.Object {
 
 func builtinInt(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	switch arg := args[0].(type) {
@@ -310,10 +306,7 @@ func builtinInt(args ...object.Object) object.Object {
 			return resultErrString("invalid integer")
 		}
 
-		return &object.Result{
-			IsOk:  true,
-			Value: &object.Integer{Value: val},
-		}
+		return resultOkInt(val)
 	case *object.Boolean:
 		if arg.Value {
 			return &object.Integer{Value: 1}
@@ -326,7 +319,7 @@ func builtinInt(args ...object.Object) object.Object {
 
 func builtinFloat(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	switch arg := args[0].(type) {
@@ -338,15 +331,9 @@ func builtinFloat(args ...object.Object) object.Object {
 		var val float64
 		_, err := fmt.Sscanf(arg.Value, "%f", &val)
 		if err != nil {
-			return &object.Result{
-				IsOk:  false,
-				Value: &object.String{Value: "invalid float"},
-			}
+			return resultErrString("invalid float")
 		}
-		return &object.Result{
-			IsOk:  true,
-			Value: &object.Float{Value: val},
-		}
+		return resultOk(&object.Float{Value: val})
 	default:
 		return newError("cannot convert %s to float", args[0].Type())
 	}
@@ -354,7 +341,7 @@ func builtinFloat(args ...object.Object) object.Object {
 
 func builtinString(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	return &object.String{Value: args[0].Inspect()}
@@ -363,7 +350,7 @@ func builtinString(args ...object.Object) object.Object {
 // builtinChar creates a character from an ASCII code
 func builtinChar(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	switch arg := args[0].(type) {
@@ -372,14 +359,14 @@ func builtinChar(args ...object.Object) object.Object {
 	case *object.Char:
 		return arg
 	default:
-		return newError("char: argument must be INTEGER, got %s", args[0].Type())
+		return argTypeError("char", args[0], "INTEGER")
 	}
 }
 
 // builtinBox wraps a value in a Box (heap allocation for recursive types)
 func builtinBox(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	return &object.Box{Value: args[0]}
@@ -388,12 +375,12 @@ func builtinBox(args ...object.Object) object.Object {
 // builtinUnbox extracts the value from a Box
 func builtinUnbox(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("", len(args), "1")
 	}
 
 	box, ok := args[0].(*object.Box)
 	if !ok {
-		return newError("unbox: argument must be BOX, got %s", args[0].Type())
+		return argTypeError("unbox", args[0], "BOX")
 	}
 
 	if box.Value == nil {
@@ -405,25 +392,20 @@ func builtinUnbox(args ...object.Object) object.Object {
 
 func builtinSocketConnect(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_connect: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_connect", len(args), "2")
 	}
 
 	hostObj, ok := args[0].(*object.String)
 	if !ok {
-		return newError("__builtin_socket_connect: argument 0 must be string, got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_connect", 0, args[0], "string")
 	}
 	portObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_connect: argument 1 must be int, got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_connect", 1, args[1], "int")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet))
 	}
 
 	conn, err := net.DialTimeout(
@@ -436,10 +418,7 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 		10*time.Second,
 	)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	connMu.Lock()
@@ -448,24 +427,21 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Integer{Value: int64(id)},
-	}
+	return resultOkInt(int64(id))
 }
 
 func builtinSocketRead(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_read: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_read", len(args), "2")
 	}
 
 	fdObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_read: argument 0 must be int (fd), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_read", 0, args[0], "int (fd)")
 	}
 	nObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_read: argument 1 must be int (n), got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_read", 1, args[1], "int (n)")
 	}
 
 	connMu.Lock()
@@ -473,26 +449,15 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "invalid socket fd"},
-		}
+		return resultErrString("invalid socket fd")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet))
 	}
 
 	if nObj.Value < 0 {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "socket read count must be non-negative"},
-		}
+		return resultErrString("socket read count must be non-negative")
 	}
 
 	buf := make([]byte, int(nObj.Value))
@@ -500,21 +465,15 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	if err != nil {
 		if err == io.EOF {
 			// Return empty Vec on EOF
-			return &object.Result{
-				IsOk: true,
-				Value: &object.Vec{
-					Elements: []object.Object{},
-					Size:     -1,
-					Mutable:  true,
-					ElemType: "byte",
-				},
-			}
+			return resultOk(&object.Vec{
+				Elements: []object.Object{},
+				Size:     -1,
+				Mutable:  true,
+				ElemType: "byte",
+			})
 		}
 		if n == 0 {
-			return &object.Result{
-				IsOk:  false,
-				Value: &object.String{Value: err.Error()},
-			}
+			return resultErr(err)
 		}
 		// If partial read, that's fine.
 	}
@@ -533,25 +492,22 @@ func builtinSocketRead(args ...object.Object) object.Object {
 		ElemType: "byte",
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: vec,
-	}
+	return resultOk(vec)
 }
 
 func builtinSocketWrite(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_write: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_write", len(args), "2")
 	}
 
 	fdObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_write: argument 0 must be int (fd), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_write", 0, args[0], "int (fd)")
 	}
 
 	dataObj, ok := args[1].(*object.Vec)
 	if !ok {
-		return newError("__builtin_socket_write: argument 1 must be Vec<byte, _>, got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_write", 1, args[1], "Vec<byte, _>")
 	}
 
 	connMu.Lock()
@@ -559,19 +515,11 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "invalid socket fd"},
-		}
+		return resultErrString("invalid socket fd")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet))
 	}
 
 	// Convert Vec<int, _> to []byte
@@ -580,47 +528,34 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 		if intVal, ok := el.(*object.Integer); ok {
 			bytes[i] = byte(intVal.Value)
 		} else {
-			return &object.Result{
-				IsOk:  false,
-				Value: &object.String{Value: "invalid data type in buffer"},
-			}
+			return resultErrString("invalid data type in buffer")
 		}
 	}
 
 	_, err := conn.Write(bytes)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 func builtinSocketClose(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_socket_close: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_socket_close", len(args), "1")
 	}
 
 	fdObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_close: argument 0 must be int (fd), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_close", 0, args[0], "int (fd)")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError(
-					"socket.close",
-					runtimecap.FlagAllowNet,
-				),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError(
+			"socket.close",
+			runtimecap.FlagAllowNet,
+		),
+		)
 	}
 
 	connMu.Lock()
@@ -643,71 +578,52 @@ func builtinSocketClose(args ...object.Object) object.Object {
 		// Already closed or invalid, maybe just return Ok? Or Error?
 		// For safety, let's return Void (successful no-op) or Error if strict.
 		// Returning error for strictness.
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "invalid socket fd"},
-		}
+		return resultErrString("invalid socket fd")
 	}
 
 	if connOK {
 		if err := conn.Close(); err != nil {
-			return &object.Result{
-				IsOk:  false,
-				Value: &object.String{Value: err.Error()},
-			}
+			return resultErr(err)
 		}
 	}
 
 	if listenerOK {
 		if err := listener.Close(); err != nil {
-			return &object.Result{
-				IsOk:  false,
-				Value: &object.String{Value: err.Error()},
-			}
+			return resultErr(err)
 		}
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 func builtinSocketConnectTLS(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_connect_tls: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_connect_tls", len(args), "2")
 	}
 
 	hostObj, ok := args[0].(*object.String)
 	if !ok {
-		return newError("__builtin_socket_connect_tls: argument 0 must be string (host), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_connect_tls", 0, args[0], "string (host)")
 	}
 
 	portObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_connect_tls: argument 1 must be int (port), got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_connect_tls", 1, args[1], "int (port)")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError(
-					"socket.connectTls",
-					runtimecap.FlagAllowNet,
-				),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError(
+			"socket.connectTls",
+			runtimecap.FlagAllowNet,
+		),
+		)
 	}
 
 	addr := fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value)
 
 	conn, err := tls.Dial("tcp", addr, nil)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	connMu.Lock()
@@ -716,27 +632,22 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Integer{
-			Value: int64(id),
-		},
-	}
+	return resultOkInt(int64(id))
 }
 
 func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_set_timeout: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_set_timeout", len(args), "2")
 	}
 
 	fdObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_set_timeout: argument 0 must be int (fd), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_set_timeout", 0, args[0], "int (fd)")
 	}
 
 	msObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_set_timeout: argument 1 must be int (milliseconds), got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_set_timeout", 1, args[1], "int (milliseconds)")
 	}
 
 	connMu.Lock()
@@ -744,24 +655,15 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: "invalid socket fd",
-			},
-		}
+		return resultErrString("invalid socket fd")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError(
-					"socket.setTimeout",
-					runtimecap.FlagAllowNet,
-				),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError(
+			"socket.setTimeout",
+			runtimecap.FlagAllowNet,
+		),
+		)
 	}
 
 	duration := time.Duration(msObj.Value) * time.Millisecond
@@ -773,52 +675,39 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	}
 
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 func builtinSocketBind(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__builtin_socket_bind: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__builtin_socket_bind", len(args), "2")
 	}
 
 	hostObj, ok := args[0].(*object.String)
 	if !ok {
-		return newError("__builtin_socket_bind: argument 0 must be string (host), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_bind", 0, args[0], "string (host)")
 	}
 
 	portObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_bind: argument 1 must be int (port), got %s", args[1].Type())
+		return nthArgTypeError("__builtin_socket_bind", 1, args[1], "int (port)")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError(
-					"socket.bind",
-					runtimecap.FlagAllowNet,
-				),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError(
+			"socket.bind",
+			runtimecap.FlagAllowNet,
+		),
+		)
 	}
 
 	addr := fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	connMu.Lock()
@@ -827,32 +716,25 @@ func builtinSocketBind(args ...object.Object) object.Object {
 	listeners[id] = listener
 	connMu.Unlock()
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Integer{Value: int64(id)},
-	}
+	return resultOkInt(int64(id))
 }
 
 func builtinSocketAccept(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_socket_accept: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_socket_accept", len(args), "1")
 	}
 
 	fdObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_socket_accept: argument 0 must be int (listener_fd), got %s", args[0].Type())
+		return nthArgTypeError("__builtin_socket_accept", 0, args[0], "int (listener_fd)")
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk: false,
-			Value: &object.String{
-				Value: runtimecap.PermissionError(
-					"socket.accept",
-					runtimecap.FlagAllowNet,
-				),
-			},
-		}
+		return resultErrString(runtimecap.PermissionError(
+			"socket.accept",
+			runtimecap.FlagAllowNet,
+		),
+		)
 	}
 
 	connMu.Lock()
@@ -860,18 +742,12 @@ func builtinSocketAccept(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "invalid listener fd"},
-		}
+		return resultErrString("invalid listener fd")
 	}
 
 	conn, err := listener.Accept()
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
 	connMu.Lock()
@@ -880,27 +756,21 @@ func builtinSocketAccept(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Integer{Value: int64(id)},
-	}
+	return resultOkInt(int64(id))
 }
 
 func builtinSleep(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_sleep: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_sleep", len(args), "1")
 	}
 	ms, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_sleep: argument must be int (ms), got %s", args[0].Type())
+		return argTypeError("__builtin_sleep", args[0], "int (ms)")
 	}
 
 	time.Sleep(time.Duration(ms.Value) * time.Millisecond)
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 func builtinTimeNow(args ...object.Object) object.Object {
@@ -909,11 +779,11 @@ func builtinTimeNow(args ...object.Object) object.Object {
 
 func builtinTimeParts(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_time_parts: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_time_parts", len(args), "1")
 	}
 	nanosObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_time_parts: argument must be int (nanos), got %s", args[0].Type())
+		return argTypeError("__builtin_time_parts", args[0], "int (nanos)")
 	}
 
 	tm := time.Unix(0, nanosObj.Value).UTC()
@@ -962,11 +832,11 @@ func builtinMutexNew(args ...object.Object) object.Object {
 
 func builtinAllocArray(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__alloc_array: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__alloc_array", len(args), "2")
 	}
 	capObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__alloc_array: argument 0 must be int (capacity), got %s", args[0].Type())
+		return nthArgTypeError("__alloc_array", 0, args[0], "int (capacity)")
 	}
 	capacity := int(capObj.Value)
 	if capacity < 0 {
@@ -992,11 +862,11 @@ func builtinAllocArray(args ...object.Object) object.Object {
 // builtinVecAlloc: allocate an opaque Vec buffer (used as backing store)
 func builtinVecAlloc(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__vec_alloc: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__vec_alloc", len(args), "2")
 	}
 	capObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__vec_alloc: argument 0 must be int (capacity), got %s", args[0].Type())
+		return nthArgTypeError("__vec_alloc", 0, args[0], "int (capacity)")
 	}
 	capacity := int(capObj.Value)
 	if capacity < 0 {
@@ -1021,11 +891,11 @@ func builtinVecAlloc(args ...object.Object) object.Object {
 // builtinVecLen: returns the underlying buffer length (capacity for buffer Vec)
 func builtinVecLen(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__vec_len: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__vec_len", len(args), "1")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("__vec_len: argument must be Vec, got %s", args[0].Type())
+		return argTypeError("__vec_len", args[0], "Vec")
 	}
 	return &object.Integer{Value: int64(len(vec.Elements))}
 }
@@ -1033,11 +903,11 @@ func builtinVecLen(args ...object.Object) object.Object {
 // builtinVecCap: returns capacity of the underlying buffer
 func builtinVecCap(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__vec_cap: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__vec_cap", len(args), "1")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("__vec_cap: argument must be Vec, got %s", args[0].Type())
+		return argTypeError("__vec_cap", args[0], "Vec")
 	}
 	return &object.Integer{Value: int64(cap(vec.Elements))}
 }
@@ -1045,15 +915,15 @@ func builtinVecCap(args ...object.Object) object.Object {
 // builtinVecGet: returns element at index (no Option wrapper)
 func builtinVecGet(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__vec_get: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__vec_get", len(args), "2")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("__vec_get: argument 0 must be Vec, got %s", args[0].Type())
+		return nthArgTypeError("__vec_get", 0, args[0], "Vec")
 	}
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__vec_get: argument 1 must be int, got %s", args[1].Type())
+		return nthArgTypeError("__vec_get", 1, args[1], "int")
 	}
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
@@ -1065,15 +935,15 @@ func builtinVecGet(args ...object.Object) object.Object {
 // builtinVecSet: sets element at index
 func builtinVecSet(args ...object.Object) object.Object {
 	if len(args) != 3 {
-		return newError("__vec_set: wrong number of arguments. got=%d, want=3", len(args))
+		return argCountError("__vec_set", len(args), "3")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("__vec_set: argument 0 must be Vec, got %s", args[0].Type())
+		return nthArgTypeError("__vec_set", 0, args[0], "Vec")
 	}
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__vec_set: argument 1 must be int, got %s", args[1].Type())
+		return nthArgTypeError("__vec_set", 1, args[1], "int")
 	}
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
@@ -1086,15 +956,15 @@ func builtinVecSet(args ...object.Object) object.Object {
 // builtinVecGrow: grow underlying buffer to at least newcap, returns new Vec buffer
 func builtinVecGrow(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("__vec_grow: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("__vec_grow", len(args), "2")
 	}
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
-		return newError("__vec_grow: argument 0 must be Vec, got %s", args[0].Type())
+		return nthArgTypeError("__vec_grow", 0, args[0], "Vec")
 	}
 	capObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("__vec_grow: argument 1 must be int, got %s", args[1].Type())
+		return nthArgTypeError("__vec_grow", 1, args[1], "int")
 	}
 	newCap := int(capObj.Value)
 	if newCap <= len(vec.Elements) {
@@ -1116,11 +986,11 @@ func builtinVecGrow(args ...object.Object) object.Object {
 
 func builtinMutexLock(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_mutex_lock: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_mutex_lock", len(args), "1")
 	}
 	idObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_mutex_lock: argument must be int (id), got %s", args[0].Type())
+		return argTypeError("__builtin_mutex_lock", args[0], "int (id)")
 	}
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]
@@ -1134,11 +1004,11 @@ func builtinMutexLock(args ...object.Object) object.Object {
 
 func builtinMutexUnlock(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("__builtin_mutex_unlock: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("__builtin_mutex_unlock", len(args), "1")
 	}
 	idObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("__builtin_mutex_unlock: argument must be int (id), got %s", args[0].Type())
+		return argTypeError("__builtin_mutex_unlock", args[0], "int (id)")
 	}
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]

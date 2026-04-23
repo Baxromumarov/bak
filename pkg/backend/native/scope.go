@@ -87,9 +87,12 @@ func (s *EmitState) resolveConst(name string) (int, bool) {
 
 // pushLoop pushes a new loop context for break/continue tracking.
 func (s *EmitState) pushLoop(continueTarget int) {
-	s.LoopStack = append(s.LoopStack, LoopContext{
-		ContinueTarget: continueTarget,
-	})
+	s.LoopStack = append(
+		s.LoopStack,
+		LoopContext{
+			ContinueTarget: continueTarget,
+		},
+	)
 }
 
 // popLoop pops the current loop context and returns it.
@@ -97,6 +100,7 @@ func (s *EmitState) popLoop() *LoopContext {
 	if len(s.LoopStack) == 0 {
 		return nil
 	}
+
 	ctx := s.LoopStack[len(s.LoopStack)-1]
 	s.LoopStack = s.LoopStack[:len(s.LoopStack)-1]
 	return &ctx
@@ -107,6 +111,7 @@ func (s *EmitState) currentLoop() *LoopContext {
 	if len(s.LoopStack) == 0 {
 		return nil
 	}
+	
 	return &s.LoopStack[len(s.LoopStack)-1]
 }
 

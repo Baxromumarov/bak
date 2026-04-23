@@ -204,6 +204,7 @@ func convertFunction(fn functionJSON) (*compiler.FunctionObj, error) {
 func convertStruct(s structJSON) (*compiler.StructDef, error) {
 	fields := make([]compiler.FieldDef, len(s.Fields))
 	fieldIndex := make(map[string]int, len(s.Fields))
+	
 	for i, f := range s.Fields {
 		fields[i] = compiler.FieldDef{
 			Name:     f.Name,
@@ -212,6 +213,7 @@ func convertStruct(s structJSON) (*compiler.StructDef, error) {
 		}
 		fieldIndex[f.Name] = i
 	}
+
 	return &compiler.StructDef{
 		Name:       s.Name,
 		TypeID:     s.TypeID,
@@ -227,8 +229,10 @@ func convertEnum(e enumJSON) (*compiler.EnumDef, error) {
 			maxVariantID = v.VariantID
 		}
 	}
+
 	variants := make([]compiler.VariantDef, maxVariantID+1)
 	variantIndex := make(map[string]int, len(e.Variants))
+	
 	for _, v := range e.Variants {
 		variants[v.VariantID] = compiler.VariantDef{
 			Name:         v.Name,

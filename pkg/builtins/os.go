@@ -31,7 +31,7 @@ var OSModule = &object.Module{
 // osArgs returns command-line arguments as Vec<string, _>
 func osArgs(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.args: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.args", len(args), "0")
 	}
 
 	osArgs := os.Args
@@ -51,12 +51,12 @@ func osArgs(args ...object.Object) object.Object {
 // osExit exits the program with a status code
 func osExit(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("os.exit: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("os.exit", len(args), "1")
 	}
 
 	code, ok := args[0].(*object.Integer)
 	if !ok {
-		return newError("os.exit: argument must be INTEGER, got %s", args[0].Type())
+		return argTypeError("os.exit", args[0], "INTEGER")
 	}
 
 	os.Exit(int(code.Value))
@@ -66,67 +66,55 @@ func osExit(args ...object.Object) object.Object {
 // osGetenv gets an environment variable, returns Result<string, string>
 func osGetenv(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("os.getenv: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("os.getenv", len(args), "1")
 	}
 
 	name, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.getenv: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("os.getenv", args[0], "STRING")
 	}
 
 	value, exists := os.LookupEnv(name.Value)
 	if !exists {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: "environment variable '" + name.Value + "' is not set"},
-		}
+		return resultErrString("environment variable '" + name.Value + "' is not set")
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.String{Value: value},
-	}
+	return resultOk(&object.String{Value: value})
 }
 
 // osSetenv sets an environment variable
 func osSetenv(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("os.setenv: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("os.setenv", len(args), "2")
 	}
 
 	name, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.setenv: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("os.setenv", args[0], "STRING")
 	}
 
 	value, ok := args[1].(*object.String)
 	if !ok {
-		return newError("os.setenv: second argument must be STRING, got %s", args[1].Type())
+		return secondArgTypeError("os.setenv", args[1], "STRING")
 	}
 
 	err := os.Setenv(name.Value, value.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // osHasenv checks if an environment variable exists
 func osHasenv(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("os.hasenv: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("os.hasenv", len(args), "1")
 	}
 
 	name, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.hasenv: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("os.hasenv", args[0], "STRING")
 	}
 
 	_, exists := os.LookupEnv(name.Value)
@@ -136,84 +124,66 @@ func osHasenv(args ...object.Object) object.Object {
 // osCwd returns the current working directory
 func osCwd(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.cwd: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.cwd", len(args), "0")
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.String{Value: cwd},
-	}
+	return resultOk(&object.String{Value: cwd})
 }
 
 // osChdir changes the current working directory
 func osChdir(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return newError("os.chdir: wrong number of arguments. got=%d, want=1", len(args))
+		return argCountError("os.chdir", len(args), "1")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.chdir: argument must be STRING, got %s", args[0].Type())
+		return argTypeError("os.chdir", args[0], "STRING")
 	}
 
 	err := os.Chdir(path.Value)
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // osExecutable returns the path of the current executable
 func osExecutable(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.executable: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.executable", len(args), "0")
 	}
 
 	path, err := os.Executable()
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.String{Value: path},
-	}
+	return resultOk(&object.String{Value: path})
 }
 
 // osHostname returns the system hostname
 func osHostname(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.hostname: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.hostname", len(args), "0")
 	}
 	name, err := os.Hostname()
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
-	return &object.Result{IsOk: true, Value: &object.String{Value: name}}
+	return resultOkString(name)
 }
 
 // osTempDir returns the temp directory path (string)
 func osTempDir(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.tempDir: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.tempDir", len(args), "0")
 	}
 	return &object.String{Value: os.TempDir()}
 }
@@ -221,62 +191,56 @@ func osTempDir(args ...object.Object) object.Object {
 // osUserHomeDir returns the user home directory path
 func osUserHomeDir(args ...object.Object) object.Object {
 	if len(args) != 0 {
-		return newError("os.userHomeDir: wrong number of arguments. got=%d, want=0", len(args))
+		return argCountError("os.userHomeDir", len(args), "0")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
-	return &object.Result{IsOk: true, Value: &object.String{Value: home}}
+	return resultOkString(home)
 }
 
 // osChmod changes file mode bits
 // Takes (path: string, mode: int) -> Result<void, string>
 func osChmod(args ...object.Object) object.Object {
 	if len(args) != 2 {
-		return newError("os.chmod: wrong number of arguments. got=%d, want=2", len(args))
+		return argCountError("os.chmod", len(args), "2")
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.chmod: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("os.chmod", args[0], "STRING")
 	}
 
 	modeInt, ok := args[1].(*object.Integer)
 	if !ok {
-		return newError("os.chmod: second argument must be INTEGER, got %s", args[1].Type())
+		return secondArgTypeError("os.chmod", args[1], "INTEGER")
 	}
 	if denied := requireFSMutatePermission("os.chmod"); denied != nil {
 		return denied
 	}
 	if err := validateDestructivePath(path.Value, "os.chmod"); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErr(err)
 	}
 
 	err := os.Chmod(path.Value, os.FileMode(modeInt.Value))
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk:  true,
-		Value: &object.Void{},
-	}
+	return resultOkVoid()
 }
 
 // osExec executes an external command without invoking a shell.
 // Returns Result<ExecResult, string>.
 func osExec(args ...object.Object) object.Object {
 	if len(args) < 1 {
-		return newError("os.exec: wrong number of arguments. got=%d, want at least 1", len(args))
+		return argCountError("os.exec", len(args), "at least 1")
 	}
 
 	cmdName, ok := args[0].(*object.String)
 	if !ok {
-		return newError("os.exec: first argument must be STRING, got %s", args[0].Type())
+		return firstArgTypeError("os.exec", args[0], "STRING")
 	}
 
 	// Extract command arguments
@@ -284,7 +248,7 @@ func osExec(args ...object.Object) object.Object {
 	if len(args) > 1 {
 		argsVec, ok := args[1].(*object.Vec)
 		if !ok {
-			return newError("os.exec: second argument must be VEC, got %s", args[1].Type())
+			return secondArgTypeError("os.exec", args[1], "VEC")
 		}
 		for _, elem := range argsVec.Elements {
 			str, ok := elem.(*object.String)
@@ -296,32 +260,23 @@ func osExec(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowExec {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("os.exec", runtimecap.FlagAllowExec)},
-		}
+		return resultErrString(runtimecap.PermissionError("os.exec", runtimecap.FlagAllowExec))
 	}
 
 	execResult, err := runtimecap.ExecuteCommand(cmdName.Value, cmdArgs, runtimecap.Current())
 	if err != nil {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: err.Error()},
-		}
+		return resultErr(err)
 	}
 
-	return &object.Result{
-		IsOk: true,
-		Value: &object.Struct{
-			Name: "ExecResult",
-			Fields: map[string]object.Object{
-				"Output":    &object.String{Value: execResult.Output},
-				"Stdout":    &object.String{Value: execResult.Stdout},
-				"Stderr":    &object.String{Value: execResult.Stderr},
-				"ExitCode":  &object.Integer{Value: execResult.ExitCode},
-				"TimedOut":  &object.Boolean{Value: execResult.TimedOut},
-				"Truncated": &object.Boolean{Value: execResult.Truncated},
-			},
+	return resultOk(&object.Struct{
+		Name: "ExecResult",
+		Fields: map[string]object.Object{
+			"Output":    &object.String{Value: execResult.Output},
+			"Stdout":    &object.String{Value: execResult.Stdout},
+			"Stderr":    &object.String{Value: execResult.Stderr},
+			"ExitCode":  &object.Integer{Value: execResult.ExitCode},
+			"TimedOut":  &object.Boolean{Value: execResult.TimedOut},
+			"Truncated": &object.Boolean{Value: execResult.Truncated},
 		},
-	}
+	})
 }
