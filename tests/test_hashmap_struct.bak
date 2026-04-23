@@ -8,7 +8,7 @@ struct Vector2 {
 }
 
 func main() -> (void) {
-    mut var map: hashmap.HashMap<Vector2, string> = hashmap.new_hash_map()
+    mut var map: hashmap.HashMap<Vector2, string> = hashmap.newHashMap()
     var v1: Vector2 = Vector2{x: 1, y: 2}
 
     map.insert(

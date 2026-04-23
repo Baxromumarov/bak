@@ -16,9 +16,9 @@ pub func spawn<T>(f: func(T)->(void), arg: T) -> (Thread) {
 }
 
 pub func sleep(d: time.Duration) -> (void) {
-    __builtin_sleep(d.as_millis())
+    __builtin_sleep(d.asMillis())
 }
 
-pub func current_id() -> (int) {
+pub func currentId() -> (int) {
     return __builtin_thread_id()
 }

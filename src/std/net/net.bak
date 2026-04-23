@@ -23,7 +23,7 @@ pub func connect(host: string, port: int) -> (Result<TcpStream, string>) {
 }
 
 
-pub func connect_tls(host: string, port: int) -> (Result<TcpStream, string>) {
+pub func connectTls(host: string, port: int) -> (Result<TcpStream, string>) {
     var res = __builtin_socket_connect_tls(host, port)
     switch res {
         case Ok(fd) {
@@ -35,7 +35,7 @@ pub func connect_tls(host: string, port: int) -> (Result<TcpStream, string>) {
     }
 }
 
-pub func set_timeout(s: &mut TcpStream, ms: int) -> (Result<void, string>) {
+pub func setTimeout(s: &mut TcpStream, ms: int) -> (Result<void, string>) {
     return __builtin_socket_set_timeout((*s).fd, ms)
 }
 
@@ -51,7 +51,7 @@ pub func close(s: &mut TcpStream) -> (Result<void, string>) {
     return __builtin_socket_close((*s).fd)
 }
 
-pub func close_listener(l: &mut TcpListener) -> (Result<void, string>) {
+pub func closeListener(l: &mut TcpListener) -> (Result<void, string>) {
     return __builtin_socket_close((*l).fd)
 }
 

@@ -10,7 +10,7 @@ func test_addition() -> (void) {
 
 func test_pass() -> (void) {
     mut var t: test.T = test.new("test_pass")
-    t.is_true(true)
+    t.isTrue(true)
     t.finish()
 }
 

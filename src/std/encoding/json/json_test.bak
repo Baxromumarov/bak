@@ -12,9 +12,9 @@ struct AppMeta {
 func app_meta_fields(m: AppMeta) -> (Vec<j.JsonEntry, _>) {
     return Vec.from(
         [
-            j.entry_string("name", m.name),
-            j.entry_int("version", m.version),
-            j.entry_bool("ok", m.ok),
+            j.entryString("name", m.name),
+            j.entryInt("version", m.version),
+            j.entryBool("ok", m.ok),
         ],
     )
 }
@@ -23,23 +23,23 @@ func test_object_getters() -> (void) {
     mut var t: test.T = test.new("test_object_getters")
     var entries: Vec<j.JsonEntry, _> = Vec.from([j.entry("name", j.Json.String("bak")), j.entry("age", j.Json.Int(3)), j.entry("ok", j.Json.Boolean(true))])
     var obj: j.Json = j.object(entries)
-    switch j.get_string(&obj, "name") {
+    switch j.getString(&obj, "name") {
         case Ok(v) {
-            t.eq_string(v, "bak")
+            t.eqString(v, "bak")
         }
         case Err(_) {
             t.fail("missing name")
         }
     }
-    switch j.get_number(&obj, "age") {
+    switch j.getNumber(&obj, "age") {
         case Ok(v) {
-            t.eq_float(v, 3.0)
+            t.eqFloat(v, 3.0)
         }
         case Err(_) {
             t.fail("missing age")
         }
     }
-    switch j.get_bool(&obj, "ok") {
+    switch j.getBool(&obj, "ok") {
         case Ok(v) {
             t.eq(v, true)
         }
@@ -72,9 +72,9 @@ func test_object_helpers() -> (void) {
     var obj: j.Json = j.encode_obj(meta, app_meta_fields)
     var compact: string = j.marshal_obj(meta, app_meta_fields)
 
-    switch j.get_string(&obj, "name") {
+    switch j.getString(&obj, "name") {
         case Ok(name) {
-            t.eq_string(name, "bak")
+            t.eqString(name, "bak")
         }
         case Err(err) {
             t.fail("name missing: " + err)

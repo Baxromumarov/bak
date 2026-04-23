@@ -5,10 +5,10 @@ import "src/std/filepath/filepath.bak" as fp
 
 func test_filepath_wrappers() -> (void) {
     mut var t: test.T = test.new("test_filepath_wrappers")
-    t.eq_string(fp.clean("a//b/./c"), "a/b/c")
-    t.eq_string(fp.join("/a", "b"), "/a/b")
-    t.eq_string(fp.base("/a/b/"), "b")
-    t.eq_string(fp.dir("/a/b/"), "/a")
-    t.eq_string(fp.ext("file.txt"), ".txt")
+    t.eqString(fp.clean("a//b/./c"), "a/b/c")
+    t.eqString(fp.join("/a", "b"), "/a/b")
+    t.eqString(fp.base("/a/b/"), "b")
+    t.eqString(fp.dir("/a/b/"), "/a")
+    t.eqString(fp.ext("file.txt"), ".txt")
     t.finish()
 }

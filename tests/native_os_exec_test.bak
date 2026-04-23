@@ -12,7 +12,7 @@ func main() -> (void) {
         args,
     )
 
-    if result.is_ok() {
+    if result.isOk() {
         println("PASS: exec succeeded")
     } else {
         println("FAIL: exec failed")

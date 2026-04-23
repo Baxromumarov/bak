@@ -17,8 +17,8 @@ pub func connect_to_db() -> (UsersDB) {
     
     var conn_result = postgres.connect(conn_str)
 
-    if conn_result.is_err() {
-        println("Error connecting to database: " + conn_result.unwrap_err())
+    if conn_result.isErr() {
+        println("Error connecting to database: " + conn_result.unwrapErr())
         return UsersDB{}
     }
     
@@ -33,8 +33,8 @@ impl UsersDB as u {
     pub func get_all_users() -> (Result<Vec<user, _>, string>) {
         var sql: string = "SELECT id, name, balance FROM users" 
         var result = postgres.query(&u.db, sql)
-        if result.is_err() {
-            return Err(result.unwrap_err())
+        if result.isErr() {
+            return Err(result.unwrapErr())
         }
 
         return map_query_result_to_users(result.unwrap())
@@ -42,40 +42,40 @@ impl UsersDB as u {
 
     pub func get_user_by_id(id: int) -> (Result<user, string>) {
         var sql: string = "SELECT id, name, balance FROM users WHERE id = $1"
-        var params: Vec<string, _> = Vec.from([id.to_string()])
-        var result = postgres.query_params(&u.db, sql, params)
-        if result.is_err() {
-            return Err(result.unwrap_err())
+        var params: Vec<string, _> = Vec.from([id.toString()])
+        var result = postgres.queryParams(&u.db, sql, params)
+        if result.isErr() {
+            return Err(result.unwrapErr())
         }
         return map_query_result_to_user(result.unwrap())
     }
 
     pub func create_user(name: string, balance: float64) -> (Result<user, string>) {
         var sql: string = "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([name, balance.to_string()])
-        var result = postgres.query_params(&u.db, sql, params)
-        if result.is_err() {
-            return Err(result.unwrap_err())
+        var params: Vec<string, _> = Vec.from([name, balance.toString()])
+        var result = postgres.queryParams(&u.db, sql, params)
+        if result.isErr() {
+            return Err(result.unwrapErr())
         }
         return map_query_result_to_user(result.unwrap())
     }
 
     pub func update_user(id: int, name: string, balance: float64) -> (Result<user, string>) {
         var sql: string = "UPDATE users SET name = $1, balance = $2 WHERE id = $3 RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([name, balance.to_string(), id.to_string()])
-        var result = postgres.query_params(&u.db, sql, params)
-        if result.is_err() {
-            return Err(result.unwrap_err())
+        var params: Vec<string, _> = Vec.from([name, balance.toString(), id.toString()])
+        var result = postgres.queryParams(&u.db, sql, params)
+        if result.isErr() {
+            return Err(result.unwrapErr())
         }
         return map_query_result_to_user(result.unwrap())
     }
 
     pub func delete_user(id: int) -> (Result<user, string>) {
         var sql: string = "DELETE FROM users WHERE id = $1 RETURNING id, name, balance"
-        var params: Vec<string, _> = Vec.from([id.to_string()])
-        var result = postgres.query_params(&u.db, sql, params)
-        if result.is_err() {
-            return Err(result.unwrap_err())
+        var params: Vec<string, _> = Vec.from([id.toString()])
+        var result = postgres.queryParams(&u.db, sql, params)
+        if result.isErr() {
+            return Err(result.unwrapErr())
         }
         return map_query_result_to_user(result.unwrap())
     }
@@ -86,19 +86,19 @@ func map_query_result_to_users(result: db.QueryResult) -> (Result<Vec<user, _>, 
 
     var rows: Vec<db.Row, _> = db.rows(&result)
     for row in rows {
-        var id_result = row.get_int("id")
-        if id_result.is_err() {
-            return Err(id_result.unwrap_err())
+        var id_result = row.getInt("id")
+        if id_result.isErr() {
+            return Err(id_result.unwrapErr())
         }
 
         var name_result = get_required_string(&row, "name")
-        if name_result.is_err() {
-            return Err(name_result.unwrap_err())
+        if name_result.isErr() {
+            return Err(name_result.unwrapErr())
         }
         
         var balance_result = get_float_or(&row, "balance", 0.0)
-        if balance_result.is_err() {
-            return Err(balance_result.unwrap_err())
+        if balance_result.isErr() {
+            return Err(balance_result.unwrapErr())
         }
     
         users.push(user{
@@ -119,19 +119,19 @@ func map_query_result_to_user(result: db.QueryResult) -> (Result<user, string>) 
     }
 
     var row: db.Row = rows[0]
-    var id_result = row.get_int("id")
-    if id_result.is_err() {
-        return Err(id_result.unwrap_err())
+    var id_result = row.getInt("id")
+    if id_result.isErr() {
+        return Err(id_result.unwrapErr())
     }
 
     var name_result = get_required_string(&row, "name")
-    if name_result.is_err() {
-        return Err(name_result.unwrap_err())
+    if name_result.isErr() {
+        return Err(name_result.unwrapErr())
     }
     
     var balance_result = get_float_or(&row, "balance", 0.0)
-    if balance_result.is_err() {
-        return Err(balance_result.unwrap_err())
+    if balance_result.isErr() {
+        return Err(balance_result.unwrapErr())
     }
 
     return Ok(user{
@@ -150,7 +150,7 @@ func get_required_string(row: &db.Row, name: string) -> (Result<string, string>)
 
 func get_float_or(row: &db.Row, name: string, fallback: float64) -> (Result<float64, string>) {
     switch row.get(name) {
-        case Ok(v) { return v.parse_float() }
+        case Ok(v) { return v.parseFloat() }
         case Err(_) { return Ok(fallback) }
     }
 }

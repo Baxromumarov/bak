@@ -9,7 +9,7 @@ func main()-> (void){
     var arr3: Vec<int,5> = Vec.from([1, 2, 3, 4, 5])// correct version with matching size
     var arr4: Vec<int, 4> // zero-initialized static array
     mut var arr5: Vec<int,_> = Vec.new() // empty dynamic vec, must be mutable
-    mut var arr6: Vec<int,_> = Vec.with_cap(16) // pre-allocated capacity
+    mut var arr6: Vec<int,_> = Vec.withCap(16) // pre-allocated capacity
     
     println("arr:", arr[0], arr[1], arr[2])
     println("arr1 len:", arr1.len())

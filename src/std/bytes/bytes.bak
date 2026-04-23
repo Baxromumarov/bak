@@ -8,20 +8,20 @@ pub func new() -> (types.Bytes) {
     return types.Bytes{data: Vec.new()}
 }
 
-// with_capacity creates a Bytes buffer with an initial capacity (best-effort)
-pub func with_capacity(_cap: int) -> (types.Bytes) {
+// withCapacity creates a Bytes buffer with an initial capacity (best-effort)
+pub func withCapacity(_cap: int) -> (types.Bytes) {
     // Vec with explicit capacity API is not exposed everywhere yet;
     // fall back to empty Vec for now.
     return types.Bytes{data: Vec.new()}
 }
 
-// from_vec takes ownership of an existing Vec<int, _> and returns Bytes
-pub func from_vec(v: Vec<int, _>) -> (types.Bytes) {
+// fromVec takes ownership of an existing Vec<int, _> and returns Bytes
+pub func fromVec(v: Vec<int, _>) -> (types.Bytes) {
     return types.Bytes{data: v}
 }
 
-// from_string creates a Bytes buffer from a string (byte-wise copy)
-pub func from_string(s: string) -> (types.Bytes) {
+// fromString creates a Bytes buffer from a string (byte-wise copy)
+pub func fromString(s: string) -> (types.Bytes) {
     mut var out: types.Bytes = types.Bytes{data: Vec.new()}
     mut var i: int = 0
     while i < s.len() {
@@ -31,8 +31,8 @@ pub func from_string(s: string) -> (types.Bytes) {
     return out
 }
 
-// to_string converts bytes to string by casting each element to char
-pub func to_string(b: &types.Bytes) -> (string) {
+// toString converts bytes to string by casting each element to char
+pub func toString(b: &types.Bytes) -> (string) {
     mut var out: string = ""
     mut var i: int = 0
     while i < b.data.len() {
@@ -43,7 +43,7 @@ pub func to_string(b: &types.Bytes) -> (string) {
 }
 
 // to_vec copies bytes into a Vec<int, _>
-pub func to_vec(b: &types.Bytes) -> (Vec<int, _>) {
+pub func toVec(b: &types.Bytes) -> (Vec<int, _>) {
     mut var out: Vec<int, _> = Vec.new()
     mut var i: int = 0
     while i < b.data.len() {
@@ -96,36 +96,36 @@ pub func set(b: &mut types.Bytes, i: int, v: int) -> (Result<void, string>) {
 // View functions
 // -----------------------------------------------------------------------------
 
-// view_length for views
-pub func view_length(v: &types.BytesView) -> (int) {
+// viewLength for views
+pub func viewLength(v: &types.BytesView) -> (int) {
     return v.data.len()
 }
 
-// view_get from view
-pub func view_get(v: &types.BytesView, i: int) -> (Result<int, string>) {
+// viewGet from view
+pub func viewGet(v: &types.BytesView, i: int) -> (Result<int, string>) {
     if i < 0 || i >= v.data.len() {
         return Err("index out of bounds")
     }
     return Ok(v.data[i])
 }
 
-// read_file reads a file and returns its bytes
-pub func read_file(path: string) -> (Result<types.Bytes, string>) {
+// readFile reads a file and returns its bytes
+pub func readFile(path: string) -> (Result<types.Bytes, string>) {
     // Prefer reading raw bytes via fs.readFileBytes when available.
     var rb: Result<Vec<int, _>, string> = fs.readFileBytes(&path)
-    if rb.is_ok() {
-        return Ok(from_vec(rb.unwrap()))
+    if rb.isOk() {
+        return Ok(fromVec(rb.unwrap()))
     }
     // fall back to string-based read
     var r: Result<string, string> = fs.readFile(path)
-    if r.is_ok() {
-        return Ok(from_string(r.unwrap()))
+    if r.isOk() {
+        return Ok(fromString(r.unwrap()))
     }
-    return Err(r.unwrap_err())
+    return Err(r.unwrapErr())
 }
 
-// write_file writes bytes to a file
-pub func write_file(path: string, data: &types.Bytes) -> (Result<void, string>) {
+// writeFile writes bytes to a file
+pub func writeFile(path: string, data: &types.Bytes) -> (Result<void, string>) {
     // Prefer writing raw bytes
     mut var vecData: Vec<int,_> = Vec.new()
     mut var i: int = 0
@@ -135,8 +135,8 @@ pub func write_file(path: string, data: &types.Bytes) -> (Result<void, string>) 
     }
 
     var wres: Result<void, string> = fs.writeFileBytes(&path, vecData)
-    if wres.is_ok() {
+    if wres.isOk() {
         return Ok(void)
     }
-    return Err(wres.unwrap_err())
+    return Err(wres.unwrapErr())
 }

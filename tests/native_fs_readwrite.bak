@@ -8,7 +8,7 @@ func main() -> (void) {
     var test_content: string = "Hello from Bak native fs.writeFile!"
     var write_result: Result<void, string> = fs.writeFile("/tmp/bak_fs_write_test.txt", test_content)
 
-    if write_result.is_ok() {
+    if write_result.isOk() {
         println("PASS: fs.writeFile succeeded")
     } else {
         println("FAIL: fs.writeFile failed")
@@ -17,7 +17,7 @@ func main() -> (void) {
     // Test fs.readFile
     var result: Result<string, string> = fs.readFile("/tmp/bak_fs_write_test.txt")
 
-    if result.is_ok() {
+    if result.isOk() {
         println("PASS: fs.readFile succeeded")
     } else {
         println("FAIL: fs.readFile failed")
@@ -26,7 +26,7 @@ func main() -> (void) {
     // Test reading non-existent file
     var bad_result: Result<string, string> = fs.readFile("/this/file/does/not/exist/at/all.txt")
 
-    if bad_result.is_err() {
+    if bad_result.isErr() {
         println("PASS: fs.readFile returns Err for non-existent file")
     } else {
         println("FAIL: fs.readFile should have returned Err")

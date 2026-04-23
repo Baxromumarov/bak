@@ -28,23 +28,23 @@ pub func entry(key: string, value: Json) -> (JsonEntry) {
 }
 
 // Typed entry helpers for object construction without manual Json.* wrapping.
-pub func entry_int(key: string, value: int) -> (JsonEntry) {
+pub func entryInt(key: string, value: int) -> (JsonEntry) {
     return entry(key, Json.Int(value))
 }
 
-pub func entry_float(key: string, value: float64) -> (JsonEntry) {
+pub func entryFloat(key: string, value: float64) -> (JsonEntry) {
     return entry(key, Json.Float(value))
 }
 
-pub func entry_string(key: string, value: string) -> (JsonEntry) {
+pub func entryString(key: string, value: string) -> (JsonEntry) {
     return entry(key, Json.String(value))
 }
 
-pub func entry_bool(key: string, value: bool) -> (JsonEntry) {
+pub func entryBool(key: string, value: bool) -> (JsonEntry) {
     return entry(key, Json.Boolean(value))
 }
 
-pub func entry_json(key: string, value: Json) -> (JsonEntry) {
+pub func entryJson(key: string, value: Json) -> (JsonEntry) {
     return entry(key, value)
 }
 
@@ -84,7 +84,7 @@ pub func marshal_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
 // =============================================================================
 // JSON Access Helpers
 // =============================================================================
-pub func is_null(j: Json) -> (bool) {
+pub func isNull(j: Json) -> (bool) {
     switch j {
         case Null {
             return true
@@ -109,7 +109,7 @@ pub func get(obj: &Json, key: string) -> (Result<Json, string>) {
     return Err("expected object")
 }
 
-pub func get_string(obj: &Json, key: string) -> (Result<string, string>) {
+pub func getString(obj: &Json, key: string) -> (Result<string, string>) {
 	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
@@ -126,7 +126,7 @@ pub func get_string(obj: &Json, key: string) -> (Result<string, string>) {
     return Err("expected string at key: " + key_copy)
 }
 
-pub func get_number(obj: &Json, key: string) -> (Result<float64, string>) {
+pub func getNumber(obj: &Json, key: string) -> (Result<float64, string>) {
 	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
@@ -142,8 +142,8 @@ pub func get_number(obj: &Json, key: string) -> (Result<float64, string>) {
     return Err("expected number at key: " + key_copy)
 }
 
-// get_int returns the integer value of a JSON Int field
-pub func get_int(obj: &Json, key: string) -> (Result<int, string>) {
+// getInt returns the integer value of a JSON Int field
+pub func getInt(obj: &Json, key: string) -> (Result<int, string>) {
 	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
@@ -158,8 +158,8 @@ pub func get_int(obj: &Json, key: string) -> (Result<int, string>) {
     return Err("expected int at key: " + key_copy)
 }
 
-// get_float returns the float value of a JSON Float field  
-pub func get_float(obj: &Json, key: string) -> (Result<float64, string>) {
+// getFloat returns the float value of a JSON Float field  
+pub func getFloat(obj: &Json, key: string) -> (Result<float64, string>) {
 	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
@@ -174,7 +174,7 @@ pub func get_float(obj: &Json, key: string) -> (Result<float64, string>) {
     return Err("expected float at key: " + key_copy)
 }
 
-pub func get_bool(obj: &Json, key: string) -> (Result<bool, string>) {
+pub func getBool(obj: &Json, key: string) -> (Result<bool, string>) {
 	var key_copy: string = clone_string(&key)
     switch get(obj, key) {
         case Ok(val) {
@@ -191,7 +191,7 @@ pub func get_bool(obj: &Json, key: string) -> (Result<bool, string>) {
     return Err("expected bool at key: " + key_copy)
 }
 
-pub func as_array(j: Json) -> (Result<Vec<Json, _>, string>) {
+pub func asArray(j: Json) -> (Result<Vec<Json, _>, string>) {
     switch j {
         case Array(items) {
             return Ok(items)
@@ -200,7 +200,7 @@ pub func as_array(j: Json) -> (Result<Vec<Json, _>, string>) {
     return Err("expected JSON array")
 }
 
-pub func as_object(j: Json) -> (Result<Json, string>) {
+pub func asObject(j: Json) -> (Result<Json, string>) {
     switch j {
         case Object(_) {
             return Ok(j)
@@ -209,9 +209,9 @@ pub func as_object(j: Json) -> (Result<Json, string>) {
     return Err("expected JSON object")
 }
 
-pub func require_string(obj: &Json, key: string) -> (Result<string, string>) {
+pub func requireString(obj: &Json, key: string) -> (Result<string, string>) {
     var key_copy: string = clone_string(&key)
-    switch get_string(obj, key) {
+    switch getString(obj, key) {
         case Ok(v) {
             return Ok(v)
         }
@@ -220,9 +220,9 @@ pub func require_string(obj: &Json, key: string) -> (Result<string, string>) {
     return Err("missing or invalid string field: " + key_copy)
 }
 
-pub func require_number(obj: &Json, key: string) -> (Result<float64, string>) {
+pub func requireNumber(obj: &Json, key: string) -> (Result<float64, string>) {
     var key_copy: string = clone_string(&key)
-    switch get_number(obj, key) {
+    switch getNumber(obj, key) {
         case Ok(v) {
             return Ok(v)
         }
@@ -231,9 +231,9 @@ pub func require_number(obj: &Json, key: string) -> (Result<float64, string>) {
     return Err("missing or invalid number field: " + key_copy)
 }
 
-pub func require_bool(obj: &Json, key: string) -> (Result<bool, string>) {
+pub func requireBool(obj: &Json, key: string) -> (Result<bool, string>) {
     var key_copy: string = clone_string(&key)
-    switch get_bool(obj, key) {
+    switch getBool(obj, key) {
         case Ok(v) {
             return Ok(v)
         }
@@ -242,9 +242,9 @@ pub func require_bool(obj: &Json, key: string) -> (Result<bool, string>) {
     return Err("missing or invalid bool field: " + key_copy)
 }
 
-pub func require_int(obj: &Json, key: string) -> (Result<int, string>) {
+pub func requireInt(obj: &Json, key: string) -> (Result<int, string>) {
     var key_copy: string = clone_string(&key)
-    switch require_number(obj, key) {
+    switch requireNumber(obj, key) {
         case Err(e) {
             return Err(e)
         }
@@ -259,8 +259,8 @@ pub func require_int(obj: &Json, key: string) -> (Result<int, string>) {
     return Err("missing or invalid integer field: " + key_copy)
 }
 
-pub func get_string_or(obj: &Json, key: string, fallback: string) -> (string) {
-    switch get_string(obj, key) {
+pub func getStringOr(obj: &Json, key: string, fallback: string) -> (string) {
+    switch getString(obj, key) {
         case Ok(v) {
             return v
         }
@@ -269,8 +269,8 @@ pub func get_string_or(obj: &Json, key: string, fallback: string) -> (string) {
     return fallback
 }
 
-pub func get_number_or(obj: &Json, key: string, fallback: float64) -> (float64) {
-    switch get_number(obj, key) {
+pub func getNumberOr(obj: &Json, key: string, fallback: float64) -> (float64) {
+    switch getNumber(obj, key) {
         case Ok(v) {
             return v
         }
@@ -279,8 +279,8 @@ pub func get_number_or(obj: &Json, key: string, fallback: float64) -> (float64) 
     return fallback
 }
 
-pub func get_bool_or(obj: &Json, key: string, fallback: bool) -> (bool) {
-    switch get_bool(obj, key) {
+pub func getBoolOr(obj: &Json, key: string, fallback: bool) -> (bool) {
+    switch getBool(obj, key) {
         case Ok(v) {
             return v
         }
@@ -289,8 +289,8 @@ pub func get_bool_or(obj: &Json, key: string, fallback: bool) -> (bool) {
     return fallback
 }
 
-pub func get_int_or(obj: &Json, key: string, fallback: int) -> (int) {
-    switch require_int(obj, key) {
+pub func getIntOr(obj: &Json, key: string, fallback: int) -> (int) {
+    switch requireInt(obj, key) {
         case Ok(v) {
             return v
         }
@@ -322,8 +322,8 @@ impl ObjBuilder as b {
         }
         return void
     }
-    pub mut func int_field(key: string) -> (int) {
-        switch require_int(&b.obj, clone_string(&key)) {
+    pub mut func intField(key: string) -> (int) {
+        switch requireInt(&b.obj, clone_string(&key)) {
             case Ok(v) {
                 return v
             }
@@ -334,8 +334,8 @@ impl ObjBuilder as b {
         }
         return 0
     }
-    pub mut func number_field(key: string) -> (float64) {
-        switch require_number(&b.obj, clone_string(&key)) {
+    pub mut func numberField(key: string) -> (float64) {
+        switch requireNumber(&b.obj, clone_string(&key)) {
             case Ok(v) {
                 return v
             }
@@ -346,8 +346,8 @@ impl ObjBuilder as b {
         }
         return 0.0
     }
-    pub mut func string_field(key: string) -> (string) {
-        switch require_string(&b.obj, clone_string(&key)) {
+    pub mut func stringField(key: string) -> (string) {
+        switch requireString(&b.obj, clone_string(&key)) {
             case Ok(v) {
                 return v
             }
@@ -358,8 +358,8 @@ impl ObjBuilder as b {
         }
         return ""
     }
-    pub mut func bool_field(key: string) -> (bool) {
-        switch require_bool(&b.obj, clone_string(&key)) {
+    pub mut func boolField(key: string) -> (bool) {
+        switch requireBool(&b.obj, clone_string(&key)) {
             case Ok(v) {
                 return v
             }
@@ -370,22 +370,22 @@ impl ObjBuilder as b {
         }
         return false
     }
-    pub mut func int_or(key: string, fallback: int) -> (int) {
-        return get_int_or(&b.obj, clone_string(&key), fallback)
+    pub mut func intOr(key: string, fallback: int) -> (int) {
+        return getIntOr(&b.obj, clone_string(&key), fallback)
     }
-    pub mut func number_or(key: string, fallback: float64) -> (float64) {
-        return get_number_or(&b.obj, clone_string(&key), fallback)
+    pub mut func numberOr(key: string, fallback: float64) -> (float64) {
+        return getNumberOr(&b.obj, clone_string(&key), fallback)
     }
-    pub mut func string_or(key: string, fallback: string) -> (string) {
-        return get_string_or(&b.obj, clone_string(&key), fallback)
+    pub mut func stringOr(key: string, fallback: string) -> (string) {
+        return getStringOr(&b.obj, clone_string(&key), fallback)
     }
-    pub mut func bool_or(key: string, fallback: bool) -> (bool) {
-        return get_bool_or(&b.obj, clone_string(&key), fallback)
+    pub mut func boolOr(key: string, fallback: bool) -> (bool) {
+        return getBoolOr(&b.obj, clone_string(&key), fallback)
     }
 }
 
 pub func decode_obj<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -> (Result<T, string>) {
-    switch as_object(value) {
+    switch asObject(value) {
         case Err(e) {
             return Err(e)
         }
@@ -406,7 +406,7 @@ pub func decode_obj<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -> (Result<
 }
 
 pub func decode_array<T>(value: Json, f: func(Json) -> (Result<T, string>)) -> (Result<Vec<T, _>, string>) {
-    switch as_array(value) {
+    switch asArray(value) {
         case Err(e) {
             return Err(e)
         }
@@ -431,7 +431,7 @@ pub func decode_array<T>(value: Json, f: func(Json) -> (Result<T, string>)) -> (
 }
 
 pub func decode_array_objects<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -> (Result<Vec<T, _>, string>) {
-    switch as_array(value) {
+    switch asArray(value) {
         case Err(e) {
             return Err(e)
         }
@@ -482,14 +482,14 @@ func builder_end() -> (Result<void, string>) {
     return Ok(void)
 }
 
-// int_field returns the integer value of the field with the given key.
+// intField returns the integer value of the field with the given key.
 // If the field is missing or not a valid integer, it sets the builder error state and returns 0.
-pub func int_field(key: string) -> (int) {
+pub func intField(key: string) -> (int) {
     if !builder_active {
         builder_fail("json builder not active")
         return 0
     }
-    switch require_int(&builder_obj, clone_string(&key)) {
+    switch requireInt(&builder_obj, clone_string(&key)) {
         case Ok(v) {
             return v
         }
@@ -501,14 +501,14 @@ pub func int_field(key: string) -> (int) {
     return 0
 }
 
-// number_field returns the float64 value of the field with the given key.
+// numberField returns the float64 value of the field with the given key.
 // If the field is missing or not a number, it sets the builder error state and returns 0.0.
-pub func number_field(key: string) -> (float64) {
+pub func numberField(key: string) -> (float64) {
     if !builder_active {
         builder_fail("json builder not active")
         return 0.0
     }
-    switch require_number(&builder_obj, clone_string(&key)) {
+    switch requireNumber(&builder_obj, clone_string(&key)) {
         case Ok(v) {
             return v
         }
@@ -520,14 +520,14 @@ pub func number_field(key: string) -> (float64) {
     return 0.0
 }
 
-// string_field returns the string value of the field with the given key.
+// stringField returns the string value of the field with the given key.
 // If the field is missing or not a string, it sets the builder error state and returns "".
-pub func string_field(key: string) -> (string) {
+pub func stringField(key: string) -> (string) {
     if !builder_active {
         builder_fail("json builder not active")
         return ""
     }
-    switch require_string(&builder_obj, clone_string(&key)) {
+    switch requireString(&builder_obj, clone_string(&key)) {
         case Ok(v) {
             return v
         }
@@ -539,14 +539,14 @@ pub func string_field(key: string) -> (string) {
     return ""
 }
 
-// bool_field returns the boolean value of the field with the given key.
+// boolField returns the boolean value of the field with the given key.
 // If the field is missing or not a boolean, it sets the builder error state and returns false.
-pub func bool_field(key: string) -> (bool) {
+pub func boolField(key: string) -> (bool) {
     if !builder_active {
         builder_fail("json builder not active")
         return false
     }
-    switch require_bool(&builder_obj, clone_string(&key)) {
+    switch requireBool(&builder_obj, clone_string(&key)) {
         case Ok(v) {
             return v
         }
@@ -558,36 +558,36 @@ pub func bool_field(key: string) -> (bool) {
     return false
 }
 
-// int_or returns the integer value of the field, or the fallback if missing/invalid.
-pub func int_or(key: string, fallback: int) -> (int) {
+// intOr returns the integer value of the field, or the fallback if missing/invalid.
+pub func intOr(key: string, fallback: int) -> (int) {
     if !builder_active {
         return fallback
     }
-    return get_int_or(&builder_obj, clone_string(&key), fallback)
+    return getIntOr(&builder_obj, clone_string(&key), fallback)
 }
 
-// number_or returns the float64 value of the field, or the fallback if missing/invalid.
-pub func number_or(key: string, fallback: float64) -> (float64) {
+// numberOr returns the float64 value of the field, or the fallback if missing/invalid.
+pub func numberOr(key: string, fallback: float64) -> (float64) {
     if !builder_active {
         return fallback
     }
-    return get_number_or(&builder_obj, clone_string(&key), fallback)
+    return getNumberOr(&builder_obj, clone_string(&key), fallback)
 }
 
-// string_or returns the string value of the field, or the fallback if missing/invalid.
-pub func string_or(key: string, fallback: string) -> (string) {
+// stringOr returns the string value of the field, or the fallback if missing/invalid.
+pub func stringOr(key: string, fallback: string) -> (string) {
     if !builder_active {
         return fallback
     }
-    return get_string_or(&builder_obj, clone_string(&key), fallback)
+    return getStringOr(&builder_obj, clone_string(&key), fallback)
 }
 
-// bool_or returns the boolean value of the field, or the fallback if missing/invalid.
-pub func bool_or(key: string, fallback: bool) -> (bool) {
+// boolOr returns the boolean value of the field, or the fallback if missing/invalid.
+pub func boolOr(key: string, fallback: bool) -> (bool) {
     if !builder_active {
         return fallback
     }
-    return get_bool_or(&builder_obj, clone_string(&key), fallback)
+    return getBoolOr(&builder_obj, clone_string(&key), fallback)
 }
 
 pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, string>) {
@@ -601,7 +601,7 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
                     return Err(e)
                 }
                 case Ok(value) {
-                    switch as_array(value) {
+                    switch asArray(value) {
                         case Err(e) {
                             return Err(e)
                         }
@@ -609,7 +609,7 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
                             mut var out: Vec<T, _> = Vec.new()
                             mut var i: int = 0
                             while i < items.len() {
-                                switch as_object(items[i]) {
+                                switch asObject(items[i]) {
                                     case Err(e) {
                                         return Err(e)
                                     }
@@ -642,10 +642,10 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
 // Pretty Printing
 // =============================================================================
 pub func pretty(j: Json) -> (string) {
-    return marshal_pretty(j, 2)
+    return marshalPretty(j, 2)
 }
 
-pub func marshal_pretty(j: Json, indent: int) -> (string) {
+pub func marshalPretty(j: Json, indent: int) -> (string) {
     if indent <= 0 {
         return marshal(j)
     }
@@ -672,10 +672,10 @@ func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
             return "false"
         }
         case Int(n) {
-            return strconv.int_to_string(n)
+            return strconv.intToString(n)
         }
         case Float(n) {
-            return strconv.format_float(n, 6)
+            return strconv.formatFloat(n, 6)
         }
         case String(s) {
             return quote_string(s)
@@ -738,10 +738,10 @@ pub func marshal(j: Json) -> (string) {
             return "false"
         }
         case Int(n) {
-            return strconv.int_to_string(n)
+            return strconv.intToString(n)
         }
         case Float(n) {
-            return strconv.format_float(n, 6)
+            return strconv.formatFloat(n, 6)
         }
         case String(s) {
             return quote_string(s)
@@ -841,7 +841,7 @@ impl JsonParser as p {
             return p.parse_string()
         }
         if c == 't' || c == 'f' {
-            return p.parse_bool()
+            return p.parseBool()
         }
         if c == 'n' {
             return p.parse_null()
@@ -854,7 +854,7 @@ impl JsonParser as p {
                 return p.parse_number()
             }
         }
-        return Err("invalid character at position " + strconv.int_to_string(p.pos))
+        return Err("invalid character at position " + strconv.intToString(p.pos))
     }
     mut func parse_object() -> (Result<Json, string>) {
         p.consume_char()
@@ -983,7 +983,7 @@ impl JsonParser as p {
         }
         return Err("unterminated string")
     }
-    mut func parse_bool() -> (Result<Json, string>) {
+    mut func parseBool() -> (Result<Json, string>) {
         if p.code[p.pos] == 't' {
             if p.match_keyword("true") {
                 return Ok(Json.Boolean(true))

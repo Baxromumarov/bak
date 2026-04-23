@@ -69,23 +69,23 @@ func hash_int(i: int) -> (int) {
 
 // Dispatcher for hashing - uses typeof for runtime type detection
 func hash_dispatch<K>(_k: &K) -> (int) {
-    var type_name: string = typeof(*_k)
-    if type_name == "STRING" {
+    var typeName: string = typeof(*_k)
+    if typeName == "STRING" {
         // Cast to string and call specialized hasher
         // For now, use string-specific logic inline
         // since we can't easily cast generic &K to &string
         return hash_string_value(*_k)
     }
-    if type_name == "INTEGER" {
+    if typeName == "INTEGER" {
         return hash_int_value(*_k)
     }
-    if type_name == "BOOLEAN" {
+    if typeName == "BOOLEAN" {
         if bool(*_k) {
             return 1
         }
         return 0
     }
-    if type_name == "CHAR" {
+    if typeName == "CHAR" {
         return int(char(*_k))
     }
     // Fallback: use a simple hash based on memory representation
@@ -122,19 +122,19 @@ func h2(hash: int) -> (int8) {
 }
 
 // Create a new HashMap with default capacity
-pub func new_hash_map<K, V>() -> (HashMap<K, V>) {
-    return with_cap_hash_map(HASH_INITIAL_CAP)
+pub func newHashMap<K, V>() -> (HashMap<K, V>) {
+    return withCapHashMap(HASH_INITIAL_CAP)
 }
 
 // Create a new HashMap with specified initial capacity
-pub func with_cap_hash_map<K, V>(requested_cap: int) -> (HashMap<K, V>) {
+pub func withCapHashMap<K, V>(requested_cap: int) -> (HashMap<K, V>) {
     mut var cap: int = hash_next_pow2(requested_cap)
     if cap < HASH_INITIAL_CAP {
         cap = HASH_INITIAL_CAP
     }
     
-    mut var ctrl: Vec<int8, _> = Vec.with_cap(cap)
-    mut var buckets: Vec<HashBucket<K, V>, _> = Vec.with_cap(cap)
+    mut var ctrl: Vec<int8, _> = Vec.withCap(cap)
+    mut var buckets: Vec<HashBucket<K, V>, _> = Vec.withCap(cap)
     
     mut var i: int = 0
     while i < cap {
@@ -165,7 +165,7 @@ impl HashMap as m {
         return m.len
     }
 
-    pub func is_empty() -> (bool) {
+    pub func isEmpty() -> (bool) {
         return m.len == 0
     }
     
@@ -308,8 +308,8 @@ impl HashMap as m {
         m.len = 0
         
         // Re-init new vectors with explicit type annotation helper variables to aid inference
-        mut var new_ctrl: Vec<int8, _> = Vec.with_cap(new_cap)
-        mut var new_buckets: Vec<HashBucket<K, V>, _> = Vec.with_cap(new_cap)
+        mut var new_ctrl: Vec<int8, _> = Vec.withCap(new_cap)
+        mut var new_buckets: Vec<HashBucket<K, V>, _> = Vec.withCap(new_cap)
         
         m.ctrl = new_ctrl
         m.buckets = new_buckets
@@ -362,11 +362,11 @@ impl HashMap as m {
 // Helper block for static methods (emulation via free functions above, or attached if supported in future)
 impl HashMap {
     pub func new() -> (HashMap<K, V>) {
-        return new_hash_map()
+        return newHashMap()
     }
     
-    pub func with_cap(c: int) -> (HashMap<K, V>) {
-        return with_cap_hash_map(c)
+    pub func withCap(c: int) -> (HashMap<K, V>) {
+        return withCapHashMap(c)
     }
 }
 

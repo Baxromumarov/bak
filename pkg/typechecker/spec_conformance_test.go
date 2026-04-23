@@ -207,7 +207,7 @@ func TestResultGuardFlowWarnsOnGuaranteedPanicingUnwrap(t *testing.T) {
 
 func main() -> (void) {
     var r: Result<int, string> = Err("boom")
-    if r.is_err() {
+    if r.isErr() {
         var _v: int = r.unwrap()
     }
     return void
@@ -218,8 +218,8 @@ func main() -> (void) {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}
 	joined := strings.Join(typeErrs, "\n")
-	if !strings.Contains(joined, "guaranteed to panic") || !strings.Contains(joined, "unwrap_err()") {
-		t.Fatalf("expected flow warning and unwrap_err guidance, got %v", typeErrs)
+	if !strings.Contains(joined, "guaranteed to panic") || !strings.Contains(joined, "unwrapErr()") {
+		t.Fatalf("expected flow warning and unwrapErr guidance, got %v", typeErrs)
 	}
 }
 
@@ -274,7 +274,7 @@ func TestFrozenSurfaceRejectsOptionMethods(t *testing.T) {
 
 func main() -> (void) {
     var r: Result<int, string> = Ok(1)
-    var _legacy = r.is_some()
+    var _legacy = r.isSome()
     return void
 }`
 
@@ -283,7 +283,7 @@ func main() -> (void) {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}
 	joined := strings.Join(typeErrs, "\n")
-	if !strings.Contains(joined, "undefined method 'is_some' for Result") {
+	if !strings.Contains(joined, "undefined method 'isSome' for Result") {
 		t.Fatalf("expected Option method surface rejection diagnostic, got %v", typeErrs)
 	}
 }

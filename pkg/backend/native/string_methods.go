@@ -16,7 +16,7 @@ func (s *EmitState) emitStringContains(obj, other ast.Expression) error {
 	return nil
 }
 
-// emitStringStartsWith implements s.starts_with(prefix)
+// emitStringStartsWith implements s.startsWith(prefix)
 // Returns 1 if string starts with prefix, 0 otherwise
 func (s *EmitState) emitStringStartsWith(obj, prefix ast.Expression) error {
 	// We need a runtime helper __rt_starts_with(str, prefix) -> bool
@@ -248,7 +248,7 @@ func (s *EmitState) emitStringSubstring(obj, startExpr, endExpr ast.Expression) 
 	return nil
 }
 
-// emitStringEndsWith implements s.ends_with(suffix)
+// emitStringEndsWith implements s.endsWith(suffix)
 func (s *EmitState) emitStringEndsWith(obj, suffix ast.Expression) error {
 	// Save callee-saved registers
 	emitPushReg(&s.Code, R12)
@@ -416,7 +416,7 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	// If needle.len > haystack.len, return -1
 	emitCmpRegReg(&s.Code, RBX, R15)
 	jgNotFound := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x8F, 0, 0, 0, 0) // jg not_found
+	s.Code = append(s.Code, 0x0F, 0x8F, 0, 0, 0, 0) // jg notFound
 
 	// Loop through possible positions: i = 0 to haystack.len - needle.len
 	// RCX = loop counter (current position)
@@ -433,7 +433,7 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	emitMovRegMem(&s.Code, RAX, RSP) // load max
 	emitCmpRegReg(&s.Code, RCX, RAX)
 	jgeNotFound2 := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0) // jge not_found
+	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0) // jge notFound
 
 	// Compare needle at position i
 	// RSI = haystack.ptr + i
@@ -508,7 +508,7 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	jmpDoneNoMax := len(s.Code)
 	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
 
-	// not_found: return None (loop path where max was pushed)
+	// notFound: return None (loop path where max was pushed)
 	notFoundPos := len(s.Code)
 	patchRel32(&s.Code, jgeNotFound2+2, notFoundPos)
 	emitAddRegImm32(&s.Code, RSP, 8) // pop max from stack

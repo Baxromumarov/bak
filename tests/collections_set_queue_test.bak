@@ -8,105 +8,105 @@ import "src/std/test/test.bak" as test
 func test_string_set_basic() -> (void) {
     mut var t: test.T = test.new("test_string_set_basic")
 
-    mut var s: set.StringSet = set.new_string_set()
-    t.is_true(s.is_empty())
+    mut var s: set.StringSet = set.newStringSet()
+    t.isTrue(s.isEmpty())
 
     s.add("a")
     s.add("b")
     s.add("a")
     t.eq(s.len(), 2)
-    t.is_true(s.contains("a"))
-    t.is_false(s.contains("c"))
+    t.isTrue(s.contains("a"))
+    t.isFalse(s.contains("c"))
 
-    t.is_true(s.remove("a"))
-    t.is_false(s.contains("a"))
+    t.isTrue(s.remove("a"))
+    t.isFalse(s.contains("a"))
     t.eq(s.len(), 1)
 
     s.clear()
-    t.is_true(s.is_empty())
+    t.isTrue(s.isEmpty())
 }
 
 func test_int_set_basic() -> (void) {
     mut var t: test.T = test.new("test_int_set_basic")
 
-    mut var s: set.IntSet = set.new_int_set()
-    t.is_true(s.is_empty())
+    mut var s: set.IntSet = set.newIntSet()
+    t.isTrue(s.isEmpty())
 
     s.add(10)
     s.add(20)
     s.add(10)
     t.eq(s.len(), 2)
-    t.is_true(s.contains(10))
-    t.is_false(s.contains(30))
+    t.isTrue(s.contains(10))
+    t.isFalse(s.contains(30))
 
-    t.is_true(s.remove(10))
-    t.is_false(s.contains(10))
+    t.isTrue(s.remove(10))
+    t.isFalse(s.contains(10))
     t.eq(s.len(), 1)
 }
 
 func test_string_set_algebra() -> (void) {
     mut var t: test.T = test.new("test_string_set_algebra")
 
-    mut var left: set.StringSet = set.new_string_set()
+    mut var left: set.StringSet = set.newStringSet()
     left.add("a")
     left.add("b")
 
-    mut var right: set.StringSet = set.new_string_set()
+    mut var right: set.StringSet = set.newStringSet()
     right.add("b")
     right.add("c")
 
     var u: set.StringSet = left.union(&right)
     t.eq(u.len(), 3)
-    t.is_true(u.contains("a"))
-    t.is_true(u.contains("b"))
-    t.is_true(u.contains("c"))
+    t.isTrue(u.contains("a"))
+    t.isTrue(u.contains("b"))
+    t.isTrue(u.contains("c"))
 
     var inter: set.StringSet = left.intersection(&right)
     t.eq(inter.len(), 1)
-    t.is_true(inter.contains("b"))
+    t.isTrue(inter.contains("b"))
 
     var diff: set.StringSet = left.difference(&right)
     t.eq(diff.len(), 1)
-    t.is_true(diff.contains("a"))
+    t.isTrue(diff.contains("a"))
 
-    t.is_true(inter.is_subset_of(&u))
-    t.is_false(u.is_subset_of(&inter))
+    t.isTrue(inter.isSubsetOf(&u))
+    t.isFalse(u.isSubsetOf(&inter))
 }
 
 func test_int_set_algebra() -> (void) {
     mut var t: test.T = test.new("test_int_set_algebra")
 
-    mut var left: set.IntSet = set.new_int_set()
+    mut var left: set.IntSet = set.newIntSet()
     left.add(1)
     left.add(2)
 
-    mut var right: set.IntSet = set.new_int_set()
+    mut var right: set.IntSet = set.newIntSet()
     right.add(2)
     right.add(3)
 
     var u: set.IntSet = left.union(&right)
     t.eq(u.len(), 3)
-    t.is_true(u.contains(1))
-    t.is_true(u.contains(2))
-    t.is_true(u.contains(3))
+    t.isTrue(u.contains(1))
+    t.isTrue(u.contains(2))
+    t.isTrue(u.contains(3))
 
     var inter: set.IntSet = left.intersection(&right)
     t.eq(inter.len(), 1)
-    t.is_true(inter.contains(2))
+    t.isTrue(inter.contains(2))
 
     var diff: set.IntSet = left.difference(&right)
     t.eq(diff.len(), 1)
-    t.is_true(diff.contains(1))
+    t.isTrue(diff.contains(1))
 
-    t.is_true(inter.is_subset_of(&u))
-    t.is_false(u.is_subset_of(&inter))
+    t.isTrue(inter.isSubsetOf(&u))
+    t.isFalse(u.isSubsetOf(&inter))
 }
 
 func test_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_queue_basic")
 
     mut var q = queue.new_queue()
-    t.is_true(q.is_empty())
+    t.isTrue(q.isEmpty())
 
     q.push(1)
     q.push(2)
@@ -138,7 +138,7 @@ func test_queue_basic() -> (void) {
         case Err(_) {}
     }
 
-    t.is_true(q.is_empty())
+    t.isTrue(q.isEmpty())
 }
 
 func test_string_queue_basic() -> (void) {
@@ -149,14 +149,14 @@ func test_string_queue_basic() -> (void) {
     q.push("b")
 
     switch q.pop() {
-        case Ok(v) { t.eq_string(v, "a") }
+        case Ok(v) { t.eqString(v, "a") }
         case Err(_) { t.fail("expected Ok from pop") }
     }
     switch q.pop() {
-        case Ok(v) { t.eq_string(v, "b") }
+        case Ok(v) { t.eqString(v, "b") }
         case Err(_) { t.fail("expected Ok from pop") }
     }
-    t.is_true(q.is_empty())
+    t.isTrue(q.isEmpty())
 }
 
 func test_vec_map_filter_utils() -> (void) {
@@ -199,12 +199,12 @@ func test_vec_map_filter_utils() -> (void) {
     var any_even: bool = vec.any_by(&nums, func(n: &int) -> (bool) {
         return (*n % 2) == 0
     })
-    t.is_true(any_even)
+    t.isTrue(any_even)
 
     var all_positive: bool = vec.all_by(&nums, func(n: &int) -> (bool) {
         return *n > 0
     })
-    t.is_true(all_positive)
+    t.isTrue(all_positive)
 
     var found_three: Result<int, string> = vec.find_by(&nums, func(n: &int) -> (bool) {
         return *n == 3

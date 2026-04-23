@@ -83,7 +83,7 @@ func main() -> (void) {
         }
     }
     
-    println("\n4. Result unwrap_or:")
+    println("\n4. Result unwrapOr:")
     switch result1 {
         case Ok(v) {
             println("  divide(10, 2).unwrap():", v)
@@ -127,18 +127,18 @@ func main() -> (void) {
     println("\n7. Result matching:")
     switch found {
         case Ok(v) {
-            println("  findIndex(names, 'Bob').is_ok():", true)
+            println("  findIndex(names, 'Bob').isOk():", true)
         }
         case Err(_) {
-            println("  findIndex(names, 'Bob').is_ok():", false)
+            println("  findIndex(names, 'Bob').isOk():", false)
         }
     }
     switch notFound {
         case Ok(_) {
-            println("  findIndex(names, 'David').is_err():", false)
+            println("  findIndex(names, 'David').isErr():", false)
         }
         case Err(_) {
-            println("  findIndex(names, 'David').is_err():", true)
+            println("  findIndex(names, 'David').isErr():", true)
         }
     }
     

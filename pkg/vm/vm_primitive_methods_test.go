@@ -11,9 +11,9 @@ func TestVMIntMethods(t *testing.T) {
 
 func main() -> (int) {
 	var i: int = -7
-	var f: float64 = i.to_float()
+	var f: float64 = i.toFloat()
 	var a: int = i.abs()
-	if a == 7 && f.to_int() == -7 {
+	if a == 7 && f.toInt() == -7 {
 		return 1
 	}
 	return 0
@@ -36,13 +36,13 @@ func TestVMFloatMethods(t *testing.T) {
 
 func main() -> (int) {
 	var f: float64 = -1.7
-	var to_int: int = f.to_int()
-	var abs_i: int = f.abs().to_int()
-	var floor_i: int = f.floor().to_int()
-	var ceil_i: int = f.ceil().to_int()
-	var round_i: int = f.round().to_int()
-	var fixed: string = f.to_fixed(2)
-	if to_int == -1 && abs_i == 1 && floor_i == -2 && ceil_i == -1 && round_i == -2 && fixed == "-1.70" {
+	var toInt: int = f.toInt()
+	var absI: int = f.abs().toInt()
+	var floorI: int = f.floor().toInt()
+	var ceilI: int = f.ceil().toInt()
+	var roundI: int = f.round().toInt()
+	var fixed: string = f.toFixed(2)
+	if toInt == -1 && absI == 1 && floorI == -2 && ceilI == -1 && roundI == -2 && fixed == "-1.70" {
 		return 1
 	}
 	return 0
@@ -67,16 +67,16 @@ func main() -> (int) {
 	var upper: char = 'A'
 	var digit: char = '9'
 
-	if upper.is_upper() &&
-	   upper.is_letter() &&
-	   upper.is_alpha() &&
-	   upper.is_ascii() &&
-	   upper.is_ident_start() &&
-	   upper.to_lower() == 'a' &&
-	   upper.to_ascii() == 65 &&
-	   digit.is_digit() &&
-	   digit.is_ident_part() &&
-	   !digit.is_ident_start() {
+	if upper.isUpper() &&
+	   upper.isLetter() &&
+	   upper.isAlpha() &&
+	   upper.isAscii() &&
+	   upper.isIdentStart() &&
+	   upper.toLower() == 'a' &&
+	   upper.toAscii() == 65 &&
+	   digit.isDigit() &&
+	   digit.isIdentPart() &&
+	   !digit.isIdentStart() {
 		return 1
 	}
 	return 0

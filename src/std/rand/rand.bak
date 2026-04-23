@@ -86,11 +86,11 @@ func next_raw() -> (int) {
 // -----------------------------------------------------------------------------
 // Integer Generation
 // -----------------------------------------------------------------------------
-// int_n returns a random integer in [0, n).
+// intN returns a random integer in [0, n).
 // Panics if n <= 0.
-pub func int_n(n: int) -> (int) {
+pub func intN(n: int) -> (int) {
     if n <= 0 {
-        panic "rand.int_n: n must be positive"
+        panic "rand.intN: n must be positive"
     }
 
     // Use rejection sampling to avoid modulo bias
@@ -109,21 +109,21 @@ pub func int_n(n: int) -> (int) {
     return r % n
 }
 
-// int_range returns a random integer in [min, max].
-pub func int_range(min: int, max: int) -> (int) {
+// intRange returns a random integer in [min, max].
+pub func intRange(min: int, max: int) -> (int) {
     if min > max {
-        panic "rand.int_range: min must be <= max"
+        panic "rand.intRange: min must be <= max"
     }
 
     if min == max {
         return min
     }
 
-    return min + int_n(max - min + 1)
+    return min + intN(max - min + 1)
 }
 
-// next_int returns a random non-negative integer.
-pub func next_int() -> (int) {
+// nextInt returns a random non-negative integer.
+pub func nextInt() -> (int) {
     mut var r: int = next_raw()
 
     if r < 0 {
@@ -149,11 +149,11 @@ pub func coin() -> (bool) {
 // Shuffling and Selection
 // -----------------------------------------------------------------------------
 // shuffle randomly reorders a Vec<int, _> in place using Fisher-Yates.
-pub func shuffle_ints(arr: &mut Vec<int, _>) -> (void) {
+pub func shuffleInts(arr: &mut Vec<int, _>) -> (void) {
     mut var i: int = arr.len() - 1
 
     while i > 0 {
-        var j: int = int_n(i + 1)
+        var j: int = intN(i + 1)
         // Swap arr[i] and arr[j]
         var tmp: int = arr[i]
 
@@ -166,11 +166,11 @@ pub func shuffle_ints(arr: &mut Vec<int, _>) -> (void) {
 }
 
 // shuffle randomly reorders a Vec<string, _> in place using Fisher-Yates.
-pub func shuffle_strings(arr: &mut Vec<string, _>) -> (void) {
+pub func shuffleStrings(arr: &mut Vec<string, _>) -> (void) {
     mut var i: int = arr.len() - 1
 
     while i > 0 {
-        var j: int = int_n(i + 1)
+        var j: int = intN(i + 1)
         var tmp: string = arr[i]
 
         arr[i] = arr[j]
@@ -184,8 +184,8 @@ pub func shuffle_strings(arr: &mut Vec<string, _>) -> (void) {
 // -----------------------------------------------------------------------------
 // Float Generation
 // -----------------------------------------------------------------------------
-// next_float returns a random float64 in [0.0, 1.0).
-pub func next_float() -> (float64) {
+// nextFloat returns a random float64 in [0.0, 1.0).
+pub func nextFloat() -> (float64) {
     mut var r: int = next_raw()
 
     // To get 53 bits of precision, right shift by 11.

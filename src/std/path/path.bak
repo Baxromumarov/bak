@@ -19,12 +19,12 @@ func is_abs_ref(p: &string) -> (bool) {
     return p.len() > 0 && is_sep(p[0])
 }
 
-pub func is_abs(p: string) -> (bool) {
+pub func isAbs(p: string) -> (bool) {
     return is_abs_ref(&p)
 }
 
-pub func is_rel(p: string) -> (bool) {
-    return !is_abs(p)
+pub func isRel(p: string) -> (bool) {
+    return !isAbs(p)
 }
 
 pub func clean(p: string) -> (string) {
@@ -75,7 +75,7 @@ pub func join(a: string, b: string) -> (string) {
     return clean(a + Separator + b)
 }
 
-pub func join_parts(parts: Vec<string, _>) -> (string) {
+pub func joinParts(parts: Vec<string, _>) -> (string) {
     if parts.len() == 0 {
         return "."
     }
@@ -118,7 +118,7 @@ pub func base(p: &string) -> (string) {
 
     var trimmed: string = strings.substring(p, 0, end)
     var sep: string = Separator
-    var idx: int = strings.last_index_of(&trimmed, &sep)
+    var idx: int = strings.lastIndexOf(&trimmed, &sep)
     if idx == -1 {
         return trimmed
     }
@@ -137,7 +137,7 @@ pub func dir(p: &string) -> (string) {
 
     var trimmed: string = strings.substring(p, 0, end)
     var sep: string = Separator
-    var idx: int = strings.last_index_of(&trimmed, &sep)
+    var idx: int = strings.lastIndexOf(&trimmed, &sep)
     if idx == -1 {
         return "."
     }
@@ -153,14 +153,14 @@ pub func ext(p: &string) -> (string) {
         return ""
     }
     var dot: string = "."
-    var idx: int = strings.last_index_of(&b, &dot)
+    var idx: int = strings.lastIndexOf(&b, &dot)
     if idx <= 0 {
         return ""
     }
     return strings.substring(&b, idx, b.len())
 }
 
-pub func has_ext(p: &string) -> (bool) {
+pub func hasExt(p: &string) -> (bool) {
     return ext(p) != ""
 }
 
@@ -173,7 +173,7 @@ pub func stem(p: &string) -> (string) {
     return strings.substring(&b, 0, b.len() - e.len())
 }
 
-pub func without_ext(p: &string) -> (string) {
+pub func withoutExt(p: &string) -> (string) {
     var d: string = dir(p)
     var s: string = stem(p)
     if d == "." {
@@ -185,8 +185,8 @@ pub func without_ext(p: &string) -> (string) {
     return d + Separator + s
 }
 
-pub func with_ext(p: &string, new_ext: &string) -> (string) {
-    var root: string = without_ext(p)
+pub func withExt(p: &string, new_ext: &string) -> (string) {
+    var root: string = withoutExt(p)
     if new_ext.len() == 0 {
         return root
     }

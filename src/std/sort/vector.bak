@@ -93,24 +93,24 @@ pub func is_sorted<T>(arr: &Vec<T, _>, asc: bool, cmp: func(&T, &T) -> (int)) ->
 // Type-Specific Convenience Wrappers
 // -----------------------------------------------------------------------------
 
-// sort_ints sorts a Vec<int, _> in ascending or descending order.
-pub func sort_ints(arr: &mut Vec<int, _>, asc: bool) -> (void) {
-    sort(arr, asc, compare_ints)
+// sortInts sorts a Vec<int, _> in ascending or descending order.
+pub func sortInts(arr: &mut Vec<int, _>, asc: bool) -> (void) {
+    sort(arr, asc, compareInts)
 }
 
-// sort_strings sorts a Vec<string, _> in ascending or descending order.
-pub func sort_strings(arr: &mut Vec<string, _>, asc: bool) -> (void) {
-    sort(arr, asc, compare_strings)
+// sortStrings sorts a Vec<string, _> in ascending or descending order.
+pub func sortStrings(arr: &mut Vec<string, _>, asc: bool) -> (void) {
+    sort(arr, asc, compareStrings)
 }
 
-// is_sorted_ints checks if a Vec<int, _> is sorted in ascending or descending order.
-pub func is_sorted_ints(arr: &Vec<int, _>, asc: bool) -> (bool) {
-    return is_sorted(arr, asc, compare_ints)
+// isSortedInts checks if a Vec<int, _> is sorted in ascending or descending order.
+pub func isSortedInts(arr: &Vec<int, _>, asc: bool) -> (bool) {
+    return is_sorted(arr, asc, compareInts)
 }
 
-// is_sorted_strings checks if a Vec<string, _> is sorted in ascending or descending order.
-pub func is_sorted_strings(arr: &Vec<string, _>, asc: bool) -> (bool) {
-    return is_sorted(arr, asc, compare_strings)
+// isSortedStrings checks if a Vec<string, _> is sorted in ascending or descending order.
+pub func isSortedStrings(arr: &Vec<string, _>, asc: bool) -> (bool) {
+    return is_sorted(arr, asc, compareStrings)
 }
 
 func swap<T>(arr: &mut Vec<T, _>, i: int, j: int) -> (void) {
@@ -124,17 +124,17 @@ func swap<T>(arr: &mut Vec<T, _>, i: int, j: int) -> (void) {
 // Comparators
 // -----------------------------------------------------------------------------
 
-// compare_ints compares two ints.
+// compareInts compares two ints.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.
-pub func compare_ints(a: &int, b: &int) -> (int) {
+pub func compareInts(a: &int, b: &int) -> (int) {
     if *a < *b { return -1 }
     if *a > *b { return 1 }
     return 0
 }
 
-// compare_strings compares two strings lexicographically.
+// compareStrings compares two strings lexicographically.
 // Returns -1 if a < b, 0 if a == b, 1 if a > b.
-pub func compare_strings(a: &string, b: &string) -> (int) {
+pub func compareStrings(a: &string, b: &string) -> (int) {
     mut var minLen: int = a.len()
     if b.len() < minLen {
         minLen = b.len()
@@ -164,32 +164,32 @@ pub func compare_strings(a: &string, b: &string) -> (int) {
 // Utility Functions
 // -----------------------------------------------------------------------------
 
-// min_int returns the minimum of two integers
-pub func min_int(a: int, b: int) -> (int) {
+// minInt returns the minimum of two integers
+pub func minInt(a: int, b: int) -> (int) {
     if a < b {
         return a
     }
     return b
 }
 
-// max_int returns the maximum of two integers
-pub func max_int(a: int, b: int) -> (int) {
+// maxInt returns the maximum of two integers
+pub func maxInt(a: int, b: int) -> (int) {
     if a > b {
         return a
     }
     return b
 }
 
-// abs_int returns the absolute value of an integer
-pub func abs_int(n: int) -> (int) {
+// absInt returns the absolute value of an integer
+pub func absInt(n: int) -> (int) {
     if n < 0 {
         return 0 - n
     }
     return n
 }
 
-// clamp_int clamps a value between min and max (inclusive)
-pub func clamp_int(val: int, lo: int, hi: int) -> (int) {
+// clampInt clamps a value between min and max (inclusive)
+pub func clampInt(val: int, lo: int, hi: int) -> (int) {
     if val < lo {
         return lo
     }
@@ -199,9 +199,9 @@ pub func clamp_int(val: int, lo: int, hi: int) -> (int) {
     return val
 }
 
-// binary_search_int searches for value in a sorted Vec<int, _>
+// binarySearchInt searches for value in a sorted Vec<int, _>
 // Returns the index if found, or -1 if not found
-pub func binary_search_int(arr: &Vec<int, _>, target: int) -> (int) {
+pub func binarySearchInt(arr: &Vec<int, _>, target: int) -> (int) {
     mut var left: int = 0
     mut var right: int = arr.len() - 1
     

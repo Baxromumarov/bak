@@ -3,7 +3,7 @@ package main
 import "thread"
 
 func main() -> (void) {
-    var mainId = thread.current_id()
+    var mainId = thread.currentId()
     println("Main thread ID: " + mainId.toString())
     
     var t1 = thread.spawn(worker, 1)
@@ -15,6 +15,6 @@ func main() -> (void) {
 }
 
 func worker(id: int) -> (void) {
-    var tid = thread.current_id()
+    var tid = thread.currentId()
     println("Worker " + id.toString() + " has thread ID: " + tid.toString())
 }

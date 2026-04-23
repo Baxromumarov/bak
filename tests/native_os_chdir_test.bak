@@ -5,20 +5,20 @@ import "std/os"
 func main() -> (int) {
     var before_result: Result<string, string> = os.cwd()
 
-    if before_result.is_err() {
+    if before_result.isErr() {
         return 1
     }
 
     var before: string = before_result.unwrap()
     var chdir_result: Result<void, string> = os.chdir("tests")
 
-    if chdir_result.is_err() {
+    if chdir_result.isErr() {
         return 2
     }
 
     var after_result: Result<string, string> = os.cwd()
 
-    if after_result.is_err() {
+    if after_result.isErr() {
         return 3
     }
 

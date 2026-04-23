@@ -3,7 +3,7 @@ package main
 import "src/std/collections/hashmap.bak" as collections
 
 func main() -> (void) {
-    mut var m: collections.HashMap<string, int> = collections.new_hash_map()
+    mut var m: collections.HashMap<string, int> = collections.newHashMap()
     m.insert("a", 1)
     m.insert("b", 2)
     m.insert("c", 3)

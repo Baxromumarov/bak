@@ -17,8 +17,8 @@ pub func getenv(key: string) -> (Result<string, string>) {
     return __builtin_getenv(key)
 }
 
-// getenv_result retrieves an environment variable as Result for Result-only flows.
-pub func getenv_result(key: string) -> (Result<string, string>) {
+// getenvResult retrieves an environment variable as Result for Result-only flows.
+pub func getenvResult(key: string) -> (Result<string, string>) {
     return getenv(key)
 }
 
@@ -37,8 +37,8 @@ pub func chdir(path: string) -> (Result<void, string>) {
     return __builtin_chdir(path)
 }
 
-// read_dir reads the contents of a directory
-pub func read_dir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
+// readDir reads the contents of a directory
+pub func readDir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
     return __builtin_read_dir(path)
 }
 
@@ -71,11 +71,11 @@ pub func hostname() -> (Result<string, string>) {
     return __builtin_hostname()
 }
 
-pub func temp_dir() -> (string) {
+pub func tempDir() -> (string) {
     return __builtin_temp_dir()
 }
 
-pub func user_home_dir() -> (Result<string, string>) {
+pub func userHomeDir() -> (Result<string, string>) {
     return __builtin_user_home_dir()
 }
 

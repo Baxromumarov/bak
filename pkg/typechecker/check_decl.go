@@ -24,7 +24,7 @@ func (tc *TypeChecker) checkUnusedElements() {
 			strings.HasPrefix(name, "hash_") ||
 			strings.HasPrefix(name, "Hash") ||
 			name == "h1" || name == "h2" ||
-			name == "new_hash_map" || name == "with_cap_hash_map" {
+			name == "newHashMap" || name == "withCapHashMap" {
 			return true
 		}
 		return false

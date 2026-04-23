@@ -8,10 +8,10 @@ import "std/db/db" as db
 // connect opens a MySQL connection and returns a Connection handle.
 pub func connect(conn_str: string) -> (Result<db.Connection, string>) {
     var result = __builtin_mysql_connect(conn_str)
-    if result.is_ok() {
+    if result.isOk() {
         return Ok(db.Connection{Handle: result.unwrap()})
     }
-    return Err(result.unwrap_err())
+    return Err(result.unwrapErr())
 }
 
 // query executes a SQL query and returns a QueryResult.
@@ -19,9 +19,9 @@ pub func query(conn: &db.Connection, sql: string) -> (Result<db.QueryResult, str
     return __builtin_mysql_query(conn.Handle, sql)
 }
 
-// query_params executes a SQL query with parameters and returns a QueryResult.
+// queryParams executes a SQL query with parameters and returns a QueryResult.
 // Parameters are passed as a Vec<string, _> to support placeholder binding.
-pub func query_params(conn: &db.Connection, sql: string, params: Vec<string, _>) -> (Result<db.QueryResult, string>) {
+pub func queryParams(conn: &db.Connection, sql: string, params: Vec<string, _>) -> (Result<db.QueryResult, string>) {
     return __builtin_mysql_query(conn.Handle, sql, params)
 }
 

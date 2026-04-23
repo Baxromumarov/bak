@@ -6,42 +6,42 @@ func main() -> (int) {
     mut var score: int = 0
 
     var d1: time.Duration = time.millis(1500)
-    if d1.as_millis() == 1500 {
+    if d1.asMillis() == 1500 {
         score = score + 1
     }
 
     var d2: time.Duration = time.secs(2)
     var d3: time.Duration = d2.add(time.millis(500))
-    if d3.as_millis() == 2500 {
+    if d3.asMillis() == 2500 {
         score = score + 1
     }
 
     var d4: time.Duration = d3.sub(time.secs(1))
-    if d4.as_millis() == 1500 {
+    if d4.asMillis() == 1500 {
         score = score + 1
     }
 
     var d5: time.Duration = d4.mul(2)
-    if d5.as_millis() == 3000 {
+    if d5.asMillis() == 3000 {
         score = score + 1
     }
 
-    var d6: time.Duration = d5.div_by(2)
-    if d6.as_millis() == 1500 {
+    var d6: time.Duration = d5.divBy(2)
+    if d6.asMillis() == 1500 {
         score = score + 1
     }
 
     var d7: time.Duration = d6.neg()
-    if d7.as_secs() == -1 {
+    if d7.asSecs() == -1 {
         score = score + 1
     }
 
     var d8: time.Duration = d7.abs()
-    if d8.as_secs() == 1 {
+    if d8.asSecs() == 1 {
         score = score + 1
     }
 
-    var t1: time.Time = time.from_unix(10)
+    var t1: time.Time = time.fromUnix(10)
     if t1.unix() == 10 {
         score = score + 1
     }
@@ -51,13 +51,13 @@ func main() -> (int) {
         score = score + 1
     }
 
-    var dur: time.Duration = t1.until(time.from_unix(12))
-    if dur.as_secs() == 2 {
+    var dur: time.Duration = t1.until(time.fromUnix(12))
+    if dur.asSecs() == 2 {
         score = score + 1
     }
 
-    var tb: time.Time = time.from_unix(5)
-    var ta: time.Time = time.from_unix(6)
+    var tb: time.Time = time.fromUnix(5)
+    var ta: time.Time = time.fromUnix(6)
     if tb.before(ta) {
         score = score + 1
     }
@@ -65,10 +65,10 @@ func main() -> (int) {
         score = score + 1
     }
 
-    var start: int = time.monotonic_now()
-    time.sleep_ms(1)
-    var delta: time.Duration = time.monotonic_since(start)
-    if delta.as_millis() >= 1 {
+    var start: int = time.monotonicNow()
+    time.sleepMs(1)
+    var delta: time.Duration = time.monotonicSince(start)
+    if delta.asMillis() >= 1 {
         score = score + 1
     }
 

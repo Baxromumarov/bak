@@ -15,6 +15,6 @@ func test_switch_unit_variant() -> (void) {
         case Red { out = "red" }
         case Green { out = "green" }
     }
-    t.eq_string(out, "red")
+    t.eqString(out, "red")
 }
 

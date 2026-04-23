@@ -11,8 +11,8 @@ pub struct Split {
     pub Base: string
 }
 
-pub func is_abs(p: string) -> (bool) {
-    return path.is_abs(p)
+pub func isAbs(p: string) -> (bool) {
+    return path.isAbs(p)
 }
 
 pub func clean(p: string) -> (string) {
@@ -23,8 +23,8 @@ pub func join(a: string, b: string) -> (string) {
     return path.join(a, b)
 }
 
-pub func join_parts(parts: Vec<string, _>) -> (string) {
-    return path.join_parts(parts)
+pub func joinParts(parts: Vec<string, _>) -> (string) {
+    return path.joinParts(parts)
 }
 
 pub func base(p: string) -> (string) {

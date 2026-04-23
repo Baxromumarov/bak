@@ -143,8 +143,8 @@ pub func decode(encoded: &string) -> (Result<string, string>) {
 // URL-Safe Variant
 // -----------------------------------------------------------------------------
 
-// encode_url encodes to URL-safe Base64
-pub func encode_url(data: &string) -> (string) {
+// encodeUrl encodes to URL-safe Base64
+pub func encodeUrl(data: &string) -> (string) {
     var standard: string = encode(data)
     // Replace + with - and / with _
     mut var result: string = ""
@@ -162,8 +162,8 @@ pub func encode_url(data: &string) -> (string) {
     return result
 }
 
-// decode_url decodes URL-safe Base64
-pub func decode_url(encoded: &string) -> (Result<string, string>) {
+// decodeUrl decodes URL-safe Base64
+pub func decodeUrl(encoded: &string) -> (Result<string, string>) {
     // Convert URL-safe chars back to standard chars
     mut var standard: string = ""
     mut var i: int = 0
@@ -184,8 +184,8 @@ pub func decode_url(encoded: &string) -> (Result<string, string>) {
 // Utility Functions
 // -----------------------------------------------------------------------------
 
-// is_valid_base64 checks if a string is valid Base64
-pub func is_valid_base64(s: &string) -> (bool) {
+// isValidBase64 checks if a string is valid Base64
+pub func isValidBase64(s: &string) -> (bool) {
     if s.len() % 4 != 0 {
         return false
     }
@@ -206,13 +206,13 @@ pub func is_valid_base64(s: &string) -> (bool) {
     return true
 }
 
-// encoded_len returns the length of the Base64 encoding of a string of given length
-pub func encoded_len(input_len: int) -> (int) {
+// encodedLen returns the length of the Base64 encoding of a string of given length
+pub func encodedLen(input_len: int) -> (int) {
     // Each 3 bytes becomes 4 characters, rounded up
     return ((input_len + 2) / 3) * 4
 }
 
-// decoded_len returns the approximate decoded length (before padding)
-pub func decoded_len(encoded_len: int) -> (int) {
-    return (encoded_len / 4) * 3
+// decodedLen returns the approximate decoded length (before padding)
+pub func decodedLen(encodedLen: int) -> (int) {
+    return (encodedLen / 4) * 3
 }

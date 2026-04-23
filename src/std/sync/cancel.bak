@@ -7,7 +7,7 @@ pub struct CancelToken {
     handle: int
 }
 
-pub func new_cancel_token() -> (CancelToken) {
+pub func newCancelToken() -> (CancelToken) {
     return CancelToken{handle: __builtin_cancel_new()}
 }
 
@@ -16,7 +16,7 @@ impl CancelToken as t {
         __builtin_cancel(t.handle)
     }
 
-    pub func is_cancelled() -> (bool) {
+    pub func isCancelled() -> (bool) {
         return __builtin_is_cancelled(t.handle)
     }
 }
@@ -32,8 +32,8 @@ func cancel_after_worker(args: CancelAfterArgs) -> (void) {
     return void
 }
 
-pub func cancel_after(d: time.Duration) -> (CancelToken) {
-    var token: CancelToken = new_cancel_token()
+pub func cancelAfter(d: time.Duration) -> (CancelToken) {
+    var token: CancelToken = newCancelToken()
     var args: CancelAfterArgs = CancelAfterArgs{token: token, d: d}
     thread.spawn(cancel_after_worker, args)
     return token

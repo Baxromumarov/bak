@@ -5,11 +5,11 @@ pub struct Header {
     pub value: string
 }
 
-pub func header_value(headers: &Vec<Header, _>, name: string) -> (Result<string, string>) {
+pub func headerValue(headers: &Vec<Header, _>, name: string) -> (Result<string, string>) {
     mut var i: int = 0
     while i < headers.len() {
         var h: Header = headers[i]
-        if eq_case_insensitive(&h.name, &name) {
+        if eqCaseInsensitive(&h.name, &name) {
             return Ok(h.value)
         }
         i = i + 1

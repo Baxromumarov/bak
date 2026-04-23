@@ -37,37 +37,37 @@ func main() -> (int) {
 
     var p1s: string = "42"
     var p1: Result<int, string> = strconv.parseInt(&p1s, 10)
-    if p1.is_ok() && p1.unwrap() == 42 {
+    if p1.isOk() && p1.unwrap() == 42 {
         score = score + 1
     }
 
     var p2s: string = "ff"
     var p2: Result<int, string> = strconv.parseHex(&p2s)
-    if p2.is_ok() && p2.unwrap() == 255 {
+    if p2.isOk() && p2.unwrap() == 255 {
         score = score + 1
     }
 
     var p3s: string = "1010"
     var p3: Result<int, string> = strconv.parseBinary(&p3s)
-    if p3.is_ok() && p3.unwrap() == 10 {
+    if p3.isOk() && p3.unwrap() == 10 {
         score = score + 1
     }
 
     var p4s: string = "77"
     var p4: Result<int, string> = strconv.parseOctal(&p4s)
-    if p4.is_ok() && p4.unwrap() == 63 {
+    if p4.isOk() && p4.unwrap() == 63 {
         score = score + 1
     }
 
     var p5s: string = "-15"
     var p5: Result<int, string> = strconv.atoi(&p5s)
-    if p5.is_ok() && p5.unwrap() == -15 {
+    if p5.isOk() && p5.unwrap() == -15 {
         score = score + 1
     }
 
     var bads: string = "12g"
     var bad: Result<int, string> = strconv.parseInt(&bads, 10)
-    if bad.is_err() {
+    if bad.isErr() {
         score = score + 1
     }
 

@@ -7,7 +7,7 @@ func main() -> (void) {
 
     var home: Result<string, string> = os.getenv("HOME")
 
-    if home.is_ok() {
+    if home.isOk() {
         var h: string = home.unwrap()
 
         println(
@@ -20,7 +20,7 @@ func main() -> (void) {
 
     var path: Result<string, string> = os.getenv("PATH")
 
-    if path.is_ok() {
+    if path.isOk() {
         println("PATH is set")
     } else {
         println("PATH not set")
@@ -28,7 +28,7 @@ func main() -> (void) {
 
     var nonexistent: Result<string, string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
 
-    if nonexistent.is_err() {
+    if nonexistent.isErr() {
         println("PASS: Non-existent var returns Err")
     } else {
         println("FAIL: Found non-existent var")

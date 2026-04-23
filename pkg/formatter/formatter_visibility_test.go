@@ -11,7 +11,7 @@ func TestFormatterPreservesVisibility(t *testing.T) {
 }
 
 impl Duration as d {
-    pub func as_nanos() -> (int) { return d.nanos }
+    pub func asNanos() -> (int) { return d.nanos }
 }
 `
 	output, errs := Format(input)

@@ -16,10 +16,10 @@ pub struct Request {
     pub params:  Vec<QueryParam, _>
 }
 
-pub func parse_query(path: string) -> (Vec<QueryParam, _>) {
+pub func parseQuery(path: string) -> (Vec<QueryParam, _>) {
     mut var out: Vec<QueryParam, _> = Vec.new()
-    var idx_opt = path.index_of("?")
-    if idx_opt.is_err() {
+    var idx_opt = path.indexOf("?")
+    if idx_opt.isErr() {
         return out
     }
     var start: int = idx_opt.unwrap() + 1
@@ -63,7 +63,7 @@ pub func parse_query(path: string) -> (Vec<QueryParam, _>) {
     return out
 }
 
-pub func build_query(params: &Vec<QueryParam, _>) -> (string) {
+pub func buildQuery(params: &Vec<QueryParam, _>) -> (string) {
     mut var out: string = ""
     mut var i: int = 0
     while i < params.len() {
@@ -79,15 +79,15 @@ pub func build_query(params: &Vec<QueryParam, _>) -> (string) {
     return out
 }
 
-pub func append_query(url: string, params: Vec<QueryParam, _>) -> (string) {
+pub func appendQuery(url: string, params: Vec<QueryParam, _>) -> (string) {
     if params.len() == 0 {
         return url
     }
-    var qs: string = build_query(&params)
+    var qs: string = buildQuery(&params)
     if qs.len() == 0 {
         return url
     }
-    if url.index_of("?").is_ok() {
+    if url.indexOf("?").isOk() {
         return url + "&" + qs
     }
     return url + "?" + qs
@@ -95,22 +95,22 @@ pub func append_query(url: string, params: Vec<QueryParam, _>) -> (string) {
 
 impl Request as r {
     pub func header(name: string) -> (Result<string, string>) {
-        return header_value(
+        return headerValue(
             &r.headers,
             name,
         )
     }
 
-    pub func has_header(name: string) -> (bool) {
-        return r.header(name).is_ok()
+    pub func hasHeader(name: string) -> (bool) {
+        return r.header(name).isOk()
     }
 
-    pub func query_params() -> (Vec<QueryParam, _>) {
-        return parse_query(r.path)
+    pub func queryParams() -> (Vec<QueryParam, _>) {
+        return parseQuery(r.path)
     }
 
     pub func query(name: string) -> (Result<string, string>) {
-        var params: Vec<QueryParam, _> = parse_query(r.path)
+        var params: Vec<QueryParam, _> = parseQuery(r.path)
         mut var i: int = 0
         while i < params.len() {
             if (params[i]).name == name {
@@ -121,7 +121,7 @@ impl Request as r {
         return Err("query param not found")
     }
 
-    pub func body_string() -> (string) {
+    pub func bodyString() -> (string) {
         return strings.fromBytes(r.body)
     }
 
@@ -137,14 +137,14 @@ impl Request as r {
     }
 }
 
-pub func parse_request(raw: string) -> (Result<Request, string>) {
-    mut var headerEnd = index_of(
+pub func parseRequest(raw: string) -> (Result<Request, string>) {
+    mut var headerEnd = indexOf(
         &raw,
         &CRLFCRLF,
     )
     mut var sepLen: int = 4
     if headerEnd == -1 {
-        headerEnd = index_of(
+        headerEnd = indexOf(
             &raw,
             &LFLF,
         )
@@ -161,7 +161,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         headerEnd + sepLen,
         raw.len(),
     )
-    mut var statusLineEnd = index_of(
+    mut var statusLineEnd = indexOf(
         &headerPart,
         &LF,
     )
@@ -180,7 +180,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         statusLineEnd + 1,
         headerPart.len(),
     )
-    var firstSpace = index_of(
+    var firstSpace = indexOf(
         &requestLine,
         &" ",
     )
@@ -195,7 +195,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         firstSpace + 1,
         requestLine.len(),
     )
-    var secondSpace = index_of(
+    var secondSpace = indexOf(
         &rest,
         &" ",
     )
@@ -213,7 +213,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
     mut var headers: Vec<Header, _> = Vec.from([])
     mut var current: string = headersPart
     while current.len() > 0 {
-        var lineEnd = index_of(
+        var lineEnd = indexOf(
             &current,
             &LF,
         )
@@ -238,7 +238,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
         if line.len() == 0 {
             break
         }
-        var colonIndex = index_of(
+        var colonIndex = indexOf(
             &line,
             &":",
         )
@@ -251,7 +251,7 @@ pub func parse_request(raw: string) -> (Result<Request, string>) {
                 colonIndex + 1,
                 line.len(),
             )
-            if value.starts_with(" ") {
+            if value.startsWith(" ") {
                 value = value.substring(
                     1,
                     value.len(),

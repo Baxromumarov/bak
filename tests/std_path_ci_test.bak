@@ -6,10 +6,10 @@ import "src/std/test/test.bak" as test
 func test_path_docs_join_clean_and_rel_abs() -> (void) {
     mut var t: test.T = test.new("test_path_docs_join_clean_and_rel_abs")
 
-    t.eq_string(path.join("api", "v1"), "api/v1")
-    t.eq_string(path.clean("/srv//logs/../app/./today"), "/srv/app/today")
-    t.is_true(path.is_abs("/tmp/data.txt"))
-    t.is_true(path.is_rel("tmp/data.txt"))
+    t.eqString(path.join("api", "v1"), "api/v1")
+    t.eqString(path.clean("/srv//logs/../app/./today"), "/srv/app/today")
+    t.isTrue(path.isAbs("/tmp/data.txt"))
+    t.isTrue(path.isRel("tmp/data.txt"))
 
     t.finish()
 }
@@ -19,15 +19,15 @@ func test_path_docs_split_ext_and_rewrite() -> (void) {
 
     var p: string = "/srv/app/report.json"
     var sp: path.Split = path.split(&p)
-    t.eq_string(sp.Dir, "/srv/app")
-    t.eq_string(sp.Base, "report.json")
-    t.eq_string(path.ext(&p), ".json")
-    t.eq_string(path.stem(&p), "report")
-    t.eq_string(path.without_ext(&p), "/srv/app/report")
-    t.eq_string(path.with_ext(&p, &"txt"), "/srv/app/report.txt")
+    t.eqString(sp.Dir, "/srv/app")
+    t.eqString(sp.Base, "report.json")
+    t.eqString(path.ext(&p), ".json")
+    t.eqString(path.stem(&p), "report")
+    t.eqString(path.withoutExt(&p), "/srv/app/report")
+    t.eqString(path.withExt(&p, &"txt"), "/srv/app/report.txt")
 
-    var joined: string = path.join_parts(Vec.from(["/srv", "app", "logs", "..", "today.log"]))
-    t.eq_string(joined, "/srv/app/today.log")
+    var joined: string = path.joinParts(Vec.from(["/srv", "app", "logs", "..", "today.log"]))
+    t.eqString(joined, "/srv/app/today.log")
 
     t.finish()
 }

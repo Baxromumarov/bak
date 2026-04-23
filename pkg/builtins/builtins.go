@@ -1,4 +1,4 @@
-	// Package builtins provides the built-in functions for the bak language.
+// Package builtins provides the built-in functions for the bak language.
 package builtins
 
 import (
@@ -605,7 +605,7 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
 			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.connect_tls", runtimecap.FlagAllowNet)},
+			Value: &object.String{Value: runtimecap.PermissionError("socket.connectTls", runtimecap.FlagAllowNet)},
 		}
 	}
 
@@ -651,7 +651,7 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
 			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.set_timeout", runtimecap.FlagAllowNet)},
+			Value: &object.String{Value: runtimecap.PermissionError("socket.setTimeout", runtimecap.FlagAllowNet)},
 		}
 	}
 

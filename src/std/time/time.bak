@@ -18,8 +18,8 @@ pub const Minute: int = 60000000000
 pub const Hour: int = 3600000000000
 // Time format constants for Time.as()
 pub const FormatUnix: string = "unix"
-pub const FormatUnixMillis: string = "unix_millis"
-pub const FormatUnixNanos: string = "unix_nanos"
+pub const FormatUnixMillis: string = "unixMillis"
+pub const FormatUnixNanos: string = "unixNanos"
 pub const FormatRFC3339: string = "rfc3339"
 pub const FormatRFC3339Nano: string = "rfc3339_nano"
 pub const FormatISO8601: string = "iso8601"
@@ -54,24 +54,24 @@ pub func hours(n: int) -> (Duration) {
     return Duration{nanos: n * Hour}
 }
 
-pub func zero_duration() -> (Duration) {
+pub func zeroDuration() -> (Duration) {
     return Duration{nanos: 0}
 }
 
 impl Duration as d {
-    pub func as_nanos() -> (int) {
+    pub func asNanos() -> (int) {
         return d.nanos
     }
 
-    pub func as_micros() -> (int) {
+    pub func asMicros() -> (int) {
         return d.nanos / 1000
     }
 
-    pub func as_millis() -> (int) {
+    pub func asMillis() -> (int) {
         return d.nanos / 1000000
     }
 
-    pub func as_secs() -> (int) {
+    pub func asSecs() -> (int) {
         return d.nanos / 1000000000
     }
 
@@ -87,7 +87,7 @@ impl Duration as d {
         return Duration{nanos: d.nanos * factor}
     }
 
-    pub func div_by(divisor: int) -> (Duration) {
+    pub func divBy(divisor: int) -> (Duration) {
         return Duration{nanos: d.nanos / divisor}
     }
 
@@ -130,8 +130,8 @@ impl Duration as d {
         return Duration{nanos: base}
     }
 
-    pub func to_string() -> (string) {
-        return strconv.int_to_string(d.nanos) + "ns"
+    pub func toString() -> (string) {
+        return strconv.intToString(d.nanos) + "ns"
     }
 
     pub func eq(other: Duration) -> (bool) {
@@ -156,7 +156,7 @@ impl Time as t {
         return Duration{nanos: t.nanos - other.nanos}
     }
 
-    pub func sub_duration(d: Duration) -> (Time) {
+    pub func subDuration(d: Duration) -> (Time) {
         return Time{nanos: t.nanos - d.nanos}
     }
 
@@ -164,7 +164,7 @@ impl Time as t {
         return t.nanos == other.nanos
     }
 
-    pub func is_zero() -> (bool) {
+    pub func isZero() -> (bool) {
         return t.nanos == 0
     }
 
@@ -173,11 +173,11 @@ impl Time as t {
         return Duration{nanos: other.nanos - t.nanos}
     }
 
-    pub func unix_nanos() -> (int) {
+    pub func unixNanos() -> (int) {
         return t.nanos
     }
 
-    pub func unix_millis() -> (int) {
+    pub func unixMillis() -> (int) {
         return t.nanos / 1000000
     }
 
@@ -188,15 +188,15 @@ impl Time as t {
     // Fast path for unix numeric formats
     pub func format(format: string) -> (string) {
         if format == FormatUnix {
-            return strconv.int_to_string(t.unix())
+            return strconv.intToString(t.unix())
         }
 
         if format == FormatUnixMillis {
-            return strconv.int_to_string(t.unix_millis())
+            return strconv.intToString(t.unixMillis())
         }
 
         if format == FormatUnixNanos {
-            return strconv.int_to_string(t.unix_nanos())
+            return strconv.intToString(t.unixNanos())
         }
 
         var parts: Vec<int, _> = __builtin_time_parts(t.nanos)
@@ -207,23 +207,23 @@ impl Time as t {
         var minute: int = parts[4]
         var second: int = parts[5]
         var nanos: int = parts[6]
-        var date: string = pad_left(
+        var date: string = padLeft(
             year,
             4,
-        ) + "-" + pad_left(
+        ) + "-" + padLeft(
             month,
             2,
-        ) + "-" + pad_left(
+        ) + "-" + padLeft(
             day,
             2,
         )
-        var time: string = pad_left(
+        var time: string = padLeft(
             hour,
             2,
-        ) + ":" + pad_left(
+        ) + ":" + padLeft(
             minute,
             2,
-        ) + ":" + pad_left(
+        ) + ":" + padLeft(
             second,
             2,
         )
@@ -241,14 +241,14 @@ impl Time as t {
         }
 
         if format == FormatTimeMillis {
-            return time + "." + pad_left(
+            return time + "." + padLeft(
                 nanos / 1000000,
                 3,
             )
         }
 
         if format == FormatTimeNanos {
-            return time + "." + pad_left(
+            return time + "." + padLeft(
                 nanos,
                 9,
             )
@@ -259,7 +259,7 @@ impl Time as t {
         }
 
         if format == FormatRFC3339Nano {
-            return date + "T" + time + "." + pad_left(
+            return date + "T" + time + "." + padLeft(
                 nanos,
                 9,
             ) + "Z"
@@ -278,8 +278,8 @@ impl Time as t {
     }
 }
 
-func pad_left(value: int, width: int) -> (string) {
-    mut var s: string = strconv.int_to_string(value)
+func padLeft(value: int, width: int) -> (string) {
+    mut var s: string = strconv.intToString(value)
 
     while s.len() < width {
         s = "0" + s
@@ -289,32 +289,32 @@ func pad_left(value: int, width: int) -> (string) {
 }
 
 // Time constructors
-pub func from_unix(secs: int) -> (Time) {
+pub func fromUnix(secs: int) -> (Time) {
     return Time{nanos: secs * Second}
 }
 
-pub func from_unix_millis(ms: int) -> (Time) {
+pub func fromUnixMillis(ms: int) -> (Time) {
     return Time{nanos: ms * Millisecond}
 }
 
-pub func from_unix_nanos(nanos: int) -> (Time) {
+pub func fromUnixNanos(nanos: int) -> (Time) {
     return Time{nanos: nanos}
 }
 
 // Monotonic helpers
-pub func monotonic_since(start: int) -> (Duration) {
+pub func monotonicSince(start: int) -> (Duration) {
     return Duration{nanos: __builtin_monotonic_now() - start}
 }
 
 // Convenience sleep wrappers
-pub func sleep_ms(ms: int) -> (void) {
-    sleep(from_millis(ms))
+pub func sleepMs(ms: int) -> (void) {
+    sleep(fromMillis(ms))
 
     return void
 }
 
-pub func sleep_secs(s: int) -> (void) {
-    sleep(from_secs(s))
+pub func sleepSecs(s: int) -> (void) {
+    sleep(fromSecs(s))
 
     return void
 }
@@ -323,12 +323,12 @@ pub func now() -> (Time) {
     return Time{nanos: __builtin_time_now()}
 }
 
-pub func monotonic_now() -> (int) {
+pub func monotonicNow() -> (int) {
     return __builtin_monotonic_now()
 }
 
-pub func now_ms() -> (int) {
-    return (now()).unix_millis()
+pub func nowMs() -> (int) {
+    return (now()).unixMillis()
 }
 
 pub func sleep(d: Duration) -> (void) {
@@ -345,11 +345,11 @@ pub func sleep(d: Duration) -> (void) {
     return void
 }
 
-pub func from_millis(ms: int) -> (Duration) {
+pub func fromMillis(ms: int) -> (Duration) {
     return Duration{nanos: ms * Millisecond}
 }
 
-pub func from_secs(s: int) -> (Duration) {
+pub func fromSecs(s: int) -> (Duration) {
     return Duration{nanos: s * Second}
 }
 

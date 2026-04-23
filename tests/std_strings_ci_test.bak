@@ -7,38 +7,38 @@ func test_strings_snake_case_api() -> (void) {
     mut var t: test.T = test.new("test_strings_snake_case_api")
 
     var text: string = "  bak-lang  "
-    t.eq_string(strings.trim_left(&text), "bak-lang  ")
-    t.eq_string(strings.trim_right(&text), "  bak-lang")
+    t.eqString(strings.trimLeft(&text), "bak-lang  ")
+    t.eqString(strings.trimRight(&text), "  bak-lang")
 
     var name: string = "baklang"
-    t.is_true(strings.starts_with(&name, &"bak"))
-    t.is_true(strings.ends_with(&name, &"lang"))
+    t.isTrue(strings.startsWith(&name, &"bak"))
+    t.isTrue(strings.endsWith(&name, &"lang"))
 
     var csv: string = "a,b,c"
     var parts: Vec<string, _> = strings.split(&csv, &",")
     t.eq(parts.len(), 3)
 
-    switch strings.parse_int(&"42") {
+    switch strings.parseInt(&"42") {
         case Ok(v) { t.eq(v, 42) }
-        case Err(err) { t.fail("parse_int failed: " + err) }
+        case Err(err) { t.fail("parseInt failed: " + err) }
     }
 
-    switch strings.parse_float(&"3.5") {
-        case Ok(v) { t.eq_float(v, 3.5) }
-        case Err(err) { t.fail("parse_float failed: " + err) }
+    switch strings.parseFloat(&"3.5") {
+        case Ok(v) { t.eqFloat(v, 3.5) }
+        case Err(err) { t.fail("parseFloat failed: " + err) }
     }
 
     var phrase: string = "bak language"
-    t.eq_string(strings.replace_first(&phrase, &"bak", &"BAK"), "BAK language")
-    t.eq_string(strings.pad_left(&"7", 3, char('0')), "007")
-    t.eq_string(strings.pad_right(&"7", 3, char('0')), "700")
+    t.eqString(strings.replaceFirst(&phrase, &"bak", &"BAK"), "BAK language")
+    t.eqString(strings.padLeft(&"7", 3, char('0')), "007")
+    t.eqString(strings.padRight(&"7", 3, char('0')), "700")
 
-    switch strings.char_at(&name, 0) {
-        case Ok(ch) { t.eq_string(string(ch), "b") }
-        case Err(err) { t.fail("char_at failed: " + err) }
+    switch strings.charAt(&name, 0) {
+        case Ok(ch) { t.eqString(string(ch), "b") }
+        case Err(err) { t.fail("charAt failed: " + err) }
     }
 
-    t.eq_string(strings.reverse(&"bak"), "kab")
+    t.eqString(strings.reverse(&"bak"), "kab")
 
     t.finish()
 }

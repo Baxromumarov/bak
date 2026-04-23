@@ -35,32 +35,24 @@ type builtinMethodInfo struct {
 // builtinMethods maps a type name to a map of method names to their info.
 var builtinMethods = map[string]map[string]builtinMethodInfo{
 	"string": {
-		"len":           {Signature: "func len() -> (int)", Doc: "Returns the length of the string in bytes."},
-		"bytes":         {Signature: "func bytes() -> (Vec<int, _>)", Doc: "Returns the byte representation of the string as a vector of integers."},
-		"chars":         {Signature: "func chars() -> (Vec<char, _>)", Doc: "Returns the characters of the string as a vector of chars."},
-		"lines":         {Signature: "func lines() -> (Vec<string, _>)", Doc: "Returns the lines of the string."},
-		"split":         {Signature: "func split(sep: string) -> (Vec<string, _>)", Doc: "Splits the string by the given separator."},
-		"replace":       {Signature: "func replace(old: string, new: string) -> (string)", Doc: "Replaces all occurrences of old with new."},
-		"substring":     {Signature: "func substring(start: int, end: int) -> (string)", Doc: "Returns a substring from start (inclusive) to end (exclusive)."},
-		"trim":          {Signature: "func trim() -> (string)", Doc: "Returns the string with leading and trailing whitespace removed."},
-		"to_int":        {Signature: "func to_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
-		"contains":      {Signature: "func contains(substr: string) -> (bool)", Doc: "Returns true if the string contains the substring."},
-		"hash":          {Signature: "func hash() -> (int)", Doc: "Returns the hash code of the string."},
-		"index_of":      {Signature: "func index_of(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
-		"last_index_of": {Signature: "func last_index_of(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the last occurrence of the substring, or Err if not found."},
-		"starts_with":   {Signature: "func starts_with(prefix: string) -> (bool)", Doc: "Returns true if the string starts with prefix."},
-		"ends_with":     {Signature: "func ends_with(suffix: string) -> (bool)", Doc: "Returns true if the string ends with suffix."},
-		"parse_int":     {Signature: "func parse_int() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
-		"parse_float":   {Signature: "func parse_float() -> (Result<float64, string>)", Doc: "Parses the string as a float."},
-		"to_string":     {Signature: "func to_string() -> (string)", Doc: "Returns this string value."},
-		"get":           {Signature: "func get(index: int) -> (Result<char, string>)", Doc: "Returns the character at index, or Err if out of bounds."},
-		"indexOf":       {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Deprecated: use index_of."},
-		"lastIndexOf":   {Signature: "func lastIndexOf(substr: string) -> (Result<int, string>)", Doc: "Deprecated: use last_index_of."},
-		"startsWith":    {Signature: "func startsWith(prefix: string) -> (bool)", Doc: "Deprecated: use starts_with."},
-		"endsWith":      {Signature: "func endsWith(suffix: string) -> (bool)", Doc: "Deprecated: use ends_with."},
-		"parseInt":      {Signature: "func parseInt() -> (Result<int, string>)", Doc: "Deprecated: use parse_int."},
-		"parseFloat":    {Signature: "func parseFloat() -> (Result<float64, string>)", Doc: "Deprecated: use parse_float."},
-		"toString":      {Signature: "func toString() -> (string)", Doc: "Deprecated: use to_string."},
+		"len":         {Signature: "func len() -> (int)", Doc: "Returns the length of the string in bytes."},
+		"bytes":       {Signature: "func bytes() -> (Vec<int, _>)", Doc: "Returns the byte representation of the string as a vector of integers."},
+		"chars":       {Signature: "func chars() -> (Vec<char, _>)", Doc: "Returns the characters of the string as a vector of chars."},
+		"lines":       {Signature: "func lines() -> (Vec<string, _>)", Doc: "Returns the lines of the string."},
+		"split":       {Signature: "func split(sep: string) -> (Vec<string, _>)", Doc: "Splits the string by the given separator."},
+		"replace":     {Signature: "func replace(old: string, new: string) -> (string)", Doc: "Replaces all occurrences of old with new."},
+		"substring":   {Signature: "func substring(start: int, end: int) -> (string)", Doc: "Returns a substring from start (inclusive) to end (exclusive)."},
+		"trim":        {Signature: "func trim() -> (string)", Doc: "Returns the string with leading and trailing whitespace removed."},
+		"contains":    {Signature: "func contains(substr: string) -> (bool)", Doc: "Returns true if the string contains the substring."},
+		"hash":        {Signature: "func hash() -> (int)", Doc: "Returns the hash code of the string."},
+		"indexOf":     {Signature: "func indexOf(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the first occurrence of the substring, or Err if not found."},
+		"lastIndexOf": {Signature: "func lastIndexOf(substr: string) -> (Result<int, string>)", Doc: "Returns the index of the last occurrence of the substring, or Err if not found."},
+		"startsWith":  {Signature: "func startsWith(prefix: string) -> (bool)", Doc: "Returns true if the string starts with prefix."},
+		"endsWith":    {Signature: "func endsWith(suffix: string) -> (bool)", Doc: "Returns true if the string ends with suffix."},
+		"parseInt":    {Signature: "func parseInt() -> (Result<int, string>)", Doc: "Parses the string as an integer."},
+		"parseFloat":  {Signature: "func parseFloat() -> (Result<float64, string>)", Doc: "Parses the string as a float."},
+		"toString":    {Signature: "func toString() -> (string)", Doc: "Returns this string value."},
+		"get":         {Signature: "func get(index: int) -> (Result<char, string>)", Doc: "Returns the character at index, or Err if out of bounds."},
 	},
 	"Vec": {
 		"push":     {Signature: "func push(value: T) -> (void)", Doc: "Pushes an element to the end of the vector."},
@@ -72,21 +64,20 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"get":      {Signature: "func get(index: int) -> (Result<T, string>)", Doc: "Returns the element at index, or Err if out of bounds."},
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of elements in the vector."},
 		"cap":      {Signature: "func cap() -> (int)", Doc: "Returns the vector capacity."},
-		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the vector has no elements."},
-		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Deprecated: use is_empty."},
+		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Returns true if the vector has no elements."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all elements from the vector."},
 		"reverse":  {Signature: "func reverse() -> (void)", Doc: "Reverses elements in place."},
 		"contains": {Signature: "func contains(value: T) -> (bool)", Doc: "Returns true if the vector contains the value."},
 		"join":     {Signature: "func join(separator: string) -> (string)", Doc: "Concatenates elements using a separator."},
 		"slice":    {Signature: "func slice(start: int, end: int) -> (Vec<T, _>)", Doc: "Returns a sub-vector between start and end."},
-		"to_vec":   {Signature: "func to_vec() -> (Vec<T, _>)", Doc: "Returns a dynamic Vec copy."},
+		"toVec":    {Signature: "func toVec() -> (Vec<T, _>)", Doc: "Returns a dynamic Vec copy."},
 		"set":      {Signature: "func set(index: int, value: T) -> (void)", Doc: "Sets the element at index."},
 	},
 	"HashMap": {
 		"insert":   {Signature: "func insert(key: K, value: V) -> (void)", Doc: "Inserts or updates a key-value pair."},
 		"get":      {Signature: "func get(key: &K) -> (Result<V, string>)", Doc: "Looks up a key and returns Result<V, string>."},
 		"len":      {Signature: "func len() -> (int)", Doc: "Returns the number of key-value pairs in the map."},
-		"is_empty": {Signature: "func is_empty() -> (bool)", Doc: "Returns true if the map has no entries."},
+		"isEmpty":  {Signature: "func isEmpty() -> (bool)", Doc: "Returns true if the map has no entries."},
 		"keys":     {Signature: "func keys() -> (Vec<K, _>)", Doc: "Returns a vector of all keys in the map."},
 		"values":   {Signature: "func values() -> (Vec<V, _>)", Doc: "Returns a vector of all values in the map."},
 		"clear":    {Signature: "func clear() -> (void)", Doc: "Removes all entries from the map."},
@@ -102,24 +93,23 @@ var builtinMethods = map[string]map[string]builtinMethodInfo{
 		"contains": {Signature: "func contains(key: K) -> (bool)", Doc: "Returns true if the map contains the given key."},
 	},
 	"Result": {
-		"is_ok":      {Signature: "func is_ok() -> (bool)", Doc: "Returns true if the result is Ok."},
-		"is_err":     {Signature: "func is_err() -> (bool)", Doc: "Returns true if the result is Err."},
-		"unwrap":     {Signature: "func unwrap() -> (T)", Doc: "Returns the Ok value. Panics if Err."},
-		"unwrap_err": {Signature: "func unwrap_err() -> (E)", Doc: "Returns the Err value. Panics if Ok."},
-		"to_string":  {Signature: "func to_string() -> (string)", Doc: "Returns a string representation of the Result."},
-		"toString":   {Signature: "func toString() -> (string)", Doc: "Deprecated: use to_string."},
+		"isOk":      {Signature: "func isOk() -> (bool)", Doc: "Returns true if the result is Ok."},
+		"isErr":     {Signature: "func isErr() -> (bool)", Doc: "Returns true if the result is Err."},
+		"unwrap":    {Signature: "func unwrap() -> (T)", Doc: "Returns the Ok value. Panics if Err."},
+		"unwrapErr": {Signature: "func unwrapErr() -> (E)", Doc: "Returns the Err value. Panics if Ok."},
+		"toString":  {Signature: "func toString() -> (string)", Doc: "Returns a string representation of the Result."},
 	},
 }
 
 var builtinStaticMethods = map[string]map[string]builtinMethodInfo{
 	"Vec": {
-		"new":      {Signature: "func new() -> (Vec<T, _>)", Doc: "Creates an empty vector."},
-		"with_cap": {Signature: "func with_cap(cap: int) -> (Vec<T, _>)", Doc: "Creates an empty vector with reserved capacity."},
-		"from":     {Signature: "func from<N>(arr: Vec<T, N>) -> (Vec<T, _>)", Doc: "Creates a dynamic vector from a fixed-size vector."},
+		"new":     {Signature: "func new() -> (Vec<T, _>)", Doc: "Creates an empty vector."},
+		"withCap": {Signature: "func withCap(cap: int) -> (Vec<T, _>)", Doc: "Creates an empty vector with reserved capacity."},
+		"from":    {Signature: "func from<N>(arr: Vec<T, N>) -> (Vec<T, _>)", Doc: "Creates a dynamic vector from a fixed-size vector."},
 	},
 	"HashMap": {
-		"new":      {Signature: "func new() -> (HashMap<K, V>)", Doc: "Creates an empty hash map."},
-		"with_cap": {Signature: "func with_cap(c: int) -> (HashMap<K, V>)", Doc: "Creates an empty hash map with reserved capacity."},
+		"new":     {Signature: "func new() -> (HashMap<K, V>)", Doc: "Creates an empty hash map."},
+		"withCap": {Signature: "func withCap(c: int) -> (HashMap<K, V>)", Doc: "Creates an empty hash map with reserved capacity."},
 	},
 }
 
@@ -3080,7 +3070,7 @@ func isPotentialVecExpr(expr ast.Expression, states map[string]vecLenState) bool
 		if obj, ok := e.Object.(*ast.Identifier); ok {
 			if obj.Value == "Vec" {
 				switch e.Method.Value {
-				case "new", "with_cap", "from":
+				case "new", "withCap", "from":
 					return true
 				}
 			}
@@ -3161,7 +3151,7 @@ func inferVecLengthFromExpr(expr ast.Expression, states map[string]vecLenState) 
 
 		if obj.Value == "Vec" {
 			switch e.Method.Value {
-			case "new", "with_cap":
+			case "new", "withCap":
 				return 0, true
 			case "from":
 				if len(e.Arguments) == 1 {

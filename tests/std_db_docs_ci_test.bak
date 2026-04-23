@@ -18,25 +18,25 @@ func test_db_docs_queryresult_row_access() -> (void) {
     t.eq(rows.len(), 2)
 
     var first: db.Row = rows[0]
-    switch first.get_int("id") {
+    switch first.getInt("id") {
         case Ok(v) { t.eq(v, 7) }
         case Err(err) { t.fail("id parse failed: " + err) }
     }
-    switch first.get_string("name") {
-        case Ok(v) { t.eq_string(v, "Ada") }
+    switch first.getString("name") {
+        case Ok(v) { t.eqString(v, "Ada") }
         case Err(err) { t.fail("name read failed: " + err) }
     }
-    switch first.get_bool("active") {
-        case Ok(v) { t.is_true(v) }
+    switch first.getBool("active") {
+        case Ok(v) { t.isTrue(v) }
         case Err(err) { t.fail("active read failed: " + err) }
     }
-    switch first.get_float("balance") {
-        case Ok(v) { t.eq_float(v, 10.25) }
+    switch first.getFloat("balance") {
+        case Ok(v) { t.eqFloat(v, 10.25) }
         case Err(err) { t.fail("balance read failed: " + err) }
     }
 
-    switch first.get_index(1) {
-        case Ok(v) { t.eq_string(v, "Ada") }
+    switch first.getIndex(1) {
+        case Ok(v) { t.eqString(v, "Ada") }
         case Err(err) { t.fail("index read failed: " + err) }
     }
 
@@ -54,10 +54,10 @@ func test_db_docs_errors_and_nulls() -> (void) {
     }
     var row: db.Row = db.rows(&qr)[0]
 
-    t.is_true(row.get("missing").is_err())
-    t.is_true(row.get_string("name").is_err())
-    t.is_true(row.get_bool("active").is_err())
-    t.is_true(row.get_index(5).is_err())
+    t.isTrue(row.get("missing").isErr())
+    t.isTrue(row.getString("name").isErr())
+    t.isTrue(row.getBool("active").isErr())
+    t.isTrue(row.getIndex(5).isErr())
 
     t.finish()
 }

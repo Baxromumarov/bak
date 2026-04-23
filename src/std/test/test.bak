@@ -34,12 +34,12 @@ pub struct T {
 
 mut var name_prefix: string = ""
 
-pub func set_prefix(prefix: string) -> (void) {
+pub func setPrefix(prefix: string) -> (void) {
     name_prefix = prefix
     return void
 }
 
-pub func clear_prefix() -> (void) {
+pub func clearPrefix() -> (void) {
     name_prefix = ""
     return void
 }
@@ -59,36 +59,36 @@ pub func new(name: string) -> (T) {
 }
 
 func format_value<T>(val: T) -> (string) {
-    var type_name: string = typeof(val)
-    if type_name == "STRING" || type_name == "string" {
+    var typeName: string = typeof(val)
+    if typeName == "STRING" || typeName == "string" {
         return string(val)
     }
-    if type_name == "CHAR" || type_name == "char" {
+    if typeName == "CHAR" || typeName == "char" {
         return string(char(val))
     }
-    if type_name == "INTEGER" ||
-        type_name == "int" || 
-        type_name == "int8" || 
-        type_name == "int16" ||
-        type_name == "int32" || 
-        type_name == "int64" || 
-        type_name == "uint" ||
-        type_name == "uint8" || 
-        type_name == "uint16" || 
-        type_name == "uint32" ||
-        type_name == "uint64" {
-        return strconv.int_to_string(int(val))
+    if typeName == "INTEGER" ||
+        typeName == "int" || 
+        typeName == "int8" || 
+        typeName == "int16" ||
+        typeName == "int32" || 
+        typeName == "int64" || 
+        typeName == "uint" ||
+        typeName == "uint8" || 
+        typeName == "uint16" || 
+        typeName == "uint32" ||
+        typeName == "uint64" {
+        return strconv.intToString(int(val))
     }
-    if type_name == "FLOAT" || type_name == "float" || type_name == "float32" || type_name == "float64" {
-        return strconv.format_float(float64(val), 6)
+    if typeName == "FLOAT" || typeName == "float" || typeName == "float32" || typeName == "float64" {
+        return strconv.formatFloat(float64(val), 6)
     }
-    if type_name == "BOOLEAN" || type_name == "bool" {
+    if typeName == "BOOLEAN" || typeName == "bool" {
         if int(val) == 0 {
             return "false"
         }
         return "true"
     }
-    if type_name == "BOX" || type_name == "box" {
+    if typeName == "BOX" || typeName == "box" {
         return format_value(unbox(val))
     }
     return "<value>"
@@ -108,10 +108,10 @@ impl T as t {
         }
     }
 
-    // fail_now records a failure and marks that the test should stop.
+    // failNow records a failure and marks that the test should stop.
     // In the current implementation, this is the same as fail since
     // we don't have exceptions/panics for early exit.
-    pub mut func fail_now(msg: string) -> (void) {
+    pub mut func failNow(msg: string) -> (void) {
         t.fail(msg)
         return void
     }
@@ -121,23 +121,23 @@ impl T as t {
         return !t.failed
     }
 
-    // has_failed returns true if any failures have been recorded.
-    pub func has_failed() -> (bool) {
+    // hasFailed returns true if any failures have been recorded.
+    pub func hasFailed() -> (bool) {
         return t.failed
     }
 
-    // get_failures returns a copy of all failure messages.
-    pub func get_failures() -> (Vec<string, _>) {
+    // getFailures returns a copy of all failure messages.
+    pub func getFailures() -> (Vec<string, _>) {
         return t.failures
     }
 
-    // get_name returns the test name.
-    pub func get_name() -> (string) {
+    // getName returns the test name.
+    pub func getName() -> (string) {
         return t.name
     }
 
-    // failure_count returns the number of recorded failures.
-    pub func failure_count() -> (int) {
+    // failureCount returns the number of recorded failures.
+    pub func failureCount() -> (int) {
         return t.failures.len()
     }
 
@@ -148,11 +148,11 @@ impl T as t {
         return void
     }
 
-    pub mut func set_case(desc: string) -> (void) {
+    pub mut func setCase(desc: string) -> (void) {
         t.case_desc = desc
     }
 
-    pub mut func clear_case() -> (void) {
+    pub mut func clearCase() -> (void) {
         t.case_desc = ""
     }
 
@@ -172,35 +172,35 @@ impl T as t {
         }
     }
 
-    pub mut func eq_string(got: string, want: string) -> (void) {
+    pub mut func eqString(got: string, want: string) -> (void) {
         if got != want {
             t.fail("  expected: " + strconv.quote(want) + "\n  actual:   " + strconv.quote(got))
         }
     }
 
-    pub mut func eq_char(got: char, want: char) -> (void) {
+    pub mut func eqChar(got: char, want: char) -> (void) {
         if got != want {
             t.fail("  expected: '" + string(want) + "'\n  actual:   '" + string(got) + "'")
         }
     }
 
-    pub mut func eq_float(got: float64, want: float64) -> (void) {
+    pub mut func eqFloat(got: float64, want: float64) -> (void) {
         mut var diff: float64 = got - want
         if diff < 0.0 {
             diff = -diff
         }
         if diff > 0.000001 {
-            t.fail("  expected: " + strconv.format_float(want, 6) + "\n  actual:   " + strconv.format_float(got, 6))
+            t.fail("  expected: " + strconv.formatFloat(want, 6) + "\n  actual:   " + strconv.formatFloat(got, 6))
         }
     }
 
-    pub mut func is_true(cond: bool) -> (void) {
+    pub mut func isTrue(cond: bool) -> (void) {
         if !cond {
             t.fail("  expected: true\n  actual:   false")
         }
     }
 
-    pub mut func is_false(cond: bool) -> (void) {
+    pub mut func isFalse(cond: bool) -> (void) {
         if cond {
             t.fail("  expected: false\n  actual:   true")
         }
@@ -208,29 +208,29 @@ impl T as t {
 
     pub mut func gt(got: int, want: int) -> (void) {
         if got <= want {
-            t.fail("  expected: " + strconv.int_to_string(got) + " > " + strconv.int_to_string(want))
+            t.fail("  expected: " + strconv.intToString(got) + " > " + strconv.intToString(want))
         }
     }
 
     pub mut func gte(got: int, want: int) -> (void) {
         if got < want {
-            t.fail("  expected: " + strconv.int_to_string(got) + " >= " + strconv.int_to_string(want))
+            t.fail("  expected: " + strconv.intToString(got) + " >= " + strconv.intToString(want))
         }
     }
 
     pub mut func lt(got: int, want: int) -> (void) {
         if got >= want {
-            t.fail("  expected: " + strconv.int_to_string(got) + " < " + strconv.int_to_string(want))
+            t.fail("  expected: " + strconv.intToString(got) + " < " + strconv.intToString(want))
         }
     }
 
     pub mut func lte(got: int, want: int) -> (void) {
         if got > want {
-            t.fail("  expected: " + strconv.int_to_string(got) + " <= " + strconv.int_to_string(want))
+            t.fail("  expected: " + strconv.intToString(got) + " <= " + strconv.intToString(want))
         }
     }
 
-    pub mut func is_err<U>(res: Result<U, string>) -> (void) {
+    pub mut func isErr<U>(res: Result<U, string>) -> (void) {
         switch res {
             case Ok(v) {
                 t.fail("  expected: Err\n  actual:   Ok(" + format_value(v) + ")")
@@ -239,7 +239,7 @@ impl T as t {
         }
     }
 
-    pub mut func is_ok<U>(res: Result<U, string>) -> (void) {
+    pub mut func isOk<U>(res: Result<U, string>) -> (void) {
         switch res {
             case Ok(_) {}
             case Err(_) {
@@ -283,7 +283,7 @@ pub func finish(t: &T) -> (TestResult) {
 mut var has_last_result: bool = false
 mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new()}
 
-pub func take_last_result() -> (Result<TestResult, string>) {
+pub func takeLastResult() -> (Result<TestResult, string>) {
     if has_last_result {
         has_last_result = false
         return Ok(last_result)
@@ -291,7 +291,7 @@ pub func take_last_result() -> (Result<TestResult, string>) {
     return Err("no last result")
 }
 
-pub func fail_result(name: string, msg: string) -> (TestResult) {
+pub func failResult(name: string, msg: string) -> (TestResult) {
     mut var failures: Vec<string, _> = Vec.new()
     failures.push(msg)
     return TestResult{name: name, passed: false, failures: failures}
@@ -306,8 +306,8 @@ func red() -> (string) { return esc() + "[31m" }
 func green() -> (string) { return esc() + "[32m" }
 func reset() -> (string) { return esc() + "[0m" }
 
-// run_tests takes a list of results and prints the UI
-pub func run_tests(results: Vec<TestResult, _>) -> (void) {
+// runTests takes a list of results and prints the UI
+pub func runTests(results: Vec<TestResult, _>) -> (void) {
     println("running ", results.len(), " tests")
     
     mut var i: int = 0

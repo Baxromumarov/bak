@@ -155,7 +155,7 @@ import %q as os
 
 func main() -> (int) {
     var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
-    if result.is_err() {
+    if result.isErr() {
         return 7
     }
     return 1
@@ -189,7 +189,7 @@ func TestEvaluatorVMNativePgQueryOptionalArgsParity(t *testing.T) {
 	sourcePath := writeTempParityProgram(t, "parity_pg_query_optional_args.bak", `package main
 
 func main() -> (int) {
-    if __builtin_pg_query(999, "select 1", ["x"]).is_err() {
+    if __builtin_pg_query(999, "select 1", ["x"]).isErr() {
         return 23
     }
     return 0
@@ -223,8 +223,8 @@ func TestEvaluatorVMNativeFsWriteFilePermissionContract(t *testing.T) {
 import %q as fs
 
 func main() -> (int) {
-    var result: Result<void, string> = fs.write_file("parity_permission_gate.tmp", "bak")
-    if result.is_err() {
+    var result: Result<void, string> = fs.writeFile("parity_permission_gate.tmp", "bak")
+    if result.isErr() {
         return 19
     }
     return 1

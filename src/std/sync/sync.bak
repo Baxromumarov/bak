@@ -4,15 +4,14 @@ pub struct Mutex {
     handle: int
 }
 
-pub func new_mutex() -> (Mutex) {
+pub func newMutex() -> (Mutex) {
     return Mutex{
         handle: __builtin_mutex_new()
     }
 }
 
-// Deprecated: use new_mutex.
 pub func NewMutex() -> (Mutex) {
-    return new_mutex()
+    return newMutex()
 }
 
 impl Mutex as m {

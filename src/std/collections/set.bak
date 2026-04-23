@@ -8,7 +8,7 @@ pub struct Set<T> {
 }
 
 pub func new_set<T>() -> (Set<T>) {
-    return Set{map: hashmap.new_hash_map()}
+    return Set{map: hashmap.newHashMap()}
 }
 
 impl Set as s {
@@ -35,7 +35,7 @@ impl Set as s {
         return s.map.keys()
     }
 
-    pub func is_empty() -> (bool) {
+    pub func isEmpty() -> (bool) {
         return s.map.len() == 0
     }
 
@@ -74,7 +74,7 @@ impl Set as s {
         return out
     }
 
-    pub func is_subset_of(other: &Set<T>) -> (bool) {
+    pub func isSubsetOf(other: &Set<T>) -> (bool) {
         for value in s.values() {
             if !other.contains(value) {
                 return false
@@ -89,7 +89,7 @@ pub struct StringSet {
     inner: Set<string>
 }
 
-pub func new_string_set() -> (StringSet) {
+pub func newStringSet() -> (StringSet) {
     return StringSet{inner: new_set()}
 }
 
@@ -114,8 +114,8 @@ impl StringSet as s {
         return s.inner.values()
     }
 
-    pub func is_empty() -> (bool) {
-        return s.inner.is_empty()
+    pub func isEmpty() -> (bool) {
+        return s.inner.isEmpty()
     }
 
     pub mut func clear() -> (void) {
@@ -134,8 +134,8 @@ impl StringSet as s {
         return StringSet{inner: s.inner.difference(&other.inner)}
     }
 
-    pub func is_subset_of(other: &StringSet) -> (bool) {
-        return s.inner.is_subset_of(&other.inner)
+    pub func isSubsetOf(other: &StringSet) -> (bool) {
+        return s.inner.isSubsetOf(&other.inner)
     }
 }
 
@@ -144,7 +144,7 @@ pub struct IntSet {
     inner: Set<int>
 }
 
-pub func new_int_set() -> (IntSet) {
+pub func newIntSet() -> (IntSet) {
     return IntSet{inner: new_set()}
 }
 
@@ -169,8 +169,8 @@ impl IntSet as s {
         return s.inner.values()
     }
 
-    pub func is_empty() -> (bool) {
-        return s.inner.is_empty()
+    pub func isEmpty() -> (bool) {
+        return s.inner.isEmpty()
     }
 
     pub mut func clear() -> (void) {
@@ -189,7 +189,7 @@ impl IntSet as s {
         return IntSet{inner: s.inner.difference(&other.inner)}
     }
 
-    pub func is_subset_of(other: &IntSet) -> (bool) {
-        return s.inner.is_subset_of(&other.inner)
+    pub func isSubsetOf(other: &IntSet) -> (bool) {
+        return s.inner.isSubsetOf(&other.inner)
     }
 }

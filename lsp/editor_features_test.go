@@ -376,7 +376,7 @@ func TestCompletionSuggestsVecStaticMethodsAfterDot(t *testing.T) {
 		details[item.Label] = item.Detail
 	}
 
-	for _, expected := range []string{"new", "with_cap", "from"} {
+	for _, expected := range []string{"new", "withCap", "from"} {
 		if !labels[expected] {
 			t.Fatalf("expected Vec static completion %q, got %#v", expected, completion.Items)
 		}
@@ -472,7 +472,7 @@ func TestCompletionSuggestsHashMapStaticMethodsAfterDot(t *testing.T) {
 		labels[item.Label] = true
 	}
 
-	for _, expected := range []string{"new", "with_cap"} {
+	for _, expected := range []string{"new", "withCap"} {
 		if !labels[expected] {
 			t.Fatalf("expected HashMap static completion %q, got %#v", expected, completion.Items)
 		}

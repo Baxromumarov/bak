@@ -60,7 +60,7 @@ func get_user_handler(_req: http.Request) -> (http.Response) {
         name:  "Bakhrom",
     }
 
-    return http.json_body(
+    return http.jsonBody(
         200,
         user_to_json(user),
     )
@@ -87,7 +87,7 @@ func list_users_handler(_req: http.Request) -> (http.Response) {
         user_to_json,
     )
 
-    return http.json_body(
+    return http.jsonBody(
         200,
         body,
     )
@@ -98,8 +98,8 @@ func create_user_handler(req: http.Request) -> (http.Response) {
     var body_str: string = strings.fromBytes(req.body)
     var parse_result = json.unmarshal(body_str)
 
-    if parse_result.is_err() {
-        return http.json_body(
+    if parse_result.isErr() {
+        return http.jsonBody(
             400,
             error_to_json(ApiError{code: 400, message: "invalid JSON"}),
         )
@@ -109,8 +109,8 @@ func create_user_handler(req: http.Request) -> (http.Response) {
     var decoded = json.decode_obj(
         parse_result.unwrap(),
         func(b: &mut json.ObjBuilder) -> (User) {
-            var name: string = b.string_field("name")
-            var email: string = b.string_field("email")
+            var name: string = b.stringField("name")
+            var email: string = b.stringField("email")
 
             return User{
                 email: email,
@@ -120,23 +120,23 @@ func create_user_handler(req: http.Request) -> (http.Response) {
         },
     )
 
-    if decoded.is_err() {
-        return http.json_body(
+    if decoded.isErr() {
+        return http.jsonBody(
             422,
-            error_to_json(ApiError{code: 422, message: decoded.unwrap_err()}),
+            error_to_json(ApiError{code: 422, message: decoded.unwrapErr()}),
         )
     }
 
     var user: User = decoded.unwrap()
 
     // Pretty-printed JSON response
-    return http.json_pretty_body(
+    return http.jsonPrettyBody(
         201,
         user_to_json(user),
     )
 }
 
-// Generic respond() and respond_bytes() examples
+// Generic respond() and respondBytes() examples
 func health_handler(_req: http.Request) -> (http.Response) {
     return http.respond(
         200,
@@ -148,7 +148,7 @@ func health_handler(_req: http.Request) -> (http.Response) {
 func raw_handler(_req: http.Request) -> (http.Response) {
     var data: Vec<int, _> = "raw bytes".bytes()
 
-    return http.respond_bytes(
+    return http.respondBytes(
         200,
         data,
         "application/octet-stream",
@@ -156,7 +156,7 @@ func raw_handler(_req: http.Request) -> (http.Response) {
 }
 
 func main() -> (void) {
-    mut var r: http.Router = http.new_router()
+    mut var r: http.Router = http.newRouter()
 
     r.get(
         "/user",
@@ -180,12 +180,12 @@ func main() -> (void) {
     )
     println("Starting JSON API server on localhost:8080...")
 
-    var res = http.listen_and_serve(
+    var res = http.listenAndServe(
         "localhost:8080",
         r,
     )
 
-    if res.is_err() {
-        println("Server error: " + res.unwrap_err())
+    if res.isErr() {
+        println("Server error: " + res.unwrapErr())
     }
 }

@@ -4,7 +4,7 @@ import "src/std/bytes/bytes.bak" as bytes
 
 func main() -> (int) {
     mut var score: int = 0
-    mut var b: bytes.Bytes = bytes.from_string("hi")
+    mut var b: bytes.Bytes = bytes.fromString("hi")
 
     {
         if bytes.length(&b) == 2 {
@@ -16,7 +16,7 @@ func main() -> (int) {
             0,
         )
 
-        if opt.is_ok() && opt.unwrap() == int('h') {
+        if opt.isOk() && opt.unwrap() == int('h') {
             score = score + 1
         }
     }
@@ -26,7 +26,7 @@ func main() -> (int) {
         1,
         int('o'),
     )
-    var s: string = bytes.to_string(&b)
+    var s: string = bytes.toString(&b)
 
     if s.len() == 2 && s[0] == 'h' && s[1] == 'o' {
         score = score + 1

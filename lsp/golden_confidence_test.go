@@ -13,7 +13,7 @@ func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
 		"",
 		"func main() -> (void) {",
 		"    mut var v: Vec<int, _> = Vec.new()",
-		"    var r: Result<int, string> = \"1\".parse_int()",
+		"    var r: Result<int, string> = \"1\".parseInt()",
 		"    mut var m: HashMap<string, int> = HashMap.new()",
 		"    v.",
 		"    r.",
@@ -29,22 +29,22 @@ func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
 	})
 
 	vecLabels := completionLabelsAt(t, s, uri, src, "v.")
-	if !containsLabel(vecLabels, "is_empty") || containsLabel(vecLabels, "isEmpty") {
+	if !containsLabel(vecLabels, "isEmpty") || containsLabel(vecLabels, "is_empty") {
 		t.Fatalf("unexpected Vec completion labels: %#v", vecLabels)
 	}
 
 	resultLabels := completionLabelsAt(t, s, uri, src, "r.")
-	if !containsLabel(resultLabels, "to_string") || containsLabel(resultLabels, "toString") {
+	if !containsLabel(resultLabels, "toString") || containsLabel(resultLabels, "to_string") {
 		t.Fatalf("unexpected Result completion labels: %#v", resultLabels)
 	}
-	for _, forbidden := range []string{"is_some", "is_none"} {
+	for _, forbidden := range []string{"isSome", "isNone"} {
 		if containsLabel(resultLabels, forbidden) {
 			t.Fatalf("unexpected Option-only method %q in Result completions: %#v", forbidden, resultLabels)
 		}
 	}
 
 	hashMapLabels := completionLabelsAt(t, s, uri, src, "m.")
-	for _, want := range []string{"insert", "get", "is_empty"} {
+	for _, want := range []string{"insert", "get", "isEmpty"} {
 		if !containsLabel(hashMapLabels, want) {
 			t.Fatalf("expected HashMap completion %q, got %#v", want, hashMapLabels)
 		}
@@ -58,8 +58,8 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 		"func main() -> (void) {",
 		"    mut var v: Vec<int, _> = Vec.new()",
 		"    v.push(1)",
-		"    var r: Result<int, string> = \"1\".parse_int()",
-		"    r.unwrap_err()",
+		"    var r: Result<int, string> = \"1\".parseInt()",
+		"    r.unwrapErr()",
 		"    mut var m: HashMap<string, int> = HashMap.new()",
 		"    m.insert(\"k\", 1)",
 		"}",
@@ -74,14 +74,14 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 
 	sigs := map[string]string{
 		"Vec":     signatureLabelAt(t, s, uri, src, "v.push("),
-		"Result":  signatureLabelAt(t, s, uri, src, "r.unwrap_err("),
+		"Result":  signatureLabelAt(t, s, uri, src, "r.unwrapErr("),
 		"HashMap": signatureLabelAt(t, s, uri, src, "m.insert("),
 	}
 
 	if !strings.Contains(sigs["Vec"], "Vec.push") {
 		t.Fatalf("Vec signature mismatch: %q", sigs["Vec"])
 	}
-	if !strings.Contains(sigs["Result"], "Result.unwrap_err") {
+	if !strings.Contains(sigs["Result"], "Result.unwrapErr") {
 		t.Fatalf("Result signature mismatch: %q", sigs["Result"])
 	}
 	if !strings.Contains(sigs["HashMap"], "HashMap.insert") {
@@ -95,12 +95,12 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 		"",
 		"func main() -> (void) {",
 		"    mut var vecitems: Vec<int, _> = Vec.from([1, 2])",
-		"    var resultval: Result<int, string> = \"1\".parse_int()",
+		"    var resultval: Result<int, string> = \"1\".parseInt()",
 		"    mut var inferredvec = Vec.from([1, 2])",
-		"    var inferredresult = \"1\".parse_int()",
+		"    var inferredresult = \"1\".parseInt()",
 		"    mut var mapval: HashMap<string, int> = HashMap.new()",
 		"    vecitems.push(3)",
-		"    resultval.unwrap_err()",
+		"    resultval.unwrapErr()",
 		"    mapval.insert(\"k\", 1)",
 		"    println(vecitems)",
 		"    println(resultval)",
@@ -122,8 +122,8 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 		t.Fatalf("unexpected Vec hover: %q", hoverVec)
 	}
 
-	hoverResult := hoverAt(t, s, uri, src, "unwrap_err(")
-	if !strings.Contains(hoverResult, "unwrap_err() -> (E)") {
+	hoverResult := hoverAt(t, s, uri, src, "unwrapErr(")
+	if !strings.Contains(hoverResult, "unwrapErr() -> (E)") {
 		t.Fatalf("unexpected Result hover: %q", hoverResult)
 	}
 
@@ -139,7 +139,7 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 		"",
 		"func main() -> (void) {",
 		"    mut var inferred_vec = Vec.from([1, 2])",
-		"    mut var inferred_result = \"1\".parse_int()",
+		"    mut var inferred_result = \"1\".parseInt()",
 		"    mut var inferred_map = HashMap.new()",
 		"    inferred_map.insert(\"k\", 1)",
 		"    println(inferred_vec)",
@@ -177,7 +177,7 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 
 	want := []string{
 		"mut var inferred_map = HashMap.new() => : HashMap<K, V>",
-		"mut var inferred_result = \"1\".parse_int() => : Result<int, string>",
+		"mut var inferred_result = \"1\".parseInt() => : Result<int, string>",
 		"mut var inferred_vec = Vec.from([1, 2]) => : Vec<int, _>",
 	}
 	if len(snapshot) != len(want) {
@@ -195,7 +195,7 @@ func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
 		"package main",
 		"",
 		"func main() -> (void) {",
-		"    x.is_some()",
+		"    x.isSome()",
 		"}",
 		"",
 	}, "\n")
@@ -206,13 +206,13 @@ func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
 		s.analyzeAndPublish(uri, src)
 	})
 
-	line, col := findLineCol(src, "x.is_some(")
+	line, col := findLineCol(src, "x.isSome(")
 	if line < 0 {
 		t.Fatalf("signature target not found")
 	}
 	params := SignatureHelpParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
-		Position:     Position{Line: line, Character: col + len("x.is_some(")},
+		Position:     Position{Line: line, Character: col + len("x.isSome(")},
 	}
 	help := s.handleSignatureHelp(mustRequest(t, params))
 	if help != nil && len(help.Signatures) > 0 {
@@ -237,7 +237,7 @@ func TestCompletionDoesNotAdvertiseOptionMethods(t *testing.T) {
 	})
 
 	labels := completionLabelsAt(t, s, uri, src, "x.")
-	for _, forbidden := range []string{"is_some", "is_none"} {
+	for _, forbidden := range []string{"isSome", "isNone"} {
 		if containsLabel(labels, forbidden) {
 			t.Fatalf("expected no Option completion %q, got %#v", forbidden, labels)
 		}

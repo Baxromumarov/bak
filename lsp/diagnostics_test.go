@@ -158,7 +158,7 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	for _, diag := range params.Diagnostics {
 		if diag.Source == "bak-linter" {
 			foundLint = true
-			if !strings.Contains(diag.Message, "snake_case") {
+			if !strings.Contains(diag.Message, "camelCase") {
 				t.Fatalf("unexpected lint diagnostic message: %s", diag.Message)
 			}
 		}

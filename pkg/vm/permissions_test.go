@@ -223,7 +223,7 @@ func TestVMFileMutatorsAllowedWithPermission(t *testing.T) {
 	}
 	result := requireVMResult(t, val)
 	if result.IsErr {
-		t.Fatalf("expected write_file to succeed, got %s", result.Value.AsString)
+		t.Fatalf("expected writeFile to succeed, got %s", result.Value.AsString)
 	}
 	if content, err := os.ReadFile(writePath); err != nil || string(content) != "bak" {
 		t.Fatalf("unexpected written file content: %q, err=%v", string(content), err)
@@ -242,7 +242,7 @@ func TestVMFileMutatorsAllowedWithPermission(t *testing.T) {
 	}
 	result = requireVMResult(t, val)
 	if result.IsErr {
-		t.Fatalf("expected append_file to succeed, got %s", result.Value.AsString)
+		t.Fatalf("expected appendFile to succeed, got %s", result.Value.AsString)
 	}
 	if content, err := os.ReadFile(appendPath); err != nil || string(content) != "bak" {
 		t.Fatalf("unexpected appended file content: %q, err=%v", string(content), err)

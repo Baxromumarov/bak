@@ -372,7 +372,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			},
 		}
 
-	case "is_err", "is_ok":
+	case "isErr", "isOk":
 		return &ast.FunctionType{
 			ReturnType: &ast.SimpleType{Name: "bool"},
 		}

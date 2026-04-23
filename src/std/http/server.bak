@@ -10,7 +10,7 @@ pub struct Server {
     pub version: string
 }
 
-pub func new_server(addr: string, router: Router) -> (Server) {
+pub func newServer(addr: string, router: Router) -> (Server) {
     return Server{
         addr:    addr,
         router:  router,
@@ -21,8 +21,8 @@ pub func new_server(addr: string, router: Router) -> (Server) {
 impl Server as self {
     pub func start() -> (Result<void, string>) {
         var addr: string = self.addr
-        var portIdx = addr.last_index_of(":")
-        if portIdx.is_err() {
+        var portIdx = addr.lastIndexOf(":")
+        if portIdx.isErr() {
             return Err("invalid address: missing port")
         }
         var host: string = addr.substring(
@@ -33,8 +33,8 @@ impl Server as self {
             portIdx.unwrap() + 1,
             addr.len(),
         )
-        var portRes = portStr.parse_int()
-        if portRes.is_err() {
+        var portRes = portStr.parseInt()
+        if portRes.isErr() {
             return Err("invalid port")
         }
         var port: int = portRes.unwrap()
@@ -42,14 +42,14 @@ impl Server as self {
             host,
             port,
         )
-        if bindRes.is_err() {
-            return Err(bindRes.unwrap_err())
+        if bindRes.isErr() {
+            return Err(bindRes.unwrapErr())
         }
         mut var listener = bindRes.unwrap()
         log.info("Server listening on " + addr)
         while true {
             var connRes = net.accept(&mut listener)
-            if connRes.is_ok() {
+            if connRes.isOk() {
                 mut var conn = connRes.unwrap()
                 self.handle_connection(&mut conn)
             } else {
@@ -64,7 +64,7 @@ impl Server as self {
             conn,
             4096,
         )
-        if readRes.is_err() {
+        if readRes.isErr() {
             net.close(conn)
             return
         }
@@ -74,8 +74,8 @@ impl Server as self {
             return
         }
         var dataStr: string = strings.fromBytes(data)
-        var reqRes = parse_request(dataStr)
-        if reqRes.is_err() {
+        var reqRes = parseRequest(dataStr)
+        if reqRes.isErr() {
             send_response(
                 conn,
                 text(
@@ -103,8 +103,8 @@ impl Server as self {
     }
 }
 
-pub func listen_and_serve(addr: string, r: Router) -> (Result<void, string>) {
-    var s = new_server(
+pub func listenAndServe(addr: string, r: Router) -> (Result<void, string>) {
+    var s = newServer(
         addr,
         r,
     )

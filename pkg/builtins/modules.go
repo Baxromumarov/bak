@@ -18,9 +18,9 @@ var TypeConstructors = map[string]*object.TypeConstructor{
 	"Vec": {
 		Name: "Vec",
 		Functions: map[string]*object.Builtin{
-			"new":      {Fn: vecNew},
-			"from":     {Fn: vecFrom},
-			"with_cap": {Fn: vecWithCap},
+			"new":     {Fn: vecNew},
+			"from":    {Fn: vecFrom},
+			"withCap": {Fn: vecWithCap},
 		},
 	},
 	"Box": {
@@ -71,16 +71,16 @@ func vecFrom(args ...object.Object) object.Object {
 // vecWithCap creates a new dynamic Vec with pre-allocated capacity
 func vecWithCap(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return &object.Error{Message: "Vec.with_cap() takes exactly one argument (capacity)"}
+		return &object.Error{Message: "Vec.withCap() takes exactly one argument (capacity)"}
 	}
 
 	cap, ok := args[0].(*object.Integer)
 	if !ok {
-		return &object.Error{Message: fmt.Sprintf("Vec.with_cap() argument must be an integer, got %s", args[0].Type())}
+		return &object.Error{Message: fmt.Sprintf("Vec.withCap() argument must be an integer, got %s", args[0].Type())}
 	}
 
 	if cap.Value < 0 {
-		return &object.Error{Message: "Vec.with_cap() capacity cannot be negative"}
+		return &object.Error{Message: "Vec.withCap() capacity cannot be negative"}
 	}
 
 	// Pre-allocate the underlying slice with the given capacity

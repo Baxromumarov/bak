@@ -157,10 +157,10 @@ func TestBuiltinSignature_StdFsWriteFileArityIsChecked(t *testing.T) {
 package main
 import "src/std/fs/fs.bak" as fs
 func main() -> (void) {
-	var r: Result<void, string> = fs.write_file("only-path")
+	var r: Result<void, string> = fs.writeFile("only-path")
 	println(r)
 }
-`, "function 'fs.write_file' expects 2 argument(s)")
+`, "function 'fs.writeFile' expects 2 argument(s)")
 }
 
 func TestBuiltinSignature_StdOsExecTypesAreChecked(t *testing.T) {

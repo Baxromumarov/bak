@@ -36,8 +36,8 @@ pub func encode(data: &string) -> (string) {
     return result
 }
 
-// encode_upper encodes to uppercase hex
-pub func encode_upper(data: &string) -> (string) {
+// encodeUpper encodes to uppercase hex
+pub func encodeUpper(data: &string) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
     while i < data.len() {
@@ -97,8 +97,8 @@ pub func decode(hex_str: &string) -> (Result<string, string>) {
 // Utility Functions
 // -----------------------------------------------------------------------------
 
-// is_valid_hex checks if a string contains only valid hex characters
-pub func is_valid_hex(s: &string) -> (bool) {
+// isValidHex checks if a string contains only valid hex characters
+pub func isValidHex(s: &string) -> (bool) {
     if s.len() % 2 != 0 {
         return false
     }
@@ -112,8 +112,8 @@ pub func is_valid_hex(s: &string) -> (bool) {
     return true
 }
 
-// encode_int formats an integer as a hex string (without 0x prefix)
-pub func encode_int(n: int) -> (string) {
+// encodeInt formats an integer as a hex string (without 0x prefix)
+pub func encodeInt(n: int) -> (string) {
     if n == 0 {
         return "0"
     }
@@ -144,8 +144,8 @@ pub func encode_int(n: int) -> (string) {
     return result
 }
 
-// decode_int parses a hex string as an integer
-pub func decode_int(s: &string) -> (Result<int, string>) {
+// decodeInt parses a hex string as an integer
+pub func decodeInt(s: &string) -> (Result<int, string>) {
     if s.len() == 0 {
         return Err("empty string")
     }

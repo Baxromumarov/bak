@@ -297,27 +297,6 @@ func (tc *TypeChecker) lookupSymbolWithoutMark(name string) (*TypeInfo, bool) {
 	return nil, false
 }
 
-func (tc *TypeChecker) warnDeprecatedAlias(kind, alias, canonical string, line, col int) {
-	path := strings.ReplaceAll(tc.currentPkgPath, "\\", "/")
-	if strings.Contains(path, "/src/std/") || strings.Contains(path, "/tests/") {
-		return
-	}
-	message := fmt.Sprintf("deprecated alias '%s'; use '%s'", alias, canonical)
-	if kind != "" {
-		message = fmt.Sprintf("deprecated %s alias '%s'; use '%s'", kind, alias, canonical)
-	}
-	message = message + " (compatibility alias)"
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.DiagnosticCode("W0910"),
-		Level:   diagnostics.LevelWarning,
-		Message: message,
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    fmt.Sprintf("replace '%s' with '%s'; compatibility aliases may be removed in a future release", alias, canonical),
-	})
-}
-
 func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 	tc.emitter.Emit(d)
 	tc.hasFatalError = true

@@ -4,13 +4,13 @@ func main() -> (int) {
     mut var score: int = 0
 
     mut var empty: Vec<int, _> = Vec.new()
-    if empty.first().is_err() {
+    if empty.first().isErr() {
         score = score + 1
     }
-    if empty.last().is_err() {
+    if empty.last().isErr() {
         score = score + 1
     }
-    if empty.pop().is_err() {
+    if empty.pop().isErr() {
         score = score + 1
     }
 
@@ -42,10 +42,10 @@ func main() -> (int) {
         case Err(_) {}
     }
 
-    if v.get(-1).is_err() {
+    if v.get(-1).isErr() {
         score = score + 1
     }
-    if v.get(99).is_err() {
+    if v.get(99).isErr() {
         score = score + 1
     }
 
@@ -68,10 +68,10 @@ func main() -> (int) {
         case Err(_) {}
     }
 
-    if s.get(-1).is_err() {
+    if s.get(-1).isErr() {
         score = score + 1
     }
-    if s.get(3).is_err() {
+    if s.get(3).isErr() {
         score = score + 1
     }
 

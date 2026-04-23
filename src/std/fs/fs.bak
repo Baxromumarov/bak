@@ -16,22 +16,18 @@ func clone_ref_string(path: &string) -> (string) {
     )
 }
 
-// read_file reads the entire contents of a file.
+// readFile reads the entire contents of a file.
 // Returns the content as a string, or an error message
-pub func read_file(path: string) -> (Result<string, string>) {
+pub func readFile(path: string) -> (Result<string, string>) {
     // Note: This is a stub that will be backed by builtins at runtime
     return __builtin_read_file(path)
 }
 
-// Deprecated: use read_file.
-pub func readFile(path: string) -> (Result<string, string>) {
-    return read_file(path)
-}
 
-// read_file_bytes reads the raw bytes of a file and returns Result<Vec<int,_>, string>.
-pub func read_file_bytes(path: &string) -> (Result<Vec<int, _>, string>) {
+// readFileBytes reads the raw bytes of a file and returns Result<Vec<int,_>, string>.
+pub func readFileBytes(path: &string) -> (Result<Vec<int, _>, string>) {
     var pathValue: string = clone_ref_string(path)
-    switch read_file(pathValue) {
+    switch readFile(pathValue) {
         case Ok(text) {
             mut var out: Vec<int, _> = Vec.new()
             mut var i: int = 0
@@ -47,68 +43,44 @@ pub func read_file_bytes(path: &string) -> (Result<Vec<int, _>, string>) {
     }
 }
 
-// Deprecated: use read_file_bytes.
-pub func readFileBytes(path: &string) -> (Result<Vec<int, _>, string>) {
-    return read_file_bytes(path)
-}
 
-// write_file writes content to a file, creating it if it doesn't exist.
+// writeFile writes content to a file, creating it if it doesn't exist.
 // Returns void on success, or an error message
-pub func write_file(path: string, content: string) -> (Result<void, string>) {
+pub func writeFile(path: string, content: string) -> (Result<void, string>) {
     return __builtin_write_file(path, content)
 }
 
-// Deprecated: use write_file.
-pub func writeFile(path: string, content: string) -> (Result<void, string>) {
-    return write_file(path, content)
-}
 
-// write_file_bytes writes raw bytes (Vec<int,_>) to a file.
-pub func write_file_bytes(path: &string, data: Vec<int, _>) -> (Result<void, string>) {
+// writeFileBytes writes raw bytes (Vec<int,_>) to a file.
+pub func writeFileBytes(path: &string, data: Vec<int, _>) -> (Result<void, string>) {
     // Use builtin to preserve raw bytes.
     var pathValue: string = clone_ref_string(path)
     return __builtin_write_file_bytes(pathValue, data)
 }
 
-// Deprecated: use write_file_bytes.
-pub func writeFileBytes(path: &string, data: Vec<int, _>) -> (Result<void, string>) {
-    return write_file_bytes(path, data)
-}
 
-// append_file appends content to a file.
-pub func append_file(path: string, content: string) -> (Result<void, string>) {
+// appendFile appends content to a file.
+pub func appendFile(path: string, content: string) -> (Result<void, string>) {
     return __builtin_append_file(path, content)
 }
 
-// Deprecated: use append_file.
-pub func appendFile(path: string, content: string) -> (Result<void, string>) {
-    return append_file(path, content)
-}
 
 // exists checks if a file or directory exists
 pub func exists(path: string) -> (bool) {
     return __builtin_file_exists(path)
 }
 
-// is_file checks if the path is a regular file.
-pub func is_file(path: string) -> (bool) {
+// isFile checks if the path is a regular file.
+pub func isFile(path: string) -> (bool) {
     return __builtin_is_file(path)
 }
 
-// Deprecated: use is_file.
-pub func isFile(path: string) -> (bool) {
-    return is_file(path)
-}
 
-// is_dir checks if the path is a directory.
-pub func is_dir(path: string) -> (bool) {
+// isDir checks if the path is a directory.
+pub func isDir(path: string) -> (bool) {
     return __builtin_is_dir(path)
 }
 
-// Deprecated: use is_dir.
-pub func isDir(path: string) -> (bool) {
-    return is_dir(path)
-}
 
 // remove deletes a file or empty directory
 pub func remove(path: string) -> (Result<void, string>) {
@@ -120,15 +92,11 @@ pub func mkdir(path: string) -> (Result<void, string>) {
     return __builtin_mkdir(path)
 }
 
-// read_dir reads the contents of a directory.
-pub func read_dir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
+// readDir reads the contents of a directory.
+pub func readDir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
     return __builtin_read_dir(path)
 }
 
-// Deprecated: use read_dir.
-pub func readDir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
-    return read_dir(path)
-}
 
 // DirEntry represents a directory entry
 pub struct DirEntry {

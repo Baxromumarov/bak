@@ -7,28 +7,28 @@ import "src/std/strconv/strconv.bak" as strconv
 // Standard Output Functions
 // =============================================================================
 
-// print_str outputs a string to stdout without a trailing newline
-pub func print_str(value: string) -> (void) {
+// printStr outputs a string to stdout without a trailing newline
+pub func printStr(value: string) -> (void) {
     __builtin_print(value)
 }
 
-// println_str outputs a string to stdout with a trailing newline
-pub func println_str(value: string) -> (void) {
+// printlnStr outputs a string to stdout with a trailing newline
+pub func printlnStr(value: string) -> (void) {
     __builtin_println(value)
 }
 
-// print_int outputs an integer to stdout
-pub func print_int(n: int) -> (void) {
-    __builtin_print(strconv.int_to_string(n))
+// printInt outputs an integer to stdout
+pub func printInt(n: int) -> (void) {
+    __builtin_print(strconv.intToString(n))
 }
 
-// println_int outputs an integer to stdout with a newline
-pub func println_int(n: int) -> (void) {
-    __builtin_println(strconv.int_to_string(n))
+// printlnInt outputs an integer to stdout with a newline
+pub func printlnInt(n: int) -> (void) {
+    __builtin_println(strconv.intToString(n))
 }
 
-// print_bool outputs a boolean to stdout
-pub func print_bool(b: bool) -> (void) {
+// printBool outputs a boolean to stdout
+pub func printBool(b: bool) -> (void) {
     if b {
         __builtin_print("true")
     } else {
@@ -36,8 +36,8 @@ pub func print_bool(b: bool) -> (void) {
     }
 }
 
-// println_bool outputs a boolean to stdout with a newline
-pub func println_bool(b: bool) -> (void) {
+// printlnBool outputs a boolean to stdout with a newline
+pub func printlnBool(b: bool) -> (void) {
     if b {
         __builtin_println("true")
     } else {
@@ -45,13 +45,13 @@ pub func println_bool(b: bool) -> (void) {
     }
 }
 
-// eprint_str outputs a string to stderr without a trailing newline
-pub func eprint_str(value: string) -> (void) {
+// eprintStr outputs a string to stderr without a trailing newline
+pub func eprintStr(value: string) -> (void) {
     __builtin_eprint(value)
 }
 
-// eprintln_str outputs a string to stderr with a trailing newline
-pub func eprintln_str(value: string) -> (void) {
+// eprintlnStr outputs a string to stderr with a trailing newline
+pub func eprintlnStr(value: string) -> (void) {
     __builtin_eprintln(value)
 }
 
@@ -64,13 +64,13 @@ pub func newline() -> (void) {
 // Standard Input Functions
 // =============================================================================
 
-// read_line reads a single line from stdin (blocking)
-pub func read_line() -> (Result<string, string>) {
+// readLine reads a single line from stdin (blocking)
+pub func readLine() -> (Result<string, string>) {
     return __builtin_read_line()
 }
 
-// read_all reads all available input from stdin
-pub func read_all() -> (Result<string, string>) {
+// readAll reads all available input from stdin
+pub func readAll() -> (Result<string, string>) {
     return __builtin_read_all()
 }
 
@@ -80,8 +80,8 @@ pub func prompt(message: string) -> (Result<string, string>) {
     return __builtin_read_line()
 }
 
-// prompt_default prompts with a default value shown
-pub func prompt_default(message: string, default_val: string) -> (string) {
+// promptDefault prompts with a default value shown
+pub func promptDefault(message: string, default_val: string) -> (string) {
     __builtin_print(message)
     __builtin_print(" [")
     __builtin_print(default_val)
@@ -109,8 +109,8 @@ pub struct Reader {
     len: int
 }
 
-// new_reader creates a Reader from a string
-pub func new_reader(data: string) -> (Reader) {
+// newReader creates a Reader from a string
+pub func newReader(data: string) -> (Reader) {
     return Reader{
         data: data,
         pos: 0,
@@ -133,8 +133,8 @@ impl Reader as r {
         return result
     }
     
-    // read_byte reads a single byte/character
-    pub mut func read_byte() -> (Result<char, string>) {
+    // readByte reads a single byte/character
+    pub mut func readByte() -> (Result<char, string>) {
         if r.pos >= r.len {
             return Err("eof")
         }
@@ -143,8 +143,8 @@ impl Reader as r {
         return Ok(ch)
     }
     
-    // read_line reads until newline or end of data
-    pub mut func read_line() -> (Result<string, string>) {
+    // readLine reads until newline or end of data
+    pub mut func readLine() -> (Result<string, string>) {
         if r.pos >= r.len {
             return Err("eof")
         }
@@ -162,8 +162,8 @@ impl Reader as r {
         return Ok(line)
     }
     
-    // read_all reads all remaining data
-    pub mut func read_all() -> (string) {
+    // readAll reads all remaining data
+    pub mut func readAll() -> (string) {
         if r.pos >= r.len {
             return ""
         }
@@ -190,8 +190,8 @@ impl Reader as r {
         return skipped
     }
     
-    // is_eof returns true if at end of data
-    pub func is_eof() -> (bool) {
+    // isEof returns true if at end of data
+    pub func isEof() -> (bool) {
         return r.pos >= r.len
     }
     
@@ -228,13 +228,13 @@ pub struct Writer {
     buffer: string
 }
 
-// new_writer creates an empty Writer
-pub func new_writer() -> (Writer) {
+// newWriter creates an empty Writer
+pub func newWriter() -> (Writer) {
     return Writer{buffer: ""}
 }
 
-// new_writer_with creates a Writer with initial content
-pub func new_writer_with(initial: string) -> (Writer) {
+// newWriterWith creates a Writer with initial content
+pub func newWriterWith(initial: string) -> (Writer) {
     return Writer{buffer: initial}
 }
 
@@ -245,19 +245,19 @@ impl Writer as w {
         return s.len()
     }
     
-    // write_byte appends a single character
-    pub mut func write_byte(ch: char) -> (void) {
+    // writeByte appends a single character
+    pub mut func writeByte(ch: char) -> (void) {
         w.buffer = w.buffer + string(ch)
     }
     
-    // write_line appends a string followed by a newline
-    pub mut func write_line(s: string) -> (int) {
+    // writeLine appends a string followed by a newline
+    pub mut func writeLine(s: string) -> (int) {
         w.buffer = w.buffer + s + "\n"
         return s.len() + 1
     }
     
-    // write_bytes appends multiple characters from a Vec
-    pub mut func write_bytes(chars: &Vec<char, _>) -> (int) {
+    // writeBytes appends multiple characters from a Vec
+    pub mut func writeBytes(chars: &Vec<char, _>) -> (int) {
         mut var i: int = 0
         while i < chars.len() {
             w.buffer = w.buffer + string(chars[i])
@@ -266,13 +266,13 @@ impl Writer as w {
         return chars.len()
     }
     
-    // write_int appends an integer as a string
-    pub mut func write_int(n: int) -> (void) {
-        w.buffer = w.buffer + strconv.int_to_string(n)
+    // writeInt appends an integer as a string
+    pub mut func writeInt(n: int) -> (void) {
+        w.buffer = w.buffer + strconv.intToString(n)
     }
     
-    // write_repeated appends a string repeated n times
-    pub mut func write_repeated(s: string, count: int) -> (void) {
+    // writeRepeated appends a string repeated n times
+    pub mut func writeRepeated(s: string, count: int) -> (void) {
         mut var i: int = 0
         while i < count {
             w.buffer = w.buffer + s
@@ -280,8 +280,8 @@ impl Writer as w {
         }
     }
     
-    // to_string returns the accumulated string
-    pub func to_string() -> (string) {
+    // toString returns the accumulated string
+    pub func toString() -> (string) {
         return w.buffer
     }
     
@@ -296,7 +296,7 @@ impl Writer as w {
     }
     
     // is_empty returns true if buffer is empty
-    pub func is_empty() -> (bool) {
+    pub func isEmpty() -> (bool) {
         return w.buffer.len() == 0
     }
 }
@@ -310,8 +310,8 @@ pub struct BufferedWriter {
     total_len: int
 }
 
-// new_buffered_writer creates a BufferedWriter
-pub func new_buffered_writer() -> (BufferedWriter) {
+// newBufferedWriter creates a BufferedWriter
+pub func newBufferedWriter() -> (BufferedWriter) {
     mut var initial_parts: Vec<string, _> = Vec.new()
     return BufferedWriter{
         parts: initial_parts,
@@ -326,8 +326,8 @@ impl BufferedWriter as bw {
         bw.total_len = bw.total_len + s.len()
     }
     
-    // write_line adds a string with newline
-    pub mut func write_line(s: string) -> (void) {
+    // writeLine adds a string with newline
+    pub mut func writeLine(s: string) -> (void) {
         bw.parts.push(s)
         bw.parts.push("\n")
         bw.total_len = bw.total_len + s.len() + 1
@@ -368,25 +368,25 @@ pub struct Lines {
 
 // lines creates a line iterator from a string
 pub func lines(data: string) -> (Lines) {
-    return Lines{reader: new_reader(data)}
+    return Lines{reader: newReader(data)}
 }
 
 impl Lines as l {
     // next returns the next line or Err if at end
     pub mut func next() -> (Result<string, string>) {
-        return l.reader.read_line()
+        return l.reader.readLine()
     }
     
-    // has_more returns true if more lines are available
-    pub func has_more() -> (bool) {
-        return !l.reader.is_eof()
+    // hasMore returns true if more lines are available
+    pub func hasMore() -> (bool) {
+        return !l.reader.isEof()
     }
     
     // collect reads all remaining lines into a Vec
     pub mut func collect() -> (Vec<string, _>) {
         mut var result: Vec<string, _> = Vec.new()
-        while !l.reader.is_eof() {
-            switch l.reader.read_line() {
+        while !l.reader.isEof() {
+            switch l.reader.readLine() {
                 case Ok(line) {
                     result.push(line)
                 }
@@ -414,6 +414,6 @@ func substring(s: &string, start: int, end: int) -> (string) {
 
 // copy copies from a Reader to a Writer, returns bytes copied
 pub func copy(src: &mut Reader, dst: &mut Writer) -> (int) {
-    var data: string = src.read_all()
+    var data: string = src.readAll()
     return dst.write(data)
 }

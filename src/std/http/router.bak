@@ -11,7 +11,7 @@ pub struct Router {
     not_found_handler: func(Request) -> (Response)
 }
 
-pub func new_router() -> (Router) {
+pub func newRouter() -> (Router) {
     return Router{not_found_handler: default_not_found, routes: Vec.new()}
 }
 
@@ -106,14 +106,14 @@ impl Router as r {
         })
     }
 
-    pub mut func set_not_found(handler: func(Request) -> (Response)) -> (void) {
+    pub mut func setNotFound(handler: func(Request) -> (Response)) -> (void) {
         r.not_found_handler = handler
     }
 
     pub func dispatch(mut req: Request) -> (Response) {
         mut var path: string = req.path
-        var queryIdx = path.index_of("?")
-        if queryIdx.is_ok() {
+        var queryIdx = path.indexOf("?")
+        if queryIdx.isOk() {
             path = path.substring(
                 0,
                 queryIdx.unwrap(),
@@ -133,7 +133,7 @@ impl Router as r {
                     while j < routeSegments.len() {
                         var rs: string = routeSegments[j]
                         var reqS: string = reqSegments[j]
-                        if rs.starts_with(":") {
+                        if rs.startsWith(":") {
                             var paramName: string = rs.substring(
                                 1,
                                 rs.len(),

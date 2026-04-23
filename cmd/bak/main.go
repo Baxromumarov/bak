@@ -668,17 +668,17 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 	b.WriteString(src)
 	b.WriteString("\n\n// GENERATED test runner\n")
 	b.WriteString("pub func run_all_tests() -> (void) {\n")
-	fmt.Fprintf(&b, "    test.set_prefix(\"%s\")\n", filename)
+	fmt.Fprintf(&b, "    test.setPrefix(\"%s\")\n", filename)
 	b.WriteString("    mut var results: Vec<test.TestResult, _> = Vec.new()\n")
 	for i, name := range tests {
 		idx := i + 1
 		testLabel := filename + ":" + name.name
 		if name.arity == 0 {
 			fmt.Fprintf(&b, "    %s()\n", name.name)
-			fmt.Fprintf(&b, "    var lr%d: Result<test.TestResult, string> = test.take_last_result()\n", idx)
+			fmt.Fprintf(&b, "    var lr%d: Result<test.TestResult, string> = test.takeLastResult()\n", idx)
 			b.WriteString("    switch lr" + fmt.Sprintf("%d", idx) + " {\n")
 			fmt.Fprintf(&b, "        case Ok(r%d) { results.push(r%d) }\n", idx, idx)
-			fmt.Fprintf(&b, "        case Err(_e) { results.push(test.fail_result(\"%s\", \"test did not call t.finish()\")) }\n", testLabel)
+			fmt.Fprintf(&b, "        case Err(_e) { results.push(test.failResult(\"%s\", \"test did not call t.finish()\")) }\n", testLabel)
 			b.WriteString("    }\n")
 		} else {
 			fmt.Fprintf(&b, "    mut var t%d: test.T = test.new(\"%s\")\n", idx, testLabel)
@@ -687,8 +687,8 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 			fmt.Fprintf(&b, "    results.push(r%d)\n", idx)
 		}
 	}
-	b.WriteString("    test.run_tests(results)\n")
-	b.WriteString("    test.clear_prefix()\n")
+	b.WriteString("    test.runTests(results)\n")
+	b.WriteString("    test.clearPrefix()\n")
 	b.WriteString("}\n")
 
 	combined := b.String()

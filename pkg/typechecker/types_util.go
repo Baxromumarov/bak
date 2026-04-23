@@ -1054,35 +1054,35 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 	}
 
 	switch method {
-	case "is_ok", "is_err":
+	case "isOk", "isErr":
 		return &ast.SimpleType{Name: "bool"}
 	case "unwrap":
 		if guardState == resultGuardIsErr {
 			tc.emitError(diagnostics.Diagnostic{
 				Code:    diagnostics.DiagnosticCode("W0901"),
 				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.is_err()'", guardVar, guardVar),
+				Message: fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.isErr()'", guardVar, guardVar),
 				Line:    mc.Token.Line,
 				Column:  mc.Token.Column,
 				File:    tc.currentPkgPath,
-				Help:    "use unwrap_err() here, or move unwrap() into an is_ok() branch (or switch on Ok/Err)",
+				Help:    "use unwrapErr() here, or move unwrap() into an isOk() branch (or switch on Ok/Err)",
 			})
 		}
 		return okType
-	case "unwrap_err":
+	case "unwrapErr":
 		if guardState == resultGuardIsOk {
 			tc.emitError(diagnostics.Diagnostic{
 				Code:    diagnostics.DiagnosticCode("W0902"),
 				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("'%s.unwrap_err()' is guaranteed to panic in this branch after '%s.is_ok()'", guardVar, guardVar),
+				Message: fmt.Sprintf("'%s.unwrapErr()' is guaranteed to panic in this branch after '%s.isOk()'", guardVar, guardVar),
 				Line:    mc.Token.Line,
 				Column:  mc.Token.Column,
 				File:    tc.currentPkgPath,
-				Help:    "use unwrap() here, or move unwrap_err() into an is_err() branch (or switch on Ok/Err)",
+				Help:    "use unwrap() here, or move unwrapErr() into an isErr() branch (or switch on Ok/Err)",
 			})
 		}
 		return errType
-	case "to_string":
+	case "toString":
 		return &ast.SimpleType{Name: "string"}
 	default:
 		tc.errorUndefinedMethod("Result", method, mc.Token.Line, mc.Token.Column, resultMethodCandidates)

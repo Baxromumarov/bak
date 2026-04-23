@@ -30,24 +30,24 @@ func TestLintSourceRespectsDisabledRules(t *testing.T) {
 	}
 }
 
-func TestLintSourceAllowsStructSnakeCase(t *testing.T) {
-	source := "package main\n\nstruct data {\n    name: string,\n}\n"
+func TestLintSourceAllowsStructCamelCase(t *testing.T) {
+	source := "package main\n\nstruct dataModel {\n    name: string,\n}\n"
 
 	findings := LintSource("demo.bak", source, nil)
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data'") {
-			t.Fatalf("did not expect struct snake_case warning, got %#v", findings)
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'dataModel'") {
+			t.Fatalf("did not expect struct camelCase warning, got %#v", findings)
 		}
 	}
 }
 
-func TestLintSourceWarnsForStructCamelCase(t *testing.T) {
-	source := "package main\n\nstruct dataModel {\n    name: string,\n}\n"
+func TestLintSourceWarnsForStructSnakeCase(t *testing.T) {
+	source := "package main\n\nstruct data_model {\n    name: string,\n}\n"
 
 	findings := LintSource("demo.bak", source, nil)
 	found := false
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'dataModel' should be PascalCase or snake_case") {
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data_model' should be PascalCase or camelCase") {
 			found = true
 			break
 		}
@@ -67,7 +67,7 @@ func TestLintSourceKeepsLintWhenParseErrorsExist(t *testing.T) {
 
 	found := false
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "function 'BadName' should be snake_case") {
+		if f.Rule == "naming-convention" && strings.Contains(f.Message, "function 'BadName' should be camelCase") {
 			found = true
 			break
 		}

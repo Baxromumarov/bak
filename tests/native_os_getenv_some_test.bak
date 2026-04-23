@@ -5,7 +5,7 @@ import "std/os"
 func main() -> (int) {
     var value: Result<string, string> = os.getenv("BAK_NATIVE_GETENV_SENTINEL")
 
-    if value.is_err() {
+    if value.isErr() {
         return 1
     }
 

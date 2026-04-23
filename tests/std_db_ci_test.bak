@@ -20,26 +20,26 @@ func test_db_row_getters_and_errors() -> (void) {
     t.eq(parsed_rows.len(), 2)
 
     var first: db.Row = parsed_rows[0]
-    switch first.get_int("id") {
+    switch first.getInt("id") {
         case Ok(v) { t.eq(v, 1) }
-        case Err(err) { t.fail("get_int failed: " + err) }
+        case Err(err) { t.fail("getInt failed: " + err) }
     }
-    switch first.get_string("name") {
-        case Ok(v) { t.eq_string(v, "Ada") }
-        case Err(err) { t.fail("get_string failed: " + err) }
+    switch first.getString("name") {
+        case Ok(v) { t.eqString(v, "Ada") }
+        case Err(err) { t.fail("getString failed: " + err) }
     }
-    switch first.get_bool("active") {
-        case Ok(v) { t.is_true(v) }
-        case Err(err) { t.fail("get_bool failed: " + err) }
+    switch first.getBool("active") {
+        case Ok(v) { t.isTrue(v) }
+        case Err(err) { t.fail("getBool failed: " + err) }
     }
-    switch first.get_float("balance") {
-        case Ok(v) { t.eq_float(v, 10.5) }
-        case Err(err) { t.fail("get_float failed: " + err) }
+    switch first.getFloat("balance") {
+        case Ok(v) { t.eqFloat(v, 10.5) }
+        case Err(err) { t.fail("getFloat failed: " + err) }
     }
 
     var second: db.Row = parsed_rows[1]
-    t.is_true(second.get("missing_column").is_err())
-    t.is_true(second.get_string("name").is_err())
+    t.isTrue(second.get("missing_column").isErr())
+    t.isTrue(second.getString("name").isErr())
 
     t.finish()
 }

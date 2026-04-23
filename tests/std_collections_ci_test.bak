@@ -6,7 +6,7 @@ func test_vec_core_behaviour() -> (void) {
     mut var t: test.T = test.new("test_vec_core_behaviour")
 
     mut var v: Vec<int, _> = Vec.new()
-    t.is_true(v.is_empty())
+    t.isTrue(v.isEmpty())
     t.eq(v.len(), 0)
 
     v.push(10)
@@ -18,7 +18,7 @@ func test_vec_core_behaviour() -> (void) {
         case Err(err) { t.fail("pop failed: " + err) }
     }
     t.eq(v.len(), 1)
-    t.is_false(v.is_empty())
+    t.isFalse(v.isEmpty())
 
     t.finish()
 }
@@ -27,7 +27,7 @@ func test_vec_accessors_and_helpers() -> (void) {
     mut var t: test.T = test.new("test_vec_accessors_and_helpers")
 
     mut var v: Vec<int, _> = Vec.from([3, 1, 2])
-    t.is_true(v.cap() >= v.len())
+    t.isTrue(v.cap() >= v.len())
     t.eq(v.first().unwrap(), 3)
     t.eq(v.last().unwrap(), 2)
     t.eq(v.contains(1), true)
@@ -49,11 +49,11 @@ func test_vec_error_paths() -> (void) {
     mut var t: test.T = test.new("test_vec_error_paths")
 
     mut var v: Vec<int, _> = Vec.new()
-    t.is_true(v.first().is_err())
-    t.is_true(v.last().is_err())
-    t.is_true(v.get(0).is_err())
-    t.is_true(v.remove(0).is_err())
-    t.is_true(v.pop().is_err())
+    t.isTrue(v.first().isErr())
+    t.isTrue(v.last().isErr())
+    t.isTrue(v.get(0).isErr())
+    t.isTrue(v.remove(0).isErr())
+    t.isTrue(v.pop().isErr())
 
     t.finish()
 }

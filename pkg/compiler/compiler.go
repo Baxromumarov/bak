@@ -1002,7 +1002,7 @@ func (c *Compiler) processImport(is *ast.ImportStatement) (err error) {
 		methodName := key[dot+1:]
 		if newIdx, ok := fnIndexMap[fnIdx]; ok {
 			// Register Option and Result methods without alias prefix
-			// so they can be looked up at runtime as "Option.is_some" etc.
+			// so they can be looked up at runtime as "Option.isSome" etc.
 			if typeName == "Option" || typeName == "Result" {
 				c.module.AddMethod(typeName, methodName, newIdx)
 			} else {
@@ -2023,12 +2023,12 @@ var builtinNames = map[string]BuiltinID{
 	"char":                         BUILTIN_CHAR,
 	"Box":                          BUILTIN_BOX,
 	"unbox":                        BUILTIN_UNBOX,
-	"is_some":                      BUILTIN_IS_SOME,
-	"is_none":                      BUILTIN_IS_NONE,
+	"isSome":                       BUILTIN_IS_SOME,
+	"isNone":                       BUILTIN_IS_NONE,
 	"unwrap":                       BUILTIN_UNWRAP,
-	"is_ok":                        BUILTIN_IS_OK,
-	"is_err":                       BUILTIN_IS_ERR,
-	"unwrap_err":                   BUILTIN_UNWRAP_ERR,
+	"isOk":                         BUILTIN_IS_OK,
+	"isErr":                        BUILTIN_IS_ERR,
+	"unwrapErr":                    BUILTIN_UNWRAP_ERR,
 	"__builtin_args":               BUILTIN_ARGS,
 	"__builtin_exit":               BUILTIN_EXIT,
 	"__builtin_getenv":             BUILTIN_GETENV,
@@ -2292,9 +2292,9 @@ func (c *Compiler) compileMethodCall(mc *ast.MethodCallExpression) error {
 				c.emitConstant(NewInt(0))
 				c.emit(OP_ALLOC_ARRAY)
 				return nil
-			case "with_cap":
+			case "withCap":
 				if len(mc.Arguments) != 1 {
-					return fmt.Errorf("Vec.with_cap expects exactly 1 argument")
+					return fmt.Errorf("Vec.withCap expects exactly 1 argument")
 				}
 				if err := c.compileExpression(mc.Arguments[0]); err != nil {
 					return err
@@ -2304,7 +2304,7 @@ func (c *Compiler) compileMethodCall(mc *ast.MethodCallExpression) error {
 			}
 			return fmt.Errorf("undefined function: %s", fullName)
 		}
-		// Handle HashMap.new() and HashMap.with_cap() - if not found as regular static methods
+		// Handle HashMap.new() and HashMap.withCap() - if not found as regular static methods
 		if ident.Value == "HashMap" {
 			fullName := "HashMap." + mc.Method.Value
 			if idx, ok := c.module.FunctionIndices[fullName]; ok {
@@ -2324,26 +2324,26 @@ func (c *Compiler) compileMethodCall(mc *ast.MethodCallExpression) error {
 			// Fallback to old behavior if not found (legacy)
 			switch mc.Method.Value {
 			case "new":
-				// HashMap.new() -> call new_hash_map() free function from prelude
-				// Compile as if user wrote: new_hash_map()
-				funcIdent := &ast.Identifier{Value: "new_hash_map"}
+				// HashMap.new() -> call newHashMap() free function from prelude
+				// Compile as if user wrote: newHashMap()
+				funcIdent := &ast.Identifier{Value: "newHashMap"}
 				if err := c.compileIdentifier(funcIdent); err != nil {
 					return fmt.Errorf("HashMap.new(): %w", err)
 				}
 				c.emit(OP_CALL)
 				c.emitByte(0) // 0 arguments
 				return nil
-			case "with_cap":
-				// HashMap.with_cap(n) -> call with_cap_hash_map(n) free function from prelude
+			case "withCap":
+				// HashMap.withCap(n) -> call withCapHashMap(n) free function from prelude
 				if len(mc.Arguments) != 1 {
-					return fmt.Errorf("HashMap.with_cap expects exactly 1 argument")
+					return fmt.Errorf("HashMap.withCap expects exactly 1 argument")
 				}
 				if err := c.compileExpression(mc.Arguments[0]); err != nil {
 					return err
 				}
-				funcIdent := &ast.Identifier{Value: "with_cap_hash_map"}
+				funcIdent := &ast.Identifier{Value: "withCapHashMap"}
 				if err := c.compileIdentifier(funcIdent); err != nil {
-					return fmt.Errorf("HashMap.with_cap(): %w", err)
+					return fmt.Errorf("HashMap.withCap(): %w", err)
 				}
 				c.emit(OP_CALL)
 				c.emitByte(1) // 1 argument (capacity)

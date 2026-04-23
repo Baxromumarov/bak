@@ -22,14 +22,14 @@ pub func sort_set_by<T>(
 }
 
 // Sort StringSet values and return a sorted Vec.
-pub func sort_string_set(set: &collections.StringSet, asc: bool) -> (Vec<string, _>) {
+pub func sortStringSet(set: &collections.StringSet, asc: bool) -> (Vec<string, _>) {
     mut var items: Vec<string, _> = set.values()
-    vector.sort_strings(&mut items, asc)
+    vector.sortStrings(&mut items, asc)
     return items
 }
 
 // Sort StringSet values with a custom less function.
-pub func sort_string_set_by(
+pub func sortStringSetBy(
     set: &collections.StringSet,
     asc: bool,
     less: func(&string, &string) -> (bool)
@@ -40,14 +40,14 @@ pub func sort_string_set_by(
 }
 
 // Sort IntSet values and return a sorted Vec.
-pub func sort_int_set(set: &collections.IntSet, asc: bool) -> (Vec<int, _>) {
+pub func sortIntSet(set: &collections.IntSet, asc: bool) -> (Vec<int, _>) {
     mut var items: Vec<int, _> = set.values()
-    vector.sort_ints(&mut items, asc)
+    vector.sortInts(&mut items, asc)
     return items
 }
 
 // Sort IntSet values with a custom less function.
-pub func sort_int_set_by(
+pub func sortIntSetBy(
     set: &collections.IntSet,
     asc: bool,
     less: func(&int, &int) -> (bool)

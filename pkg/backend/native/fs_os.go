@@ -931,7 +931,7 @@ func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	// test r15, r15
 	s.Code = append(s.Code, rexByte(1, regHi(R15), 0, regHi(R15)), 0x85, modRM(3, R15, R15))
 	jzNotFound := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz not_found
+	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz notFound
 
 	// Compare first key.len bytes of current env with key
 	// Use repe cmpsb
@@ -1018,7 +1018,7 @@ func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	// Set value = string header at offset 8
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R11)
 
-	// Jump to end (skip not_found path)
+	// Jump to end (skip notFound path)
 	jmpEnd := len(s.Code)
 	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp rel32
 
@@ -1035,7 +1035,7 @@ func (s *EmitState) emitOsGetenv(keyExpr ast.Expression) error {
 	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp rel32
 	patchRel32(&s.Code, jmpLoop+1, envLoop)
 
-	// not_found label
+	// notFound label
 	notFound := len(s.Code)
 	patchRel32(&s.Code, jzNotFound+2, notFound)
 
@@ -1093,7 +1093,7 @@ func (s *EmitState) emitResultUnwrapErr(obj ast.Expression) error {
 		return err
 	}
 	// RAX = pointer to Result {tag: int, value: T or E}
-	// Defensive guard: unwrap_err on null should not segfault in generated compilers.
+	// Defensive guard: unwrapErr on null should not segfault in generated compilers.
 	emitTestRegReg(&s.Code, RAX, RAX)
 	jnzLoad := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz load

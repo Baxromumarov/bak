@@ -21,37 +21,37 @@ func test_clean() -> (void) {
     ])
 
     for c in cases {
-        t.set_case("clean(" + c.input + ")")
-        t.eq_string(p.clean(c.input), c.expected)
+        t.setCase("clean(" + c.input + ")")
+        t.eqString(p.clean(c.input), c.expected)
     }
     t.finish()
 }
 
 func test_join_and_split() -> (void) {
     mut var t: test.T = test.new("test_join_and_split")
-    t.eq_string(p.join("a", "b"), "a/b")
-    t.eq_string(p.join("/a", "b"), "/a/b")
-    t.eq_string(p.join("a", "/b"), "/b")
+    t.eqString(p.join("a", "b"), "a/b")
+    t.eqString(p.join("/a", "b"), "/a/b")
+    t.eqString(p.join("a", "/b"), "/b")
 
     var parts: Vec<string, _> = Vec.from(["a", "b", "c"])
-    t.eq_string(p.join_parts(parts), "a/b/c")
+    t.eqString(p.joinParts(parts), "a/b/c")
 
     var path_str: string = "/a/b"
     var sp: p.Split = p.split(&path_str)
-    t.eq_string(sp.Dir, "/a")
-    t.eq_string(sp.Base, "b")
+    t.eqString(sp.Dir, "/a")
+    t.eqString(sp.Base, "b")
     t.finish()
 }
 
 func test_base_dir_ext() -> (void) {
     mut var t: test.T = test.new("test_base_dir_ext")
     var sample: string = "/a/b/"
-    t.eq_string(p.base(&sample), "b")
-    t.eq_string(p.dir(&sample), "/a")
+    t.eqString(p.base(&sample), "b")
+    t.eqString(p.dir(&sample), "/a")
     var file: string = "file.txt"
-    t.eq_string(p.base(&file), "file.txt")
-    t.eq_string(p.ext(&file), ".txt")
+    t.eqString(p.base(&file), "file.txt")
+    t.eqString(p.ext(&file), ".txt")
     var bashrc: string = ".bashrc"
-    t.eq_string(p.ext(&bashrc), "")
+    t.eqString(p.ext(&bashrc), "")
     t.finish()
 }

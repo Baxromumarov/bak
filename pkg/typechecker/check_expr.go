@@ -12,26 +12,26 @@ func stringStdlibReplacementHint(method string) string {
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.split(&value, &sep)"
 	case "trim":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim(&value)"
-	case "trimLeft", "trim_left":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_left(&value)"
-	case "trimRight", "trim_right":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_right(&value)"
-	case "trimPrefix", "trim_prefix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_prefix(&value, &prefix)"
-	case "trimSuffix", "trim_suffix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim_suffix(&value, &suffix)"
-	case "toUpper", "to_upper":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.to_upper(&value)"
-	case "toLower", "to_lower":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.to_lower(&value)"
-	case "replaceFirst", "replace_first":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.replace_first(&value, &old, &new)"
+	case "trimLeft":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimLeft(&value)"
+	case "trimRight":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimRight(&value)"
+	case "trimPrefix":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimPrefix(&value, &prefix)"
+	case "trimSuffix":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimSuffix(&value, &suffix)"
+	case "toUpper":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.toUpper(&value)"
+	case "toLower":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.toLower(&value)"
+	case "replaceFirst":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.replaceFirst(&value, &old, &new)"
 	case "count":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.count(&value, &sub)"
 	case "compare":
 		return "import \"src/std/strings/strings.bak\" as strings and call strings.compare(&a, &b)"
-	case "equalIgnoreCase", "equal_ignore_case":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.equal_ignore_case(&a, &b)"
+	case "equalIgnoreCase":
+		return "import \"src/std/strings/strings.bak\" as strings and call strings.equalIgnoreCase(&a, &b)"
 	default:
 		return ""
 	}
@@ -102,7 +102,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 	}
 }
 
-// checkVecConstructor validates Vec constructor calls (Vec.new, Vec.from, Vec.with_cap)
+// checkVecConstructor validates Vec constructor calls (Vec.new, Vec.from, Vec.withCap)
 // It is used for both variable declarations and other initializations (like struct literals).
 func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType *ast.GenericType, mc *ast.MethodCallExpression) ast.TypeExpression {
 	method := mc.Method.Value
@@ -189,17 +189,17 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 		}
 		return vecType
 
-	case "with_cap":
-		// Vec.with_cap() is only allowed for dynamic Vec
+	case "withCap":
+		// Vec.withCap() is only allowed for dynamic Vec
 		if isStatic {
 			tc.addError(line, col,
-				"Vec.with_cap() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
+				"Vec.withCap() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Requires mut
 		if !mutable {
 			tc.addError(line, col,
-				"Vec.with_cap() should be assigned to a mutable variable (use 'mut var')")
+				"Vec.withCap() should be assigned to a mutable variable (use 'mut var')")
 		}
 		return vecType
 	default:
@@ -309,7 +309,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		return false
 	}
 
-	if method == "to_string" {
+	if method == "toString" {
 		requireArgs(0)
 		return &ast.SimpleType{Name: "string"}
 	}
@@ -317,7 +317,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 	switch {
 	case isIntegerName(typeName):
 		switch method {
-		case "to_float":
+		case "toFloat":
 			requireArgs(0)
 			return &ast.SimpleType{Name: "float64"}
 		case "abs":
@@ -326,10 +326,10 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		}
 	case typeName == "float32" || typeName == "float64":
 		switch method {
-		case "to_int":
+		case "toInt":
 			requireArgs(0)
 			return &ast.SimpleType{Name: "int"}
-		case "to_fixed":
+		case "toFixed":
 			requireArgs(1)
 			if len(argTypes) == 1 && !tc.isIntegerType(argTypes[0]) {
 				tc.errorTypeMismatch(
@@ -337,7 +337,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 					mc.Token.Column,
 					"int",
 					typeToString(argTypes[0]),
-					"to_fixed precision argument",
+					"toFixed precision argument",
 					mc.Arguments[0],
 				)
 			}
@@ -348,22 +348,22 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		}
 	case typeName == "char":
 		switch method {
-		case "is_digit",
-			"is_letter",
-			"is_alpha",
-			"is_alpha_num",
-			"is_whitespace",
-			"is_upper",
-			"is_lower",
-			"is_ascii",
-			"is_ident_start",
-			"is_ident_part":
+		case "isDigit",
+			"isLetter",
+			"isAlpha",
+			"isAlphaNum",
+			"isWhitespace",
+			"isUpper",
+			"isLower",
+			"isAscii",
+			"isIdentStart",
+			"isIdentPart":
 			requireArgs(0)
 			return &ast.SimpleType{Name: "bool"}
-		case "to_ascii":
+		case "toAscii":
 			requireArgs(0)
 			return &ast.SimpleType{Name: "int"}
-		case "to_upper", "to_lower":
+		case "toUpper", "toLower":
 			requireArgs(0)
 			return &ast.SimpleType{Name: "char"}
 		}
@@ -385,7 +385,7 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}
-	if method == "to_string" {
+	if method == "toString" {
 		if len(mc.Arguments) != 0 {
 			tc.errorMethodArgumentCountMismatch(
 				typeName,
@@ -429,24 +429,24 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 		return &ast.SimpleType{Name: "int"}
 	case "substring":
 		return &ast.SimpleType{Name: "string"}
-	case "index_of", "last_index_of":
+	case "indexOf", "lastIndexOf":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "int"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "contains", "starts_with", "ends_with":
+	case "contains", "startsWith", "endsWith":
 		return &ast.SimpleType{Name: "bool"}
-	case "parse_int":
+	case "parseInt":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "int"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "parse_float":
+	case "parseFloat":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
 			&ast.SimpleType{Name: "float64"},
 			&ast.SimpleType{Name: "string"},
 		}}
-	case "to_string":
+	case "toString":
 		return &ast.SimpleType{Name: "string"}
 	case "get":
 		return &ast.GenericType{Name: "Result", TypeParams: []ast.TypeExpression{
@@ -605,11 +605,11 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		return &ast.GenericType{Name: "Result"}
 	case "len", "cap":
 		return &ast.SimpleType{Name: "int"}
-	case "is_empty", "contains":
+	case "isEmpty", "contains":
 		return &ast.SimpleType{Name: "bool"}
 	case "join":
 		return &ast.SimpleType{Name: "string"}
-	case "slice", "to_vec", "reverse":
+	case "slice", "toVec", "reverse":
 		// Returns Vec<T, _> (dynamic)
 		if elemType != nil {
 			return &ast.GenericType{Name: "Vec", TypeParams: []ast.TypeExpression{elemType, &ast.SizeExpression{IsDynamic: true}}}
@@ -640,7 +640,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 			}
 		}
 		return &ast.VoidType{}
-	case "new", "with_cap":
+	case "new", "withCap":
 		// These are static constructors. They return Vec<T, _> or Vec<T, N>.
 		// When called as Vec.new(), the element type is often inferred from context.
 		// For now we return the untyped Vec generic type, which fits anything Vec.

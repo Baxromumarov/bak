@@ -923,25 +923,25 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	case compiler.BUILTIN_UNWRAP_ERR:
 		if len(args) != 1 {
-			return compiler.NewNil(), fmt.Errorf("unwrap_err() requires exactly 1 argument")
+			return compiler.NewNil(), fmt.Errorf("unwrapErr() requires exactly 1 argument")
 		}
 		if args[0].Type == compiler.VAL_RESULT {
 			inst := args[0].AsObject.(*compiler.ResultInstance)
 			if inst.IsErr {
 				return inst.Value, nil
 			}
-			return compiler.NewNil(), fmt.Errorf("unwrap_err called on Ok result")
+			return compiler.NewNil(), fmt.Errorf("unwrapErr called on Ok result")
 		}
 		if args[0].Type != compiler.VAL_ENUM {
-			return compiler.NewNil(), fmt.Errorf("unwrap_err() requires a Result value")
+			return compiler.NewNil(), fmt.Errorf("unwrapErr() requires a Result value")
 		}
 		if inst, ok := args[0].AsObject.(*compiler.EnumInstance); ok {
 			if inst.VariantName == "Err" && len(inst.Payload) > 0 {
 				return inst.Payload[0], nil
 			}
-			return compiler.NewNil(), fmt.Errorf("unwrap_err called on non-Err variant: %s", inst.VariantName)
+			return compiler.NewNil(), fmt.Errorf("unwrapErr called on non-Err variant: %s", inst.VariantName)
 		}
-		return compiler.NewNil(), fmt.Errorf("unwrap_err() requires a Result value")
+		return compiler.NewNil(), fmt.Errorf("unwrapErr() requires a Result value")
 
 	case compiler.BUILTIN_EPRINTLN:
 		for i, arg := range args {
@@ -1136,7 +1136,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires host and port")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.connect_tls", runtimecap.FlagAllowNet))), nil
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.connectTls", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires string host and int port")
@@ -1173,7 +1173,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_set_timeout() requires fd and ms")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.set_timeout", runtimecap.FlagAllowNet))), nil
+			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.setTimeout", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_set_timeout() requires int fd and int ms")

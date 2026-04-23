@@ -111,13 +111,16 @@ func lintProgram(path, source string, program *ast.Program, config *Config) []Fi
 	return findings
 }
 
-// isSnakeCase checks if a string is snake_case (lowercase + underscores + digits).
-func isSnakeCase(s string) bool {
-	if s == "" || s == "_" {
+// isCamelCase checks if a string is camelCase (letters + digits, lowercase first letter).
+func isCamelCase(s string) bool {
+	if s == "" {
 		return true
 	}
+	if !(s[0] >= 'a' && s[0] <= 'z') {
+		return false
+	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
 			return false
 		}
 	}
@@ -164,32 +167,32 @@ func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
 	var findings []Finding
 	switch s := stmt.(type) {
 	case *ast.FunctionDecl:
-		if s.Name != nil && !isSnakeCase(s.Name.Value) && s.Name.Value != "main" {
+		if s.Name != nil && !isCamelCase(s.Name.Value) && s.Name.Value != "main" {
 			findings = append(findings, Finding{
 				Rule:    "naming-convention",
 				Level:   "warning",
-				Message: "function '" + s.Name.Value + "' should be snake_case",
+				Message: "function '" + s.Name.Value + "' should be camelCase",
 				Line:    s.Name.Token.Line,
 				Column:  s.Name.Token.Column,
 			})
 		}
 		for _, p := range s.Parameters {
-			if p.Name != nil && p.Name.Value != "_" && !strings.HasPrefix(p.Name.Value, "_") && !isSnakeCase(p.Name.Value) {
+			if p.Name != nil && p.Name.Value != "_" && !strings.HasPrefix(p.Name.Value, "_") && !isCamelCase(p.Name.Value) {
 				findings = append(findings, Finding{
 					Rule:    "naming-convention",
 					Level:   "warning",
-					Message: "parameter '" + p.Name.Value + "' should be snake_case",
+					Message: "parameter '" + p.Name.Value + "' should be camelCase",
 					Line:    p.Name.Token.Line,
 					Column:  p.Name.Token.Column,
 				})
 			}
 		}
 	case *ast.StructDecl:
-		if s.Name != nil && !isPascalCase(s.Name.Value) && !isSnakeCase(s.Name.Value) {
+		if s.Name != nil && !isPascalCase(s.Name.Value) && !isCamelCase(s.Name.Value) {
 			findings = append(findings, Finding{
 				Rule:    "naming-convention",
 				Level:   "warning",
-				Message: "struct '" + s.Name.Value + "' should be PascalCase or snake_case",
+				Message: "struct '" + s.Name.Value + "' should be PascalCase or camelCase",
 				Line:    s.Name.Token.Line,
 				Column:  s.Name.Token.Column,
 			})

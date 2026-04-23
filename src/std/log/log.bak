@@ -24,13 +24,13 @@ pub struct Logger {
     pub show_time: bool
     pub prefix: string
     pub file_path: string
-    pub append_file: bool
+    pub appendFile: bool
 }
 
 // new creates a logger with INFO level and color on.
 pub func new() -> (Logger) {
     return Logger{
-        append_file: true,
+        appendFile: true,
         file_path: "",
         min_level: LEVEL_INFO,
         prefix: "",
@@ -40,39 +40,39 @@ pub func new() -> (Logger) {
 }
 // default_logger is the global logger used by package-level helpers.
 mut var default_logger: Logger = new()
-pub func set_level(level: int) -> (void) {
+pub func setLevel(level: int) -> (void) {
     default_logger.min_level = level
 }
 
-pub func enable_color() -> (void) {
+pub func enableColor() -> (void) {
     default_logger.use_color = true
 }
 
-pub func disable_color() -> (void) {
+pub func disableColor() -> (void) {
     default_logger.use_color = false
 }
 
-pub func set_show_time(enabled: bool) -> (void) {
+pub func setShowTime(enabled: bool) -> (void) {
     default_logger.show_time = enabled
 }
 
-pub func set_prefix(p: string) -> (void) {
+pub func setPrefix(p: string) -> (void) {
     default_logger.prefix = p
 }
 
-pub func set_file(path: string) -> (void) {
+pub func setFile(path: string) -> (void) {
     default_logger.file_path = path
 }
 
-pub func clear_file() -> (void) {
+pub func clearFile() -> (void) {
     default_logger.file_path = ""
 }
 
-pub func set_append(enabled: bool) -> (void) {
-    default_logger.append_file = enabled
+pub func setAppend(enabled: bool) -> (void) {
+    default_logger.appendFile = enabled
 }
 
-pub func trace_log(msg: string) -> (void) {
+pub func traceLog(msg: string) -> (void) {
     default_logger.log(LEVEL_TRACE, msg)
 }
 
@@ -101,32 +101,32 @@ pub func fatal(msg: string) -> (void) {
     os.exit(1)
 }
 
-pub func trace_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_TRACE, msg, fields)
+pub func traceKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_TRACE, msg, fields)
 }
 
-pub func debug_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_DEBUG, msg, fields)
+pub func debugKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_DEBUG, msg, fields)
 }
 
-pub func info_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_INFO, msg, fields)
+pub func infoKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_INFO, msg, fields)
 }
 
-pub func test_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_TEST, msg, fields)
+pub func testKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_TEST, msg, fields)
 }
 
-pub func warn_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_WARN, msg, fields)
+pub func warnKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_WARN, msg, fields)
 }
 
-pub func error_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_ERROR, msg, fields)
+pub func errorKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_ERROR, msg, fields)
 }
 
-pub func fatal_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.log_kv(LEVEL_ERROR, msg, fields)
+pub func fatalKv(msg: string, fields: Vec<Field, _>) -> (void) {
+    default_logger.logKv(LEVEL_ERROR, msg, fields)
     os.exit(1)
 }
 
@@ -139,21 +139,21 @@ pub func kv(key: string, value: string) -> (Field) {
     return Field{key: key, value: value}
 }
 
-pub func kv_int(key: string, value: int) -> (Field) {
-    return Field{key: key, value: int_to_string(value)}
+pub func kvInt(key: string, value: int) -> (Field) {
+    return Field{key: key, value: intToString(value)}
 }
 
-pub func kv_bool(key: string, value: bool) -> (Field) {
+pub func kvBool(key: string, value: bool) -> (Field) {
     return Field{key: key, value: bool_to_string(value)}
 }
 
-pub func kv_float(key: string, value: float64) -> (Field) {
+pub func kvFloat(key: string, value: float64) -> (Field) {
     return Field{key: key, value: float_to_string(value)}
 }
 
-pub func with_prefix(prefix: string, level: int) -> (Logger) {
+pub func withPrefix(prefix: string, level: int) -> (Logger) {
     return Logger{
-        append_file: default_logger.append_file,
+        appendFile: default_logger.appendFile,
         file_path: default_logger.file_path,
         min_level: level,
         prefix: prefix,
@@ -163,14 +163,14 @@ pub func with_prefix(prefix: string, level: int) -> (Logger) {
 }
 
 pub func module(name: string, level: int) -> (Logger) {
-    return with_prefix("[" + name + "]", level)
+    return withPrefix("[" + name + "]", level)
 }
 
 impl Logger as l {
     pub mut func log(level: int, msg: string) -> (void) {
-        l.log_kv(level, msg, Vec.new())
+        l.logKv(level, msg, Vec.new())
     }
-    pub mut func log_kv(level: int, msg: string, fields: Vec<Field, _>) -> (void) {
+    pub mut func logKv(level: int, msg: string, fields: Vec<Field, _>) -> (void) {
         if level < l.min_level {
             return void
         }
@@ -191,7 +191,7 @@ impl Logger as l {
             line = line + "[" + level_name + "] " + msg + fields_part
         }
         if l.file_path.len() > 0 {
-            if l.append_file {
+            if l.appendFile {
                 var _ = fs.appendFile(l.file_path, line + "
 ")
             } else {
@@ -202,7 +202,7 @@ impl Logger as l {
             __builtin_println(line)
         }
     }
-    pub mut func trace_log(msg: string) -> (void) {
+    pub mut func traceLog(msg: string) -> (void) {
         l.log(LEVEL_TRACE, msg)
     }
     pub mut func debug(msg: string) -> (void) {
@@ -221,23 +221,23 @@ impl Logger as l {
         l.log(LEVEL_ERROR, msg)
         os.exit(1)
     }
-    pub mut func trace_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_TRACE, msg, fields)
+    pub mut func traceKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_TRACE, msg, fields)
     }
-    pub mut func debug_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_DEBUG, msg, fields)
+    pub mut func debugKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_DEBUG, msg, fields)
     }
-    pub mut func info_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_INFO, msg, fields)
+    pub mut func infoKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_INFO, msg, fields)
     }
-    pub mut func warn_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_WARN, msg, fields)
+    pub mut func warnKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_WARN, msg, fields)
     }
-    pub mut func error_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_ERROR, msg, fields)
+    pub mut func errorKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_ERROR, msg, fields)
     }
-    pub mut func fatal_kv(msg: string, fields: Vec<Field, _>) -> (void) {
-        l.log_kv(LEVEL_ERROR, msg, fields)
+    pub mut func fatalKv(msg: string, fields: Vec<Field, _>) -> (void) {
+        l.logKv(LEVEL_ERROR, msg, fields)
         os.exit(1)
     }
 }
@@ -305,7 +305,7 @@ func format_fields(fields: &Vec<Field, _>) -> (string) {
 // HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)
 // =============================================================================
 const CH_0: int = 48
-func int_to_string(n: int) -> (string) {
+func intToString(n: int) -> (string) {
     if n == 0 {
         return "0"
     }
@@ -357,7 +357,7 @@ func float_to_string(f: float64) -> (string) {
     if negative {
         result = "-"
     }
-    result = result + int_to_string(int_part)
+    result = result + intToString(int_part)
     result = result + "."
     mut var i: int = 0
     while i < prec {

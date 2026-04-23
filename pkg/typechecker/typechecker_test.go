@@ -221,92 +221,26 @@ func main() -> (void) {
 `, "cannot call push on fixed-size")
 }
 
-func TestCheck_DeprecatedVecMethodAliasWarns(t *testing.T) {
+func TestCheck_SnakeCaseVecMethodRejected(t *testing.T) {
 	expectError(t, `
 package main
 func main() -> (void) {
 	mut var arr: Vec<int, _> = Vec.from([1])
-	var empty: bool = arr.isEmpty()
+	var empty: bool = arr.is_empty()
 	println(empty)
 }
-`, "deprecated method alias 'isEmpty'; use 'is_empty'")
+`, "undefined method")
 }
 
-func TestCheck_DeprecatedStringMethodAliasWarns(t *testing.T) {
+func TestCheck_SnakeCaseStringMethodRejected(t *testing.T) {
 	expectError(t, `
 package main
 func main() -> (void) {
 	var s: string = "42"
-	var parsed: Result<int, string> = s.parseInt()
-	println(parsed.is_ok())
+	var parsed: Result<int, string> = s.parse_int()
+	println(parsed.is_err())
 }
-`, "deprecated method alias 'parseInt'; use 'parse_int'")
-}
-
-func TestCheck_DeprecatedStrconvFunctionAliasWarns(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/strconv/strconv.bak" as strconv
-func main() -> (void) {
-	var value: string = "42"
-	var parsed: Result<int, string> = strconv.parseInt(&value, 10)
-	println(parsed.is_ok())
-}
-`, "deprecated function alias 'strconv.parseInt'; use 'strconv.parse_int'")
-}
-
-func TestCheck_DeprecatedAliasWarningMentionsCompatibility(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/strings/strings.bak" as strings
-func main() -> (void) {
-	var value: string = "baklang"
-	var ok: bool = strings.startsWith(&value, &"bak")
-	println(ok)
-}
-`, "compatibility alias")
-}
-
-func TestCheck_DeprecatedStringsFunctionAliasWarns(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/strings/strings.bak" as strings
-func main() -> (void) {
-	var value: string = "baklang"
-	var ok: bool = strings.startsWith(&value, &"bak")
-	println(ok)
-}
-`, "deprecated function alias 'strings.startsWith'; use 'strings.starts_with'")
-}
-
-func TestCheck_DeprecatedFSFunctionAliasWarns(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/fs/fs.bak" as fs
-func main() -> (void) {
-	var _ok: bool = fs.isFile("README.md")
-}
-`, "deprecated function alias 'fs.isFile'; use 'fs.is_file'")
-}
-
-func TestCheck_DeprecatedSyncFunctionAliasWarns(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/sync/sync.bak" as sync
-func main() -> (void) {
-	var _m: sync.Mutex = sync.NewMutex()
-}
-`, "deprecated function alias 'sync.NewMutex'; use 'sync.new_mutex'")
-}
-
-func TestCheck_DeprecatedMathFunctionAliasWarns(t *testing.T) {
-	expectError(t, `
-package main
-import "src/std/math/math.bak" as math
-func main() -> (void) {
-	var _v: int = math.absInt(-10)
-}
-`, "deprecated function alias 'math.absInt'; use 'math.abs_int'")
+`, "undefined method")
 }
 
 func TestCheck_PrimitiveMethodSurfaceExtended(t *testing.T) {
@@ -314,37 +248,37 @@ func TestCheck_PrimitiveMethodSurfaceExtended(t *testing.T) {
 package main
 func main() -> (void) {
 	var i: int = -7
-	var fi: float64 = i.to_float()
+	var fi: float64 = i.toFloat()
 	var ai: int = i.abs()
 
 	var f: float64 = -1.7
-	var ii: int = f.to_int()
-	var fs: string = f.to_fixed(2)
+	var ii: int = f.toInt()
+	var fs: string = f.toFixed(2)
 	var fa: float64 = f.abs()
 	var ff: float64 = f.floor()
 	var fc: float64 = f.ceil()
 	var fr: float64 = f.round()
 
 	var ch: char = 'A'
-	var b1: bool = ch.is_upper()
-	var b2: bool = ch.is_ident_start()
-	var b3: bool = ch.is_ascii()
-	var lowered: char = ch.to_lower()
-	var code: int = ch.to_ascii()
+	var b1: bool = ch.isUpper()
+	var b2: bool = ch.isIdentStart()
+	var b3: bool = ch.isAscii()
+	var lowered: char = ch.toLower()
+	var code: int = ch.toAscii()
 	println(fi, ai, ii, fs, fa, ff, fc, fr, b1, b2, b3, lowered, code)
 }
 `)
 }
 
-func TestCheck_DeprecatedPrimitiveMethodAliasWarns(t *testing.T) {
+func TestCheck_SnakeCasePrimitiveMethodRejected(t *testing.T) {
 	expectError(t, `
 package main
 func main() -> (void) {
 	var i: int = 7
-	var f: float64 = i.toFloat()
+	var f: float64 = i.to_float()
 	println(f)
 }
-`, "deprecated method alias 'toFloat'; use 'to_float'")
+`, "undefined method")
 }
 
 func TestCheck_TypeMismatchIncludesWhereInferredNote(t *testing.T) {
@@ -756,7 +690,7 @@ func main() -> (void) {
 	var result: Result<int, string> = Ok(1)
 	result.unwrap_er()
 }
-`, "did you mean 'unwrap_err'")
+`, "did you mean 'unwrapErr'")
 }
 
 func TestCheck_UndefinedTypeSuggestion(t *testing.T) {

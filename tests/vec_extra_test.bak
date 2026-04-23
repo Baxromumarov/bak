@@ -2,7 +2,7 @@ package main
 
 import "src/std/test/test.bak" as test
 
-func run_tests() -> (Vec<test.TestResult, _>) {
+func runTests() -> (Vec<test.TestResult, _>) {
     mut var results: Vec<test.TestResult, _> = Vec.new()
 
     {

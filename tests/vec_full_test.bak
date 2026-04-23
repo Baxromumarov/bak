@@ -7,7 +7,7 @@ func main() -> (void) {
     v.push(3)
     
     println("len: ", v.len())
-    println("is_empty: ", v.is_empty())
+    println("is_empty: ", v.isEmpty())
     println("first: ", v.first().unwrap())
     println("last: ", v.last().unwrap())
     println("contains 2: ", v.contains(2))

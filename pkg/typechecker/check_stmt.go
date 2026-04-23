@@ -504,7 +504,7 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 // checkVecDeclaration validates Vec declarations according to the bak Vec rules:
 // - No implicit literal assignment: var v Vec<int,_> = [1,2,3] is forbidden
 // - Static arrays Vec<T,N> must use Vec.from() with exactly N elements
-// - Dynamic arrays Vec<T,_> must use Vec.new(), Vec.from(), or Vec.with_cap()
+// - Dynamic arrays Vec<T,_> must use Vec.new(), Vec.from(), or Vec.withCap()
 // - Vec.new() cannot be used for static arrays
 func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.GenericType) {
 	// No value provided - check if allowed
@@ -521,7 +521,7 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 		return
 	}
 
-	// Check for method call expressions (Vec.from, Vec.new, Vec.with_cap)
+	// Check for method call expressions (Vec.from, Vec.new, Vec.withCap)
 	if mc, ok := vs.Value.(*ast.MethodCallExpression); ok {
 		if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
 			tc.checkVecConstructor(vs.Token.Line, vs.Token.Column, vs.Mutable, vecType, mc)

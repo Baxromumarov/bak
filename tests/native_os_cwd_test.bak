@@ -5,7 +5,7 @@ import "std/os"
 func main() -> (void) {
     println("Testing os.cwd...")
     var result: Result<string, string> = os.cwd()
-    if result.is_ok() {
+    if result.isOk() {
         var cwd: string = result.unwrap()
         println("Current directory:", cwd)
     } else {

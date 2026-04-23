@@ -9,27 +9,27 @@ func test_fail_and_fail_now() -> (void) {
 
     mut var inner: test.T = test.new("inner")
     inner.fail("oops")
-    if !inner.has_failed() {
+    if !inner.hasFailed() {
         t.fail("fail should set failed=true")
     }
-    if inner.failure_count() != 1 {
+    if inner.failureCount() != 1 {
         t.fail("fail should record one failure")
     } else {
-        var msg: string = inner.get_failures().get(0).unwrap()
+        var msg: string = inner.getFailures().get(0).unwrap()
         if msg != "oops" {
             t.fail("unexpected failure message: " + msg)
         }
     }
 
     mut var inner2: test.T = test.new("inner2")
-    inner2.fail_now("nope")
-    if !inner2.has_failed() {
-        t.fail("fail_now should set failed=true")
+    inner2.failNow("nope")
+    if !inner2.hasFailed() {
+        t.fail("failNow should set failed=true")
     }
-    if inner2.failure_count() != 1 {
-        t.fail("fail_now should record one failure")
+    if inner2.failureCount() != 1 {
+        t.fail("failNow should record one failure")
     } else {
-        var msg2: string = inner2.get_failures().get(0).unwrap()
+        var msg2: string = inner2.getFailures().get(0).unwrap()
         if msg2 != "nope" {
             t.fail("unexpected failure message: " + msg2)
         }
@@ -42,22 +42,22 @@ func test_case_desc_prefix() -> (void) {
     mut var t: test.T = test.new("test_case_desc_prefix")
 
     mut var inner: test.T = test.new("inner")
-    inner.set_case("case-1")
+    inner.setCase("case-1")
     inner.fail("boom")
-    if inner.failure_count() != 1 {
+    if inner.failureCount() != 1 {
         t.fail("expected one failure with case prefix")
     } else {
-        var msg: string = inner.get_failures().get(0).unwrap()
+        var msg: string = inner.getFailures().get(0).unwrap()
         if msg != "  case: case-1\nboom" {
             t.fail("case prefix mismatch: " + msg)
         }
     }
-    inner.clear_case()
+    inner.clearCase()
     inner.fail("plain")
-    if inner.failure_count() != 2 {
-        t.fail("expected two failures after clear_case")
+    if inner.failureCount() != 2 {
+        t.fail("expected two failures after clearCase")
     } else {
-        var msg2: string = inner.get_failures().get(1).unwrap()
+        var msg2: string = inner.getFailures().get(1).unwrap()
         if msg2 != "plain" {
             t.fail("unexpected plain failure: " + msg2)
         }
@@ -71,14 +71,14 @@ func test_eq_and_ne() -> (void) {
 
     mut var inner: test.T = test.new("inner")
     inner.eq(1, 1)
-    if inner.has_failed() {
+    if inner.hasFailed() {
         t.fail("eq should not fail for equal values")
     }
     inner.eq(1, 2)
-    if !inner.has_failed() {
+    if !inner.hasFailed() {
         t.fail("eq should fail for different values")
     } else {
-        var msg: string = inner.get_failures().get(0).unwrap()
+        var msg: string = inner.getFailures().get(0).unwrap()
         if msg != "  expected: 2\n  actual:   1" {
             t.fail("eq message mismatch: " + msg)
         }
@@ -86,14 +86,14 @@ func test_eq_and_ne() -> (void) {
 
     mut var inner2: test.T = test.new("inner2")
     inner2.ne(1, 2)
-    if inner2.has_failed() {
+    if inner2.hasFailed() {
         t.fail("ne should not fail for different values")
     }
     inner2.ne(1, 1)
-    if !inner2.has_failed() {
+    if !inner2.hasFailed() {
         t.fail("ne should fail for equal values")
     } else {
-        var msg2: string = inner2.get_failures().get(0).unwrap()
+        var msg2: string = inner2.getFailures().get(0).unwrap()
         if msg2 != "  expected: not 1\n  actual:   1" {
             t.fail("ne message mismatch: " + msg2)
         }
@@ -106,24 +106,24 @@ func test_eq_string_and_char() -> (void) {
     mut var t: test.T = test.new("test_eq_string_and_char")
 
     mut var s: test.T = test.new("string")
-    s.eq_string("a", "b")
-    if !s.has_failed() {
-        t.fail("eq_string should fail for different values")
+    s.eqString("a", "b")
+    if !s.hasFailed() {
+        t.fail("eqString should fail for different values")
     } else {
-        var msg: string = s.get_failures().get(0).unwrap()
+        var msg: string = s.getFailures().get(0).unwrap()
         if msg != "  expected: \"b\"\n  actual:   \"a\"" {
-            t.fail("eq_string message mismatch: " + msg)
+            t.fail("eqString message mismatch: " + msg)
         }
     }
 
     mut var c: test.T = test.new("char")
-    c.eq_char('a', 'b')
-    if !c.has_failed() {
-        t.fail("eq_char should fail for different values")
+    c.eqChar('a', 'b')
+    if !c.hasFailed() {
+        t.fail("eqChar should fail for different values")
     } else {
-        var msg2: string = c.get_failures().get(0).unwrap()
+        var msg2: string = c.getFailures().get(0).unwrap()
         if msg2 != "  expected: 'b'\n  actual:   'a'" {
-            t.fail("eq_char message mismatch: " + msg2)
+            t.fail("eqChar message mismatch: " + msg2)
         }
     }
 
@@ -134,13 +134,13 @@ func test_eq_float() -> (void) {
     mut var t: test.T = test.new("test_eq_float")
 
     mut var f: test.T = test.new("float")
-    f.eq_float(1.0, 1.0000004)
-    if f.has_failed() {
-        t.fail("eq_float should accept small epsilon differences")
+    f.eqFloat(1.0, 1.0000004)
+    if f.hasFailed() {
+        t.fail("eqFloat should accept small epsilon differences")
     }
-    f.eq_float(1.0, 1.00001)
-    if !f.has_failed() {
-        t.fail("eq_float should fail for larger differences")
+    f.eqFloat(1.0, 1.00001)
+    if !f.hasFailed() {
+        t.fail("eqFloat should fail for larger differences")
     }
 
     t.finish()
@@ -150,23 +150,23 @@ func test_bool_helpers() -> (void) {
     mut var t: test.T = test.new("test_bool_helpers")
 
     mut var a: test.T = test.new("a")
-    a.is_true(true)
-    if a.has_failed() {
-        t.fail("is_true should pass when condition is true")
+    a.isTrue(true)
+    if a.hasFailed() {
+        t.fail("isTrue should pass when condition is true")
     }
-    a.is_true(false)
-    if !a.has_failed() {
-        t.fail("is_true should fail when condition is false")
+    a.isTrue(false)
+    if !a.hasFailed() {
+        t.fail("isTrue should fail when condition is false")
     }
 
     mut var b: test.T = test.new("b")
-    b.is_false(false)
-    if b.has_failed() {
-        t.fail("is_false should pass when condition is false")
+    b.isFalse(false)
+    if b.hasFailed() {
+        t.fail("isFalse should pass when condition is false")
     }
-    b.is_false(true)
-    if !b.has_failed() {
-        t.fail("is_false should fail when condition is true")
+    b.isFalse(true)
+    if !b.hasFailed() {
+        t.fail("isFalse should fail when condition is true")
     }
 
     t.finish()
@@ -177,41 +177,41 @@ func test_compare_helpers() -> (void) {
 
     mut var a: test.T = test.new("a")
     a.gt(3, 2)
-    if a.has_failed() {
+    if a.hasFailed() {
         t.fail("gt should pass when got > want")
     }
     a.gt(1, 2)
-    if !a.has_failed() {
+    if !a.hasFailed() {
         t.fail("gt should fail when got <= want")
     }
 
     mut var b: test.T = test.new("b")
     b.gte(2, 2)
-    if b.has_failed() {
+    if b.hasFailed() {
         t.fail("gte should pass when got >= want")
     }
     b.gte(1, 2)
-    if !b.has_failed() {
+    if !b.hasFailed() {
         t.fail("gte should fail when got < want")
     }
 
     mut var c: test.T = test.new("c")
     c.lt(1, 2)
-    if c.has_failed() {
+    if c.hasFailed() {
         t.fail("lt should pass when got < want")
     }
     c.lt(3, 2)
-    if !c.has_failed() {
+    if !c.hasFailed() {
         t.fail("lt should fail when got >= want")
     }
 
     mut var d: test.T = test.new("d")
     d.lte(2, 2)
-    if d.has_failed() {
+    if d.hasFailed() {
         t.fail("lte should pass when got <= want")
     }
     d.lte(3, 2)
-    if !d.has_failed() {
+    if !d.hasFailed() {
         t.fail("lte should fail when got > want")
     }
 
@@ -223,26 +223,26 @@ func test_result_helpers() -> (void) {
 
     mut var a: test.T = test.new("a")
     var err_val: Result<int, string> = Err("none")
-    a.is_err(err_val)
-    if a.has_failed() {
-        t.fail("is_err should pass for Err")
+    a.isErr(err_val)
+    if a.hasFailed() {
+        t.fail("isErr should pass for Err")
     }
     var ok_val1: Result<int, string> = Ok(1)
-    a.is_err(ok_val1)
-    if !a.has_failed() {
-        t.fail("is_err should fail for Ok")
+    a.isErr(ok_val1)
+    if !a.hasFailed() {
+        t.fail("isErr should fail for Ok")
     }
 
     mut var b: test.T = test.new("b")
     var ok_val2: Result<int, string> = Ok(1)
-    b.is_ok(ok_val2)
-    if b.has_failed() {
-        t.fail("is_ok should pass for Ok")
+    b.isOk(ok_val2)
+    if b.hasFailed() {
+        t.fail("isOk should pass for Ok")
     }
     var err_val2: Result<int, string> = Err("none")
-    b.is_ok(err_val2)
-    if !b.has_failed() {
-        t.fail("is_ok should fail for Err")
+    b.isOk(err_val2)
+    if !b.hasFailed() {
+        t.fail("isOk should fail for Err")
     }
 
     t.finish()
@@ -253,11 +253,11 @@ func test_contains() -> (void) {
 
     mut var inner: test.T = test.new("inner")
     inner.contains("abc", "b")
-    if inner.has_failed() {
+    if inner.hasFailed() {
         t.fail("contains should pass when substring exists")
     }
     inner.contains("abc", "z")
-    if !inner.has_failed() {
+    if !inner.hasFailed() {
         t.fail("contains should fail when substring is missing")
     }
 
@@ -267,32 +267,32 @@ func test_contains() -> (void) {
 func test_prefix_and_results() -> (void) {
     mut var t: test.T = test.new("test_prefix_and_results")
 
-    test.clear_prefix()
-    test.set_prefix("pkg")
+    test.clearPrefix()
+    test.setPrefix("pkg")
     mut var pref: test.T = test.new("name")
-    if pref.get_name() != "pkg:name" {
-        t.fail("set_prefix should add prefix when missing colon")
+    if pref.getName() != "pkg:name" {
+        t.fail("setPrefix should add prefix when missing colon")
     }
     mut var already: test.T = test.new("x:y")
-    if already.get_name() != "x:y" {
-        t.fail("set_prefix should not modify names with colon")
+    if already.getName() != "x:y" {
+        t.fail("setPrefix should not modify names with colon")
     }
-    test.clear_prefix()
+    test.clearPrefix()
 
     mut var inner: test.T = test.new("inner_finish")
     inner.finish()
-    switch test.take_last_result() {
+    switch test.takeLastResult() {
         case Ok(_) {}
         case Err(_) {
             t.fail("expected last result to be available")
         }
     }
-    switch test.take_last_result() {
-        case Ok(_) { t.fail("take_last_result should clear stored result") }
+    switch test.takeLastResult() {
+        case Ok(_) { t.fail("takeLastResult should clear stored result") }
         case Err(_) {}
     }
 
-    test.fail_result("oops", "bad")
+    test.failResult("oops", "bad")
 
     t.finish()
 }

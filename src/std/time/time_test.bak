@@ -6,13 +6,13 @@ import "src/std/time/time.bak" as tlib
 func test_duration_constructors() -> (void) {
     mut var t: test.T = test.new("test_duration_constructors")
     var d1: tlib.Duration = tlib.micros(2)
-    t.eq(d1.as_micros(), 2)
+    t.eq(d1.asMicros(), 2)
 
     var d2: tlib.Duration = tlib.millis(1500)
-    t.eq(d2.as_millis(), 1500)
+    t.eq(d2.asMillis(), 1500)
 
     var d3: tlib.Duration = tlib.secs(3)
-    t.eq(d3.as_secs(), 3)
+    t.eq(d3.asSecs(), 3)
     t.finish()
 }
 
@@ -20,13 +20,13 @@ func test_duration_arithmetic() -> (void) {
     mut var t: test.T = test.new("test_duration_arithmetic")
     var a: tlib.Duration = tlib.secs(2)
     var diff: tlib.Duration = a.sub(tlib.millis(500))
-    t.eq(diff.as_millis(), 1500)
+    t.eq(diff.asMillis(), 1500)
 
     var prod: tlib.Duration = a.mul(3)
-    t.eq(prod.as_secs(), 6)
+    t.eq(prod.asSecs(), 6)
 
-    var divd: tlib.Duration = prod.div_by(2)
-    t.eq(divd.as_secs(), 3)
+    var divd: tlib.Duration = prod.divBy(2)
+    t.eq(divd.asSecs(), 3)
     t.finish()
 }
 
@@ -34,10 +34,10 @@ func test_duration_rounding_and_trunc() -> (void) {
     mut var t: test.T = test.new("test_duration_rounding_and_trunc")
     var d: tlib.Duration = tlib.millis(1501)
     var r: tlib.Duration = d.round(tlib.Second)
-    t.eq(r.as_millis(), 2000)
+    t.eq(r.asMillis(), 2000)
 
     var tr: tlib.Duration = d.trunc(tlib.Second)
-    t.eq(tr.as_millis(), 1000)
+    t.eq(tr.asMillis(), 1000)
     t.finish()
 }
 
@@ -45,64 +45,64 @@ func test_duration_neg_abs_to_string() -> (void) {
     mut var t: test.T = test.new("test_duration_neg_abs_to_string")
     var d: tlib.Duration = tlib.secs(1)
     var negd: tlib.Duration = d.neg()
-    t.eq(negd.as_secs(), -1)
+    t.eq(negd.asSecs(), -1)
 
     var absd: tlib.Duration = negd.abs()
-    t.eq(absd.as_secs(), 1)
+    t.eq(absd.asSecs(), 1)
 
-    var s: string = d.to_string()
+    var s: string = d.toString()
     t.contains(s, "ns")
     t.finish()
 }
 
 func test_time_conversions_and_ops() -> (void) {
     mut var t: test.T = test.new("test_time_conversions_and_ops")
-    var t1: tlib.Time = tlib.from_unix(10)
+    var t1: tlib.Time = tlib.fromUnix(10)
     t.eq(t1.unix(), 10)
 
-    var t2: tlib.Time = tlib.from_unix_millis(1500)
-    t.eq(t2.unix_millis(), 1500)
+    var t2: tlib.Time = tlib.fromUnixMillis(1500)
+    t.eq(t2.unixMillis(), 1500)
 
     var t3: tlib.Time = t1.add(tlib.secs(5))
     t.eq(t3.unix(), 15)
 
-    var dur: tlib.Duration = t1.until(tlib.from_unix(12))
-    t.eq(dur.as_secs(), 2)
+    var dur: tlib.Duration = t1.until(tlib.fromUnix(12))
+    t.eq(dur.asSecs(), 2)
 
-    t.is_true(tlib.from_unix(5).before(tlib.from_unix(6)))
-    t.is_true(tlib.from_unix(6).after(tlib.from_unix(5)))
+    t.isTrue(tlib.fromUnix(5).before(tlib.fromUnix(6)))
+    t.isTrue(tlib.fromUnix(6).after(tlib.fromUnix(5)))
     t.finish()
 }
 
 func test_monotonic_and_sleep() -> (void) {
     mut var t: test.T = test.new("test_monotonic_and_sleep")
-    var start: int = tlib.monotonic_now()
+    var start: int = tlib.monotonicNow()
     // short tlib.sleep; test only that monotonic time advances
-    tlib.sleep_ms(1)
-    var elapsed: tlib.Duration = tlib.monotonic_since(start)
-    t.gte(elapsed.as_millis(), 1)
+    tlib.sleepMs(1)
+    var elapsed: tlib.Duration = tlib.monotonicSince(start)
+    t.gte(elapsed.asMillis(), 1)
     t.finish()
 }
 
 func test_time_formats() -> (void) {
     mut var t: test.T = test.new("test_time_formats")
-    var epoch: tlib.Time = tlib.from_unix(0)
-    t.eq_string(epoch.format(tlib.FormatUnix), "0")
-    t.eq_string(epoch.format(tlib.FormatUnixMillis), "0")
-    t.eq_string(epoch.format(tlib.FormatUnixNanos), "0")
-    t.eq_string(epoch.format(tlib.FormatDate), "1970-01-01")
-    t.eq_string(epoch.format(tlib.FormatTime), "00:00:00")
-    t.eq_string(epoch.format(tlib.FormatDateTime), "1970-01-01 00:00:00")
-    t.eq_string(epoch.format(tlib.FormatRFC3339), "1970-01-01T00:00:00Z")
-    t.eq_string(epoch.format(tlib.FormatISO8601), "1970-01-01T00:00:00Z")
+    var epoch: tlib.Time = tlib.fromUnix(0)
+    t.eqString(epoch.format(tlib.FormatUnix), "0")
+    t.eqString(epoch.format(tlib.FormatUnixMillis), "0")
+    t.eqString(epoch.format(tlib.FormatUnixNanos), "0")
+    t.eqString(epoch.format(tlib.FormatDate), "1970-01-01")
+    t.eqString(epoch.format(tlib.FormatTime), "00:00:00")
+    t.eqString(epoch.format(tlib.FormatDateTime), "1970-01-01 00:00:00")
+    t.eqString(epoch.format(tlib.FormatRFC3339), "1970-01-01T00:00:00Z")
+    t.eqString(epoch.format(tlib.FormatISO8601), "1970-01-01T00:00:00Z")
 
-    var nano: tlib.Time = tlib.from_unix_nanos(123456789)
-    t.eq_string(nano.format(tlib.FormatUnix), "0")
-    t.eq_string(nano.format(tlib.FormatUnixMillis), "123")
-    t.eq_string(nano.format(tlib.FormatUnixNanos), "123456789")
-    t.eq_string(nano.format(tlib.FormatTimeMillis), "00:00:00.123")
-    t.eq_string(nano.format(tlib.FormatTimeNanos), "00:00:00.123456789")
-    t.eq_string(nano.format(tlib.FormatRFC3339Nano), "1970-01-01T00:00:00.123456789Z")
+    var nano: tlib.Time = tlib.fromUnixNanos(123456789)
+    t.eqString(nano.format(tlib.FormatUnix), "0")
+    t.eqString(nano.format(tlib.FormatUnixMillis), "123")
+    t.eqString(nano.format(tlib.FormatUnixNanos), "123456789")
+    t.eqString(nano.format(tlib.FormatTimeMillis), "00:00:00.123")
+    t.eqString(nano.format(tlib.FormatTimeNanos), "00:00:00.123456789")
+    t.eqString(nano.format(tlib.FormatRFC3339Nano), "1970-01-01T00:00:00.123456789Z")
     t.finish()
 }
 

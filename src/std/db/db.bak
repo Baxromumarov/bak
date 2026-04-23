@@ -58,7 +58,7 @@ impl Row as r {
         }
     }
 
-    pub func get_index(idx: int) -> (Result<string, string>) {
+    pub func getIndex(idx: int) -> (Result<string, string>) {
         if idx < 0 || idx >= r.Values.len() {
             return Err("column index out of bounds")
         }
@@ -69,21 +69,21 @@ impl Row as r {
         return Ok(v)
     }
 
-    pub func get_int(name: string) -> (Result<int, string>) {
+    pub func getInt(name: string) -> (Result<int, string>) {
         switch r.get(name) {
             case Ok(v) { return strconv.atoi(&v) }
             case Err(err) { return Err(err) }
         }
     }
 
-    pub func get_string(name: string) -> (Result<string, string>) {
+    pub func getString(name: string) -> (Result<string, string>) {
         switch r.get(name) {
             case Ok(v) { return Ok(v) }
             case Err(err) { return Err(err) }
         }
     }
 
-    pub func get_bool(name: string) -> (Result<bool, string>) {
+    pub func getBool(name: string) -> (Result<bool, string>) {
         switch r.get(name) {
             case Ok(v) {
                 if v == "t" || v == "true" || v == "1" {
@@ -98,7 +98,7 @@ impl Row as r {
         }
     }
 
-    pub func get_float(name: string) -> (Result<float64, string>) {
+    pub func getFloat(name: string) -> (Result<float64, string>) {
         switch r.get(name) {
             case Ok(v) { return strconv.atof(&v) }
             case Err(err) { return Err(err) }
@@ -110,8 +110,8 @@ impl Row as r {
 impl Connection as c {
     func config(max_open: int, max_idle: int, max_life_sec: int) -> (Result<bool, string>) {
         var config_result: Result<void, string> = __builtin_db_config(c.Handle, max_open, max_idle, max_life_sec)
-        if config_result.is_err() {
-            return Err(config_result.unwrap_err())
+        if config_result.isErr() {
+            return Err(config_result.unwrapErr())
         }
         return Ok(true)
     }

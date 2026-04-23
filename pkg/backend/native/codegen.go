@@ -392,7 +392,7 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		}
 		// Common boolean-returning methods
 		switch e.Method.Value {
-		case "startsWith", "starts_with", "endsWith", "ends_with", "contains", "is_empty", "isEmpty", "is_ok", "is_err", "is_some", "is_none":
+		case "startsWith", "endsWith", "contains", "isEmpty", "isOk", "isErr", "isSome", "isNone":
 			return true
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, e.Method.Value); ok {
@@ -481,7 +481,7 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 	case *ast.MethodCallExpression:
 		// Methods that return strings
 		methodName := e.Method.Value
-		if methodName == "toString" || methodName == "to_string" || methodName == "substring" || methodName == "trim" ||
+		if methodName == "toString" || methodName == "substring" || methodName == "trim" ||
 			methodName == "to_lowercase" || methodName == "to_uppercase" || methodName == "formatAll" {
 			return true
 		}
@@ -3648,7 +3648,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 				return err
 			}
 		}
-		return s.emitResultErrStr("read_dir is not supported in native backend")
+		return s.emitResultErrStr("readDir is not supported in native backend")
 	}
 	if funcName == "__builtin_file_exists" {
 		if len(e.Arguments) != 1 {
@@ -3699,7 +3699,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		return s.emitBuiltinPrint(e)
 	}
 	if funcName == "__builtin_read_line" {
-		return s.emitResultErrStr("read_line is not supported in native backend")
+		return s.emitResultErrStr("readLine is not supported in native backend")
 	}
 
 	// Time builtins
@@ -4126,7 +4126,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				callSite := emitCallRel32(&s.Code, 0)
 				s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
 				return nil
-			case "parseInt", "parse_int", "atoi":
+			case "parseInt", "atoi":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: strconv.parseInt expects 1 argument")
 				}
@@ -4164,22 +4164,22 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 					return fmt.Errorf("native: fs.exists expects 1 argument")
 				}
 				return s.emitFsExists(e.Arguments[0])
-			case "isFile", "is_file":
+			case "isFile":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isFile expects 1 argument")
 				}
 				return s.emitFsIsFile(e.Arguments[0])
-			case "isDir", "is_dir":
+			case "isDir":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.isDir expects 1 argument")
 				}
 				return s.emitFsIsDir(e.Arguments[0])
-			case "readFile", "read_file":
+			case "readFile":
 				if len(e.Arguments) != 1 {
 					return fmt.Errorf("native: fs.readFile expects 1 argument")
 				}
 				return s.emitFsReadFile(e.Arguments[0])
-			case "writeFile", "write_file":
+			case "writeFile":
 				if len(e.Arguments) != 2 {
 					return fmt.Errorf("native: fs.writeFile expects 2 arguments")
 				}
@@ -4284,21 +4284,21 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				return s.emitStringGet(fa, e.Arguments[0])
 			}
 			return s.emitVecGet(fa, e.Arguments[0])
-		case "is_empty", "isEmpty":
+		case "isEmpty":
 			return s.emitIsEmpty(fa)
 		case "contains":
 			if len(e.Arguments) != 1 {
 				return fmt.Errorf("native: contains expects 1 argument")
 			}
 			return s.emitStringContains(fa, e.Arguments[0])
-		case "starts_with", "startsWith":
+		case "startsWith":
 			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: starts_with expects 1 argument")
+				return fmt.Errorf("native: startsWith expects 1 argument")
 			}
 			return s.emitStringStartsWith(fa, e.Arguments[0])
-		case "ends_with", "endsWith":
+		case "endsWith":
 			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: ends_with expects 1 argument")
+				return fmt.Errorf("native: endsWith expects 1 argument")
 			}
 			return s.emitStringEndsWith(fa, e.Arguments[0])
 		case "bytes", "chars":
@@ -4318,9 +4318,9 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		switch e.Method.Value {
 		case "new":
 			return s.emitVecNew()
-		case "with_cap":
+		case "withCap":
 			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: Vec.with_cap expects 1 argument")
+				return fmt.Errorf("native: Vec.withCap expects 1 argument")
 			}
 			return s.emitVecWithCap(e.Arguments[0])
 		case "from":
@@ -4387,11 +4387,8 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		// string.chars() - same as bytes() for ASCII strings
 		// For now, treat chars() as equivalent to bytes()
 		return s.emitStringBytes(e.Object)
-	case "is_empty":
-		// vec.is_empty()
-		return s.emitIsEmpty(e.Object)
 	case "isEmpty":
-		// vec.isEmpty() (deprecated alias)
+		// vec.isEmpty()
 		return s.emitIsEmpty(e.Object)
 	case "contains":
 		// string.contains(other)
@@ -4399,10 +4396,10 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			return fmt.Errorf("native: contains expects 1 argument")
 		}
 		return s.emitStringContains(e.Object, e.Arguments[0])
-	case "starts_with", "startsWith":
-		// string.starts_with(prefix)
+	case "startsWith":
+		// string.startsWith(prefix)
 		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: starts_with expects 1 argument")
+			return fmt.Errorf("native: startsWith expects 1 argument")
 		}
 		return s.emitStringStartsWith(e.Object, e.Arguments[0])
 	case "trim":
@@ -4414,23 +4411,23 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			return fmt.Errorf("native: split expects 1 argument")
 		}
 		return s.emitStringSplit(e.Object, e.Arguments[0])
-	case "is_ok":
-		// Result.is_ok() - returns 1 if tag == 1, else 0
+	case "isOk":
+		// Result.isOk() - returns 1 if tag == 1, else 0
 		return s.emitResultIsOk(e.Object)
-	case "is_err":
-		// Result.is_err() - returns 1 if tag == 0, else 0
+	case "isErr":
+		// Result.isErr() - returns 1 if tag == 0, else 0
 		return s.emitResultIsErr(e.Object)
 	case "unwrap":
 		// Result.unwrap() - returns value at offset 8 (assumes Ok)
 		return s.emitResultUnwrap(e.Object)
-	case "unwrap_err":
-		// Result.unwrap_err() - returns error at offset 16 (assumes Err)
+	case "unwrapErr":
+		// Result.unwrapErr() - returns error at offset 16 (assumes Err)
 		return s.emitResultUnwrapErr(e.Object)
-	case "is_some":
-		// Option.is_some() - returns 1 if tag == 1, else 0
+	case "isSome":
+		// Option.isSome() - returns 1 if tag == 1, else 0
 		return s.emitResultIsErr(e.Object) // tag==1
-	case "is_none":
-		// Option.is_none() - returns 1 if tag == 0, else 0
+	case "isNone":
+		// Option.isNone() - returns 1 if tag == 0, else 0
 		return s.emitResultIsOk(e.Object) // tag==0
 	case "substring":
 		// string.substring(start, end)
@@ -4438,13 +4435,13 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			return fmt.Errorf("native: substring expects 2 arguments (start, end)")
 		}
 		return s.emitStringSubstring(e.Object, e.Arguments[0], e.Arguments[1])
-	case "ends_with", "endsWith":
-		// string.ends_with(suffix)
+	case "endsWith":
+		// string.endsWith(suffix)
 		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: ends_with expects 1 argument")
+			return fmt.Errorf("native: endsWith expects 1 argument")
 		}
 		return s.emitStringEndsWith(e.Object, e.Arguments[0])
-	case "indexOf", "index_of":
+	case "indexOf":
 		// string.indexOf(needle)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: indexOf expects 1 argument")
@@ -4453,7 +4450,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	case "hash":
 		// string.hash() - compute hash of string
 		return s.emitStringHash(e.Object)
-	case "parseFloat", "parse_float":
+	case "parseFloat":
 		// string.parseFloat() -> Result<float64, string>
 		// Delegate to strconv.atof which takes &string (reference to string).
 		// Push string value on stack so we can pass its address.
@@ -4466,7 +4463,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "strconv.atof"})
 		emitAddRspImm8(&s.Code, 8) // clean up stack
 		return nil
-	case "parseInt", "parse_int":
+	case "parseInt":
 		// string.parseInt() - parse string as int
 		if err := s.emitExpression(e.Object); err != nil {
 			return err
@@ -4480,7 +4477,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		callSite := emitCallRel32(&s.Code, 0)
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
 		return nil
-	case "toString", "to_string":
+	case "toString":
 		// char.toString() or int.toString() - convert value to 1-char or number string
 		return s.emitToString(e.Object)
 	}
@@ -6284,7 +6281,7 @@ func (s *EmitState) emitStringGet(obj ast.Expression, index ast.Expression) erro
 	return nil
 }
 
-// emitIsEmpty implements obj.is_empty()
+// emitIsEmpty implements obj.isEmpty()
 func (s *EmitState) emitIsEmpty(obj ast.Expression) error {
 	if err := s.emitExpression(obj); err != nil {
 		return err

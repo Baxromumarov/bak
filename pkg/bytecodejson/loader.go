@@ -55,7 +55,7 @@ type structJSON struct {
 
 type fieldJSON struct {
 	Name     string `json:"name"`
-	TypeName string `json:"type_name"`
+	TypeName string `json:"typeName"`
 }
 
 type enumJSON struct {

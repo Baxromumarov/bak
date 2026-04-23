@@ -774,7 +774,7 @@ type TypeChecker struct {
 	switchExhaustive  map[*ast.SwitchStatement]bool          // Switch exhaustiveness info for return checks
 	suppressUnused    bool                                   // when true, skip emitting unused-symbol warnings
 	finalized         bool                                   // whether finalization (unused checks) ran for this checker
-	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from is_ok/is_err guards
+	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from isOk/isErr guards
 }
 
 type resultGuardState int
@@ -854,9 +854,9 @@ func (tc *TypeChecker) detectResultGuardCondition(expr ast.Expression) (string, 
 	}
 	var state resultGuardState
 	switch mc.Method.Value {
-	case "is_ok":
+	case "isOk":
 		state = resultGuardIsOk
-	case "is_err":
+	case "isErr":
 		state = resultGuardIsErr
 	default:
 		return "", resultGuardUnknown, false
@@ -2800,7 +2800,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 	// Special-case: BoxOptional field access.
 	switch ob := objType.(type) {
 	case *ast.BoxOptionalType:
-		if fa.Field.Value == "is_some" || fa.Field.Value == "is_none" {
+		if fa.Field.Value == "isSome" || fa.Field.Value == "isNone" {
 			tc.addError(fa.Token.Line, fa.Token.Column, "use '%s()' method instead of property access on optional values", fa.Field.Value)
 			return nil
 		}
@@ -3389,10 +3389,10 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 		return &ast.SimpleType{Name: enumName}
 	}
 
-	// Handle Vec static method calls (Vec.new(), Vec.with_cap())
+	// Handle Vec static method calls (Vec.new(), Vec.withCap())
 	if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
 		switch mc.Method.Value {
-		case "new", "with_cap":
+		case "new", "withCap":
 			// Return untyped Vec (0 params) so checkVarStatement can enforce explicit type
 			return &ast.GenericType{Name: "Vec"}
 		case "from":
@@ -3401,7 +3401,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 		}
 	}
 
-	// Handle HashMap.new() and HashMap.with_cap() static method calls
+	// Handle HashMap.new() and HashMap.withCap() static method calls
 	// These are translated to prelude functions but still need correct type inference
 	if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "HashMap" {
 		switch mc.Method.Value {
@@ -3412,17 +3412,17 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 				&ast.SimpleType{Name: "K"},
 				&ast.SimpleType{Name: "V"},
 			}}
-		case "with_cap":
-			// HashMap.with_cap(n) expects int argument and returns HashMap<K, V>
+		case "withCap":
+			// HashMap.withCap(n) expects int argument and returns HashMap<K, V>
 			if len(mc.Arguments) == 1 {
 				argType := tc.inferType(mc.Arguments[0])
 				if _, ok := argType.(*ast.SimpleType); ok {
 					// OK, it's some type (should be int)
 				} else {
-					tc.addError(mc.Token.Line, mc.Token.Column, "HashMap.with_cap expects an integer argument")
+					tc.addError(mc.Token.Line, mc.Token.Column, "HashMap.withCap expects an integer argument")
 				}
 			} else {
-				tc.addError(mc.Token.Line, mc.Token.Column, "HashMap.with_cap expects exactly 1 argument")
+				tc.addError(mc.Token.Line, mc.Token.Column, "HashMap.withCap expects exactly 1 argument")
 			}
 			return &ast.GenericType{Name: "HashMap", TypeParams: []ast.TypeExpression{
 				&ast.SimpleType{Name: "K"},
@@ -3704,14 +3704,14 @@ var stringMethodCandidates = []string{
 	"chars",
 	"hash",
 	"substring",
-	"index_of",
-	"last_index_of",
+	"indexOf",
+	"lastIndexOf",
 	"contains",
-	"starts_with",
-	"ends_with",
-	"parse_int",
-	"parse_float",
-	"to_string",
+	"startsWith",
+	"endsWith",
+	"parseInt",
+	"parseFloat",
+	"toString",
 	"get",
 }
 
@@ -3725,51 +3725,51 @@ var vecMethodCandidates = []string{
 	"get",
 	"len",
 	"cap",
-	"is_empty",
+	"isEmpty",
 	"contains",
 	"join",
 	"slice",
-	"to_vec",
+	"toVec",
 	"reverse",
 	"set",
 	"new",
-	"with_cap",
+	"withCap",
 	"from",
 }
 
 var primitiveMethodCandidates = []string{
-	"to_string",
-	"to_float",
-	"to_int",
-	"to_fixed",
+	"toString",
+	"toFloat",
+	"toInt",
+	"toFixed",
 	"abs",
 	"floor",
 	"ceil",
 	"round",
-	"is_digit",
-	"is_letter",
-	"is_alpha",
-	"is_alpha_num",
-	"is_whitespace",
-	"is_upper",
-	"is_lower",
-	"is_ascii",
-	"is_ident_start",
-	"is_ident_part",
-	"to_ascii",
-	"to_upper",
-	"to_lower",
+	"isDigit",
+	"isLetter",
+	"isAlpha",
+	"isAlphaNum",
+	"isWhitespace",
+	"isUpper",
+	"isLower",
+	"isAscii",
+	"isIdentStart",
+	"isIdentPart",
+	"toAscii",
+	"toUpper",
+	"toLower",
 }
 
 var resultMethodCandidates = []string{
-	"is_ok",
-	"is_err",
+	"isOk",
+	"isErr",
 	"unwrap",
-	"unwrap_err",
+	"unwrapErr",
 }
 
 func isToStringMethod(name string) bool {
-	return name == "to_string"
+	return name == "toString"
 }
 
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {

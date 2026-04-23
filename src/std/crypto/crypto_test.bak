@@ -7,17 +7,17 @@ import "src/std/bytes/bytes.bak" as bytes
 func test_fnv1a_hash() -> (void) {
     mut var t: test.T = test.new("test_fnv1a_hash")
     t.eq(c.fnv1a("hello"), 1335831723)
-    var b: bytes.Bytes = bytes.from_string("hello")
-    t.eq(c.fnv1a_bytes(bytes.to_vec(&b)), 1335831723)
+    var b: bytes.Bytes = bytes.fromString("hello")
+    t.eq(c.fnv1aBytes(bytes.toVec(&b)), 1335831723)
     t.finish()
 }
 
 func test_rng_bounds() -> (void) {
     mut var t: test.T = test.new("test_rng_bounds")
-    mut var r: c.RNG = c.new_rng(1)
-    var v: int = r.next_int(100)
-    t.is_true(v >= 0)
-    t.is_true(v < 100)
+    mut var r: c.RNG = c.newRng(1)
+    var v: int = r.nextInt(100)
+    t.isTrue(v >= 0)
+    t.isTrue(v < 100)
     var raw: Vec<int, _> = r.bytes(8)
     t.eq(raw.len(), 8)
     t.finish()

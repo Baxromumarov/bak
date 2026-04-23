@@ -25,96 +25,68 @@ pub const CH_F_UPPER: int = 70     // 'F'
 
 // itoa converts an integer to its decimal string representation
 func itoa(n: int) -> (string) {
-    return n.to_string()
+    return n.toString()
 }
 
-pub func int_to_string(n: int) -> (string) {
+pub func intToString(n: int) -> (string) {
     return itoa(n)
 }
 
-// Deprecated: use int_to_string.
-pub func intToString(n: int) -> (string) {
-    return int_to_string(n)
-}
 
-// format_int formats an integer in the given base (2-36)
-pub func format_int(n: int, base: int) -> (string) {
+// formatInt formats an integer in the given base (2-36)
+pub func formatInt(n: int, base: int) -> (string) {
     if base < 2 || base > 36 {
         return ""
     }
 
     // Native backend keeps this intentionally minimal for bootstrap stability.
     // Non-decimal formatting currently falls back to decimal output.
-    return n.to_string()
+    return n.toString()
 }
 
-// Deprecated: use format_int.
-pub func formatInt(n: int, base: int) -> (string) {
-    return format_int(n, base)
-}
 
-// format_binary formats an integer in binary
-pub func format_binary(n: int) -> (string) {
-    return format_int(n, 2)
-}
-
-// Deprecated: use format_binary.
+// formatBinary formats an integer in binary
 pub func formatBinary(n: int) -> (string) {
-    return format_binary(n)
+    return formatInt(n, 2)
 }
 
-// format_octal formats an integer in octal
-pub func format_octal(n: int) -> (string) {
-    return format_int(n, 8)
-}
 
-// Deprecated: use format_octal.
+// formatOctal formats an integer in octal
 pub func formatOctal(n: int) -> (string) {
-    return format_octal(n)
+    return formatInt(n, 8)
 }
 
-// format_hex formats an integer in hexadecimal (lowercase)
-pub func format_hex(n: int) -> (string) {
-    return format_int(n, 16)
-}
 
-// Deprecated: use format_hex.
+// formatHex formats an integer in hexadecimal (lowercase)
 pub func formatHex(n: int) -> (string) {
-    return format_hex(n)
+    return formatInt(n, 16)
 }
+
 
 // -----------------------------------------------------------------------------
 // String to Integer
 // -----------------------------------------------------------------------------
 
-// is_digit checks if a character is a decimal digit
-pub func is_digit(ch: char) -> (bool) {
+// isDigit checks if a character is a decimal digit
+pub func isDigit(ch: char) -> (bool) {
     var code: int = int(ch)
     return code >= CH_0 && code <= CH_9
 }
 
-// Deprecated: use is_digit.
-pub func isDigit(ch: char) -> (bool) {
-    return is_digit(ch)
-}
 
-// digit_value returns the numeric value of a digit character
-pub func digit_value(ch: char) -> (int) {
+// digitValue returns the numeric value of a digit character
+pub func digitValue(ch: char) -> (int) {
     return int(ch) - CH_0
 }
 
-// Deprecated: use digit_value.
-pub func digitValue(ch: char) -> (int) {
-    return digit_value(ch)
-}
 
 // atoi parses a string as a decimal integer
 pub func atoi(s: &string) -> (Result<int, string>) {
-    return parse_int(s, 10)
+    return parseInt(s, 10)
 }
 
-// parse_int parses a string as an integer in the given base (2-36)
-pub func parse_int(s: &string, base: int) -> (Result<int, string>) {
+// parseInt parses a string as an integer in the given base (2-36)
+pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
     if s.len() == 0 {
         return Err("empty string")
     }
@@ -165,40 +137,24 @@ pub func parse_int(s: &string, base: int) -> (Result<int, string>) {
     return Ok(result)
 }
 
-// Deprecated: use parse_int.
-pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
-    return parse_int(s, base)
-}
 
-// parse_binary parses a binary string
-pub func parse_binary(s: &string) -> (Result<int, string>) {
-    return parse_int(s, 2)
-}
-
-// Deprecated: use parse_binary.
+// parseBinary parses a binary string
 pub func parseBinary(s: &string) -> (Result<int, string>) {
-    return parse_binary(s)
+    return parseInt(s, 2)
 }
 
-// parse_octal parses an octal string
-pub func parse_octal(s: &string) -> (Result<int, string>) {
-    return parse_int(s, 8)
-}
 
-// Deprecated: use parse_octal.
+// parseOctal parses an octal string
 pub func parseOctal(s: &string) -> (Result<int, string>) {
-    return parse_octal(s)
+    return parseInt(s, 8)
 }
 
-// parse_hex parses a hexadecimal string
-pub func parse_hex(s: &string) -> (Result<int, string>) {
-    return parse_int(s, 16)
-}
 
-// Deprecated: use parse_hex.
+// parseHex parses a hexadecimal string
 pub func parseHex(s: &string) -> (Result<int, string>) {
-    return parse_hex(s)
+    return parseInt(s, 16)
 }
+
 
 // -----------------------------------------------------------------------------
 // Float to String
@@ -206,11 +162,11 @@ pub func parseHex(s: &string) -> (Result<int, string>) {
 
 // ftoa converts a float64 to its string representation
 pub func ftoa(f: float64) -> (string) {
-    return format_float(f, 6)
+    return formatFloat(f, 6)
 }
 
-// format_float formats a float64 with specified decimal precision
-pub func format_float(f: float64, precision: int) -> (string) {
+// formatFloat formats a float64 with specified decimal precision
+pub func formatFloat(f: float64, precision: int) -> (string) {
     if f != f {
         return "NaN"
     }
@@ -251,10 +207,6 @@ pub func format_float(f: float64, precision: int) -> (string) {
     return result
 }
 
-// Deprecated: use format_float.
-pub func formatFloat(f: float64, precision: int) -> (string) {
-    return format_float(f, precision)
-}
 
 // -----------------------------------------------------------------------------
 // String to Float
@@ -280,9 +232,9 @@ pub func atof(s: &string) -> (Result<float64, string>) {
 
     mut var saw_digit: bool = false
     mut var int_part: float64 = 0.0
-    while idx < s.len() && is_digit(s[idx]) {
+    while idx < s.len() && isDigit(s[idx]) {
         saw_digit = true
-        int_part = int_part * 10.0 + float64(digit_value(s[idx]))
+        int_part = int_part * 10.0 + float64(digitValue(s[idx]))
         idx = idx + 1
     }
 
@@ -290,10 +242,10 @@ pub func atof(s: &string) -> (Result<float64, string>) {
     mut var scale: float64 = 1.0
     if idx < s.len() && s[idx] == char('.') {
         idx = idx + 1
-        while idx < s.len() && is_digit(s[idx]) {
+        while idx < s.len() && isDigit(s[idx]) {
             saw_digit = true
             scale = scale * 10.0
-            frac_part = frac_part + float64(digit_value(s[idx])) / scale
+            frac_part = frac_part + float64(digitValue(s[idx])) / scale
             idx = idx + 1
         }
     }
@@ -316,8 +268,8 @@ pub func atof(s: &string) -> (Result<float64, string>) {
 // Boolean Conversion
 // -----------------------------------------------------------------------------
 
-// parse_bool parses a boolean from string
-pub func parse_bool(s: &string) -> (Result<bool, string>) {
+// parseBool parses a boolean from string
+pub func parseBool(s: &string) -> (Result<bool, string>) {
     if *s == "true" || *s == "1" || *s == "yes" || *s == "on" {
         return Ok(true)
     }
@@ -327,23 +279,15 @@ pub func parse_bool(s: &string) -> (Result<bool, string>) {
     return Err("invalid boolean")
 }
 
-// Deprecated: use parse_bool.
-pub func parseBool(s: &string) -> (Result<bool, string>) {
-    return parse_bool(s)
-}
 
-// format_bool formats a boolean as "true" or "false"
-pub func format_bool(b: bool) -> (string) {
+// formatBool formats a boolean as "true" or "false"
+pub func formatBool(b: bool) -> (string) {
     if b {
         return "true"
     }
     return "false"
 }
 
-// Deprecated: use format_bool.
-pub func formatBool(b: bool) -> (string) {
-    return format_bool(b)
-}
 
 // -----------------------------------------------------------------------------
 // Quote/Unquote (simple)

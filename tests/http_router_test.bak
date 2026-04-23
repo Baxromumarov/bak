@@ -42,7 +42,7 @@ func handle_home(_req: http.Request) -> (http.Response) {
 }
 
 func main() -> (void) {
-    mut var r = http.new_router()
+    mut var r = http.newRouter()
     
     // Register routes
     r.get("/", handle_home)
@@ -60,8 +60,8 @@ func main() -> (void) {
     println("  POST /api/users")
     println("")
     
-    var result = http.listen_and_serve(":8080", r)
-    if result.is_err() {
-        println("Server error: " + result.unwrap_err())
+    var result = http.listenAndServe(":8080", r)
+    if result.isErr() {
+        println("Server error: " + result.unwrapErr())
     }
 }

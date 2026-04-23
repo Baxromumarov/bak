@@ -8,11 +8,11 @@ pub alias QueryResult = postgres.QueryResult
 pub alias Row = postgres.Row
 
 pub func connection(handle: int) -> (postgres.Connection) {
-    return postgres.connection_from_handle(handle)
+    return postgres.connectionFromHandle(handle)
 }
 
-pub func empty_query_result() -> (postgres.QueryResult) {
-    return postgres.empty_query_result()
+pub func emptyQueryResult() -> (postgres.QueryResult) {
+    return postgres.emptyQueryResult()
 }
 
 pub func connect(conn_str: string) -> (Result<postgres.Connection, string>) {
@@ -23,22 +23,22 @@ pub func close(conn: postgres.Connection) -> (Result<void, string>) {
     return postgres.close(conn)
 }
 
-pub func row_get(row: &Row, name: string) -> (Result<string, string>) {
-    return postgres.row_get(
+pub func rowGet(row: &Row, name: string) -> (Result<string, string>) {
+    return postgres.rowGet(
         row,
         name,
     )
 }
 
-pub func row_get_index(row: &Row, idx: int) -> (Result<string, string>) {
-    return postgres.row_get_index(
+pub func rowGetIndex(row: &Row, idx: int) -> (Result<string, string>) {
+    return postgres.rowGetIndex(
         row,
         idx,
     )
 }
 
 var defaultPgQuery: func(&postgres.Connection, string) -> (Result<postgres.QueryResult, string>) = postgres.query
-var defaultPgQueryParams: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>) = postgres.query_params
+var defaultPgQueryParams: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>) = postgres.queryParams
 
 pub func defaultRunStatement(
     conn: &postgres.Connection,
@@ -63,7 +63,7 @@ mut var pgQuery: func(&postgres.Connection, string) -> (Result<postgres.QueryRes
 mut var pgQueryParams: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>) = defaultPgQueryParams
 mut var execStatement: func(&postgres.Connection, string, Vec<string, _>) -> (Result<bool, string>) = defaultRunStatement
 
-pub func set_query_hooks(
+pub func setQueryHooks(
     queryFn: func(&postgres.Connection, string) -> (Result<postgres.QueryResult, string>),
     queryParamsFn: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>),
 ) -> (void) {
@@ -71,18 +71,18 @@ pub func set_query_hooks(
     pgQueryParams = queryParamsFn
 }
 
-pub func reset_query_hooks() -> (void) {
+pub func resetQueryHooks() -> (void) {
     pgQuery = defaultPgQuery
     pgQueryParams = defaultPgQueryParams
 }
 
-pub func set_exec_hook(
+pub func setExecHook(
     execFn: func(&postgres.Connection, string, Vec<string, _>) -> (Result<bool, string>),
 ) -> (void) {
     execStatement = execFn
 }
 
-pub func reset_exec_hook() -> (void) {
+pub func resetExecHook() -> (void) {
     execStatement = defaultRunStatement
 }
 
@@ -145,19 +145,19 @@ pub func col(name: string) -> (Column) {
     }
 }
 
-pub func col_int(name: string) -> (ColumnInt) {
+pub func colInt(name: string) -> (ColumnInt) {
     return ColumnInt{
         spec: ColumnSpec{name: name},
     }
 }
 
-pub func col_float(name: string) -> (ColumnFloat) {
+pub func colFloat(name: string) -> (ColumnFloat) {
     return ColumnFloat{
         spec: ColumnSpec{name: name},
     }
 }
 
-pub func col_string(name: string) -> (ColumnString) {
+pub func colString(name: string) -> (ColumnString) {
     return ColumnString{
         spec: ColumnSpec{name: name},
     }
@@ -425,7 +425,7 @@ func expr_to_sql(expr: &Expr, start: int) -> (ExprSql) {
             sql = sql + " " + expr.joins[i - 1] + " "
         }
 
-        sql = sql + cond.column + " " + cond.op + " $" + strconv.int_to_string(start + i + 1)
+        sql = sql + cond.column + " " + cond.op + " $" + strconv.intToString(start + i + 1)
         params.push(cond.value)
         i = i + 1
     }
@@ -458,7 +458,7 @@ func build_assignment_clause(columns: &Vec<string, _>, start: int) -> (string) {
     mut var i: int = 0
 
     while i < columns.len() {
-        parts.push(columns[i] + " = $" + strconv.int_to_string(start + i + 1))
+        parts.push(columns[i] + " = $" + strconv.intToString(start + i + 1))
         i = i + 1
     }
 
@@ -470,7 +470,7 @@ func build_placeholders(count: int, start: int) -> (string) {
     mut var i: int = 0
 
     while i < count {
-        parts.push("$" + strconv.int_to_string(start + i + 1))
+        parts.push("$" + strconv.intToString(start + i + 1))
         i = i + 1
     }
 
@@ -506,7 +506,7 @@ pub struct SelectRaw {
     has_where:  bool
 }
 
-pub func select_raw(columns: Vec<ColumnSpec, _>) -> (SelectRaw) {
+pub func selectRaw(columns: Vec<ColumnSpec, _>) -> (SelectRaw) {
     return SelectRaw{
         columns:    columns,
         has_where:  false,
@@ -515,8 +515,8 @@ pub func select_raw(columns: Vec<ColumnSpec, _>) -> (SelectRaw) {
     }
 }
 
-pub func select_all() -> (SelectRaw) {
-    return select_raw(Vec.new())
+pub func selectAll() -> (SelectRaw) {
+    return selectRaw(Vec.new())
 }
 
 impl SelectRaw as s {
@@ -736,7 +736,7 @@ impl InsertBuilder as b {
         return out
     }
 
-    pub func returning_int(column: string) -> (InsertReturningInt) {
+    pub func returningInt(column: string) -> (InsertReturningInt) {
         return InsertReturningInt{base: b, column: column}
     }
 
@@ -791,14 +791,14 @@ impl InsertReturningInt as b {
                             return Err("no rows returned")
                         }
 
-                        var ret_result: Result<string, string> = postgres.row_get_index(
+                        var ret_result: Result<string, string> = postgres.rowGetIndex(
                             &rows[0],
                             0,
                         )
 
                         switch ret_result {
                             case Ok(ret_val) {
-                                switch strconv.parse_int(
+                                switch strconv.parseInt(
                                     &ret_val,
                                     10,
                                 ) {

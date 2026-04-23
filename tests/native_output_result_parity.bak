@@ -2,12 +2,12 @@ package main
 
 func main() -> (int) {
     mut var v: Vec<int, _> = Vec.new()
-    if v.pop().unwrap_err() == "vec is empty" {
+    if v.pop().unwrapErr() == "vec is empty" {
         println("pop-empty-ok")
     } else {
         println("pop-empty-bad")
     }
-    if v.get(0).unwrap_err() == "index out of bounds" {
+    if v.get(0).unwrapErr() == "index out of bounds" {
         println("get-empty-oob-ok")
     } else {
         println("get-empty-oob-bad")
@@ -37,7 +37,7 @@ func main() -> (int) {
     } else {
         println("string-get-bad")
     }
-    if s.get(5).unwrap_err() == "index out of bounds" {
+    if s.get(5).unwrapErr() == "index out of bounds" {
         println("string-get-oob-ok")
     } else {
         println("string-get-oob-bad")

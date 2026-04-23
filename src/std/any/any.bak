@@ -28,19 +28,19 @@ pub struct Any {
 }
 
 // Constructors (explicit, no implicit conversions).
-pub func from_int(v: int) -> (Any) {
+pub func fromInt(v: int) -> (Any) {
     return Any{int_val: v, kind: AnyKind.Int}
 }
 
-pub func from_string(v: string) -> (Any) {
+pub func fromString(v: string) -> (Any) {
     return Any{kind: AnyKind.String, string_val: v}
 }
 
-pub func from_bool(v: bool) -> (Any) {
+pub func fromBool(v: bool) -> (Any) {
     return Any{bool_val: v, kind: AnyKind.Bool}
 }
 
-pub func from_float(v: float64) -> (Any) {
+pub func fromFloat(v: float64) -> (Any) {
     return Any{float_val: v, kind: AnyKind.Float}
 }
 
@@ -54,51 +54,51 @@ pub func from_box<T>(v: T) -> (Any) {
     }
 }
 
-// from_array creates an Any from a Vec of Any values.
-pub func from_array(v: Vec<Any, _>) -> (Any) {
+// fromArray creates an Any from a Vec of Any values.
+pub func fromArray(v: Vec<Any, _>) -> (Any) {
     return Any{array_val: v, kind: AnyKind.Array}
 }
 
 impl Any as a {
-    pub func is_int() -> (bool) {
+    pub func isInt() -> (bool) {
         // Type checks.
         return a.kind == AnyKind.Int
     }
-    pub func is_string() -> (bool) {
+    pub func isString() -> (bool) {
         return a.kind == AnyKind.String
     }
-    pub func is_bool() -> (bool) {
+    pub func isBool() -> (bool) {
         return a.kind == AnyKind.Bool
     }
-    pub func is_float() -> (bool) {
+    pub func isFloat() -> (bool) {
         return a.kind == AnyKind.Float
     }
-    pub func is_box() -> (bool) {
+    pub func isBox() -> (bool) {
         return a.kind == AnyKind.Box
     }
-    pub func is_array() -> (bool) {
+    pub func isArray() -> (bool) {
         return a.kind == AnyKind.Array
     }
-    pub func as_int() -> (Result<int, string>) {
+    pub func asInt() -> (Result<int, string>) {
         // Safe extraction.
         if a.kind == AnyKind.Int {
             return Ok(a.int_val)
         }
         return Err("value is not int")
     }
-    pub func as_string() -> (Result<string, string>) {
+    pub func asString() -> (Result<string, string>) {
         if a.kind == AnyKind.String {
             return Ok(a.string_val)
         }
         return Err("value is not string")
     }
-    pub func as_bool() -> (Result<bool, string>) {
+    pub func asBool() -> (Result<bool, string>) {
         if a.kind == AnyKind.Bool {
             return Ok(a.bool_val)
         }
         return Err("value is not bool")
     }
-    pub func as_float() -> (Result<float64, string>) {
+    pub func asFloat() -> (Result<float64, string>) {
         if a.kind == AnyKind.Float {
             return Ok(a.float_val)
         }
@@ -108,13 +108,13 @@ impl Any as a {
         // Box syntax is frozen out in v0.1; keep API but always return an error.
         return Err("box values are not supported in the frozen v0.1 language surface")
     }
-    pub func as_array() -> (Vec<Any, _>) {
+    pub func asArray() -> (Vec<Any, _>) {
         if a.kind == AnyKind.Array {
             return a.array_val
         }
         return Vec.new()
     }
-    pub func type_name() -> (string) {
+    pub func typeName() -> (string) {
         // Debug helpers.
         if a.kind == AnyKind.Int {
             return "int"
@@ -139,9 +139,9 @@ impl Any as a {
         }
         return "unknown"
     }
-    pub func to_string() -> (string) {
+    pub func toString() -> (string) {
         if a.kind == AnyKind.Int {
-            return strconv.int_to_string(a.int_val)
+            return strconv.intToString(a.int_val)
         }
         if a.kind == AnyKind.String {
             return a.string_val
@@ -168,7 +168,7 @@ impl Any as a {
                 if i > 0 {
                     out = out + ", "
                 }
-                out = out + (a.array_val[i]).to_string()
+                out = out + (a.array_val[i]).toString()
                 i = i + 1
             }
             return out + "]"

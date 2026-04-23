@@ -8,21 +8,21 @@ func test_strings_enhancements() -> (void) {
     mut var t: test.T = test.new("test_strings_enhancements")
 
     var s: string = "bak"
-    t.eq_string(strings.reverse(&s), "kab")
+    t.eqString(strings.reverse(&s), "kab")
 
     var text: string = "a\r\nb\n"
     var ls: Vec<string, _> = strings.lines(&text)
     t.eq(ls.len(), 3)
     switch ls.get(0) {
-        case Ok(v) { t.eq_string(v, "a") }
+        case Ok(v) { t.eqString(v, "a") }
         case Err(_) { t.fail("expected line 0") }
     }
     switch ls.get(1) {
-        case Ok(v) { t.eq_string(v, "b") }
+        case Ok(v) { t.eqString(v, "b") }
         case Err(_) { t.fail("expected line 1") }
     }
     switch ls.get(2) {
-        case Ok(v) { t.eq_string(v, "") }
+        case Ok(v) { t.eqString(v, "") }
         case Err(_) { t.fail("expected line 2") }
     }
 
@@ -30,10 +30,10 @@ func test_strings_enhancements() -> (void) {
     var suffixes: Vec<string, _> = Vec.from([".bak", ".txt"])
     var path_like: string = "src/main.bak"
 
-    t.is_true(strings.has_prefix_any(&path_like, &prefixes))
-    t.is_true(strings.has_suffix_any(&path_like, &suffixes))
-    t.is_false(strings.has_prefix_any(&path_like, &Vec.from(["cmd/", "lsp/"])))
-    t.is_false(strings.has_suffix_any(&path_like, &Vec.from([".go", ".json"])))
+    t.isTrue(strings.hasPrefixAny(&path_like, &prefixes))
+    t.isTrue(strings.hasSuffixAny(&path_like, &suffixes))
+    t.isFalse(strings.hasPrefixAny(&path_like, &Vec.from(["cmd/", "lsp/"])))
+    t.isFalse(strings.hasSuffixAny(&path_like, &Vec.from([".go", ".json"])))
     t.finish()
 }
 
@@ -41,23 +41,23 @@ func test_path_enhancements() -> (void) {
     mut var t: test.T = test.new("test_path_enhancements")
 
     var p: string = "/tmp/archive.tar.gz"
-    t.is_false(path.is_rel(p))
+    t.isFalse(path.isRel(p))
 
-    t.eq_string(path.ext(&p), ".gz")
-    t.is_true(path.has_ext(&p))
-    t.eq_string(path.stem(&p), "archive.tar")
-    t.eq_string(path.without_ext(&p), "/tmp/archive.tar")
+    t.eqString(path.ext(&p), ".gz")
+    t.isTrue(path.hasExt(&p))
+    t.eqString(path.stem(&p), "archive.tar")
+    t.eqString(path.withoutExt(&p), "/tmp/archive.tar")
 
     var bak_ext: string = "bak"
-    t.eq_string(path.with_ext(&p, &bak_ext), "/tmp/archive.tar.bak")
+    t.eqString(path.withExt(&p, &bak_ext), "/tmp/archive.tar.bak")
 
     var explicit_ext: string = ".tmp"
-    t.eq_string(path.with_ext(&p, &explicit_ext), "/tmp/archive.tar.tmp")
+    t.eqString(path.withExt(&p, &explicit_ext), "/tmp/archive.tar.tmp")
 
     var no_ext: string = "notes"
-    t.is_true(path.is_rel(no_ext))
-    t.is_false(path.has_ext(&no_ext))
-    t.eq_string(path.stem(&no_ext), "notes")
-    t.eq_string(path.without_ext(&no_ext), "notes")
+    t.isTrue(path.isRel(no_ext))
+    t.isFalse(path.hasExt(&no_ext))
+    t.eqString(path.stem(&no_ext), "notes")
+    t.eqString(path.withoutExt(&no_ext), "notes")
     t.finish()
 }

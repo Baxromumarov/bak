@@ -21,7 +21,7 @@ impl Vec {
             capacity: 0,
         }
     }
-    pub func with_cap(cap: int) -> (Vec<T, _>) {
+    pub func withCap(cap: int) -> (Vec<T, _>) {
         mut var effective_cap: int = cap
         if effective_cap < 0 {
             effective_cap = 0
@@ -37,7 +37,7 @@ impl Vec {
     pub func from<N>(arr: Vec<T, N>) -> (Vec<T, _>) {
         // arr is fixed array.
         var len: int = arr.len()
-        mut var v: Vec<T, _> = Vec.with_cap(len)
+        mut var v: Vec<T, _> = Vec.withCap(len)
         // copy elements
         mut var i: int = 0
         while i < len {
@@ -123,7 +123,7 @@ impl Vec as self {
     pub func cap() -> (int) {
         return self.capacity
     }
-    pub func is_empty() -> (bool) {
+    pub func isEmpty() -> (bool) {
         return self.length == 0
     }
     pub func first() -> (Result<T, string>) {
@@ -178,9 +178,9 @@ impl Vec as self {
 // Free functions for Vec<T, _> utilities
 // =============================================================================
 
-// index_of returns the index of the first element matching `value` using `eq`,
+// indexOf returns the index of the first element matching `value` using `eq`,
 // or -1 if not found.
-pub func index_of<T>(v: &Vec<T, _>, value: T, eq: func(&T, &T) -> (bool)) -> (int) {
+pub func indexOf<T>(v: &Vec<T, _>, value: T, eq: func(&T, &T) -> (bool)) -> (int) {
     mut var i: int = 0
     while i < v.len() {
         if eq(&v[i], &value) {
@@ -236,7 +236,7 @@ pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, stri
 
 // map_by transforms each element in v using f and returns a new Vec<U, _>.
 pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
-    mut var out: Vec<U, _> = Vec.with_cap(v.len())
+    mut var out: Vec<U, _> = Vec.withCap(v.len())
     mut var i: int = 0
     while i < v.len() {
         out.push(f(&v[i]))

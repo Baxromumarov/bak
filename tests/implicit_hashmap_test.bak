@@ -12,15 +12,15 @@ func test_implicit_hashmap() -> (void) {
     { (&mut m).insert("hello", "world"); }
     
     // Verify string map
-    t.is_true((&m).contains(&"hello"));
+    t.isTrue((&m).contains(&"hello"));
     t.eq((&m).len(), 1);
     
     // Test capacity constructor
-    mut var m2 = HashMap.with_cap(10);
+    mut var m2 = HashMap.withCap(10);
     
     { (&mut m2).insert(1, 100); }
     
-    t.is_true((&m2).contains(&1));
+    t.isTrue((&m2).contains(&1));
     t.eq((&m2).len(), 1);
     println("HashMap Test Finished");
 }

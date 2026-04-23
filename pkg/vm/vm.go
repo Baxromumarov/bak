@@ -820,9 +820,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			case compiler.VAL_OPTION:
 				option := obj.AsObject.(*compiler.OptionInstance)
 				switch fieldName {
-				case "is_some":
+				case "isSome":
 					vm.push(compiler.NewBool(option.IsSome))
-				case "is_none":
+				case "isNone":
 					vm.push(compiler.NewBool(!option.IsSome))
 				case "value":
 					if option.IsSome {
@@ -916,9 +916,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				enumInst := obj.AsObject.(*compiler.EnumInstance)
 				if enumInst.EnumName == "Result" {
 					switch fieldName {
-					case "is_ok":
+					case "isOk":
 						vm.push(compiler.NewBool(enumInst.VariantName == "Ok"))
-					case "is_err":
+					case "isErr":
 						vm.push(compiler.NewBool(enumInst.VariantName == "Err"))
 					case "value":
 						if len(enumInst.Payload) > 0 {
@@ -1689,7 +1689,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 	receiver := vm.derefAll(vm.peek(argc - 1))
 
 	// REMOVED: Option/Result method interception - now handled by bak impl blocks
-	// Methods like is_some(), unwrap(), is_ok(), etc. are now implemented in
+	// Methods like isSome(), unwrap(), isOk(), etc. are now implemented in
 	// src/std/option.bak and src/std/result.bak and dispatched through the
 	// standard method lookup mechanism below.
 
@@ -1721,15 +1721,15 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pop() // pop receiver
 
 		switch methodName {
-		case "toString", "to_string":
+		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("to_string() requires 0 arguments")
+				return fmt.Errorf("toString() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatInt(receiver.AsInt, 10)), discardReturn)
 			return nil
-		case "toFloat", "to_float":
+		case "toFloat":
 			if len(args) != 0 {
-				return fmt.Errorf("to_float() requires 0 arguments")
+				return fmt.Errorf("toFloat() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewFloat(float64(receiver.AsInt)), discardReturn)
 			return nil
@@ -1754,24 +1754,24 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pop() // pop receiver
 
 		switch methodName {
-		case "toString", "to_string":
+		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("to_string() requires 0 arguments")
+				return fmt.Errorf("toString() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', -1, 64)), discardReturn)
 			return nil
-		case "toInt", "to_int":
+		case "toInt":
 			if len(args) != 0 {
-				return fmt.Errorf("to_int() requires 0 arguments")
+				return fmt.Errorf("toInt() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsFloat)), discardReturn)
 			return nil
-		case "toFixed", "to_fixed":
+		case "toFixed":
 			if len(args) != 1 {
-				return fmt.Errorf("to_fixed() requires 1 argument")
+				return fmt.Errorf("toFixed() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("to_fixed() requires precision (int)")
+				return fmt.Errorf("toFixed() requires precision (int)")
 			}
 			precision := int(args[0].AsInt)
 			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', precision, 64)), discardReturn)
@@ -1811,9 +1811,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pop() // pop receiver
 
 		switch methodName {
-		case "toString", "to_string":
+		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("to_string() requires 0 arguments")
+				return fmt.Errorf("toString() requires 0 arguments")
 			}
 			if receiver.AsBool {
 				vm.pushMethodResult(compiler.NewString("true"), discardReturn)
@@ -1832,69 +1832,69 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		vm.pop() // pop receiver
 
 		switch methodName {
-		case "toString", "to_string":
+		case "toString":
 			if len(args) != 0 {
-				return fmt.Errorf("to_string() requires 0 arguments")
+				return fmt.Errorf("toString() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewString(string(receiver.AsChar)), discardReturn)
 			return nil
-		case "isDigit", "is_digit":
+		case "isDigit":
 			if len(args) != 0 {
-				return fmt.Errorf("is_digit() requires 0 arguments")
+				return fmt.Errorf("isDigit() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= '0' && receiver.AsChar <= '9'), discardReturn)
 			return nil
-		case "isLetter", "is_letter", "isAlpha", "is_alpha":
+		case "isLetter", "isAlpha":
 			if len(args) != 0 {
-				return fmt.Errorf("is_letter() requires 0 arguments")
+				return fmt.Errorf("%s() requires 0 arguments", methodName)
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z')
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
-		case "isAlphaNum", "is_alpha_num":
+		case "isAlphaNum":
 			if len(args) != 0 {
-				return fmt.Errorf("is_alpha_num() requires 0 arguments")
+				return fmt.Errorf("isAlphaNum() requires 0 arguments")
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
 				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
 				(receiver.AsChar >= '0' && receiver.AsChar <= '9')
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
-		case "isWhitespace", "is_whitespace":
+		case "isWhitespace":
 			if len(args) != 0 {
-				return fmt.Errorf("is_whitespace() requires 0 arguments")
+				return fmt.Errorf("isWhitespace() requires 0 arguments")
 			}
 			v := receiver.AsChar == ' ' || receiver.AsChar == '\t' || receiver.AsChar == '\n' || receiver.AsChar == '\r'
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
-		case "isUpper", "is_upper":
+		case "isUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("is_upper() requires 0 arguments")
+				return fmt.Errorf("isUpper() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z'), discardReturn)
 			return nil
-		case "isLower", "is_lower":
+		case "isLower":
 			if len(args) != 0 {
-				return fmt.Errorf("is_lower() requires 0 arguments")
+				return fmt.Errorf("isLower() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'a' && receiver.AsChar <= 'z'), discardReturn)
 			return nil
-		case "isAscii", "is_ascii":
+		case "isAscii":
 			if len(args) != 0 {
-				return fmt.Errorf("is_ascii() requires 0 arguments")
+				return fmt.Errorf("isAscii() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 0 && receiver.AsChar <= 127), discardReturn)
 			return nil
-		case "isIdentStart", "is_ident_start":
+		case "isIdentStart":
 			if len(args) != 0 {
-				return fmt.Errorf("is_ident_start() requires 0 arguments")
+				return fmt.Errorf("isIdentStart() requires 0 arguments")
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') || receiver.AsChar == '_'
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
-		case "isIdentPart", "is_ident_part":
+		case "isIdentPart":
 			if len(args) != 0 {
-				return fmt.Errorf("is_ident_part() requires 0 arguments")
+				return fmt.Errorf("isIdentPart() requires 0 arguments")
 			}
 			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
 				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
@@ -1902,15 +1902,15 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				receiver.AsChar == '_'
 			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
 			return nil
-		case "toAscii", "to_ascii":
+		case "toAscii":
 			if len(args) != 0 {
-				return fmt.Errorf("to_ascii() requires 0 arguments")
+				return fmt.Errorf("toAscii() requires 0 arguments")
 			}
 			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsChar)), discardReturn)
 			return nil
-		case "toUpper", "to_upper":
+		case "toUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("to_upper() requires 0 arguments")
+				return fmt.Errorf("toUpper() requires 0 arguments")
 			}
 			if receiver.AsChar >= 'a' && receiver.AsChar <= 'z' {
 				vm.pushMethodResult(compiler.NewChar(receiver.AsChar-32), discardReturn)
@@ -1918,9 +1918,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				vm.pushMethodResult(receiver, discardReturn)
 			}
 			return nil
-		case "toLower", "to_lower":
+		case "toLower":
 			if len(args) != 0 {
-				return fmt.Errorf("to_lower() requires 0 arguments")
+				return fmt.Errorf("toLower() requires 0 arguments")
 			}
 			if receiver.AsChar >= 'A' && receiver.AsChar <= 'Z' {
 				vm.pushMethodResult(compiler.NewChar(receiver.AsChar+32), discardReturn)
@@ -1972,9 +1972,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 
 		var result compiler.Value
 		switch methodName {
-		case "is_some":
+		case "isSome":
 			result = compiler.NewBool(opt.IsSome)
-		case "is_none":
+		case "isNone":
 			result = compiler.NewBool(!opt.IsSome)
 		case "unwrap":
 			if !opt.IsSome {
@@ -2000,18 +2000,18 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 
 		var result compiler.Value
 		switch methodName {
-		case "is_ok":
+		case "isOk":
 			result = compiler.NewBool(!res.IsErr)
-		case "is_err":
+		case "isErr":
 			result = compiler.NewBool(res.IsErr)
 		case "unwrap":
 			if res.IsErr {
 				return fmt.Errorf("unwrap called on Err result")
 			}
 			result = res.Value
-		case "unwrap_err":
+		case "unwrapErr":
 			if !res.IsErr {
-				return fmt.Errorf("unwrap_err called on Ok result")
+				return fmt.Errorf("unwrapErr called on Ok result")
 			}
 			result = res.Value
 		default:
@@ -2070,7 +2070,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 		}
 		switch methodName {
-		case "toString", "to_string":
+		case "toString":
 			if len(args) != 0 {
 				return fmt.Errorf("toString() requires 0 arguments")
 			}
@@ -2109,40 +2109,40 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				values[i] = compiler.NewChar(r)
 			}
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
-		case "is_empty", "isEmpty":
+		case "isEmpty":
 			if len(args) != 0 {
-				return fmt.Errorf("is_empty() requires 0 arguments")
+				return fmt.Errorf("isEmpty() requires 0 arguments")
 			}
 			result = compiler.NewBool(len(str) == 0)
-		case "to_lower", "toLower":
+		case "toLower":
 			if len(args) != 0 {
-				return fmt.Errorf("to_lower() requires 0 arguments")
+				return fmt.Errorf("toLower() requires 0 arguments")
 			}
 			result = compiler.NewString(strings.ToLower(str))
-		case "to_upper", "toUpper":
+		case "toUpper":
 			if len(args) != 0 {
-				return fmt.Errorf("to_upper() requires 0 arguments")
+				return fmt.Errorf("toUpper() requires 0 arguments")
 			}
 			result = compiler.NewString(strings.ToUpper(str))
-		case "trim_space", "trimSpace":
+		case "trimSpace":
 			if len(args) != 0 {
-				return fmt.Errorf("trim_space() requires 0 arguments")
+				return fmt.Errorf("trimSpace() requires 0 arguments")
 			}
 			result = compiler.NewString(strings.TrimSpace(str))
-		case "trim_prefix", "trimPrefix":
+		case "trimPrefix":
 			if len(args) != 1 {
-				return fmt.Errorf("trim_prefix() requires 1 argument")
+				return fmt.Errorf("trimPrefix() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("trim_prefix() requires a string")
+				return fmt.Errorf("trimPrefix() requires a string")
 			}
 			result = compiler.NewString(strings.TrimPrefix(str, args[0].AsString))
-		case "trim_suffix", "trimSuffix":
+		case "trimSuffix":
 			if len(args) != 1 {
-				return fmt.Errorf("trim_suffix() requires 1 argument")
+				return fmt.Errorf("trimSuffix() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("trim_suffix() requires a string")
+				return fmt.Errorf("trimSuffix() requires a string")
 			}
 			result = compiler.NewString(strings.TrimSuffix(str, args[0].AsString))
 		case "split":
@@ -2172,12 +2172,12 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			} else {
 				result = resultOk(compiler.NewChar(runes[idx]))
 			}
-		case "index_of", "indexOf":
+		case "indexOf":
 			if len(args) != 1 {
-				return fmt.Errorf("index_of() requires 1 argument")
+				return fmt.Errorf("indexOf() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("index_of() requires a string")
+				return fmt.Errorf("indexOf() requires a string")
 			}
 			idx := stringIndexOfRunes(str, args[0].AsString)
 			if idx < 0 {
@@ -2185,12 +2185,12 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			} else {
 				result = resultOk(compiler.NewInt(int64(idx)))
 			}
-		case "last_index_of", "lastIndexOf":
+		case "lastIndexOf":
 			if len(args) != 1 {
-				return fmt.Errorf("last_index_of() requires 1 argument")
+				return fmt.Errorf("lastIndexOf() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("last_index_of() requires a string")
+				return fmt.Errorf("lastIndexOf() requires a string")
 			}
 			idx := stringLastIndexOfRunes(str, args[0].AsString)
 			if idx < 0 {
@@ -2206,20 +2206,20 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("contains() requires a string")
 			}
 			result = compiler.NewBool(strings.Contains(str, args[0].AsString))
-		case "starts_with", "startsWith":
+		case "startsWith":
 			if len(args) != 1 {
-				return fmt.Errorf("starts_with() requires 1 argument")
+				return fmt.Errorf("startsWith() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("starts_with() requires a string")
+				return fmt.Errorf("startsWith() requires a string")
 			}
 			result = compiler.NewBool(strings.HasPrefix(str, args[0].AsString))
-		case "ends_with", "endsWith":
+		case "endsWith":
 			if len(args) != 1 {
-				return fmt.Errorf("ends_with() requires 1 argument")
+				return fmt.Errorf("endsWith() requires 1 argument")
 			}
 			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("ends_with() requires a string")
+				return fmt.Errorf("endsWith() requires a string")
 			}
 			result = compiler.NewBool(strings.HasSuffix(str, args[0].AsString))
 		case "replace":
@@ -2230,9 +2230,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("replace() requires string arguments")
 			}
 			result = compiler.NewString(strings.ReplaceAll(str, args[0].AsString, args[1].AsString))
-		case "parse_int", "parseInt":
+		case "parseInt":
 			if len(args) != 0 {
-				return fmt.Errorf("parse_int() requires 0 arguments")
+				return fmt.Errorf("parseInt() requires 0 arguments")
 			}
 			var i int64
 			if _, err := fmt.Sscanf(str, "%d", &i); err != nil {
@@ -2240,9 +2240,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				break
 			}
 			result = resultOk(compiler.NewInt(i))
-		case "parse_float", "parseFloat":
+		case "parseFloat":
 			if len(args) != 0 {
-				return fmt.Errorf("parse_float() requires 0 arguments")
+				return fmt.Errorf("parseFloat() requires 0 arguments")
 			}
 			var f float64
 			if _, err := fmt.Sscanf(str, "%f", &f); err != nil {
@@ -2318,9 +2318,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 				return fmt.Errorf("cap() requires 0 arguments")
 			}
 			result = compiler.NewInt(int64(cap(arr.Elements)))
-		case "is_empty", "isEmpty":
+		case "isEmpty":
 			if len(args) != 0 {
-				return fmt.Errorf("is_empty() requires 0 arguments")
+				return fmt.Errorf("isEmpty() requires 0 arguments")
 			}
 			result = compiler.NewBool(len(arr.Elements) == 0)
 		case "get":
@@ -2467,9 +2467,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			sliced := make([]compiler.Value, end-start)
 			copy(sliced, arr.Elements[start:end])
 			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: sliced}}
-		case "to_vec":
+		case "toVec":
 			if len(args) != 0 {
-				return fmt.Errorf("to_vec() requires 0 arguments")
+				return fmt.Errorf("toVec() requires 0 arguments")
 			}
 			dup := make([]compiler.Value, len(arr.Elements))
 			copy(dup, arr.Elements)

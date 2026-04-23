@@ -174,7 +174,7 @@ func TestBuildExecutableRejectsOsExecWithoutPermission(t *testing.T) {
 
 func main() -> (void) {
     var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
-    if result.is_err() {
+    if result.isErr() {
         return void
     }
     return void
@@ -232,8 +232,8 @@ func TestBuildExecutableRejectsFsWriteFileWithoutPermission(t *testing.T) {
 	import %q as fs
 
 func main() -> (void) {
-    var result: Result<void, string> = fs.write_file("native_permission_gate.tmp", "bak")
-    if result.is_err() {
+    var result: Result<void, string> = fs.writeFile("native_permission_gate.tmp", "bak")
+    if result.isErr() {
         return void
     }
     return void
@@ -262,7 +262,7 @@ func TestBuildExecutableAllowsFsWriteFileWithPermission(t *testing.T) {
 	import %q as fs
 
 func main() -> (void) {
-    fs.write_file("native_permission_gate_allow.tmp", "bak")
+    fs.writeFile("native_permission_gate_allow.tmp", "bak")
     return void
 }
 `, fsImport)
@@ -282,7 +282,7 @@ import "std/os"
 
 func main() -> (int) {
 	var g: Result<string, string> = os.getenv("PATH")
-	if g.is_ok() {
+	if g.isOk() {
 		return 0
 	}
 	return 1
@@ -380,11 +380,11 @@ func TestBuildExecutableExecCapturesOutputAndExitCode(t *testing.T) {
 
 func main() -> (int) {
     var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
-	if result.is_err() {
+	if result.isErr() {
 		return 2
 	}
 
-	if result.is_ok() {
+	if result.isOk() {
 		return 1
     }
 
@@ -411,7 +411,7 @@ func TestBuildExecutableExecTimesOut(t *testing.T) {
 
 func main() -> (int) {
     var result: Result<os.ExecResult, string> = os.exec("sleep", ["1"])
-    if result.is_ok() {
+    if result.isOk() {
         var exec_result: os.ExecResult = result.unwrap()
         if exec_result.TimedOut && exec_result.ExitCode == -1 && exec_result.Output == "" && exec_result.Stdout == "" && exec_result.Stderr == "" && !exec_result.Truncated {
             return 11
@@ -443,7 +443,7 @@ func TestBuildExecutableExecTruncatesOutput(t *testing.T) {
 
 func main() -> (int) {
     var result: Result<os.ExecResult, string> = os.exec("printf", ["abcdef"])
-    if result.is_ok() {
+    if result.isOk() {
         var exec_result: os.ExecResult = result.unwrap()
         if exec_result.Output == "abc" && exec_result.Stdout == "abc" && exec_result.Stderr == "" && exec_result.ExitCode == 0 && !exec_result.TimedOut && exec_result.Truncated {
             return 13
@@ -544,10 +544,10 @@ func TestBuildExecutableTimeBuiltinsAreDeterministicAndRunnable(t *testing.T) {
 import %q as time
 
 func main() -> (int) {
-	var start: int = time.monotonic_now()
-	time.sleep_ms(7)
-	var delta: time.Duration = time.monotonic_since(start)
-	return delta.as_millis()
+	var start: int = time.monotonicNow()
+	time.sleepMs(7)
+	var delta: time.Duration = time.monotonicSince(start)
+	return delta.asMillis()
 }
 `, timeImport)
 

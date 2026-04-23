@@ -37,7 +37,7 @@ mut var execSpy: querySpy = querySpy{
     params: emptyStringVec(),
     sql:    "",
 }
-mut var returningResult: postgres.QueryResult = postgres.empty_query_result()
+mut var returningResult: postgres.QueryResult = postgres.emptyQueryResult()
 
 func captureSelect(
     _conn: &postgres.Connection,
@@ -47,7 +47,7 @@ func captureSelect(
     selectSpy.sql = sql
     selectSpy.params = emptyStringVec()
 
-    return Ok(b.empty_query_result())
+    return Ok(b.emptyQueryResult())
 }
 
 func captureSelectParams(
@@ -59,7 +59,7 @@ func captureSelectParams(
     paramsSpy.sql = sql
     paramsSpy.params = params
 
-    return Ok(b.empty_query_result())
+    return Ok(b.emptyQueryResult())
 }
 
 func captureExec(
@@ -105,21 +105,21 @@ func resetSpies() -> (void) {
 }
 
 func decode_user(row: &postgres.Row) -> (Result<user, string>) {
-    switch postgres.row_get(
+    switch postgres.rowGet(
         row,
         "id",
     ) {
         case Ok(id_str) {
-            var id_res = strconv.parse_int(
+            var id_res = strconv.parseInt(
                 &id_str,
                 10,
             )
 
-            if id_res.is_err() {
-                return Err(id_res.unwrap_err())
+            if id_res.isErr() {
+                return Err(id_res.unwrapErr())
             }
 
-            switch postgres.row_get(
+            switch postgres.rowGet(
                 row,
                 "name",
             ) {
@@ -139,17 +139,17 @@ func decode_user(row: &postgres.Row) -> (Result<user, string>) {
 
 func test_select_raw_defaults() -> (void) {
     mut var t = test.new("borm.select_raw_defaults")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_query_hooks(
+    b.setQueryHooks(
         captureSelect,
         captureSelectParams,
     )
     resetSpies()
 
-    var result = b.select_all().from("users").load(&conn)
+    var result = b.selectAll().from("users").load(&conn)
 
-    b.reset_query_hooks()
+    b.resetQueryHooks()
 
     switch result {
         case Ok(_) {
@@ -159,20 +159,20 @@ func test_select_raw_defaults() -> (void) {
         }
     }
 
-    t.is_true(selectSpy.called)
+    t.isTrue(selectSpy.called)
     t.eq(
         selectSpy.sql,
         "SELECT * FROM users",
     )
-    t.is_false(paramsSpy.called)
+    t.isFalse(paramsSpy.called)
     t.finish()
 }
 
 func test_select_raw_with_where() -> (void) {
     mut var t = test.new("borm.select_raw_where")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_query_hooks(
+    b.setQueryHooks(
         captureSelect,
         captureSelectParams,
     )
@@ -180,13 +180,13 @@ func test_select_raw_with_where() -> (void) {
 
     mut var columns: Vec<b.ColumnSpec, _> = Vec.from(
         [
-            b.col_int("id").spec(),
-            b.col_string("name").spec(),
+            b.colInt("id").spec(),
+            b.colString("name").spec(),
         ],
     )
-    var result = b.select_raw(columns).from("users").where(b.col_int("id").eq(7)).load(&conn)
+    var result = b.selectRaw(columns).from("users").where(b.colInt("id").eq(7)).load(&conn)
 
-    b.reset_query_hooks()
+    b.resetQueryHooks()
 
     switch result {
         case Ok(_) {
@@ -196,8 +196,8 @@ func test_select_raw_with_where() -> (void) {
         }
     }
 
-    t.is_false(selectSpy.called)
-    t.is_true(paramsSpy.called)
+    t.isFalse(selectSpy.called)
+    t.isTrue(paramsSpy.called)
     t.eq(
         paramsSpy.sql,
         "SELECT id, name FROM users WHERE id = $1",
@@ -215,9 +215,9 @@ func test_select_raw_with_where() -> (void) {
 
 func test_select_typed_mapper() -> (void) {
     mut var t = test.new("borm.select_typed")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_query_hooks(
+    b.setQueryHooks(
         captureSelect,
         captureSelectParams,
     )
@@ -225,19 +225,19 @@ func test_select_typed_mapper() -> (void) {
 
     mut var columns: Vec<b.ColumnSpec, _> = Vec.from(
         [
-            b.col_int("id").spec(),
-            b.col_string("name").spec(),
+            b.colInt("id").spec(),
+            b.colString("name").spec(),
         ],
     )
 
     selectSpy.called = false
 
-    var result = b.select_raw(columns).from("users").load_map(
+    var result = b.selectRaw(columns).from("users").load_map(
         &conn,
         decode_user,
     )
 
-    b.reset_query_hooks()
+    b.resetQueryHooks()
 
     switch result {
         case Ok(_) {
@@ -247,7 +247,7 @@ func test_select_typed_mapper() -> (void) {
         }
     }
 
-    t.is_true(selectSpy.called)
+    t.isTrue(selectSpy.called)
     t.eq(
         selectSpy.sql,
         "SELECT id, name FROM users",
@@ -257,9 +257,9 @@ func test_select_typed_mapper() -> (void) {
 
 func test_insert_builds_placeholders() -> (void) {
     mut var t = test.new("borm.insert_placeholders")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
     var result = b.insert("users").value(
@@ -270,7 +270,7 @@ func test_insert_builds_placeholders() -> (void) {
         100,
     ).exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -280,7 +280,7 @@ func test_insert_builds_placeholders() -> (void) {
         }
     }
 
-    t.is_true(execSpy.called)
+    t.isTrue(execSpy.called)
     t.eq(
         execSpy.sql,
         "INSERT INTO users (name, balance) VALUES ($1, $2)",
@@ -302,9 +302,9 @@ func test_insert_builds_placeholders() -> (void) {
 
 func test_batch_insert_rows() -> (void) {
     mut var t = test.new("borm.batch_insert")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
     mut var batch = b.insert("users")
@@ -326,7 +326,7 @@ func test_batch_insert_rows() -> (void) {
 
     var result = batch.exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -336,7 +336,7 @@ func test_batch_insert_rows() -> (void) {
         }
     }
 
-    t.is_true(execSpy.called)
+    t.isTrue(execSpy.called)
     t.eq(
         execSpy.sql,
         "INSERT INTO users (name, balance) VALUES ($1, $2), ($3, $4)",
@@ -366,9 +366,9 @@ func test_batch_insert_rows() -> (void) {
 
 func test_update_with_where() -> (void) {
     mut var t = test.new("borm.update_where")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
     var result = b.update("users").set(
@@ -376,7 +376,7 @@ func test_update_with_where() -> (void) {
         120,
     ).where(b.col("id").eq(1)).exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -386,7 +386,7 @@ func test_update_with_where() -> (void) {
         }
     }
 
-    t.is_true(execSpy.called)
+    t.isTrue(execSpy.called)
     t.eq(
         execSpy.sql,
         "UPDATE users SET balance = $1 WHERE id = $2",
@@ -408,14 +408,14 @@ func test_update_with_where() -> (void) {
 
 func test_delete_requires_all() -> (void) {
     mut var t = test.new("borm.delete_requires_all")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
     var result = b.delete("users").exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -425,20 +425,20 @@ func test_delete_requires_all() -> (void) {
         }
     }
 
-    t.is_false(execSpy.called)
+    t.isFalse(execSpy.called)
     t.finish()
 }
 
 func test_delete_with_where() -> (void) {
     mut var t = test.new("borm.delete_where")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
-    var result = b.delete("users").where(b.col_string("name").eq("bob")).exec(&conn)
+    var result = b.delete("users").where(b.colString("name").eq("bob")).exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -448,7 +448,7 @@ func test_delete_with_where() -> (void) {
         }
     }
 
-    t.is_true(execSpy.called)
+    t.isTrue(execSpy.called)
     t.eq(
         execSpy.sql,
         "DELETE FROM users WHERE name = $1",
@@ -466,14 +466,14 @@ func test_delete_with_where() -> (void) {
 
 func test_delete_all() -> (void) {
     mut var t = test.new("borm.delete_all")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
 
-    b.set_exec_hook(captureExec)
+    b.setExecHook(captureExec)
     resetSpies()
 
     var result = b.delete("users").all().exec(&conn)
 
-    b.reset_exec_hook()
+    b.resetExecHook()
 
     switch result {
         case Ok(_) {
@@ -483,7 +483,7 @@ func test_delete_all() -> (void) {
         }
     }
 
-    t.is_true(execSpy.called)
+    t.isTrue(execSpy.called)
     t.eq(
         execSpy.sql,
         "DELETE FROM users",
@@ -497,16 +497,16 @@ func test_delete_all() -> (void) {
 
 func test_insert_returning_int() -> (void) {
     mut var t = test.new("borm.insert_returning")
-    var conn: postgres.Connection = postgres.connection_from_handle(1)
+    var conn: postgres.Connection = postgres.connectionFromHandle(1)
     var cols: Vec<string, _> = Vec.from(["id"])
     mut var rows: Vec<Vec<string, _>, _> = Vec.new()
 
     rows.push(Vec.from(["42"]))
-    returningResult = postgres.query_result(
+    returningResult = postgres.queryResult(
         cols,
         rows,
     )
-    b.set_query_hooks(
+    b.setQueryHooks(
         captureSelect,
         captureReturning,
     )
@@ -518,9 +518,9 @@ func test_insert_returning_int() -> (void) {
     ).value(
         "balance",
         10,
-    ).returning_int("id").exec(&conn)
+    ).returningInt("id").exec(&conn)
 
-    b.reset_query_hooks()
+    b.resetQueryHooks()
 
     switch result {
         case Ok(id) {
@@ -534,7 +534,7 @@ func test_insert_returning_int() -> (void) {
         }
     }
 
-    t.is_true(paramsSpy.called)
+    t.isTrue(paramsSpy.called)
     t.eq(
         paramsSpy.sql,
         "INSERT INTO users (name, balance) VALUES ($1, $2) RETURNING id",

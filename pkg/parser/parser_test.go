@@ -11,7 +11,7 @@ import (
 
 func TestFunctionTypeAsParameter(t *testing.T) {
 	input := `
-	pub func listen_and_serve(addr string, handler func(request.Request) -> (response.Response)) -> (Result<void, string>) {
+	pub func listenAndServe(addr string, handler func(request.Request) -> (response.Response)) -> (Result<void, string>) {
 		return Ok(void)
 	}
 	`
@@ -589,7 +589,7 @@ func main() -> (void) {
 func TestParseResultTypes(t *testing.T) {
 	input := `
 package main
-func read_file(path string) -> (Result<string, string>) {
+func readFile(path string) -> (Result<string, string>) {
 	return Ok("content")
 }
 `

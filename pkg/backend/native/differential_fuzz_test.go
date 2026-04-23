@@ -126,12 +126,12 @@ func buildDifferentialProgram(data []byte) string {
 			b.WriteString("    }\n")
 		default:
 			fmt.Fprintf(&b, "    var r%d: Result<int, string> = v.get(%d)\n", i, idx)
-			fmt.Fprintf(&b, "    if r%d.is_ok() {\n", i)
-			fmt.Fprintf(&b, "        println(\"op%d:result:is_ok\")\n", i)
+			fmt.Fprintf(&b, "    if r%d.isOk() {\n", i)
+			fmt.Fprintf(&b, "        println(\"op%d:result:isOk\")\n", i)
 			fmt.Fprintf(&b, "        score = score + r%d.unwrap()\n", i)
 			b.WriteString("    } else {\n")
-			fmt.Fprintf(&b, "        println(\"op%d:result:is_err\")\n", i)
-			fmt.Fprintf(&b, "        score = score + r%d.unwrap_err().len()\n", i)
+			fmt.Fprintf(&b, "        println(\"op%d:result:isErr\")\n", i)
+			fmt.Fprintf(&b, "        score = score + r%d.unwrapErr().len()\n", i)
 			b.WriteString("    }\n")
 		}
 	}

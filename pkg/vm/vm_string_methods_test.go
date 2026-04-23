@@ -11,7 +11,7 @@ func TestVMStringIndexMethodsAreRuneAware(t *testing.T) {
 
 func main() -> (int) {
     var s: string = "🙂ab🙂"
-    var first: Result<int, string> = s.index_of("ab")
+    var first: Result<int, string> = s.indexOf("ab")
     var last: Result<int, string> = s.lastIndexOf("🙂")
     switch first {
         case Ok(i) {
@@ -40,8 +40,8 @@ func TestVMStringIndexOfNotFoundReturnsErr(t *testing.T) {
 	src := `package main
 
 func main() -> (bool) {
-    var r: Result<int, string> = "abc".index_of("z")
-    return r.is_err()
+    var r: Result<int, string> = "abc".indexOf("z")
+    return r.isErr()
 }
 `
 
@@ -52,7 +52,7 @@ func main() -> (bool) {
 		t.Fatalf("unexpected VM error: %v", err)
 	}
 	if val.Type != compiler.VAL_BOOL || !val.AsBool {
-		t.Fatalf("expected true from is_err(), got %#v", val)
+		t.Fatalf("expected true from isErr(), got %#v", val)
 	}
 }
 
@@ -60,8 +60,8 @@ func TestVMStringParseHashBytesAndChars(t *testing.T) {
 	src := `package main
 
 func main() -> (int) {
-    var int_ok: bool = "42".parse_int().is_ok()
-    var float_ok: bool = "3.5".parseFloat().is_ok()
+    var int_ok: bool = "42".parseInt().isOk()
+    var float_ok: bool = "3.5".parseFloat().isOk()
 
     var s: string = "🙂a"
     var chars: Vec<char, _> = s.chars()

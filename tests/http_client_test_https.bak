@@ -11,8 +11,8 @@ func main() -> (void) {
     println("\n[GET] https://example.com")
     var res = http.get("https://example.com")
     
-    if res.is_err() {
-        println("Error:", res.unwrap_err())
+    if res.isErr() {
+        println("Error:", res.unwrapErr())
         return
     }
     
@@ -28,7 +28,7 @@ func main() -> (void) {
     // Validate body content
     var body: string = strings.fromBytes(response.body)
     println("Body Length:", body.len())
-    if body.indexOf("Example Domain").is_some() {
+    if body.indexOf("Example Domain").isSome() {
         println("SUCCESS: Body contains 'Example Domain'")
     } else {
         println("FAILURE: Body does not contain 'Example Domain'")

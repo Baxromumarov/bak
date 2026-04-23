@@ -16,8 +16,8 @@ func main() -> (void) {
     
     var res = http.post(url, payload)
     
-    if res.is_err() {
-        println("Error:", res.unwrap_err())
+    if res.isErr() {
+        println("Error:", res.unwrapErr())
         return
     }
     
@@ -32,7 +32,7 @@ func main() -> (void) {
     }
     println(body.substring(0, previewLen))
     
-    if body.indexOf("Bak").is_some() {
+    if body.indexOf("Bak").isSome() {
         println("SUCCESS: Response contains payload data")
     } else {
         println("FAILURE: Response missing payload data")

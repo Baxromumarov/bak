@@ -46,7 +46,7 @@ impl Queue as q {
         return q.items.len() - q.head
     }
 
-    pub func is_empty() -> (bool) {
+    pub func isEmpty() -> (bool) {
         return q.head >= q.items.len()
     }
 
@@ -58,7 +58,7 @@ impl Queue as q {
     }
 
     mut func compact() -> (void) {
-        mut var new_items: Vec<T, _> = Vec.with_cap(q.items.len() - q.head)
+        mut var new_items: Vec<T, _> = Vec.withCap(q.items.len() - q.head)
         mut var i: int = q.head
 
         while i < q.items.len() {

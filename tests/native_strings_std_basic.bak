@@ -11,18 +11,18 @@ func main() -> (int) {
         score = score + 1
     }
     var sub2: string = "lo"
-    if strings.index_of(&s, &sub2) == 3 {
+    if strings.indexOf(&s, &sub2) == 3 {
         score = score + 1
     }
     var sub3: string = "l"
-    if strings.last_index_of(&s, &sub3) == 9 {
+    if strings.lastIndexOf(&s, &sub3) == 9 {
         score = score + 1
     }
     var pre: string = "hell"
-    if strings.starts_with(&s, &pre) {
+    if strings.startsWith(&s, &pre) {
         score = score + 1
     }
-    if strings.ends_with(&s, &sub1) {
+    if strings.endsWith(&s, &sub1) {
         score = score + 1
     }
     var a: string = "abc"

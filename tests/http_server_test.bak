@@ -42,19 +42,19 @@ func handler(req: http.Request) -> (http.Response) {
 func main() -> (void) {
     println("Starting server on localhost:8080...")
 
-    mut var r: http.Router = http.new_router()
+    mut var r: http.Router = http.newRouter()
 
     r.get(
         "/",
         handler,
     )
 
-    var res = http.listen_and_serve(
+    var res = http.listenAndServe(
         "localhost:8080",
         r,
     )
 
-    if res.is_err() {
-        println("Server error: " + res.unwrap_err())
+    if res.isErr() {
+        println("Server error: " + res.unwrapErr())
     }
 }

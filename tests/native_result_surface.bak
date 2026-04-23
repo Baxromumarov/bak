@@ -77,7 +77,7 @@ func main() -> (int) {
         }
         case Err(_) {}
     }
-    if ok.is_ok() {
+    if ok.isOk() {
         score = score + 1
     }
     if ok.unwrap() == 42 {
@@ -93,10 +93,10 @@ func main() -> (int) {
         }
         case Ok(_) {}
     }
-    if err.is_err() {
+    if err.isErr() {
         score = score + 1
     }
-    if err.unwrap_err().len() == 1 {
+    if err.unwrapErr().len() == 1 {
         score = score + 1
     }
 

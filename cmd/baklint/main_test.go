@@ -32,7 +32,7 @@ func TestBaklintReportsFindings(t *testing.T) {
 	if exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d stderr=%q", exitCode, stderr)
 	}
-	if !strings.Contains(stderr, path+":3:6: function 'BadName' should be snake_case [naming-convention]") {
+	if !strings.Contains(stderr, path+":3:6: function 'BadName' should be camelCase [naming-convention]") {
 		t.Fatalf("expected lint finding, got %q", stderr)
 	}
 	if !strings.Contains(stderr, "1 finding(s) in 1 file(s)") {

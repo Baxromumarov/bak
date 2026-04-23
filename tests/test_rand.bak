@@ -8,14 +8,14 @@ func main() -> (void) {
 
     // Generate random integers
     println("Random int [0, 100):")
-    println(rand.int_n(100))
-    println(rand.int_n(100))
-    println(rand.int_n(100))
+    println(rand.intN(100))
+    println(rand.intN(100))
+    println(rand.intN(100))
 
     // Random range
     println("Random int [10, 20]:")
-    println(rand.int_range(10, 20))
-    println(rand.int_range(10, 20))
+    println(rand.intRange(10, 20))
+    println(rand.intRange(10, 20))
 
     // Random boolean
     println("Random bool:")
@@ -29,7 +29,7 @@ func main() -> (void) {
     nums.push(3)
     nums.push(4)
     nums.push(5)
-    rand.shuffle_ints(&mut nums)
+    rand.shuffleInts(&mut nums)
     println("Shuffled:")
     mut var i: int = 0
     while i < nums.len() {

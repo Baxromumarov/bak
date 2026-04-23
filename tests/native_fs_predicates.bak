@@ -10,17 +10,17 @@ func main() -> (void) {
         println("FAIL: __builtin_file_exists returned false for existing file")
     }
 
-    var is_file: bool = __builtin_is_file("tests/native_fs_predicates.bak")
+    var isFile: bool = __builtin_is_file("tests/native_fs_predicates.bak")
 
-    if is_file {
+    if isFile {
         println("PASS: __builtin_is_file returns true for file")
     } else {
         println("FAIL: __builtin_is_file returned false for file")
     }
 
-    var is_dir: bool = __builtin_is_dir("tests")
+    var isDir: bool = __builtin_is_dir("tests")
 
-    if is_dir {
+    if isDir {
         println("PASS: __builtin_is_dir returns true for directory")
     } else {
         println("FAIL: __builtin_is_dir returned false for directory")

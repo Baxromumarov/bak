@@ -22,18 +22,18 @@ func main() -> (void) {
     }
 
     // Test fs.isFile
-    var is_file: bool = fs.isFile("tests/native_fs_simple.bak")
+    var isFile: bool = fs.isFile("tests/native_fs_simple.bak")
 
-    if is_file {
+    if isFile {
         println("PASS: fs.isFile returns true for file")
     } else {
         println("FAIL: fs.isFile returned false for file")
     }
 
     // Test fs.isDir
-    var is_dir: bool = fs.isDir("tests")
+    var isDir: bool = fs.isDir("tests")
 
-    if is_dir {
+    if isDir {
         println("PASS: fs.isDir returns true for directory")
     } else {
         println("FAIL: fs.isDir returned false for directory")

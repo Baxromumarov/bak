@@ -43,8 +43,8 @@ func main() -> (void) {
     // Test rand
     rand.seed(42)
 
-    var f1: float64 = rand.next_float()
-    var f2: float64 = rand.next_float()
+    var f1: float64 = rand.nextFloat()
+    var f2: float64 = rand.nextFloat()
 
     println(
         "Random float 1:",
