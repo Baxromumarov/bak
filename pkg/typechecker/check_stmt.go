@@ -123,256 +123,248 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 		tc.rejectOptionUsage(ss.Token.Line, ss.Token.Column)
 	}
 
-	// Try to resolve enum definition for the switch value
 	enumDef := tc.resolveSwitchEnumDef(switchType)
 	tc.switchExhaustive[ss] = tc.switchIsExhaustive(ss, enumDef)
 
 	for _, caseStmt := range ss.Cases {
-		// Use an isolated environment for each case to avoid move leakage between branches
 		caseEnv := NewIsolatedTypeEnv(tc.env)
 		oldEnv := tc.env
 		tc.env = caseEnv
 
 		for _, caseValue := range caseStmt.Values {
-			// 1. Resolve Enum Variant implicitly if switch on Enum
-			isEffected := false
-			if enumDef != nil {
-				if ident, ok := caseValue.(*ast.Identifier); ok {
-					if variant, found := enumDef.Variants[ident.Value]; found {
-						if variant.HasPayload {
-							tc.errorEnumRequiresPayload(
-								ident.Token.Line,
-								ident.Token.Column,
-								ident.Value,
-							)
-						}
-
-						isEffected = true
-					}
-				} else if ev, ok := caseValue.(*ast.EnumVariantExpression); ok {
-					if variant, found := enumDef.Variants[ev.Variant.Value]; found {
-						if !variant.HasPayload && len(ev.Values) > 0 {
-
-							tc.errorEnumNoPayload(
-								ev.Token.Line,
-								ev.Token.Column,
-								ev.Variant.Value,
-							)
-
-						} else if variant.HasPayload {
-							if len(ev.Values) == len(variant.Fields) {
-								for i, val := range ev.Values {
-									if name, mutable, ok := bindingFromPattern(val); ok {
-										tc.env.DefineSymbol(name, variant.Fields[i], mutable, ast.Private, ev.Token.Line, ev.Token.Column)
-									} else {
-										// Nested expression?
-										tc.inferType(val)
-									}
-								}
-							} else {
-								tc.errorEnumPayloadCount(
-									ev.Token.Line,
-									ev.Token.Column,
-									ev.Variant.Value,
-									len(variant.Fields),
-									len(ev.Values),
-								)
-							}
-						}
-						isEffected = true
-					}
-				} else if ce, ok := caseValue.(*ast.CallExpression); ok {
-					// Support variants with payload parsed as CallExpression
-					if ident, ok := ce.Function.(*ast.Identifier); ok {
-						if variant, found := enumDef.Variants[ident.Value]; found {
-							if variant.HasPayload {
-								if len(ce.Arguments) == len(variant.Fields) {
-									for i, arg := range ce.Arguments {
-										if name, mutable, ok := bindingFromPattern(arg); ok {
-											tc.env.DefineSymbol(name, variant.Fields[i], mutable, ast.Private, ce.Token.Line, ce.Token.Column)
-										} else {
-											tc.inferType(arg)
-										}
-									}
-								} else {
-									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, ident.Value, len(variant.Fields), len(ce.Arguments))
-								}
-							} else {
-								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, ident.Value)
-							}
-							isEffected = true
-						}
-					} else if fa, ok := ce.Function.(*ast.FieldAccessExpression); ok {
-						if parts, ok := fieldAccessParts(fa); ok && len(parts) > 0 {
-							variantName := parts[len(parts)-1]
-							if variant, found := enumDef.Variants[variantName]; found {
-								if variant.HasPayload {
-									if len(ce.Arguments) == len(variant.Fields) {
-										for i, arg := range ce.Arguments {
-											if name, mutable, ok := bindingFromPattern(arg); ok {
-												tc.env.DefineSymbol(name, variant.Fields[i], mutable, ast.Private, ce.Token.Line, ce.Token.Column)
-											} else {
-												tc.inferType(arg)
-											}
-										}
-									} else {
-										tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, variantName, len(variant.Fields), len(ce.Arguments))
-									}
-								} else {
-									if len(ce.Arguments) > 0 {
-										tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, variantName)
-									}
-								}
-								isEffected = true
-							}
-						}
-					}
-				} else if mc, ok := caseValue.(*ast.MethodCallExpression); ok {
-					fa := &ast.FieldAccessExpression{Token: mc.Token, Object: mc.Object, Field: mc.Method}
-					if parts, ok := fieldAccessParts(fa); ok && len(parts) > 0 {
-						variantName := parts[len(parts)-1]
-						if variant, found := enumDef.Variants[variantName]; found {
-							if variant.HasPayload {
-								if len(mc.Arguments) == len(variant.Fields) {
-									for i, arg := range mc.Arguments {
-										if name, mutable, ok := bindingFromPattern(arg); ok {
-											tc.env.DefineSymbol(name, variant.Fields[i], mutable, ast.Private, mc.Token.Line, mc.Token.Column)
-										} else {
-											tc.inferType(arg)
-										}
-									}
-								} else {
-									tc.errorEnumPayloadCount(mc.Token.Line, mc.Token.Column, variantName, len(variant.Fields), len(mc.Arguments))
-								}
-							} else if len(mc.Arguments) > 0 {
-								tc.errorEnumNoPayload(mc.Token.Line, mc.Token.Column, variantName)
-							}
-							isEffected = true
-						}
-					}
-				} else if fa, ok := caseValue.(*ast.FieldAccessExpression); ok {
-					if parts, ok := fieldAccessParts(fa); ok && len(parts) > 0 {
-						variantName := parts[len(parts)-1]
-						if variant, found := enumDef.Variants[variantName]; found {
-							if variant.HasPayload {
-								tc.errorEnumRequiresPayload(fa.Token.Line, fa.Token.Column, variantName)
-							}
-							isEffected = true
-						}
-					}
-				}
-			}
-
-			if !isEffected {
-				if ce, ok := caseValue.(*ast.CallExpression); ok {
-					if ident, ok := ce.Function.(*ast.Identifier); ok {
-						if _, enumDefLocal, variant := tc.findEnumByVariant(ident.Value); enumDefLocal != nil {
-							if variant.HasPayload {
-								if len(ce.Arguments) == len(variant.Fields) {
-									for i, arg := range ce.Arguments {
-										if name, mutable, ok := bindingFromPattern(arg); ok {
-											tc.env.DefineSymbol(name, variant.Fields[i], mutable, ast.Private, ce.Token.Line, ce.Token.Column)
-										} else {
-											tc.inferType(arg)
-										}
-									}
-								} else {
-									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, ident.Value, len(variant.Fields), len(ce.Arguments))
-								}
-							} else if len(ce.Arguments) > 0 {
-								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, ident.Value)
-							}
-							isEffected = true
-						}
-					} else if fa, ok := ce.Function.(*ast.FieldAccessExpression); ok {
-						if _, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(fa); ok {
-							fieldTypes := variant.Fields
-							if pkgAlias != "" {
-								if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-									qualified := make([]ast.TypeExpression, len(variant.Fields))
-									for i, field := range variant.Fields {
-										qualified[i] = qualifyImportedType(field, pkgAlias, symbols)
-									}
-									fieldTypes = qualified
-								}
-							}
-							if variant.HasPayload {
-								if len(ce.Arguments) == len(fieldTypes) {
-									for i, arg := range ce.Arguments {
-										if name, mutable, ok := bindingFromPattern(arg); ok {
-											tc.env.DefineSymbol(name, fieldTypes[i], mutable, ast.Private, ce.Token.Line, ce.Token.Column)
-										} else {
-											tc.inferType(arg)
-										}
-									}
-								} else {
-									tc.errorEnumPayloadCount(ce.Token.Line, ce.Token.Column, fa.Field.Value, len(fieldTypes), len(ce.Arguments))
-								}
-							} else if len(ce.Arguments) > 0 {
-								tc.errorEnumNoPayload(ce.Token.Line, ce.Token.Column, fa.Field.Value)
-							}
-							isEffected = true
-						}
-					}
-				} else if mc, ok := caseValue.(*ast.MethodCallExpression); ok {
-					fa := &ast.FieldAccessExpression{Token: mc.Token, Object: mc.Object, Field: mc.Method}
-					if _, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(fa); ok {
-						fieldTypes := variant.Fields
-						if pkgAlias != "" {
-							if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-								qualified := make([]ast.TypeExpression, len(variant.Fields))
-								for i, field := range variant.Fields {
-									qualified[i] = qualifyImportedType(field, pkgAlias, symbols)
-								}
-								fieldTypes = qualified
-							}
-						}
-						if variant.HasPayload {
-							if len(mc.Arguments) == len(fieldTypes) {
-								for i, arg := range mc.Arguments {
-									if name, mutable, ok := bindingFromPattern(arg); ok {
-										tc.env.DefineSymbol(name, fieldTypes[i], mutable, ast.Private, mc.Token.Line, mc.Token.Column)
-									} else {
-										tc.inferType(arg)
-									}
-								}
-							} else {
-								tc.errorEnumPayloadCount(mc.Token.Line, mc.Token.Column, mc.Method.Value, len(fieldTypes), len(mc.Arguments))
-							}
-						} else if len(mc.Arguments) > 0 {
-							tc.errorEnumNoPayload(mc.Token.Line, mc.Token.Column, mc.Method.Value)
-						}
-						isEffected = true
-					}
-				} else if fa, ok := caseValue.(*ast.FieldAccessExpression); ok {
-					if _, _, variant, _, ok := tc.resolveEnumVariantFromFieldAccess(fa); ok {
-						if variant.HasPayload {
-							tc.addError(fa.Token.Line, fa.Token.Column, "enum variant '%s' requires payload", fa.Field.Value)
-						}
-						isEffected = true
-					}
-				}
-			}
-
-			if isEffected {
+			if tc.tryMatchEnumCase(caseValue, enumDef) {
 				continue
 			}
-
-			// 2. Fallback to regular type checking
-			caseType := tc.inferType(caseValue)
-			if switchType != nil && caseType != nil {
-				if !tc.fitsInType(switchType, caseValue) {
-					tc.addError(ss.Token.Line, ss.Token.Column,
-						"type mismatch in switch case: expected %s, got %s",
-						typeToString(switchType),
-						typeToString(caseType),
-					)
-				}
-			}
+			tc.checkNonEnumCase(caseValue, switchType, ss)
 		}
 
 		tc.checkBlockStatement(caseStmt.Body)
 		tc.env = oldEnv
+	}
+}
+
+// tryMatchEnumCase attempts to resolve a switch case value as an enum variant.
+// It first tries the enum definition inferred from the switch value, then falls
+// back to a global search. Returns true if the case was matched as an enum.
+func (tc *TypeChecker) tryMatchEnumCase(caseValue ast.Expression, enumDef *EnumDef) bool {
+	if enumDef != nil {
+		if tc.matchKnownEnumCase(caseValue, enumDef) {
+			return true
+		}
+	}
+	return tc.matchFallbackEnumCase(caseValue)
+}
+
+// matchKnownEnumCase tries to match a case value against a known enum definition.
+func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *EnumDef) bool {
+	switch v := caseValue.(type) {
+	case *ast.Identifier:
+		variant, found := enumDef.Variants[v.Value]
+		if !found {
+			return false
+		}
+		if variant.HasPayload {
+			tc.errorEnumRequiresPayload(v.Token.Line, v.Token.Column, v.Value)
+		}
+		return true
+
+	case *ast.EnumVariantExpression:
+		variant, found := enumDef.Variants[v.Variant.Value]
+		if !found {
+			return false
+		}
+		tc.checkEnumPayloadBindings(v.Values, variant, variant.Fields, v.Token.Line, v.Token.Column, v.Variant.Value)
+		return true
+
+	case *ast.CallExpression:
+		return tc.matchKnownEnumCallExpr(v, enumDef)
+
+	case *ast.MethodCallExpression:
+		fa := &ast.FieldAccessExpression{Token: v.Token, Object: v.Object, Field: v.Method}
+		return tc.matchKnownEnumFieldAccessCall(fa, v.Arguments, enumDef)
+
+	case *ast.FieldAccessExpression:
+		return tc.matchKnownEnumFieldAccess(v, enumDef)
+	}
+	return false
+}
+
+func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *EnumDef) bool {
+	switch fn := ce.Function.(type) {
+	case *ast.Identifier:
+		variantName := fn.Value
+		variant, found := enumDef.Variants[variantName]
+		if !found {
+			return false
+		}
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, variantName)
+		return true
+
+	case *ast.FieldAccessExpression:
+		parts, ok := fieldAccessParts(fn)
+		if !ok || len(parts) == 0 {
+			return false
+		}
+		variantName := parts[len(parts)-1]
+		variant, found := enumDef.Variants[variantName]
+		if !found {
+			return false
+		}
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, variantName)
+		return true
+	}
+	return false
+}
+
+func (tc *TypeChecker) matchKnownEnumFieldAccessCall(fa *ast.FieldAccessExpression, args []ast.Expression, enumDef *EnumDef) bool {
+	parts, ok := fieldAccessParts(fa)
+	if !ok || len(parts) == 0 {
+		return false
+	}
+	variantName := parts[len(parts)-1]
+	variant, found := enumDef.Variants[variantName]
+	if !found {
+		return false
+	}
+	tc.checkEnumPayloadBindings(args, variant, variant.Fields, fa.Token.Line, fa.Token.Column, variantName)
+	return true
+}
+
+func (tc *TypeChecker) matchKnownEnumFieldAccess(fa *ast.FieldAccessExpression, enumDef *EnumDef) bool {
+	parts, ok := fieldAccessParts(fa)
+	if !ok || len(parts) == 0 {
+		return false
+	}
+	variantName := parts[len(parts)-1]
+	variant, found := enumDef.Variants[variantName]
+	if !found {
+		return false
+	}
+	if variant.HasPayload {
+		tc.errorEnumRequiresPayload(fa.Token.Line, fa.Token.Column, variantName)
+	}
+	return true
+}
+
+// matchFallbackEnumCase searches all visible enums for a variant matching the case value.
+func (tc *TypeChecker) matchFallbackEnumCase(caseValue ast.Expression) bool {
+	switch v := caseValue.(type) {
+	case *ast.CallExpression:
+		return tc.matchFallbackEnumCallExpr(v)
+	case *ast.MethodCallExpression:
+		fa := &ast.FieldAccessExpression{Token: v.Token, Object: v.Object, Field: v.Method}
+		return tc.matchFallbackEnumFieldAccessCall(fa, v.Arguments)
+	case *ast.FieldAccessExpression:
+		return tc.matchFallbackEnumFieldAccess(v)
+	}
+	return false
+}
+
+func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
+	switch fn := ce.Function.(type) {
+	case *ast.Identifier:
+		_, enumDef, variant := tc.findEnumByVariant(fn.Value)
+		if enumDef == nil {
+			return false
+		}
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, fn.Value)
+		return true
+
+	case *ast.FieldAccessExpression:
+		_, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(fn)
+		if !ok {
+			return false
+		}
+		fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, fieldTypes, ce.Token.Line, ce.Token.Column, fn.Field.Value)
+		return true
+	}
+	return false
+}
+
+func (tc *TypeChecker) matchFallbackEnumFieldAccessCall(fa *ast.FieldAccessExpression, args []ast.Expression) bool {
+	_, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(fa)
+	if !ok {
+		return false
+	}
+	fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
+	variantName := fa.Field.Value
+	tc.checkEnumPayloadBindings(args, variant, fieldTypes, fa.Token.Line, fa.Token.Column, variantName)
+	return true
+}
+
+func (tc *TypeChecker) matchFallbackEnumFieldAccess(fa *ast.FieldAccessExpression) bool {
+	_, _, variant, _, ok := tc.resolveEnumVariantFromFieldAccess(fa)
+	if !ok {
+		return false
+	}
+	if variant.HasPayload {
+		tc.addError(fa.Token.Line, fa.Token.Column, "enum variant '%s' requires payload", fa.Field.Value)
+	}
+	return true
+}
+
+// checkEnumPayloadBindings validates payload count and binds pattern variables
+// into the current type environment.
+func (tc *TypeChecker) checkEnumPayloadBindings(
+	args []ast.Expression,
+	variant EnumVariantDef,
+	fields []ast.TypeExpression,
+	line, col int,
+	variantName string,
+) {
+	if !variant.HasPayload {
+		if len(args) > 0 {
+			tc.errorEnumNoPayload(line, col, variantName)
+		}
+		return
+	}
+
+	if len(args) == 0 {
+		tc.errorEnumRequiresPayload(line, col, variantName)
+		return
+	}
+
+	if len(args) != len(fields) {
+		tc.errorEnumPayloadCount(line, col, variantName, len(fields), len(args))
+		return
+	}
+
+	for i, arg := range args {
+		if name, mutable, ok := bindingFromPattern(arg); ok {
+			tc.env.DefineSymbol(name, fields[i], mutable, ast.Private, line, col)
+		} else {
+			tc.inferType(arg)
+		}
+	}
+}
+
+// qualifyVariantFields returns imported field types with their package alias prefixed.
+func (tc *TypeChecker) qualifyVariantFields(fields []ast.TypeExpression, pkgAlias string) []ast.TypeExpression {
+	if pkgAlias == "" {
+		return fields
+	}
+	symbols, ok := tc.importedSymbols[pkgAlias]
+	if !ok {
+		return fields
+	}
+	qualified := make([]ast.TypeExpression, len(fields))
+	for i, field := range fields {
+		qualified[i] = qualifyImportedType(field, pkgAlias, symbols)
+	}
+	return qualified
+}
+
+func (tc *TypeChecker) checkNonEnumCase(caseValue ast.Expression, switchType ast.TypeExpression, ss *ast.SwitchStatement) {
+	caseType := tc.inferType(caseValue)
+	if switchType != nil && caseType != nil {
+		if !tc.fitsInType(switchType, caseValue) {
+			tc.addError(ss.Token.Line, ss.Token.Column,
+				"type mismatch in switch case: expected %s, got %s",
+				typeToString(switchType),
+				typeToString(caseType),
+			)
+		}
 	}
 }
 
