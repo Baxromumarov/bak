@@ -49,58 +49,125 @@ func spanNode(node Node) Span {
 		n.Span = spanFromStatements(n.Statements)
 		return n.Span
 	case *PackageStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+		)
 		return n.Span
 	case *ImportStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), tokenSpan(n.PathToken), tokenSpan(n.AliasToken))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			tokenSpan(n.PathToken),
+			tokenSpan(n.AliasToken),
+		)
 		return n.Span
 	case *ImportBlock:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromStatements(importStatementsToStatements(n.Imports)))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromStatements(importStatementsToStatements(n.Imports)),
+		)
 		return n.Span
 	case *VarStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanNode(n.Type), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanNode(n.Type),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *MultiVarStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromIdentifiers(n.Names), spanNode(n.Value), spanFromTypes(n.Types))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromIdentifiers(n.Names),
+			spanNode(n.Value),
+			spanFromTypes(n.Types),
+		)
 		return n.Span
 	case *ConstStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanNode(n.Type), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanNode(n.Type),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *ConstBlock:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromStatements(constStatementsToStatements(n.Constants)))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromStatements(constStatementsToStatements(n.Constants)),
+		)
 		return n.Span
 	case *VarBlock:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromStatements(varStatementsToStatements(n.Variables)))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromStatements(varStatementsToStatements(n.Variables)),
+		)
 		return n.Span
 	case *ReturnStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.ReturnValue))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.ReturnValue),
+		)
 		return n.Span
 	case *ExpressionStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Expression))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Expression),
+		)
 		return n.Span
 	case *BlockStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromStatements(n.Statements))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromStatements(n.Statements),
+		)
 		return n.Span
 	case *IfStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Condition), spanNode(n.Consequence), spanNode(n.Alternative))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Condition),
+			spanNode(n.Consequence),
+			spanNode(n.Alternative),
+		)
 		return n.Span
 	case *WhileStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Condition), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Condition),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *ForStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Variable), spanNode(n.Iterable), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Variable),
+			spanNode(n.Iterable),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *SwitchStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Value), spanFromSwitchCases(n.Cases))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Value),
+			spanFromSwitchCases(n.Cases),
+		)
 		return n.Span
 	case *DeferStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *PanicStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Message))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Message),
+		)
 		return n.Span
 	case *UnsafeBlock:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *BreakStatement:
 		n.Span = tokenSpan(n.Token)
@@ -109,31 +176,69 @@ func spanNode(node Node) Span {
 		n.Span = tokenSpan(n.Token)
 		return n.Span
 	case *AssignmentStatement:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Left), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Left),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *FunctionDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanFromTypeParameters(n.TypeParams), spanFromParameters(n.Parameters), spanNode(n.ReturnType), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanFromTypeParameters(n.TypeParams),
+			spanFromParameters(n.Parameters),
+			spanNode(n.ReturnType),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *StructDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanFromTypeParameters(n.TypeParams), spanFromStructFields(n.Fields))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanFromTypeParameters(n.TypeParams),
+			spanFromStructFields(n.Fields),
+		)
 		return n.Span
 	case *TypeDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanNode(n.Underlying))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanNode(n.Underlying))
+
 		return n.Span
 	case *AliasDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanNode(n.Underlying))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanNode(n.Underlying),
+		)
+
 		return n.Span
 	case *EnumDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanFromTypeParameters(n.TypeParams), spanFromEnumVariants(n.Variants))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanFromTypeParameters(n.TypeParams),
+			spanFromEnumVariants(n.Variants),
+		)
 		return n.Span
 	case *ImplDecl:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.TypeName), spanNode(n.Receiver), spanFromMethodDecls(n.Methods))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.TypeName),
+			spanNode(n.Receiver),
+			spanFromMethodDecls(n.Methods),
+		)
 		return n.Span
 	case *Identifier:
 		n.Span = tokenSpan(n.Token)
 		return n.Span
 	case *MutableIdentifier:
-		n.Span = mergeSpans(tokenSpan(n.Token), tokenSpan(n.NameToken))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			tokenSpan(n.NameToken),
+		)
 		return n.Span
 	case *IntegerLiteral:
 		n.Span = tokenSpan(n.Token)
@@ -154,70 +259,144 @@ func spanNode(node Node) Span {
 		n.Span = tokenSpan(n.Token)
 		return n.Span
 	case *PrefixExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Right))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Right),
+		)
 		return n.Span
 	case *InfixExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Left), spanNode(n.Right))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Left),
+			spanNode(n.Right),
+		)
 		return n.Span
 	case *CallExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Function), spanFromExpressions(n.Arguments))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Function),
+			spanFromExpressions(n.Arguments),
+		)
 		return n.Span
 	case *TypeConversion:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *MethodCallExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Object), spanNode(n.Method), spanFromExpressions(n.Arguments))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Object),
+			spanNode(n.Method),
+			spanFromExpressions(n.Arguments),
+		)
 		return n.Span
 	case *FieldAccessExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Object), spanNode(n.Field))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Object),
+			spanNode(n.Field),
+		)
 		return n.Span
 	case *IndexExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Left), spanNode(n.Index))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Left),
+			spanNode(n.Index),
+		)
 		return n.Span
 	case *StructLiteral:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Name), spanFromMapValues(n.Fields))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Name),
+			spanFromMapValues(n.Fields),
+		)
 		return n.Span
 	case *VecLiteral:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromExpressions(n.Elements))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromExpressions(n.Elements),
+		)
 		return n.Span
 	case *TupleExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromExpressions(n.Elements))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromExpressions(n.Elements),
+		)
 		return n.Span
 	case *RangeExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Start), spanNode(n.End))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Start),
+			spanNode(n.End),
+		)
 		return n.Span
 	case *EnumVariantExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Variant), spanFromExpressions(n.Values))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Variant),
+			spanFromExpressions(n.Values),
+		)
 		return n.Span
 	case *BorrowExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *BoxExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *DerefExpression:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Value))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Value),
+		)
 		return n.Span
 	case *UnwrapExpression:
-		n.Span = mergeSpans(spanNode(n.Value), tokenSpan(n.Token))
+		n.Span = mergeSpans(
+			spanNode(n.Value),
+			tokenSpan(n.Token),
+		)
 		return n.Span
 	case *FunctionLiteral:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromParameters(n.Parameters), spanNode(n.ReturnType), spanNode(n.Body))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromParameters(n.Parameters),
+			spanNode(n.ReturnType),
+			spanNode(n.Body),
+		)
 		return n.Span
 	case *SimpleType:
 		n.Span = tokenSpan(n.Token)
 		return n.Span
 	case *GenericType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromTypes(n.TypeParams))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromTypes(n.TypeParams),
+		)
 		return n.Span
 	case *BorrowType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Inner))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Inner),
+		)
 		return n.Span
 	case *BoxType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Inner))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Inner),
+		)
 		return n.Span
 	case *BoxOptionalType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Inner))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Inner),
+		)
 		return n.Span
 	case *SizeExpression:
 		n.Span = tokenSpan(n.Token)
@@ -229,13 +408,23 @@ func spanNode(node Node) Span {
 		n.Span = tokenSpan(n.Token)
 		return n.Span
 	case *TupleType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromTypes(n.Elements))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromTypes(n.Elements),
+		)
 		return n.Span
 	case *FunctionType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanFromTypes(n.Params), spanNode(n.ReturnType))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanFromTypes(n.Params),
+			spanNode(n.ReturnType),
+		)
 		return n.Span
 	case *NamedType:
-		n.Span = mergeSpans(tokenSpan(n.Token), spanNode(n.Type))
+		n.Span = mergeSpans(
+			tokenSpan(n.Token),
+			spanNode(n.Type),
+		)
 		return n.Span
 	}
 	return Span{}
@@ -310,6 +499,7 @@ func spanFromStructFields(fields []*StructField) Span {
 	for _, f := range fields {
 		spans = append(spans, spanStructField(f))
 	}
+
 	return mergeSpans(spans...)
 }
 
@@ -318,6 +508,7 @@ func spanFromEnumVariants(vars []*EnumVariant) Span {
 	for _, v := range vars {
 		spans = append(spans, spanEnumVariant(v))
 	}
+
 	return mergeSpans(spans...)
 }
 
@@ -326,14 +517,17 @@ func spanFromSwitchCases(cases []*SwitchCase) Span {
 	for _, c := range cases {
 		spans = append(spans, spanSwitchCase(c))
 	}
+
 	return mergeSpans(spans...)
 }
 
 func spanFromMethodDecls(methods []*MethodDecl) Span {
 	spans := make([]Span, 0, len(methods))
+
 	for _, m := range methods {
 		spans = append(spans, spanMethodDecl(m))
 	}
+
 	return mergeSpans(spans...)
 }
 
@@ -341,7 +535,13 @@ func spanParameter(p *Parameter) Span {
 	if p == nil {
 		return Span{}
 	}
-	p.Span = mergeSpans(tokenSpan(p.Token), spanNode(p.Name), spanNode(p.Type))
+
+	p.Span = mergeSpans(
+		tokenSpan(p.Token),
+		spanNode(p.Name),
+		spanNode(p.Type),
+	)
+
 	return p.Span
 }
 
@@ -349,7 +549,13 @@ func spanStructField(f *StructField) Span {
 	if f == nil {
 		return Span{}
 	}
-	f.Span = mergeSpans(tokenSpan(f.Token), spanNode(f.Name), spanNode(f.Type))
+
+	f.Span = mergeSpans(
+		tokenSpan(f.Token),
+		spanNode(f.Name),
+		spanNode(f.Type),
+	)
+
 	return f.Span
 }
 
@@ -357,7 +563,13 @@ func spanEnumVariant(v *EnumVariant) Span {
 	if v == nil {
 		return Span{}
 	}
-	v.Span = mergeSpans(tokenSpan(v.Token), spanNode(v.Name), spanFromTypes(v.Fields))
+
+	v.Span = mergeSpans(
+		tokenSpan(v.Token),
+		spanNode(v.Name),
+		spanFromTypes(v.Fields),
+	)
+
 	return v.Span
 }
 
@@ -365,7 +577,13 @@ func spanSwitchCase(c *SwitchCase) Span {
 	if c == nil {
 		return Span{}
 	}
-	c.Span = mergeSpans(tokenSpan(c.Token), spanFromExpressions(c.Values), spanNode(c.Body))
+
+	c.Span = mergeSpans(
+		tokenSpan(c.Token),
+		spanFromExpressions(c.Values),
+		spanNode(c.Body),
+	)
+
 	return c.Span
 }
 
@@ -373,7 +591,16 @@ func spanMethodDecl(m *MethodDecl) Span {
 	if m == nil {
 		return Span{}
 	}
-	m.Span = mergeSpans(tokenSpan(m.Token), spanNode(m.Name), spanFromTypeParameters(m.TypeParams), spanFromParameters(m.Parameters), spanNode(m.ReturnType), spanNode(m.Body))
+
+	m.Span = mergeSpans(
+		tokenSpan(m.Token),
+		spanNode(m.Name),
+		spanFromTypeParameters(m.TypeParams),
+		spanFromParameters(m.Parameters),
+		spanNode(m.ReturnType),
+		spanNode(m.Body),
+	)
+
 	return m.Span
 }
 

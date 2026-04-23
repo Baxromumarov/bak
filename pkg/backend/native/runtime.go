@@ -84,7 +84,13 @@ func (s *EmitState) emitRuntimePrintFloat() {
 	// Print integer part via __rt_print_int
 	emitMovRegReg(&s.Code, RDI, R13)
 	callInt := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callInt, Target: "__rt_print_int"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callInt,
+			Target:    "__rt_print_int",
+		},
+	)
 
 	// Print '.'
 	emitMovRegImm32(&s.Code, RAX, 0x2E) // '.'
@@ -152,7 +158,13 @@ func (s *EmitState) emitRuntimePrintFloat() {
 
 	emitMovRegReg(&s.Code, RDI, R14)
 	callFrac := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callFrac, Target: "__rt_print_int"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callFrac,
+			Target:    "__rt_print_int",
+		},
+	)
 
 	s.Code[jzSkipFrac+1] = byte(len(s.Code) - jzSkipFrac - 2)
 
@@ -593,7 +605,13 @@ func (s *EmitState) emitRuntimeRealloc() {
 	emitMovRegReg(&s.Code, RDI, RDX) // rdi = new_size
 	// Call __rt_alloc
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_alloc",
+		},
+	)
 
 	// Save new_ptr
 	emitMovMemRbpReg(&s.Code, -32, RAX) // new_ptr
@@ -995,7 +1013,13 @@ func (s *EmitState) emitRuntimeItoa() {
 	emitPushReg(&s.Code, R15)
 	emitMovRegReg(&s.Code, RDI, RCX)
 	callData := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callData, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callData,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, R15)         // r15 = source
 	emitPopReg(&s.Code, RCX)         // rcx = length
 	emitMovRegReg(&s.Code, R12, RAX) // r12 = allocated data ptr
@@ -1012,7 +1036,13 @@ func (s *EmitState) emitRuntimeItoa() {
 	emitPushReg(&s.Code, RCX)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callHdr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callHdr, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callHdr,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX) // length
 	emitPopReg(&s.Code, R12) // data ptr
 
@@ -1164,13 +1194,25 @@ func (s *EmitState) emitRuntimeStringFromBytes() {
 	// Allocate string header (16 bytes: ptr + len)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteHeader := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteHeader, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteHeader,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPushReg(&s.Code, RAX) // save header ptr on stack
 
 	// Allocate string data (R15 bytes)
 	emitMovRegReg(&s.Code, RDI, R15)
 	callSiteData := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteData, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteData,
+			Target:    "__rt_alloc",
+		},
+	)
 	// RAX = data ptr
 
 	// Pop header ptr into RCX
@@ -1269,7 +1311,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	emitMovRegMemBaseDisp(&s.Code, RDI, R12, 8) // path len
 	emitAddRegImm32(&s.Code, RDI, 1)            // +1 for null terminator
 	callSitePathBuf := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSitePathBuf, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSitePathBuf,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPushReg(&s.Code, RAX) // save path buffer
 
 	// Copy path bytes and add null terminator
@@ -1335,7 +1383,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	emitMovRegReg(&s.Code, RDI, R14)
 	emitAddRegImm32(&s.Code, RDI, 1) // +1 for safety
 	callSiteBuf := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteBuf, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteBuf,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitMovRegReg(&s.Code, R15, RAX) // R15 = buffer ptr
 
 	// read(fd, buf, size) - syscall 0
@@ -1361,7 +1415,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	// Allocate string header (16 bytes: ptr + len)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteStrHdr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteStrHdr, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteStrHdr,
+			Target:    "__rt_alloc",
+		},
+	)
 	// RAX = string header ptr
 	emitMovMemReg(&s.Code, RAX, R15)            // header.ptr = buffer
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, R14) // header.len = bytes read
@@ -1370,7 +1430,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	// Allocate Result struct (16 bytes: tag + value)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteRes := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteRes, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteRes,
+			Target:    "__rt_alloc",
+		},
+	)
 	// RAX = result ptr
 	emitMovRegImm32(&s.Code, RCX, 0)
 	emitMovMemReg(&s.Code, RAX, RCX) // tag = 0 (Ok)
@@ -1399,7 +1465,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	// For simplicity, create an empty error string
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteErrStr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteErrStr, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteErrStr,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPushReg(&s.Code, RAX)
 	emitXorRegReg(&s.Code, RCX, RCX)
 	emitMovMemReg(&s.Code, RAX, RCX)            // ptr = 0
@@ -1408,7 +1480,13 @@ func (s *EmitState) emitRuntimeReadFile() {
 	// Allocate Result struct
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteErrRes := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteErrRes, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteErrRes,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX)
 	emitMovRegImm32(&s.Code, RDX, 1)
 	emitMovMemReg(&s.Code, RAX, RDX)            // tag = 1 (Err)
@@ -1445,7 +1523,13 @@ func (s *EmitState) emitRuntimeCString() {
 	emitMovRegMemBaseDisp(&s.Code, RDI, R12, 8) // len
 	emitAddRegImm32(&s.Code, RDI, 1)            // +1 for null terminator
 	callSiteBuf := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteBuf, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteBuf,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitMovRegReg(&s.Code, R13, RAX) // dst
 
 	// src = header.ptr, len = header.len, dst = allocated buffer
@@ -1533,7 +1617,13 @@ func (s *EmitState) emitRuntimeStringConcat() {
 	emitPushReg(&s.Code, RCX) // save total_len
 	emitMovRegReg(&s.Code, RDI, RCX)
 	callData := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callData, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callData,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX)
 	// RAX = new_data_ptr
 	emitMovRegReg(&s.Code, RDI, RAX) // rdi = dest
@@ -1579,7 +1669,13 @@ func (s *EmitState) emitRuntimeStringConcat() {
 
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callHdr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callHdr, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callHdr,
+			Target:    "__rt_alloc",
+		},
+	)
 
 	emitPopReg(&s.Code, RCX) // total_len
 	emitPopReg(&s.Code, RDI) // data ptr
@@ -1635,7 +1731,13 @@ func (s *EmitState) emitRuntimeCheckPerm() {
 		s.emitDataAddr(msgIdx)
 		emitMovRegReg(&s.Code, RDI, RAX)
 		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_panic"})
+		s.CallPatches = append(
+			s.CallPatches,
+			CallPatch{
+				ImmOffset: callSite,
+				Target:    "__rt_panic",
+			},
+		)
 
 		// allowed:
 		s.Code[jnzAllowed+1] = byte(len(s.Code) - jnzAllowed - 2)

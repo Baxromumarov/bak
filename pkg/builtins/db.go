@@ -21,6 +21,21 @@ var (
 	nextDBID = 1
 )
 
+// Helpers
+func resultErrString(errStr string) *object.Result {
+	return &object.Result{
+		IsOk:  false,
+		Value: &object.String{Value: errStr},
+	}
+}
+
+func resultOkVoid() *object.Result {
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Void{},
+	}
+}
+
 // pgConnect opens a PostgreSQL connection.
 // __builtin_pg_connect(connStr: string) -> Result<int, string>
 func pgConnect(args ...object.Object) object.Object {
@@ -34,21 +49,18 @@ func pgConnect(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.postgres.connect", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.postgres.connect", runtimecap.FlagAllowNet))
 	}
 
 	db, err := sql.Open("postgres", connStr.Value)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
 	// Verify connection
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
 	dbMu.Lock()
@@ -57,7 +69,10 @@ func pgConnect(args ...object.Object) object.Object {
 	dbConns[id] = db
 	dbMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Integer{Value: int64(id)},
+	}
 }
 
 // pgQuery executes a SQL query on a PostgreSQL connection.
@@ -78,10 +93,7 @@ func pgQuery(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.postgres.query", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.postgres.query", runtimecap.FlagAllowNet))
 	}
 
 	var queryArgs []any
@@ -98,12 +110,12 @@ func pgQuery(args ...object.Object) object.Object {
 	dbMu.Unlock()
 
 	if !exists {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+		return resultErrString("invalid database handle")
 	}
 
 	rows, err := db.Query(sqlStr.Value, queryArgs...)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 	defer rows.Close()
 
@@ -123,10 +135,7 @@ func pgClose(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.postgres.close", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.postgres.close", runtimecap.FlagAllowNet))
 	}
 
 	dbMu.Lock()
@@ -137,14 +146,14 @@ func pgClose(args ...object.Object) object.Object {
 	dbMu.Unlock()
 
 	if !exists {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+		return resultErrString("invalid database handle")
 	}
 
 	if err := db.Close(); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return resultOkVoid()
 }
 
 // mysqlConnect opens a MySQL connection.
@@ -160,21 +169,18 @@ func mysqlConnect(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.mysql.connect", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.mysql.connect", runtimecap.FlagAllowNet))
 	}
 
 	db, err := sql.Open("mysql", connStr.Value)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
 	// Verify connection
 	if err := db.Ping(); err != nil {
 		db.Close()
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
 	dbMu.Lock()
@@ -183,7 +189,10 @@ func mysqlConnect(args ...object.Object) object.Object {
 	dbConns[id] = db
 	dbMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Integer{Value: int64(id)},
+	}
 }
 
 // mysqlQuery executes a SQL query on a MySQL connection.
@@ -204,10 +213,7 @@ func mysqlQuery(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.mysql.query", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.mysql.query", runtimecap.FlagAllowNet))
 	}
 
 	var queryArgs []any
@@ -224,12 +230,12 @@ func mysqlQuery(args ...object.Object) object.Object {
 	dbMu.Unlock()
 
 	if !exists {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+		return resultErrString("invalid database handle")
 	}
 
 	rows, err := db.Query(sqlStr.Value, queryArgs...)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 	defer rows.Close()
 
@@ -261,23 +267,21 @@ func dbConfig(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.config", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.config", runtimecap.FlagAllowNet))
 	}
 
 	dbMu.Lock()
 	db, exists := dbConns[int(handleObj.Value)]
 	dbMu.Unlock()
 	if !exists {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+		return resultErrString("invalid database handle")
 	}
 
 	db.SetMaxOpenConns(int(maxOpenObj.Value))
 	db.SetMaxIdleConns(int(maxIdleObj.Value))
 	db.SetConnMaxLifetime(time.Duration(maxLifeObj.Value) * time.Second)
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+
+	return resultOkVoid()
 }
 
 // mysqlClose closes a MySQL connection.
@@ -293,10 +297,7 @@ func mysqlClose(args ...object.Object) object.Object {
 	}
 
 	if !runtimecap.Current().AllowNet {
-		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("db.mysql.close", runtimecap.FlagAllowNet)},
-		}
+		return resultErrString(runtimecap.PermissionError("db.mysql.close", runtimecap.FlagAllowNet))
 	}
 
 	dbMu.Lock()
@@ -307,21 +308,21 @@ func mysqlClose(args ...object.Object) object.Object {
 	dbMu.Unlock()
 
 	if !exists {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+		return resultErrString("invalid database handle")
 	}
 
 	if err := db.Close(); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return resultOkVoid()
 }
 
 // rowsToResult converts sql.Rows to a Bak QueryResult struct
 func rowsToResult(rows *sql.Rows) object.Object {
 	columns, err := rows.Columns()
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
 	// Build columns Vec<string, _>
@@ -329,7 +330,13 @@ func rowsToResult(rows *sql.Rows) object.Object {
 	for i, col := range columns {
 		colElements[i] = &object.String{Value: col}
 	}
-	columnsVec := &object.Vec{Elements: colElements, ElemType: "string", Size: -1, Mutable: false}
+
+	columnsVec := &object.Vec{
+		Elements: colElements,
+		ElemType: "string",
+		Size:     -1,
+		Mutable:  false,
+	}
 
 	// Build rows Vec<Vec<string, _>, _>
 	var rowElements []object.Object
@@ -342,7 +349,7 @@ func rowsToResult(rows *sql.Rows) object.Object {
 		}
 
 		if err := rows.Scan(valuePtrs...); err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+			return resultErrString(err.Error())
 		}
 
 		// Convert values to strings
@@ -359,15 +366,25 @@ func rowsToResult(rows *sql.Rows) object.Object {
 			rowCells[i] = &object.String{Value: strVal}
 		}
 
-		rowVec := &object.Vec{Elements: rowCells, ElemType: "string", Size: -1, Mutable: false}
+		rowVec := &object.Vec{
+			Elements: rowCells,
+			ElemType: "string",
+			Size:     -1,
+			Mutable:  false,
+		}
 		rowElements = append(rowElements, rowVec)
 	}
 
 	if err := rows.Err(); err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return resultErrString(err.Error())
 	}
 
-	rowsVec := &object.Vec{Elements: rowElements, ElemType: "Vec<string, _>", Size: -1, Mutable: false}
+	rowsVec := &object.Vec{
+		Elements: rowElements,
+		ElemType: "Vec<string, _>",
+		Size:     -1,
+		Mutable:  false,
+	}
 
 	// Return QueryResult struct
 	return &object.Result{
@@ -385,7 +402,9 @@ func rowsToResult(rows *sql.Rows) object.Object {
 func dbQueryParams(fnName string, paramsArg object.Object) ([]any, *object.Error) {
 	vecObj, ok := paramsArg.(*object.Vec)
 	if !ok {
-		if s, ok := paramsArg.(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
+		if s, ok := paramsArg.(*object.Struct); ok &&
+			(s.Name == "Vec" ||
+				strings.HasSuffix(s.Name, ".Vec")) {
 			if dataField, ok := s.Fields["data"]; ok {
 				if dataVec, ok := dataField.(*object.Vec); ok {
 					vecObj = dataVec

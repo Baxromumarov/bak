@@ -213,7 +213,12 @@ func nativePermissionMask(flag string) int {
 	}
 }
 
-func (s *EmitState) enforceModuleMethodBuiltinContract(moduleName string, methodName string, argCount int) error {
+func (s *EmitState) enforceModuleMethodBuiltinContract(
+	moduleName string,
+	methodName string,
+	argCount int,
+) error {
+
 	builtinName, ok := compiler.LookupBuiltinNameForModuleMethod(moduleName, methodName)
 	if !ok {
 		return nil
@@ -225,7 +230,12 @@ func (s *EmitState) enforceModuleMethodBuiltinContract(moduleName string, method
 	}
 
 	if !contract.AcceptsArity(argCount) {
-		return fmt.Errorf("native: %s.%s expects %s argument(s)", moduleName, methodName, contract.ArityDescription())
+		return fmt.Errorf(
+			"native: %s.%s expects %s argument(s)",
+			moduleName,
+			methodName,
+			contract.ArityDescription(),
+		)
 	}
 
 	if contract.PermissionFlag == "" {
@@ -237,7 +247,11 @@ func (s *EmitState) enforceModuleMethodBuiltinContract(moduleName string, method
 		action = moduleName + "." + methodName
 	}
 
-	if err := s.requirePermission(nativePermissionAllowed(s.Permissions, contract.PermissionFlag), action, contract.PermissionFlag); err != nil {
+	if err := s.requirePermission(
+		nativePermissionAllowed(s.Permissions, contract.PermissionFlag),
+		action,
+		contract.PermissionFlag,
+	); err != nil {
 		return err
 	}
 
@@ -255,9 +269,17 @@ func (s *EmitState) emitRuntimePermissionCheck(mask int) {
 	if s.PermissionsDataIndex < 0 {
 		return
 	}
+
 	emitMovRegImm32(&s.Code, RDI, int32(mask))
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_check_perm"})
+
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_check_perm",
+		},
+	)
 }
 
 // inferSwitchExprPayloadTypes tries to determine the Option/Result payload types
@@ -317,6 +339,9 @@ func (s *EmitState) inferSwitchExprPayloadTypes(expr ast.Expression) {
 
 // applyBindingType tracks variable type info from a type expression.
 func (s *EmitState) applyBindingType(name string, t ast.TypeExpression) {
+	if t == nil {
+		return
+	}
 	switch tt := t.(type) {
 	case *ast.SimpleType:
 		switch tt.Name {
@@ -334,48 +359,54 @@ func (s *EmitState) applyBindingType(name string, t ast.TypeExpression) {
 			}
 		}
 	case *ast.GenericType:
-		// Track Vec element types
-		if tt.Name == "Vec" && len(tt.TypeParams) >= 1 {
-			if inner, ok := tt.TypeParams[0].(*ast.SimpleType); ok {
-				if inner.Name == "string" {
-					s.VecStringElements[name] = true
-				} else if s.findStructDecl(inner.Name) != nil {
-					s.VecElementTypes[name] = inner.Name
-				}
-			}
-		}
-	case *ast.BorrowType:
-		// Unwrap &T for refs
-		if inner, ok := tt.Inner.(*ast.SimpleType); ok {
-			switch inner.Name {
-			case "int":
-				s.IntVariables[name] = true
-			case "char":
-				s.CharVariables[name] = true
-			case "string":
-				s.StringVariables[name] = true
-			case "float64", "float32":
-				s.FloatVariables[name] = true
-			default:
-				if s.findStructDecl(inner.Name) != nil {
-					s.StructVariables[name] = inner.Name
-				}
-			}
-		}
-		if inner, ok := tt.Inner.(*ast.GenericType); ok {
-			if inner.Name == "Vec" && len(inner.TypeParams) >= 1 {
-				if elemType, ok := inner.TypeParams[0].(*ast.SimpleType); ok {
-					if elemType.Name == "string" {
+		switch tt.Name {
+		case "Vec":
+			if len(tt.TypeParams) >= 1 {
+				if inner, ok := tt.TypeParams[0].(*ast.SimpleType); ok {
+					if inner.Name == "string" {
 						s.VecStringElements[name] = true
-					} else if s.findStructDecl(elemType.Name) != nil {
-						s.VecElementTypes[name] = elemType.Name
+					} else if s.findStructDecl(inner.Name) != nil {
+						s.VecElementTypes[name] = inner.Name
 					}
 				}
 			}
+		case "Option":
+			if len(tt.TypeParams) == 1 {
+				s.OptionPayloadTypes[name] = tt.TypeParams[0]
+			}
+		case "Result":
+			if len(tt.TypeParams) == 2 {
+				s.ResultOkTypes[name] = tt.TypeParams[0]
+				s.ResultErrTypes[name] = tt.TypeParams[1]
+			}
+		default:
+			if s.findStructDecl(tt.Name) != nil {
+				s.StructVariables[name] = tt.Name
+			}
 		}
+	case *ast.BorrowType:
 		s.RefVariables[name] = true
+		s.applyBindingType(name, tt.Inner)
+	case *ast.BoxType:
+		s.RefVariables[name] = true
+		if inner, ok := tt.Inner.(*ast.SimpleType); ok {
+			if s.findStructDecl(inner.Name) != nil {
+				s.StructVariables[name] = inner.Name
+			}
+		}
+	case *ast.BoxOptionalType:
+		s.RefVariables[name] = true
+		if inner, ok := tt.Inner.(*ast.SimpleType); ok {
+			if s.findStructDecl(inner.Name) != nil {
+				s.StructVariables[name] = inner.Name
+			}
+		}
 	}
 }
+
+// ============================================================
+//  Type Tracking & Inference
+// ============================================================
 
 // isIntExpression checks if an expression evaluates to an int type
 func (s *EmitState) isIntExpression(expr ast.Expression) bool {
@@ -392,7 +423,14 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		}
 		// Common boolean-returning methods
 		switch e.Method.Value {
-		case "startsWith", "endsWith", "contains", "isEmpty", "isOk", "isErr", "isSome", "isNone":
+		case "startsWith",
+			"endsWith",
+			"contains",
+			"isEmpty",
+			"isOk",
+			"isErr",
+			"isSome",
+			"isNone":
 			return true
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, e.Method.Value); ok {
@@ -421,11 +459,6 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		}
 		// array/vec indexing - check the type context
 		// If indexing an int-typed Vec, return true
-		if id, ok := e.Left.(*ast.Identifier); ok {
-			// Check if the Vec is known to contain ints
-			// For now, we can't easily determine this without proper type info
-			_ = id
-		}
 	case *ast.FieldAccessExpression:
 		// Struct field access - use object type tracking when possible.
 		fieldName := e.Field.Value
@@ -434,7 +467,9 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 				for _, f := range sd.Fields {
 					if f.Name.Value == fieldName {
 						if st, ok := f.Type.(*ast.SimpleType); ok {
-							return st.Name == "int" || st.Name == "bool" || st.Name == "char"
+							return st.Name == "int" ||
+								st.Name == "bool" ||
+								st.Name == "char"
 						}
 					}
 				}
@@ -445,7 +480,9 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 			for _, f := range sd.Fields {
 				if f.Name.Value == fieldName {
 					if st, ok := f.Type.(*ast.SimpleType); ok {
-						return st.Name == "int" || st.Name == "bool" || st.Name == "char"
+						return st.Name == "int" ||
+							st.Name == "bool" ||
+							st.Name == "char"
 					}
 				}
 			}
@@ -481,8 +518,12 @@ func (s *EmitState) isStringExpression(expr ast.Expression) bool {
 	case *ast.MethodCallExpression:
 		// Methods that return strings
 		methodName := e.Method.Value
-		if methodName == "toString" || methodName == "substring" || methodName == "trim" ||
-			methodName == "toLowerCase" || methodName == "toUpperCase" || methodName == "formatAll" {
+		if methodName == "toString" ||
+			methodName == "substring" ||
+			methodName == "trim" ||
+			methodName == "toLowerCase" ||
+			methodName == "toUpperCase" ||
+			methodName == "formatAll" {
 			return true
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, methodName); ok {
@@ -613,7 +654,9 @@ func (s *EmitState) isCharExpression(expr ast.Expression) bool {
 	return false
 }
 
-// --- Program compilation ---
+// ============================================================
+//  Program Compilation
+// ============================================================
 
 // CompileProgram compiles a single AST Program to machine code and returns ELF bytes.
 func CompileProgram(program *ast.Program) ([]byte, error) {
@@ -840,6 +883,10 @@ func collectProgramItems(program *ast.Program, pkgName string, s *EmitState) ([]
 	return funcs, consts
 }
 
+// ============================================================
+//  Symbol Table & Resolution
+// ============================================================
+
 // addFunctionSymbol registers a function name with a placeholder offset.
 func (s *EmitState) addFunctionSymbol(name string, paramCount int) {
 	for _, f := range s.Functions {
@@ -1048,7 +1095,9 @@ func (s *EmitState) findFunctionOffsetWithModule(name string, module string) (in
 	return -1, false
 }
 
-// --- Entry stub ---
+// ============================================================
+//  Entry Stub
+// ============================================================
 
 // emitEntryStub emits the _start function that calls main and exits.
 func (s *EmitState) emitEntryStub() {
@@ -1085,7 +1134,9 @@ func (s *EmitState) emitEntryStub() {
 	emitSyscall(&s.Code)
 }
 
-// --- Function compilation ---
+// ============================================================
+//  Function Compilation
+// ============================================================
 
 // emitFunction compiles a single function declaration.
 func (s *EmitState) emitFunction(fd *ast.FunctionDecl) error {
@@ -1181,92 +1232,7 @@ func (s *EmitState) bindParameters(params []*ast.Parameter, skipRegs int) {
 		}
 
 		// Register type
-		if simpleType, ok := p.Type.(*ast.SimpleType); ok {
-			switch simpleType.Name {
-			case "int":
-				s.IntVariables[p.Name.Value] = true
-			case "char":
-				s.CharVariables[p.Name.Value] = true
-			case "string":
-				s.StringVariables[p.Name.Value] = true
-			case "float64", "float32":
-				s.FloatVariables[p.Name.Value] = true
-			default:
-				// Track struct-typed parameters (e.g., method receiver)
-				if s.findStructDecl(simpleType.Name) != nil {
-					s.StructVariables[p.Name.Value] = simpleType.Name
-				}
-			}
-		}
-		if genType, ok := p.Type.(*ast.GenericType); ok {
-			if genType.Name == "Vec" && len(genType.TypeParams) >= 1 {
-				if inner, ok := genType.TypeParams[0].(*ast.SimpleType); ok {
-					if s.findStructDecl(inner.Name) != nil {
-						s.VecElementTypes[p.Name.Value] = inner.Name
-					}
-				}
-			} else if genType.Name == "Option" && len(genType.TypeParams) == 1 {
-				s.OptionPayloadTypes[p.Name.Value] = genType.TypeParams[0]
-			} else if genType.Name == "Result" && len(genType.TypeParams) == 2 {
-				s.ResultOkTypes[p.Name.Value] = genType.TypeParams[0]
-				s.ResultErrTypes[p.Name.Value] = genType.TypeParams[1]
-			} else {
-				if s.findStructDecl(genType.Name) != nil {
-					s.StructVariables[p.Name.Value] = genType.Name
-				}
-			}
-		}
-		// Track reference parameters
-		if bt, ok := p.Type.(*ast.BorrowType); ok {
-			s.RefVariables[p.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				switch inner.Name {
-				case "int":
-					s.IntVariables[p.Name.Value] = true
-				case "char":
-					s.CharVariables[p.Name.Value] = true
-				case "string":
-					s.StringVariables[p.Name.Value] = true
-				case "float64", "float32":
-					s.FloatVariables[p.Name.Value] = true
-				default:
-					if s.findStructDecl(inner.Name) != nil {
-						s.StructVariables[p.Name.Value] = inner.Name
-					}
-				}
-			}
-			// Unwrap &Vec<T, _> / &Option<T> / &Result<T,E>
-			if inner, ok := bt.Inner.(*ast.GenericType); ok {
-				if inner.Name == "Vec" && len(inner.TypeParams) >= 1 {
-					if elemType, ok := inner.TypeParams[0].(*ast.SimpleType); ok {
-						if s.findStructDecl(elemType.Name) != nil {
-							s.VecElementTypes[p.Name.Value] = elemType.Name
-						}
-					}
-				} else if inner.Name == "Option" && len(inner.TypeParams) == 1 {
-					s.OptionPayloadTypes[p.Name.Value] = inner.TypeParams[0]
-				} else if inner.Name == "Result" && len(inner.TypeParams) == 2 {
-					s.ResultOkTypes[p.Name.Value] = inner.TypeParams[0]
-					s.ResultErrTypes[p.Name.Value] = inner.TypeParams[1]
-				}
-			}
-		}
-		if bt, ok := p.Type.(*ast.BoxType); ok {
-			s.RefVariables[p.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				if s.findStructDecl(inner.Name) != nil {
-					s.StructVariables[p.Name.Value] = inner.Name
-				}
-			}
-		}
-		if bt, ok := p.Type.(*ast.BoxOptionalType); ok {
-			s.RefVariables[p.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				if s.findStructDecl(inner.Name) != nil {
-					s.StructVariables[p.Name.Value] = inner.Name
-				}
-			}
-		}
+		s.applyBindingType(p.Name.Value, p.Type)
 	}
 }
 
@@ -1314,7 +1280,9 @@ func (s *EmitState) emitDeferredBodies() error {
 	return nil
 }
 
-// --- Local counting ---
+// ============================================================
+//  Local Counting
+// ============================================================
 
 // countLocalsBlock counts all local variable declarations in a block (recursively).
 func (s *EmitState) countLocalsBlock(block *ast.BlockStatement, count *int) {
@@ -1465,7 +1433,9 @@ func (s *EmitState) getTypeSize(t ast.TypeExpression) int {
 	return 8
 }
 
-// --- Statement emission ---
+// ============================================================
+//  Statement Emission
+// ============================================================
 
 func (s *EmitState) emitStatement(stmt ast.Statement) error {
 	switch st := stmt.(type) {
@@ -1543,72 +1513,7 @@ func (s *EmitState) emitVarStatement(st *ast.VarStatement) error {
 
 	// Track the variable type
 	if st.Type != nil {
-		if simpleType, ok := st.Type.(*ast.SimpleType); ok {
-			switch simpleType.Name {
-			case "int":
-				s.IntVariables[st.Name.Value] = true
-			case "char":
-				s.CharVariables[st.Name.Value] = true
-			case "string":
-				s.StringVariables[st.Name.Value] = true
-			case "float64", "float32":
-				s.FloatVariables[st.Name.Value] = true
-			default:
-				// Could be a struct type
-				if s.findStructDecl(simpleType.Name) != nil {
-					s.StructVariables[st.Name.Value] = simpleType.Name
-				}
-			}
-		}
-		if genType, ok := st.Type.(*ast.GenericType); ok {
-			if genType.Name == "Vec" && len(genType.TypeParams) >= 1 {
-				if inner, ok := genType.TypeParams[0].(*ast.SimpleType); ok {
-					if s.findStructDecl(inner.Name) != nil {
-						s.VecElementTypes[st.Name.Value] = inner.Name
-					}
-				}
-			} else if genType.Name == "Option" && len(genType.TypeParams) == 1 {
-				s.OptionPayloadTypes[st.Name.Value] = genType.TypeParams[0]
-			} else if genType.Name == "Result" && len(genType.TypeParams) == 2 {
-				s.ResultOkTypes[st.Name.Value] = genType.TypeParams[0]
-				s.ResultErrTypes[st.Name.Value] = genType.TypeParams[1]
-			}
-		}
-		if bt, ok := st.Type.(*ast.BoxType); ok {
-			s.RefVariables[st.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				if s.findStructDecl(inner.Name) != nil {
-					s.StructVariables[st.Name.Value] = inner.Name
-				}
-			}
-		}
-		if bt, ok := st.Type.(*ast.BoxOptionalType); ok {
-			s.RefVariables[st.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				if s.findStructDecl(inner.Name) != nil {
-					s.StructVariables[st.Name.Value] = inner.Name
-				}
-			}
-		}
-		if bt, ok := st.Type.(*ast.BorrowType); ok {
-			s.RefVariables[st.Name.Value] = true
-			if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-				switch inner.Name {
-				case "int":
-					s.IntVariables[st.Name.Value] = true
-				case "char":
-					s.CharVariables[st.Name.Value] = true
-				case "string":
-					s.StringVariables[st.Name.Value] = true
-				case "float64", "float32":
-					s.FloatVariables[st.Name.Value] = true
-				default:
-					if s.findStructDecl(inner.Name) != nil {
-						s.StructVariables[st.Name.Value] = inner.Name
-					}
-				}
-			}
-		}
+		s.applyBindingType(st.Name.Value, st.Type)
 	}
 
 	// Also track struct type from the value if it's a struct literal
@@ -1635,14 +1540,6 @@ func (s *EmitState) emitConstStatement(st *ast.ConstStatement) error {
 	offset := s.declareLocal(st.Name.Value, 8)
 	if st.Type != nil {
 		s.applyBindingType(st.Name.Value, st.Type)
-		if genType, ok := st.Type.(*ast.GenericType); ok {
-			if genType.Name == "Option" && len(genType.TypeParams) == 1 {
-				s.OptionPayloadTypes[st.Name.Value] = genType.TypeParams[0]
-			} else if genType.Name == "Result" && len(genType.TypeParams) == 2 {
-				s.ResultOkTypes[st.Name.Value] = genType.TypeParams[0]
-				s.ResultErrTypes[st.Name.Value] = genType.TypeParams[1]
-			}
-		}
 	}
 	if st.Value != nil {
 		if sl, ok := st.Value.(*ast.StructLiteral); ok {
@@ -2088,14 +1985,10 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 
 	// Try to find the struct type and field offset
 	var fieldOffset int = -1
-	var resolvedStruct string
 	// First try to resolve by the actual object type
 	if structName := s.getExpressionStructType(lhs.Object); structName != "" {
 		if sd := s.findStructDecl(structName); sd != nil {
 			fieldOffset, _ = s.getFieldOffset(sd, fieldName)
-			if fieldOffset >= 0 {
-				resolvedStruct = sd.Name.Value
-			}
 		}
 	}
 	// Fallback: try all known structs (best-effort)
@@ -2106,12 +1999,10 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 				_, _ = fmt.Fprintf(os.Stderr, "[WARN-FA] field '%s' resolved via fallback to struct '%s' (offset=%d) in module=%s\n",
 					fieldName, sd.Name.Value, offset, s.CurrentModule)
 				fieldOffset = offset
-				resolvedStruct = sd.Name.Value
 				break
 			}
 		}
 	}
-	_ = resolvedStruct
 
 	if fieldOffset < 0 {
 		return fmt.Errorf("native: cannot resolve field '%s' for assignment", fieldName)
@@ -2494,8 +2385,6 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 							break
 						}
 					}
-					if len(variantFields) == 0 {
-					}
 				}
 
 				// Predeclare locals for bindings so the case body can resolve them.
@@ -2649,7 +2538,9 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 	return nil
 }
 
-// --- Expression emission ---
+// ============================================================
+//  Expression Emission
+// ============================================================
 
 func (s *EmitState) emitExpression(expr ast.Expression) error {
 	// Constant folding: evaluate compile-time constant expressions.
@@ -3507,293 +3398,9 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		}
 	}
 
-	// Handle built-in println
-	if funcName == "println" {
-		return s.emitBuiltinPrintln(e)
-	}
-	if funcName == "print" {
-		return s.emitBuiltinPrint(e)
-	}
-	if funcName == "len" {
-		return s.emitBuiltinLen(e)
-	}
-	if funcName == "__builtin_string_from_bytes" {
-		return s.emitBuiltinStringFromBytes(e)
-	}
-	if funcName == "__builtin_string_ptr" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_string_ptr expects 1 argument")
-		}
-		if err := s.emitExpression(e.Arguments[0]); err != nil {
-			return err
-		}
-		// If argument is a reference, dereference first
-		if s.isRefExpression(e.Arguments[0]) {
-			s.emitSafeRefDeref()
-		}
-		// strings are passed by reference, rax = {ptr:8, len:8} header.
-		// The pointer is at offset 0.
-		s.emitSafeLoadRaxFromRaxDisp(0)
-		return nil
-	}
-	if funcName == "__builtin_args" {
-		return s.emitOsArgs()
-	}
-	if funcName == "__builtin_exit" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_exit expects 1 argument")
-		}
-		return s.emitOsExit(e.Arguments[0])
-	}
-	if funcName == "__builtin_getenv" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_getenv expects 1 argument")
-		}
-		return s.emitOsGetenv(e.Arguments[0])
-	}
-	if funcName == "__builtin_setenv" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_setenv expects 2 arguments")
-		}
-		// Evaluate arguments for side effects and return a typed error instead of
-		// silently claiming success.
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		return s.emitResultErrStr("setenv is not supported in native backend")
-	}
-	if funcName == "__builtin_cwd" {
-		return s.emitOsCwd()
-	}
-	if funcName == "__builtin_chdir" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_chdir expects 1 argument")
-		}
-		return s.emitOsChdir(e.Arguments[0])
-	}
-	if funcName == "__builtin_chmod" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_chmod expects 2 arguments")
-		}
-		return s.emitOsChmod(e.Arguments[0], e.Arguments[1])
-	}
-	if funcName == "__builtin_mkdir" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_mkdir expects 1 argument")
-		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_mkdir", runtimecap.FlagAllowFSMutate); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x04)
-		return s.emitOsMkdir(e.Arguments[0])
-	}
-
-	// File system builtins
-	if funcName == "__builtin_read_file" || funcName == "__builtin_read_all" {
-		// Read file returns Result<string, string>
-		// For now, implement actual file reading using syscalls
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_read_file expects 1 argument")
-		}
-		return s.emitBuiltinReadFile(e.Arguments[0])
-	}
-	if funcName == "__builtin_write_file" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_write_file expects 2 arguments")
-		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file", runtimecap.FlagAllowFSMutate); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x04)
-		return s.emitFsWriteFile(e.Arguments[0], e.Arguments[1])
-	}
-	if funcName == "__builtin_write_file_bytes" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_write_file_bytes expects 2 arguments")
-		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file_bytes", runtimecap.FlagAllowFSMutate); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x04)
-		return s.emitFsWriteFileBytes(e.Arguments[0], e.Arguments[1])
-	}
-	if funcName == "__builtin_append_file" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_append_file expects 2 arguments")
-		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_append_file", runtimecap.FlagAllowFSMutate); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x04)
-		return s.emitFsAppendFile(e.Arguments[0], e.Arguments[1])
-	}
-	if funcName == "__builtin_remove" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_remove expects 1 argument")
-		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_remove", runtimecap.FlagAllowFSMutate); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x04)
-		return s.emitFsRemove(e.Arguments[0])
-	}
-	if funcName == "__builtin_read_dir" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_read_dir expects 1 argument")
-		}
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		return s.emitResultErrStr("readDir is not supported in native backend")
-	}
-	if funcName == "__builtin_file_exists" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_file_exists expects 1 argument")
-		}
-		return s.emitFsExists(e.Arguments[0])
-	}
-	if funcName == "__builtin_is_file" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_is_file expects 1 argument")
-		}
-		return s.emitFsIsFile(e.Arguments[0])
-	}
-	if funcName == "__builtin_is_dir" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_is_dir expects 1 argument")
-		}
-		return s.emitFsIsDir(e.Arguments[0])
-	}
-	if funcName == "__builtin_temp_dir" {
-		tmpIdx := s.addStringLiteral("/tmp")
-		s.emitDataAddr(tmpIdx)
-		return nil
-	}
-	if funcName == "__builtin_user_home_dir" || funcName == "__builtin_hostname" ||
-		funcName == "__builtin_executable" {
-		return s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
-	}
-	if funcName == "__builtin_join" {
-		// join(separator, parts) - stub returning empty string
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		return s.emitEmptyString()
-	}
-
-	// IO builtins
-	if funcName == "__builtin_print" {
-		return s.emitBuiltinPrint(e)
-	}
-	if funcName == "__builtin_println" {
-		return s.emitBuiltinPrintln(e)
-	}
-	if funcName == "__builtin_eprint" || funcName == "__builtin_eprintln" {
-		// Stderr print - just use stdout for now
-		return s.emitBuiltinPrint(e)
-	}
-	if funcName == "__builtin_read_line" {
-		return s.emitResultErrStr("readLine is not supported in native backend")
-	}
-
-	// Time builtins
-	if funcName == "__builtin_time_now" {
-		return s.emitTimeNow(0)
-	}
-	if funcName == "__builtin_monotonic_now" {
-		return s.emitTimeNow(1)
-	}
-	if funcName == "__builtin_time_parts" {
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		emitXorRegReg(&s.Code, RAX, RAX) // return 0 (or struct pointer)
-		return nil
-	}
-	if funcName == "__builtin_sleep" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: __builtin_sleep expects 1 argument")
-		}
-		return s.emitSleepMs(e.Arguments[0])
-	}
-
-	// Threading/sync builtins - stubs
-	if funcName == "__builtin_spawn" || funcName == "__builtin_thread_id" ||
-		funcName == "__builtin_mutex_new" || funcName == "__builtin_mutex_lock" ||
-		funcName == "__builtin_mutex_unlock" {
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return nil
-	}
-
-	// Cancel token builtins - stubs
-	if funcName == "__builtin_cancel_new" || funcName == "__builtin_cancel" ||
-		funcName == "__builtin_is_cancelled" {
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return nil
-	}
-
-	// Database builtins - stubs
-	if funcName == "__builtin_pg_connect" || funcName == "__builtin_pg_close" ||
-		funcName == "__builtin_pg_query" || funcName == "__builtin_mysql_connect" ||
-		funcName == "__builtin_mysql_close" || funcName == "__builtin_mysql_query" ||
-		funcName == "__builtin_db_config" {
-		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x02)
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		return s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
-	}
-
-	// Socket builtins - stubs
-	if funcName == "__builtin_socket_bind" || funcName == "__builtin_socket_accept" ||
-		funcName == "__builtin_socket_connect" || funcName == "__builtin_socket_connect_tls" ||
-		funcName == "__builtin_socket_read" || funcName == "__builtin_socket_write" ||
-		funcName == "__builtin_socket_close" || funcName == "__builtin_socket_set_timeout" {
-		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x02)
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return err
-			}
-		}
-		return s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
-	}
-
-	// Exec builtin
-	if funcName == "__builtin_exec" {
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: __builtin_exec expects 2 arguments")
-		}
-		if err := s.requirePermission(s.Permissions.AllowExec, "__builtin_exec", runtimecap.FlagAllowExec); err != nil {
-			return err
-		}
-		s.emitRuntimePermissionCheck(0x01)
-		return s.emitOsExec(e.Arguments[0], e.Arguments[1])
+	// Built-in dispatch
+	if handled, err := s.emitBuiltinCall(funcName, e); handled || err != nil {
+		return err
 	}
 
 	// Unqualified enum constructors (e.g., Circle(...), Rectangle(...))
@@ -3886,6 +3493,265 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	}
 
 	return nil
+}
+
+// emitBuiltinCall dispatches built-in function calls. Returns (true, err) if handled.
+func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (bool, error) {
+	// User-facing builtins
+	switch funcName {
+	case "println":
+		return true, s.emitBuiltinPrintln(e)
+	case "print":
+		return true, s.emitBuiltinPrint(e)
+	case "len":
+		return true, s.emitBuiltinLen(e)
+	case "__builtin_string_from_bytes":
+		return true, s.emitBuiltinStringFromBytes(e)
+	case "__builtin_args":
+		return true, s.emitOsArgs()
+	case "__builtin_exit":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_exit expects 1 argument")
+		}
+		return true, s.emitOsExit(e.Arguments[0])
+	case "__builtin_getenv":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_getenv expects 1 argument")
+		}
+		return true, s.emitOsGetenv(e.Arguments[0])
+	case "__builtin_setenv":
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_setenv expects 2 arguments")
+		}
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		return true, s.emitResultErrStr("setenv is not supported in native backend")
+	case "__builtin_cwd":
+		return true, s.emitOsCwd()
+	case "__builtin_chdir":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_chdir expects 1 argument")
+		}
+		return true, s.emitOsChdir(e.Arguments[0])
+	case "__builtin_chmod":
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_chmod expects 2 arguments")
+		}
+		return true, s.emitOsChmod(e.Arguments[0], e.Arguments[1])
+	case "__builtin_mkdir":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_mkdir expects 1 argument")
+		}
+		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_mkdir", runtimecap.FlagAllowFSMutate); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x04)
+		return true, s.emitOsMkdir(e.Arguments[0])
+	case "__builtin_string_ptr":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_string_ptr expects 1 argument")
+		}
+		if err := s.emitExpression(e.Arguments[0]); err != nil {
+			return true, err
+		}
+		if s.isRefExpression(e.Arguments[0]) {
+			s.emitSafeRefDeref()
+		}
+		s.emitSafeLoadRaxFromRaxDisp(0)
+		return true, nil
+	}
+
+	// FS builtins
+	switch funcName {
+	case "__builtin_read_file", "__builtin_read_all":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_read_file expects 1 argument")
+		}
+		return true, s.emitBuiltinReadFile(e.Arguments[0])
+	case "__builtin_write_file":
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_write_file expects 2 arguments")
+		}
+		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file", runtimecap.FlagAllowFSMutate); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x04)
+		return true, s.emitFsWriteFile(e.Arguments[0], e.Arguments[1])
+	case "__builtin_write_file_bytes":
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_write_file_bytes expects 2 arguments")
+		}
+		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file_bytes", runtimecap.FlagAllowFSMutate); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x04)
+		return true, s.emitFsWriteFileBytes(e.Arguments[0], e.Arguments[1])
+	case "__builtin_append_file":
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_append_file expects 2 arguments")
+		}
+		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_append_file", runtimecap.FlagAllowFSMutate); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x04)
+		return true, s.emitFsAppendFile(e.Arguments[0], e.Arguments[1])
+	case "__builtin_remove":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_remove expects 1 argument")
+		}
+		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_remove", runtimecap.FlagAllowFSMutate); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x04)
+		return true, s.emitFsRemove(e.Arguments[0])
+	case "__builtin_read_dir":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_read_dir expects 1 argument")
+		}
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		return true, s.emitResultErrStr("readDir is not supported in native backend")
+	case "__builtin_file_exists":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_file_exists expects 1 argument")
+		}
+		return true, s.emitFsExists(e.Arguments[0])
+	case "__builtin_is_file":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_is_file expects 1 argument")
+		}
+		return true, s.emitFsIsFile(e.Arguments[0])
+	case "__builtin_is_dir":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_is_dir expects 1 argument")
+		}
+		return true, s.emitFsIsDir(e.Arguments[0])
+	case "__builtin_temp_dir":
+		tmpIdx := s.addStringLiteral("/tmp")
+		s.emitDataAddr(tmpIdx)
+		return true, nil
+	case "__builtin_user_home_dir", "__builtin_hostname", "__builtin_executable":
+		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+	case "__builtin_join":
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		return true, s.emitEmptyString()
+	}
+
+	// IO builtins
+	switch funcName {
+	case "__builtin_print":
+		return true, s.emitBuiltinPrint(e)
+	case "__builtin_println":
+		return true, s.emitBuiltinPrintln(e)
+	case "__builtin_eprint", "__builtin_eprintln":
+		return true, s.emitBuiltinPrint(e)
+	case "__builtin_read_line":
+		return true, s.emitResultErrStr("readLine is not supported in native backend")
+	}
+
+	// Time builtins
+	switch funcName {
+	case "__builtin_time_now":
+		return true, s.emitTimeNow(0)
+	case "__builtin_monotonic_now":
+		return true, s.emitTimeNow(1)
+	case "__builtin_time_parts":
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		emitXorRegReg(&s.Code, RAX, RAX)
+		return true, nil
+	case "__builtin_sleep":
+		if len(e.Arguments) != 1 {
+			return true, fmt.Errorf("native: __builtin_sleep expects 1 argument")
+		}
+		return true, s.emitSleepMs(e.Arguments[0])
+	}
+
+	// Threading / sync stubs
+	switch funcName {
+	case "__builtin_spawn", "__builtin_thread_id", "__builtin_mutex_new",
+		"__builtin_mutex_lock", "__builtin_mutex_unlock":
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		emitXorRegReg(&s.Code, RAX, RAX)
+		return true, nil
+	}
+
+	// Cancel token stubs
+	switch funcName {
+	case "__builtin_cancel_new", "__builtin_cancel", "__builtin_is_cancelled":
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		emitXorRegReg(&s.Code, RAX, RAX)
+		return true, nil
+	}
+
+	// Database stubs
+	switch funcName {
+	case "__builtin_pg_connect", "__builtin_pg_close", "__builtin_pg_query",
+		"__builtin_mysql_connect", "__builtin_mysql_close", "__builtin_mysql_query",
+		"__builtin_db_config":
+		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x02)
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+	}
+
+	// Socket stubs
+	switch funcName {
+	case "__builtin_socket_bind", "__builtin_socket_accept", "__builtin_socket_connect",
+		"__builtin_socket_connect_tls", "__builtin_socket_read", "__builtin_socket_write",
+		"__builtin_socket_close", "__builtin_socket_set_timeout":
+		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x02)
+		for _, arg := range e.Arguments {
+			if err := s.emitExpression(arg); err != nil {
+				return true, err
+			}
+		}
+		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+	}
+
+	// Exec builtin
+	if funcName == "__builtin_exec" {
+		if len(e.Arguments) != 2 {
+			return true, fmt.Errorf("native: __builtin_exec expects 2 arguments")
+		}
+		if err := s.requirePermission(s.Permissions.AllowExec, "__builtin_exec", runtimecap.FlagAllowExec); err != nil {
+			return true, err
+		}
+		s.emitRuntimePermissionCheck(0x01)
+		return true, s.emitOsExec(e.Arguments[0], e.Arguments[1])
+	}
+
+	return false, nil
 }
 
 func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
@@ -4250,69 +4116,6 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		}
 	}
 
-	// Handle method calls on field access: obj.field.method(args)
-	// e.g., tc.functions.push(value)
-	if fa, ok := e.Object.(*ast.FieldAccessExpression); ok {
-		// This is var.field.method() pattern - need to emit field access then call method
-		// Emit the field access to get the object, then call the instance method on it
-		method := e.Method.Value
-		switch method {
-		case "push":
-			// field.push(value)
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: push expects 1 argument")
-			}
-			return s.emitVecPush(fa, e.Arguments[0])
-		case "len":
-			return s.emitLen(fa)
-		case "pop":
-			return s.emitVecPop(fa)
-		case "first":
-			return s.emitVecFirst(fa)
-		case "last":
-			return s.emitVecLast(fa)
-		case "remove":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: remove expects 1 argument")
-			}
-			return s.emitVecRemove(fa, e.Arguments[0])
-		case "get":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: get expects 1 argument")
-			}
-			if s.isStringExpression(fa) {
-				return s.emitStringGet(fa, e.Arguments[0])
-			}
-			return s.emitVecGet(fa, e.Arguments[0])
-		case "isEmpty":
-			return s.emitIsEmpty(fa)
-		case "contains":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: contains expects 1 argument")
-			}
-			return s.emitStringContains(fa, e.Arguments[0])
-		case "startsWith":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: startsWith expects 1 argument")
-			}
-			return s.emitStringStartsWith(fa, e.Arguments[0])
-		case "endsWith":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: endsWith expects 1 argument")
-			}
-			return s.emitStringEndsWith(fa, e.Arguments[0])
-		case "bytes", "chars":
-			return s.emitStringBytes(fa)
-		case "trim":
-			return s.emitStringTrim(fa)
-		case "split":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: split expects 1 argument")
-			}
-			return s.emitStringSplit(fa, e.Arguments[0])
-		}
-	}
-
 	// Vec static methods
 	if id, ok := e.Object.(*ast.Identifier); ok && id.Value == "Vec" {
 		switch e.Method.Value {
@@ -4335,7 +4138,6 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	if id, ok := e.Object.(*ast.Identifier); ok && id.Value == "Box" {
 		switch e.Method.Value {
 		case "new":
-			// Box.new(value) - allocate 8 bytes and store value
 			if len(e.Arguments) != 1 {
 				return fmt.Errorf("native: Box.new expects 1 argument")
 			}
@@ -4343,143 +4145,112 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		}
 	}
 
-	// Instance methods: obj.method(args)
-	// For now, support basic Vec and string methods
+	// Instance methods (including field-access receivers like obj.field.method())
+	obj := e.Object
+	if _, ok := obj.(*ast.FieldAccessExpression); ok {
+		// field-access receivers use the same dispatch as direct instance methods
+	}
 	method := e.Method.Value
 	switch method {
 	case "push":
-		// vec.push(value)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: push expects 1 argument")
 		}
-		return s.emitVecPush(e.Object, e.Arguments[0])
+		return s.emitVecPush(obj, e.Arguments[0])
 	case "len":
-		// vec.len() or string.len()
-		return s.emitLen(e.Object)
+		return s.emitLen(obj)
 	case "pop":
-		// vec.pop()
-		return s.emitVecPop(e.Object)
+		return s.emitVecPop(obj)
 	case "first":
-		// vec.first()
-		return s.emitVecFirst(e.Object)
+		return s.emitVecFirst(obj)
 	case "last":
-		// vec.last()
-		return s.emitVecLast(e.Object)
+		return s.emitVecLast(obj)
 	case "remove":
-		// vec.remove(index)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: remove expects 1 argument")
 		}
-		return s.emitVecRemove(e.Object, e.Arguments[0])
+		return s.emitVecRemove(obj, e.Arguments[0])
 	case "get":
-		// vec.get(index) or string.get(index)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: get expects 1 argument")
 		}
-		if s.isStringExpression(e.Object) {
-			return s.emitStringGet(e.Object, e.Arguments[0])
+		if s.isStringExpression(obj) {
+			return s.emitStringGet(obj, e.Arguments[0])
 		}
-		return s.emitVecGet(e.Object, e.Arguments[0])
-	case "bytes":
-		// string.bytes() - convert string to Vec<int, _>
-		return s.emitStringBytes(e.Object)
-	case "chars":
-		// string.chars() - same as bytes() for ASCII strings
-		// For now, treat chars() as equivalent to bytes()
-		return s.emitStringBytes(e.Object)
+		return s.emitVecGet(obj, e.Arguments[0])
+	case "bytes", "chars":
+		return s.emitStringBytes(obj)
 	case "isEmpty":
-		// vec.isEmpty()
-		return s.emitIsEmpty(e.Object)
+		return s.emitIsEmpty(obj)
 	case "contains":
-		// string.contains(other)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: contains expects 1 argument")
 		}
-		return s.emitStringContains(e.Object, e.Arguments[0])
+		return s.emitStringContains(obj, e.Arguments[0])
 	case "startsWith":
-		// string.startsWith(prefix)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: startsWith expects 1 argument")
 		}
-		return s.emitStringStartsWith(e.Object, e.Arguments[0])
-	case "trim":
-		// string.trim()
-		return s.emitStringTrim(e.Object)
-	case "split":
-		// string.split(sep)
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: split expects 1 argument")
-		}
-		return s.emitStringSplit(e.Object, e.Arguments[0])
-	case "isOk":
-		// Result.isOk() - returns 1 if tag == 1, else 0
-		return s.emitResultIsOk(e.Object)
-	case "isErr":
-		// Result.isErr() - returns 1 if tag == 0, else 0
-		return s.emitResultIsErr(e.Object)
-	case "unwrap":
-		// Result.unwrap() - returns value at offset 8 (assumes Ok)
-		return s.emitResultUnwrap(e.Object)
-	case "unwrapErr":
-		// Result.unwrapErr() - returns error at offset 16 (assumes Err)
-		return s.emitResultUnwrapErr(e.Object)
-	case "isSome":
-		// Option.isSome() - returns 1 if tag == 1, else 0
-		return s.emitResultIsErr(e.Object) // tag==1
-	case "isNone":
-		// Option.isNone() - returns 1 if tag == 0, else 0
-		return s.emitResultIsOk(e.Object) // tag==0
-	case "substring":
-		// string.substring(start, end)
-		if len(e.Arguments) != 2 {
-			return fmt.Errorf("native: substring expects 2 arguments (start, end)")
-		}
-		return s.emitStringSubstring(e.Object, e.Arguments[0], e.Arguments[1])
+		return s.emitStringStartsWith(obj, e.Arguments[0])
 	case "endsWith":
-		// string.endsWith(suffix)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: endsWith expects 1 argument")
 		}
-		return s.emitStringEndsWith(e.Object, e.Arguments[0])
+		return s.emitStringEndsWith(obj, e.Arguments[0])
+	case "trim":
+		return s.emitStringTrim(obj)
+	case "split":
+		if len(e.Arguments) != 1 {
+			return fmt.Errorf("native: split expects 1 argument")
+		}
+		return s.emitStringSplit(obj, e.Arguments[0])
+	case "isOk":
+		return s.emitResultIsOk(obj)
+	case "isErr":
+		return s.emitResultIsErr(obj)
+	case "unwrap":
+		return s.emitResultUnwrap(obj)
+	case "unwrapErr":
+		return s.emitResultUnwrapErr(obj)
+	case "isSome":
+		return s.emitResultIsErr(obj) // tag==1
+	case "isNone":
+		return s.emitResultIsOk(obj) // tag==0
+	case "substring":
+		if len(e.Arguments) != 2 {
+			return fmt.Errorf("native: substring expects 2 arguments (start, end)")
+		}
+		return s.emitStringSubstring(obj, e.Arguments[0], e.Arguments[1])
 	case "indexOf":
-		// string.indexOf(needle)
 		if len(e.Arguments) != 1 {
 			return fmt.Errorf("native: indexOf expects 1 argument")
 		}
-		return s.emitStringIndexOf(e.Object, e.Arguments[0])
+		return s.emitStringIndexOf(obj, e.Arguments[0])
 	case "hash":
-		// string.hash() - compute hash of string
-		return s.emitStringHash(e.Object)
+		return s.emitStringHash(obj)
 	case "parseFloat":
-		// string.parseFloat() -> Result<float64, string>
-		// Delegate to strconv.atof which takes &string (reference to string).
-		// Push string value on stack so we can pass its address.
-		if err := s.emitExpression(e.Object); err != nil {
+		if err := s.emitExpression(obj); err != nil {
 			return err
 		}
-		emitPushReg(&s.Code, RAX)        // save string value on stack
-		emitMovRegReg(&s.Code, RDI, RSP) // RDI = &string (address of stack slot)
+		emitPushReg(&s.Code, RAX)
+		emitMovRegReg(&s.Code, RDI, RSP)
 		callSite := emitCallRel32(&s.Code, 0)
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "strconv.atof"})
-		emitAddRspImm8(&s.Code, 8) // clean up stack
+		emitAddRspImm8(&s.Code, 8)
 		return nil
 	case "parseInt":
-		// string.parseInt() - parse string as int
-		if err := s.emitExpression(e.Object); err != nil {
+		if err := s.emitExpression(obj); err != nil {
 			return err
 		}
-		// If object is a reference (&string), dereference first
-		if s.isRefExpression(e.Object) {
+		if s.isRefExpression(obj) {
 			s.emitSafeRefDeref()
 		}
-		// Call __rt_atoi
 		emitMovRegReg(&s.Code, RDI, RAX)
 		callSite := emitCallRel32(&s.Code, 0)
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
 		return nil
 	case "toString":
-		// char.toString() or int.toString() - convert value to 1-char or number string
-		return s.emitToString(e.Object)
+		return s.emitToString(obj)
 	}
 
 	// Try to resolve based on receiver type first (avoids ambiguous suffix matches)
@@ -4615,7 +4386,9 @@ func (s *EmitState) emitTuple(e *ast.TupleExpression) error {
 	return fmt.Errorf("native: only 2-element tuples supported")
 }
 
-// --- Enums ---
+// ============================================================
+//  Enums
+// ============================================================
 
 // getEnumVariantTag returns the tag value for a given enum variant name.
 // For now, we use a simple hash-based approach since we don't have full enum tracking.
@@ -4780,7 +4553,9 @@ func (s *EmitState) isTaggedEnumVariant(variantName string) bool {
 	return false
 }
 
-// --- Structs ---
+// ============================================================
+//  Structs
+// ============================================================
 
 func simpleStructName(name string) string {
 	if idx := strings.LastIndex(name, "."); idx >= 0 && idx+1 < len(name) {
@@ -5472,6 +5247,10 @@ func (s *EmitState) emitVecLiteral(vecLit *ast.VecLiteral) error {
 	return s.emitVecFrom(vecLit)
 }
 
+// ============================================================
+//  Runtime Builtins
+// ============================================================
+
 func (s *EmitState) emitOsArgs() error {
 	// Load args from cached location or build from initial stack pointer.
 	// For now, call the __rt_args runtime function if registered, or emit inline.
@@ -5677,6 +5456,10 @@ func (s *EmitState) emitOsArgs() error {
 	return nil
 }
 
+// ============================================================
+//  Vector Operations
+// ============================================================
+
 // emitVecPush implements vec.push(value)
 // Vec layout: [ptr:8][len:8][cap:8]
 func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error {
@@ -5831,6 +5614,10 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 
 	return nil
 }
+
+// ============================================================
+//  Reference Safety
+// ============================================================
 
 // isRefExpression checks if an expression is a reference variable that needs extra dereference
 func (s *EmitState) isRefExpression(expr ast.Expression) bool {
@@ -6303,6 +6090,10 @@ func (s *EmitState) emitIsEmpty(obj ast.Expression) error {
 
 // emitStringContains implements s.contains(other)
 // Returns 1 if string contains other, 0 otherwise
+// ============================================================
+//  Result / Option Helpers
+// ============================================================
+
 // emitNone emits code for Option::None (tag = 0)
 // Option layout: [tag: 8 bytes][value: 8 bytes]
 // None = tag 0, Some = tag 1

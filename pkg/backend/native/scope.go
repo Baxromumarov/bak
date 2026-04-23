@@ -50,7 +50,13 @@ func (s *EmitState) declareLocal(name string, size int) int {
 	offset := -8 * s.LocalSlots
 	if len(s.Scopes) > 0 {
 		scope := &s.Scopes[len(s.Scopes)-1]
-		scope.Locals = append(scope.Locals, Local{Name: name, Offset: offset})
+		scope.Locals = append(
+			scope.Locals,
+			Local{
+				Name:   name,
+				Offset: offset,
+			},
+		)
 	}
 	return offset
 }

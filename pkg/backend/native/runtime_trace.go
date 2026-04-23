@@ -44,26 +44,56 @@ func (s *EmitState) emitRuntimeTraceEnter() {
 	s.emitDataAddr(enterPrefix)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegReg(&s.Code, RDI, R12)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	s.emitDataAddr(enterDepth)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegMem(&s.Code, R14, R13)
 	emitMovRegReg(&s.Code, RDI, R14)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_int"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_int",
+		},
+	)
 
 	s.emitDataAddr(enterTail)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegMem(&s.Code, RAX, R13)
 	emitAddRegImm32(&s.Code, RAX, 1)
@@ -106,43 +136,97 @@ func (s *EmitState) emitRuntimeTraceExit() {
 	s.emitDataAddr(exitPrefix)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegReg(&s.Code, RDI, R12)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	s.emitDataAddr(exitDepth)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegReg(&s.Code, RDI, R15)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_int"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_int",
+		},
+	)
 
 	s.emitDataAddr(exitStatus)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegReg(&s.Code, RDI, R13)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	s.emitDataAddr(exitDuration)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitMovRegReg(&s.Code, RDI, R14)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_int"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_int",
+		},
+	)
 
 	s.emitDataAddr(exitNewline)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite = emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_print_str"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_print_str",
+		},
+	)
 
 	emitPopReg(&s.Code, R15)
 	emitPopReg(&s.Code, R14)

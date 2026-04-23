@@ -40,28 +40,32 @@ func injectPrelude(program *ast.Program) []string {
 	stdLibPath := getStdLibPath()
 	var warnings []string
 
-	if w := injectStructPrelude(
-		program,
-		filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-		"HashMap",
-	); w != "" {
-		warnings = append(warnings, w)
+	preludes := []struct {
+		inject func(*ast.Program, string, string) string
+		path   string
+		name   string
+	}{
+		{
+			injectStructPrelude,
+			filepath.Join(stdLibPath, "collections", "hashmap.bak"),
+			"HashMap",
+		},
+		{
+			injectStructPrelude,
+			filepath.Join(stdLibPath, "collections", "vec.bak"),
+			"Vec",
+		},
+		{
+			injectImplPrelude,
+			filepath.Join(stdLibPath, "result.bak"),
+			"Result",
+		},
 	}
 
-	if w := injectStructPrelude(
-		program,
-		filepath.Join(stdLibPath, "collections", "vec.bak"),
-		"Vec",
-	); w != "" {
-		warnings = append(warnings, w)
-	}
-
-	if w := injectImplPrelude(
-		program,
-		filepath.Join(stdLibPath, "result.bak"),
-		"Result",
-	); w != "" {
-		warnings = append(warnings, w)
+	for _, p := range preludes {
+		if w := p.inject(program, p.path, p.name); w != "" {
+			warnings = append(warnings, w)
+		}
 	}
 
 	return warnings
@@ -153,7 +157,9 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) strin
 
 	alreadyDefined := false
 	for _, stmt := range program.Statements {
-		if impl, ok := stmt.(*ast.ImplDecl); ok && impl.TypeName != nil && impl.TypeName.Value == typeName {
+		if impl, ok := stmt.(*ast.ImplDecl); ok &&
+			impl.TypeName != nil &&
+			impl.TypeName.Value == typeName {
 			alreadyDefined = true
 			break
 		}

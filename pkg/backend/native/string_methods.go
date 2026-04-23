@@ -44,7 +44,13 @@ func (s *EmitState) emitStringStartsWith(obj, prefix ast.Expression) error {
 
 	// Call __rt_starts_with
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_starts_with"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_starts_with",
+		},
+	)
 	return nil
 }
 
@@ -84,7 +90,13 @@ func (s *EmitState) emitStringBytes(obj ast.Expression) error {
 	// Allocate Vec header (24 bytes: ptr, len, cap)
 	emitMovRegImm32(&s.Code, RDI, 24)
 	callHeader := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callHeader, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callHeader,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitMovRegReg(&s.Code, R15, RAX) // R15 = vec header ptr
 
 	// Allocate data buffer (len * 8 bytes for int64 elements)
@@ -93,7 +105,13 @@ func (s *EmitState) emitStringBytes(obj ast.Expression) error {
 	emitMovRegImm32(&s.Code, RSI, 8)
 	emitImulRegReg(&s.Code, RDI, RSI)
 	callData := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callData, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callData,
+			Target:    "__rt_alloc",
+		},
+	)
 	// RAX = data buffer ptr
 
 	// Store in Vec header
@@ -214,7 +232,13 @@ func (s *EmitState) emitStringSubstring(obj, startExpr, endExpr ast.Expression) 
 	emitPushReg(&s.Code, RCX) // save length
 	emitMovRegReg(&s.Code, RDI, RCX)
 	callData := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callData, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callData,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX) // restore length
 	emitPopReg(&s.Code, RSI) // restore src ptr (was in RDI)
 
@@ -232,7 +256,13 @@ func (s *EmitState) emitStringSubstring(obj, startExpr, endExpr ast.Expression) 
 	emitPushReg(&s.Code, RCX)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callHdr := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callHdr, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callHdr,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX) // length
 	emitPopReg(&s.Code, R12) // data ptr
 
@@ -462,7 +492,13 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	emitPushReg(&s.Code, RAX)        // save index
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteSome := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteSome, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteSome,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX)         // index
 	emitMovRegImm32(&s.Code, RDX, 1) // tag = Some
 	emitMovMemReg(&s.Code, RAX, RDX)
@@ -485,7 +521,13 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	emitPushReg(&s.Code, RAX) // save index 0
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteZero := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteZero, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteZero,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitPopReg(&s.Code, RCX)         // index 0
 	emitMovRegImm32(&s.Code, RDX, 1) // tag = Some
 	emitMovMemReg(&s.Code, RAX, RDX)
@@ -502,7 +544,13 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	patchRel32(&s.Code, jgNotFound+2, notFoundNoMaxPos)
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteNoneNoMax := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteNoneNoMax, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteNoneNoMax,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitMovRegImm32(&s.Code, RCX, 0) // tag = None
 	emitMovMemReg(&s.Code, RAX, RCX)
 	jmpDoneNoMax := len(s.Code)
@@ -514,7 +562,13 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	emitAddRegImm32(&s.Code, RSP, 8) // pop max from stack
 	emitMovRegImm32(&s.Code, RDI, 16)
 	callSiteNone := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSiteNone, Target: "__rt_alloc"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSiteNone,
+			Target:    "__rt_alloc",
+		},
+	)
 	emitMovRegImm32(&s.Code, RCX, 0) // tag = None
 	emitMovMemReg(&s.Code, RAX, RCX)
 
@@ -621,7 +675,13 @@ func (s *EmitState) emitToString(obj ast.Expression) error {
 			// Allocate string header (16 bytes) + 2 bytes for char + null
 			emitMovRegImm32(&s.Code, RDI, 18)
 			callSite := emitCallRel32(&s.Code, 0)
-			s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_alloc"})
+			s.CallPatches = append(
+				s.CallPatches,
+				CallPatch{
+					ImmOffset: callSite,
+					Target:    "__rt_alloc",
+				},
+			)
 			// RAX = allocated buffer
 
 			emitPopReg(&s.Code, RDX) // restore char value to RDX
@@ -659,6 +719,12 @@ func (s *EmitState) emitToString(obj ast.Expression) error {
 	}
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
+	s.CallPatches = append(
+		s.CallPatches,
+		CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_itoa",
+		},
+	)
 	return nil
 }

@@ -300,14 +300,20 @@ func builtinInt(args ...object.Object) object.Object {
 	case *object.Integer:
 		return arg
 	case *object.Float:
-		return &object.Integer{Value: int64(arg.Value)}
+		return &object.Integer{
+			Value: int64(arg.Value),
+		}
 	case *object.String:
 		var val int64
 		_, err := fmt.Sscanf(arg.Value, "%d", &val)
 		if err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid integer"}}
+			return resultErrString("invalid integer")
 		}
-		return &object.Result{IsOk: true, Value: &object.Integer{Value: val}}
+
+		return &object.Result{
+			IsOk:  true,
+			Value: &object.Integer{Value: val},
+		}
 	case *object.Boolean:
 		if arg.Value {
 			return &object.Integer{Value: 1}
@@ -332,9 +338,15 @@ func builtinFloat(args ...object.Object) object.Object {
 		var val float64
 		_, err := fmt.Sscanf(arg.Value, "%f", &val)
 		if err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid float"}}
+			return &object.Result{
+				IsOk:  false,
+				Value: &object.String{Value: "invalid float"},
+			}
 		}
-		return &object.Result{IsOk: true, Value: &object.Float{Value: val}}
+		return &object.Result{
+			IsOk:  true,
+			Value: &object.Float{Value: val},
+		}
 	default:
 		return newError("cannot convert %s to float", args[0].Type())
 	}
@@ -407,14 +419,27 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet),
+			},
 		}
 	}
 
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value), 10*time.Second)
+	conn, err := net.DialTimeout(
+		"tcp",
+		fmt.Sprintf(
+			"%s:%d",
+			hostObj.Value,
+			portObj.Value,
+		),
+		10*time.Second,
+	)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
 	connMu.Lock()
@@ -423,7 +448,10 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Integer{Value: int64(id)},
+	}
 }
 
 func builtinSocketRead(args ...object.Object) object.Object {
@@ -445,18 +473,26 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid socket fd"}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "invalid socket fd"},
+		}
 	}
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet),
+			},
 		}
 	}
 
 	if nObj.Value < 0 {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "socket read count must be non-negative"}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "socket read count must be non-negative"},
+		}
 	}
 
 	buf := make([]byte, int(nObj.Value))
@@ -464,10 +500,21 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	if err != nil {
 		if err == io.EOF {
 			// Return empty Vec on EOF
-			return &object.Result{IsOk: true, Value: &object.Vec{Elements: []object.Object{}, Size: -1, Mutable: true, ElemType: "byte"}}
+			return &object.Result{
+				IsOk: true,
+				Value: &object.Vec{
+					Elements: []object.Object{},
+					Size:     -1,
+					Mutable:  true,
+					ElemType: "byte",
+				},
+			}
 		}
 		if n == 0 {
-			return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+			return &object.Result{
+				IsOk:  false,
+				Value: &object.String{Value: err.Error()},
+			}
 		}
 		// If partial read, that's fine.
 	}
@@ -479,9 +526,17 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	for i := range n {
 		elements[i] = &object.Integer{Value: int64(buf[i])}
 	}
-	vec := &object.Vec{Elements: elements, Size: -1, Mutable: true, ElemType: "byte"}
+	vec := &object.Vec{
+		Elements: elements,
+		Size:     -1,
+		Mutable:  true,
+		ElemType: "byte",
+	}
 
-	return &object.Result{IsOk: true, Value: vec}
+	return &object.Result{
+		IsOk:  true,
+		Value: vec,
+	}
 }
 
 func builtinSocketWrite(args ...object.Object) object.Object {
@@ -504,13 +559,18 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid socket fd"}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "invalid socket fd"},
+		}
 	}
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet),
+			},
 		}
 	}
 
@@ -520,16 +580,25 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 		if intVal, ok := el.(*object.Integer); ok {
 			bytes[i] = byte(intVal.Value)
 		} else {
-			return &object.Result{IsOk: false, Value: &object.String{Value: "invalid data type in buffer"}}
+			return &object.Result{
+				IsOk:  false,
+				Value: &object.String{Value: "invalid data type in buffer"},
+			}
 		}
 	}
 
 	_, err := conn.Write(bytes)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Void{},
+	}
 }
 
 func builtinSocketClose(args ...object.Object) object.Object {
@@ -544,8 +613,13 @@ func builtinSocketClose(args ...object.Object) object.Object {
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.close", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError(
+					"socket.close",
+					runtimecap.FlagAllowNet,
+				),
+			},
 		}
 	}
 
@@ -569,22 +643,34 @@ func builtinSocketClose(args ...object.Object) object.Object {
 		// Already closed or invalid, maybe just return Ok? Or Error?
 		// For safety, let's return Void (successful no-op) or Error if strict.
 		// Returning error for strictness.
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid socket fd"}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "invalid socket fd"},
+		}
 	}
 
 	if connOK {
 		if err := conn.Close(); err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+			return &object.Result{
+				IsOk:  false,
+				Value: &object.String{Value: err.Error()},
+			}
 		}
 	}
 
 	if listenerOK {
 		if err := listener.Close(); err != nil {
-			return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+			return &object.Result{
+				IsOk:  false,
+				Value: &object.String{Value: err.Error()},
+			}
 		}
 	}
 
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Void{},
+	}
 }
 
 func builtinSocketConnectTLS(args ...object.Object) object.Object {
@@ -604,8 +690,13 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.connectTls", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError(
+					"socket.connectTls",
+					runtimecap.FlagAllowNet,
+				),
+			},
 		}
 	}
 
@@ -613,7 +704,10 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 
 	conn, err := tls.Dial("tcp", addr, nil)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
 	connMu.Lock()
@@ -622,7 +716,12 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk: true,
+		Value: &object.Integer{
+			Value: int64(id),
+		},
+	}
 }
 
 func builtinSocketSetTimeout(args ...object.Object) object.Object {
@@ -645,13 +744,23 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid socket fd"}}
+		return &object.Result{
+			IsOk: false,
+			Value: &object.String{
+				Value: "invalid socket fd",
+			},
+		}
 	}
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.setTimeout", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError(
+					"socket.setTimeout",
+					runtimecap.FlagAllowNet,
+				),
+			},
 		}
 	}
 
@@ -664,10 +773,16 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 	}
 
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Void{},
+	}
 }
 
 func builtinSocketBind(args ...object.Object) object.Object {
@@ -687,15 +802,23 @@ func builtinSocketBind(args ...object.Object) object.Object {
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.bind", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError(
+					"socket.bind",
+					runtimecap.FlagAllowNet,
+				),
+			},
 		}
 	}
 
 	addr := fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
 	connMu.Lock()
@@ -704,7 +827,10 @@ func builtinSocketBind(args ...object.Object) object.Object {
 	listeners[id] = listener
 	connMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Integer{Value: int64(id)},
+	}
 }
 
 func builtinSocketAccept(args ...object.Object) object.Object {
@@ -719,8 +845,13 @@ func builtinSocketAccept(args ...object.Object) object.Object {
 
 	if !runtimecap.Current().AllowNet {
 		return &object.Result{
-			IsOk:  false,
-			Value: &object.String{Value: runtimecap.PermissionError("socket.accept", runtimecap.FlagAllowNet)},
+			IsOk: false,
+			Value: &object.String{
+				Value: runtimecap.PermissionError(
+					"socket.accept",
+					runtimecap.FlagAllowNet,
+				),
+			},
 		}
 	}
 
@@ -729,12 +860,18 @@ func builtinSocketAccept(args ...object.Object) object.Object {
 	connMu.Unlock()
 
 	if !ok {
-		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid listener fd"}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: "invalid listener fd"},
+		}
 	}
 
 	conn, err := listener.Accept()
 	if err != nil {
-		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: err.Error()},
+		}
 	}
 
 	connMu.Lock()
@@ -743,7 +880,10 @@ func builtinSocketAccept(args ...object.Object) object.Object {
 	activeConns[id] = conn
 	connMu.Unlock()
 
-	return &object.Result{IsOk: true, Value: &object.Integer{Value: int64(id)}}
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Integer{Value: int64(id)},
+	}
 }
 
 func builtinSleep(args ...object.Object) object.Object {
@@ -754,8 +894,13 @@ func builtinSleep(args ...object.Object) object.Object {
 	if !ok {
 		return newError("__builtin_sleep: argument must be int (ms), got %s", args[0].Type())
 	}
+
 	time.Sleep(time.Duration(ms.Value) * time.Millisecond)
-	return &object.Result{IsOk: true, Value: &object.Void{}}
+
+	return &object.Result{
+		IsOk:  true,
+		Value: &object.Void{},
+	}
 }
 
 func builtinTimeNow(args ...object.Object) object.Object {
@@ -770,11 +915,13 @@ func builtinTimeParts(args ...object.Object) object.Object {
 	if !ok {
 		return newError("__builtin_time_parts: argument must be int (nanos), got %s", args[0].Type())
 	}
+
 	tm := time.Unix(0, nanosObj.Value).UTC()
 	year, month, day := tm.Date()
 	hour, m, sec := tm.Clock()
 	nsec := tm.Nanosecond()
 	weekday := int(tm.Weekday())
+
 	parts := []object.Object{
 		&object.Integer{Value: int64(year)},
 		&object.Integer{Value: int64(month)},
@@ -785,7 +932,13 @@ func builtinTimeParts(args ...object.Object) object.Object {
 		&object.Integer{Value: int64(nsec)},
 		&object.Integer{Value: int64(weekday)},
 	}
-	return &object.Vec{Elements: parts, ElemType: "int", Size: -1, Mutable: false}
+
+	return &object.Vec{
+		Elements: parts,
+		ElemType: "int",
+		Size:     -1,
+		Mutable:  false,
+	}
 }
 
 func builtinMonotonicNow(args ...object.Object) object.Object {

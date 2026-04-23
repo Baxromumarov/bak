@@ -26,22 +26,45 @@ type ProgramWithPath struct {
 
 // BuildExecutable compiles the AST into a native ELF64 binary.
 // It also compiles all imported modules from the package registry.
-func BuildExecutable(program *ast.Program, permissions runtimecap.Permissions) ([]byte, error) {
-	return BuildExecutableWithOptions(program, BuildOptions{Permissions: permissions})
+func BuildExecutable(
+	program *ast.Program,
+	permissions runtimecap.Permissions,
+) (
+	[]byte,
+	error,
+) {
+	return BuildExecutableWithOptions(
+		program,
+		BuildOptions{Permissions: permissions},
+	)
 }
 
-func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]byte, error) {
+func BuildExecutableWithOptions(
+	program *ast.Program,
+	options BuildOptions,
+) (
+	[]byte,
+	error,
+) {
+
 	mainPath := options.MainPath
 	if mainPath == "" {
 		mainPath = program.SourcePath
 	}
+
 	if err := ensureImportGraphLoaded(program, mainPath); err != nil {
 		return nil, err
 	}
 
 	// Collect all programs from imported packages
 	allPrograms := make([]ProgramWithPath, 0)
-	allPrograms = append(allPrograms, ProgramWithPath{Program: program, PathName: "main"})
+	allPrograms = append(
+		allPrograms,
+		ProgramWithPath{
+			Program:  program,
+			PathName: "main",
+		},
+	)
 
 	// Get all packages from registry and add their programs in stable order.
 	// Registry iteration is map-backed and otherwise nondeterministic.
@@ -53,7 +76,13 @@ func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]b
 		if pkg.Program != nil {
 			// Extract path-derived name from package path
 			pathName := extractPathName(pkg.Path)
-			allPrograms = append(allPrograms, ProgramWithPath{Program: pkg.Program, PathName: pathName})
+			allPrograms = append(
+				allPrograms,
+				ProgramWithPath{
+					Program:  pkg.Program,
+					PathName: pathName,
+				},
+			)
 		}
 	}
 
@@ -66,20 +95,33 @@ func BuildExecutableWithOptions(program *ast.Program, options BuildOptions) ([]b
 }
 
 func ensureImportGraphLoaded(program *ast.Program, mainPath string) error {
-	visited := make(map[string]bool)
-	return loadProgramImports(program, mainPath, visited)
+	return loadProgramImports(program, mainPath, make(map[string]bool))
 }
 
-func loadProgramImports(program *ast.Program, currentPath string, visited map[string]bool) error {
+func loadProgramImports(
+	program *ast.Program,
+	currentPath string,
+	visited map[string]bool,
+) error {
+
 	for _, stmt := range program.Statements {
 		switch s := stmt.(type) {
 		case *ast.ImportStatement:
-			if err := loadImportedProgram(s.Path, currentPath, visited); err != nil {
+			if err := loadImportedProgram(
+				s.Path,
+				currentPath,
+				visited,
+			); err != nil {
 				return err
 			}
+
 		case *ast.ImportBlock:
 			for _, imp := range s.Imports {
-				if err := loadImportedProgram(imp.Path, currentPath, visited); err != nil {
+				if err := loadImportedProgram(
+					imp.Path,
+					currentPath,
+					visited,
+				); err != nil {
 					return err
 				}
 			}
@@ -88,14 +130,21 @@ func loadProgramImports(program *ast.Program, currentPath string, visited map[st
 	return nil
 }
 
-func loadImportedProgram(importPath, currentPath string, visited map[string]bool) error {
+func loadImportedProgram(
+	importPath string,
+	currentPath string,
+	visited map[string]bool,
+) error {
+
 	resolvedPath := packages.ResolveImportPathFrom(importPath, currentPath)
 	if resolvedPath == "" {
 		return fmt.Errorf("cannot resolve import path %q", importPath)
 	}
+
 	if visited[resolvedPath] {
 		return nil
 	}
+
 	visited[resolvedPath] = true
 
 	if _, exists := packages.GlobalRegistry.GetPackage(resolvedPath); exists {
@@ -108,14 +157,25 @@ func loadImportedProgram(importPath, currentPath string, visited map[string]bool
 	}
 
 	pkgName := packageNameForProgram(program, resolvedPath)
-	packages.GlobalRegistry.RegisterPackage(packages.NewPackage(pkgName, resolvedPath, program))
+	packages.GlobalRegistry.RegisterPackage(packages.NewPackage(
+		pkgName,
+		resolvedPath,
+		program,
+	))
 
 	return loadProgramImports(program, resolvedPath, visited)
 }
 
-func packageNameForProgram(program *ast.Program, fallbackPath string) string {
+func packageNameForProgram(
+	program *ast.Program,
+	fallbackPath string,
+) string {
+
 	for _, stmt := range program.Statements {
-		if pkgStmt, ok := stmt.(*ast.PackageStatement); ok && pkgStmt.Name != nil && pkgStmt.Name.Value != "" {
+		if pkgStmt, ok := stmt.(*ast.PackageStatement); ok &&
+			pkgStmt.Name != nil &&
+			pkgStmt.Name.Value != "" {
+
 			return pkgStmt.Name.Value
 		}
 	}
