@@ -355,6 +355,13 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 			Params: []ast.TypeExpression{
 				&ast.SimpleType{Name: "int"},
 				&ast.SimpleType{Name: "string"},
+				&ast.GenericType{
+					Name: "Vec",
+					TypeParams: []ast.TypeExpression{
+						&ast.SimpleType{Name: "string"},
+						&ast.SizeExpression{IsDynamic: true},
+					},
+				},
 			},
 			ReturnType: &ast.GenericType{
 				Name: "Result",

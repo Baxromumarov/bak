@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
@@ -85,28 +86,10 @@ func pgQuery(args ...object.Object) object.Object {
 
 	var queryArgs []any
 	if len(args) == 3 {
-		// Params vector (support both raw *object.Vec and stdlib Vec struct wrapper)
-		vecObj, ok := args[2].(*object.Vec)
-		if !ok {
-			if s, ok := args[2].(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
-				if dataField, ok := s.Fields["data"]; ok {
-					if dataVec, ok := dataField.(*object.Vec); ok {
-						vecObj = dataVec
-					}
-				}
-			}
-		}
-		if vecObj == nil {
-			return newError("__builtin_pg_query: third argument must be VEC (params), got %s", args[2].Type())
-		}
-		for i, elem := range vecObj.Elements {
-			strElem, ok := elem.(*object.String)
-			if !ok {
-				// We currently only support string parameters for simplicity in this demo
-				// Ideally we would support ints/bools too via a variant or interface type
-				return newError("__builtin_pg_query: param at index %d must be STRING, got %s", i, elem.Type())
-			}
-			queryArgs = append(queryArgs, strElem.Value)
+		var errObj *object.Error
+		queryArgs, errObj = dbQueryParams("__builtin_pg_query", args[2])
+		if errObj != nil {
+			return errObj
 		}
 	}
 
@@ -204,10 +187,10 @@ func mysqlConnect(args ...object.Object) object.Object {
 }
 
 // mysqlQuery executes a SQL query on a MySQL connection.
-// __builtin_mysql_query(handle: int, sql: string) -> Result<QueryResult, string>
+// __builtin_mysql_query(handle: int, sql: string, params?: Vec<string, _>) -> Result<QueryResult, string>
 func mysqlQuery(args ...object.Object) object.Object {
-	if len(args) != 2 {
-		return newError("__builtin_mysql_query: wrong number of arguments. got=%d, want=2", len(args))
+	if len(args) < 2 || len(args) > 3 {
+		return newError("__builtin_mysql_query: wrong number of arguments. got=%d, want=2 or 3", len(args))
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
@@ -227,6 +210,15 @@ func mysqlQuery(args ...object.Object) object.Object {
 		}
 	}
 
+	var queryArgs []any
+	if len(args) == 3 {
+		var errObj *object.Error
+		queryArgs, errObj = dbQueryParams("__builtin_mysql_query", args[2])
+		if errObj != nil {
+			return errObj
+		}
+	}
+
 	dbMu.Lock()
 	db, exists := dbConns[int(handleObj.Value)]
 	dbMu.Unlock()
@@ -235,13 +227,57 @@ func mysqlQuery(args ...object.Object) object.Object {
 		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
 	}
 
-	rows, err := db.Query(sqlStr.Value)
+	rows, err := db.Query(sqlStr.Value, queryArgs...)
 	if err != nil {
 		return &object.Result{IsOk: false, Value: &object.String{Value: err.Error()}}
 	}
 	defer rows.Close()
 
 	return rowsToResult(rows)
+}
+
+// dbConfig configures a DB connection pool.
+// __builtin_db_config(handle: int, max_open: int, max_idle: int, max_life_sec: int) -> Result<void, string>
+func dbConfig(args ...object.Object) object.Object {
+	if len(args) != 4 {
+		return newError("__builtin_db_config: wrong number of arguments. got=%d, want=4", len(args))
+	}
+
+	handleObj, ok := args[0].(*object.Integer)
+	if !ok {
+		return newError("__builtin_db_config: argument 1 must be INT (handle), got %s", args[0].Type())
+	}
+	maxOpenObj, ok := args[1].(*object.Integer)
+	if !ok {
+		return newError("__builtin_db_config: argument 2 must be INT (max_open), got %s", args[1].Type())
+	}
+	maxIdleObj, ok := args[2].(*object.Integer)
+	if !ok {
+		return newError("__builtin_db_config: argument 3 must be INT (max_idle), got %s", args[2].Type())
+	}
+	maxLifeObj, ok := args[3].(*object.Integer)
+	if !ok {
+		return newError("__builtin_db_config: argument 4 must be INT (max_life_sec), got %s", args[3].Type())
+	}
+
+	if !runtimecap.Current().AllowNet {
+		return &object.Result{
+			IsOk:  false,
+			Value: &object.String{Value: runtimecap.PermissionError("db.config", runtimecap.FlagAllowNet)},
+		}
+	}
+
+	dbMu.Lock()
+	db, exists := dbConns[int(handleObj.Value)]
+	dbMu.Unlock()
+	if !exists {
+		return &object.Result{IsOk: false, Value: &object.String{Value: "invalid database handle"}}
+	}
+
+	db.SetMaxOpenConns(int(maxOpenObj.Value))
+	db.SetMaxIdleConns(int(maxIdleObj.Value))
+	db.SetConnMaxLifetime(time.Duration(maxLifeObj.Value) * time.Second)
+	return &object.Result{IsOk: true, Value: &object.Void{}}
 }
 
 // mysqlClose closes a MySQL connection.
@@ -346,6 +382,32 @@ func rowsToResult(rows *sql.Rows) object.Object {
 	}
 }
 
+func dbQueryParams(fnName string, paramsArg object.Object) ([]any, *object.Error) {
+	vecObj, ok := paramsArg.(*object.Vec)
+	if !ok {
+		if s, ok := paramsArg.(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
+			if dataField, ok := s.Fields["data"]; ok {
+				if dataVec, ok := dataField.(*object.Vec); ok {
+					vecObj = dataVec
+				}
+			}
+		}
+	}
+	if vecObj == nil {
+		return nil, newError("%s: third argument must be VEC (params), got %s", fnName, paramsArg.Type())
+	}
+
+	queryArgs := make([]any, 0, len(vecObj.Elements))
+	for i, elem := range vecObj.Elements {
+		strElem, ok := elem.(*object.String)
+		if !ok {
+			return nil, newError("%s: param at index %d must be STRING, got %s", fnName, i, elem.Type())
+		}
+		queryArgs = append(queryArgs, strElem.Value)
+	}
+	return queryArgs, nil
+}
+
 // Register database builtins
 func init() {
 	Builtins["__builtin_pg_connect"] = &object.Builtin{Fn: pgConnect}
@@ -354,4 +416,5 @@ func init() {
 	Builtins["__builtin_mysql_connect"] = &object.Builtin{Fn: mysqlConnect}
 	Builtins["__builtin_mysql_query"] = &object.Builtin{Fn: mysqlQuery}
 	Builtins["__builtin_mysql_close"] = &object.Builtin{Fn: mysqlClose}
+	Builtins["__builtin_db_config"] = &object.Builtin{Fn: dbConfig}
 }

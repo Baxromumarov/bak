@@ -313,7 +313,7 @@ var builtinContractsByID = map[BuiltinID]BuiltinContract{
 	BUILTIN_MYSQL_QUERY: {
 		Name:           "__builtin_mysql_query",
 		MinArgs:        2,
-		MaxArgs:        2,
+		MaxArgs:        3,
 		CheckArgTypes:  true,
 		PermissionOp:   "db.mysql.query",
 		PermissionFlag: runtimecap.FlagAllowNet,

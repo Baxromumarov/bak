@@ -19,6 +19,12 @@ pub func query(conn: &db.Connection, sql: string) -> (Result<db.QueryResult, str
     return __builtin_mysql_query(conn.Handle, sql)
 }
 
+// query_params executes a SQL query with parameters and returns a QueryResult.
+// Parameters are passed as a Vec<string, _> to support placeholder binding.
+pub func query_params(conn: &db.Connection, sql: string, params: Vec<string, _>) -> (Result<db.QueryResult, string>) {
+    return __builtin_mysql_query(conn.Handle, sql, params)
+}
+
 // close closes the database connection.
 pub func close(conn: db.Connection) -> (Result<void, string>) {
     return __builtin_mysql_close(conn.Handle)

@@ -35,6 +35,19 @@ func TestBuiltinContract_PgQueryOptionalParams(t *testing.T) {
 	}
 }
 
+func TestBuiltinContract_MysqlQueryOptionalParams(t *testing.T) {
+	contract, ok := BuiltinContractByName("__builtin_mysql_query")
+	if !ok {
+		t.Fatalf("expected __builtin_mysql_query contract")
+	}
+	if contract.MinArgs != 2 || contract.MaxArgs != 3 {
+		t.Fatalf("unexpected mysql_query arity: min=%d max=%d", contract.MinArgs, contract.MaxArgs)
+	}
+	if !contract.AcceptsArity(2) || !contract.AcceptsArity(3) || contract.AcceptsArity(1) || contract.AcceptsArity(4) {
+		t.Fatalf("mysql_query arity acceptance is incorrect")
+	}
+}
+
 func TestLookupBuiltinID_TypeofAlias(t *testing.T) {
 	idType, ok := LookupBuiltinID("type")
 	if !ok {

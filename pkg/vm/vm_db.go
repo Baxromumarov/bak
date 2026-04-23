@@ -14,7 +14,7 @@ import (
 // callBuiltinDB bridges VM database builtin calls to the Go implementations.
 func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value, error) {
 	if !vm.permissions.AllowNet {
-		return makeResultErr(vm, runtimecap.PermissionError("db."+strings.ReplaceAll(name, "_", "."), runtimecap.FlagAllowNet)), nil
+		return makeResultErr(vm, runtimecap.PermissionError(dbPermissionOp(name), runtimecap.FlagAllowNet)), nil
 	}
 
 	switch name {
@@ -29,7 +29,11 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 	case "pg_query":
 		handle := int(args[0].AsInt)
 		sql := args[1].AsString
-		result, err := dbQuery(vm, handle, sql)
+		queryArgs, err := dbQueryArgs(args, "__builtin_pg_query")
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		result, err := dbQuery(vm, handle, sql, queryArgs)
 		if err != nil {
 			return makeResultErr(vm, err.Error()), nil
 		}
@@ -53,7 +57,11 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 	case "mysql_query":
 		handle := int(args[0].AsInt)
 		sql := args[1].AsString
-		result, err := dbQuery(vm, handle, sql)
+		queryArgs, err := dbQueryArgs(args, "__builtin_mysql_query")
+		if err != nil {
+			return makeResultErr(vm, err.Error()), nil
+		}
+		result, err := dbQuery(vm, handle, sql, queryArgs)
 		if err != nil {
 			return makeResultErr(vm, err.Error()), nil
 		}
@@ -118,7 +126,7 @@ func dbConfig(handle, maxOpen, maxIdle, maxLifeSeconds int) error {
 	return nil
 }
 
-func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
+func dbQuery(vm *VM, handle int, sqlStr string, queryArgs []any) (compiler.Value, error) {
 	vmDBMu.Lock()
 	db, exists := vmDBConns[handle]
 	vmDBMu.Unlock()
@@ -126,7 +134,7 @@ func dbQuery(vm *VM, handle int, sqlStr string) (compiler.Value, error) {
 		return compiler.NewNil(), fmt.Errorf("invalid database handle")
 	}
 
-	rows, err := db.Query(sqlStr)
+	rows, err := db.Query(sqlStr, queryArgs...)
 	if err != nil {
 		return compiler.NewNil(), err
 	}
@@ -205,6 +213,67 @@ func dbClose(handle int) error {
 		return fmt.Errorf("invalid database handle")
 	}
 	return db.Close()
+}
+
+func dbPermissionOp(name string) string {
+	switch name {
+	case "pg_connect":
+		return "db.postgres.connect"
+	case "pg_query":
+		return "db.postgres.query"
+	case "pg_close":
+		return "db.postgres.close"
+	case "mysql_connect":
+		return "db.mysql.connect"
+	case "mysql_query":
+		return "db.mysql.query"
+	case "mysql_close":
+		return "db.mysql.close"
+	case "db_config":
+		return "db.config"
+	default:
+		return "db." + strings.ReplaceAll(name, "_", ".")
+	}
+}
+
+func dbQueryArgs(args []compiler.Value, fnName string) ([]any, error) {
+	if len(args) == 2 {
+		return nil, nil
+	}
+	if len(args) != 3 {
+		return nil, fmt.Errorf("%s: wrong number of arguments. got=%d, want=2 or 3", fnName, len(args))
+	}
+
+	var params *compiler.ArrayInstance
+	switch args[2].Type {
+	case compiler.VAL_ARRAY:
+		arr, ok := args[2].AsObject.(*compiler.ArrayInstance)
+		if !ok {
+			return nil, fmt.Errorf("%s: third argument must be Vec<string, _>", fnName)
+		}
+		params = arr
+	case compiler.VAL_STRUCT:
+		inst, ok := args[2].AsObject.(*compiler.StructInstance)
+		if !ok {
+			return nil, fmt.Errorf("%s: third argument must be Vec<string, _>", fnName)
+		}
+		arr, ok := vecArrayFromStruct(inst)
+		if !ok {
+			return nil, fmt.Errorf("%s: third argument must be Vec<string, _>", fnName)
+		}
+		params = arr
+	default:
+		return nil, fmt.Errorf("%s: third argument must be Vec<string, _>", fnName)
+	}
+
+	queryArgs := make([]any, 0, len(params.Elements))
+	for i, elem := range params.Elements {
+		if elem.Type != compiler.VAL_STRING {
+			return nil, fmt.Errorf("%s: param at index %d must be string", fnName, i)
+		}
+		queryArgs = append(queryArgs, elem.AsString)
+	}
+	return queryArgs, nil
 }
 
 func makeResultOk(vm *VM, val compiler.Value) compiler.Value {

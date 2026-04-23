@@ -109,8 +109,9 @@ impl Row as r {
 
 impl Connection as c {
     func config(max_open: int, max_idle: int, max_life_sec: int) -> (Result<bool, string>) {
-        if is_err(__builtin_db_config(c.Handle, max_open, max_idle, max_life_sec)) {
-            return Err("failed to configure db pool")
+        var config_result: Result<void, string> = __builtin_db_config(c.Handle, max_open, max_idle, max_life_sec)
+        if config_result.is_err() {
+            return Err(config_result.unwrap_err())
         }
         return Ok(true)
     }

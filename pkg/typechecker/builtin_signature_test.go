@@ -81,6 +81,36 @@ func main() -> (void) {
 `, "function '__builtin_pg_query' expects between 2 and 3 argument(s)")
 }
 
+func TestBuiltinSignature_MysqlQuerySupportsOptionalParams(t *testing.T) {
+	expectNoErrors(t, `
+package main
+func main() -> (void) {
+	var params: Vec<string, _> = Vec.from(["1"])
+	__builtin_mysql_query(1, "select 1")
+	__builtin_mysql_query(1, "select ?", params)
+}
+`)
+}
+
+func TestBuiltinSignature_MysqlQueryArityRangeIsChecked(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	__builtin_mysql_query(1)
+}
+`, "function '__builtin_mysql_query' expects between 2 and 3 argument(s)")
+}
+
+func TestBuiltinSignature_MysqlQueryOptionalArgTypeIsChecked(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	var bad: Vec<int, _> = Vec.from([1])
+	__builtin_mysql_query(1, "select 1", bad)
+}
+`, "type mismatch")
+}
+
 func TestBuiltinSignature_ExecSecondArgTypeIsChecked(t *testing.T) {
 	expectError(t, `
 package main

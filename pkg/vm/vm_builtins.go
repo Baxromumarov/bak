@@ -1486,8 +1486,8 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		return vm.callBuiltinDB("mysql_connect", args)
 
 	case compiler.BUILTIN_MYSQL_QUERY:
-		if len(args) != 2 {
-			return compiler.NewNil(), fmt.Errorf("__builtin_mysql_query() requires handle and sql")
+		if len(args) < 2 || len(args) > 3 {
+			return compiler.NewNil(), fmt.Errorf("__builtin_mysql_query() requires handle and sql, with optional params vec")
 		}
 		return vm.callBuiltinDB("mysql_query", args)
 
