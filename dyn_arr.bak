@@ -1,39 +1,18 @@
 package main
 
-// 1. making the array size visible
-// 2. Vec. it is not showing the available functions
-// 3. type hashmap it is not showing that hashmap, 
-// how to know what kind of functionality bak has
-// 4. it is also not showing any data types, like int32,int64, float32, and so on
-// 5. in comment as you see two dots(..), any kind of checker must skip the comment section
-
-struct data{
-    name: string,
-
-}
-
-impl data as d {
-    mut func set_name(s: string)-> (void){
-        d.name = s
-        return void
-    }
-}
+import "std/math"
 
 func main() -> (void) {
-    mut var d: data
+    var num: float64 = 12.34
 
-    d.set_name("Ben")
-    println(d.name)
-    
-    mut var arr= Vec.from([1,2,3])
-    arr.push(21)
-    arr.push(21)
-    arr.push(21)
-    arr.pop()
+    println(math.ceil(num))
 
+    var out = math.log2(16.0)
 
-    println("ARR: ",arr)
-    println("Hello, World!")
+    println(
+        "OUT: ",
+        out,
+    )
 
     return void
 }

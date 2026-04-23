@@ -203,14 +203,24 @@ pub func log2(value: float64) -> (float64) {
     if value <= 0.0 {
         return 0.0
     }
-    return ln(value) / Ln2
+    var result: float64 = ln(value) / Ln2
+    var nearest: float64 = round(result)
+    if absFloat(result - nearest) < EPSILON {
+        return nearest
+    }
+    return result
 }
 
 pub func log10(value: float64) -> (float64) {
     if value <= 0.0 {
         return 0.0
     }
-    return ln(value) / Ln10
+    var result: float64 = ln(value) / Ln10
+    var nearest: float64 = round(result)
+    if absFloat(result - nearest) < EPSILON {
+        return nearest
+    }
+    return result
 }
 
 // Power helpers
