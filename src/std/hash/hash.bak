@@ -1,0 +1,72 @@
+package hash
+
+// =============================================================================
+// Hash Functions
+// =============================================================================
+// Pure Bak implementations of common non-cryptographic hash functions.
+
+// djb2 hash function for strings.
+pub func djb2(s: &string) -> (int) {
+    mut var hash: int = 5381
+    mut var i: int = 0
+    while i < s.len() {
+        hash = ((hash << 5) + hash) + int(s[i])
+        i = i + 1
+    }
+    return hash
+}
+
+// djb2a (xor variant) hash function for strings.
+pub func djb2a(s: &string) -> (int) {
+    mut var hash: int = 5381
+    mut var i: int = 0
+    while i < s.len() {
+        hash = ((hash << 5) + hash) ^ int(s[i])
+        i = i + 1
+    }
+    return hash
+}
+
+// fnv1a 32-bit hash function for strings.
+pub func fnv1a(s: &string) -> (int) {
+    mut var hash: int = 2166136261
+    mut var i: int = 0
+    while i < s.len() {
+        hash = hash ^ int(s[i])
+        hash = hash * 16777619
+        i = i + 1
+    }
+    return hash
+}
+
+// sdbm hash function for strings.
+pub func sdbm(s: &string) -> (int) {
+    mut var hash: int = 0
+    mut var i: int = 0
+    while i < s.len() {
+        hash = int(s[i]) + (hash << 6) + (hash << 16) - hash
+        i = i + 1
+    }
+    return hash
+}
+
+// javaHash mimics Java's String.hashCode().
+pub func javaHash(s: &string) -> (int) {
+    mut var hash: int = 0
+    mut var i: int = 0
+    while i < s.len() {
+        hash = hash * 31 + int(s[i])
+        i = i + 1
+    }
+    return hash
+}
+
+// hashInt turns an int into a hash value using Knuth's multiplicative method.
+pub func hashInt(i: int) -> (int) {
+    return i * 2654435761
+}
+
+// combineHashes combines two hash values (like boost::hash_combine).
+pub func combineHashes(h1: int, h2: int) -> (int) {
+    return h1 ^ (h2 + 2654435769 + (h1 << 6) + (h1 >> 2))
+}

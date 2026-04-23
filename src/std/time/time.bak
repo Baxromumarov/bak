@@ -356,3 +356,150 @@ pub func fromSecs(s: int) -> (Duration) {
 pub func since(t: Time) -> (Duration) {
     return (now()).sub(t)
 }
+
+// =============================================================================
+// Additional Time Utilities
+// =============================================================================
+
+// parseDuration parses a simple duration string like "100ms", "5s", "2m", "1h".
+// Returns Err if the format is unrecognized.
+pub func parseDuration(s: &string) -> (Result<Duration, string>) {
+    if s.len() == 0 {
+        return Err("empty duration string")
+    }
+    mut var numStr: string = ""
+    mut var i: int = 0
+    while i < s.len() {
+        var ch: char = s[i]
+        if ch >= '0' && ch <= '9' {
+            numStr = numStr + string(ch)
+        } else {
+            break
+        }
+        i = i + 1
+    }
+    if numStr.len() == 0 {
+        return Err("duration missing number")
+    }
+    var numRes: Result<int, string> = strconv.atoi(&numStr)
+    switch numRes {
+        case Err(e) { return Err(e) }
+        case Ok(n) {
+            var unit: string = s.substring(i, s.len())
+            if unit == "ns" {
+                return Ok(Duration{nanos: n})
+            }
+            if unit == "us" || unit == "µs" {
+                return Ok(Duration{nanos: n * Microsecond})
+            }
+            if unit == "ms" {
+                return Ok(Duration{nanos: n * Millisecond})
+            }
+            if unit == "s" {
+                return Ok(Duration{nanos: n * Second})
+            }
+            if unit == "m" {
+                return Ok(Duration{nanos: n * Minute})
+            }
+            if unit == "h" {
+                return Ok(Duration{nanos: n * Hour})
+            }
+            return Err("unknown duration unit: " + unit)
+        }
+    }
+}
+
+// Timer represents a one-shot or periodic timer.
+pub struct Timer {
+    start: Time
+    interval: Duration
+}
+
+impl Timer as t {
+    // newTimer creates a Timer that fires after interval from now.
+    pub func newTimer(interval: Duration) -> (Timer) {
+        return Timer{start: now(), interval: interval}
+    }
+
+    // reset resets the timer to fire after interval from now.
+    pub mut func reset(interval: Duration) -> (void) {
+        t.start = now()
+        t.interval = interval
+        return void
+    }
+
+    // elapsed returns true if the interval has passed.
+    pub func elapsed() -> (bool) {
+        return since(t.start).asNanos() >= t.interval.asNanos()
+    }
+
+    // remaining returns the time remaining until the timer fires.
+    pub func remaining() -> (Duration) {
+        var passed: Duration = since(t.start)
+        var intervalNanos: int = t.interval.asNanos()
+        var passedNanos: int = passed.asNanos()
+        if passedNanos >= intervalNanos {
+            return Duration{nanos: 0}
+        }
+        return Duration{nanos: intervalNanos - passedNanos}
+    }
+}
+
+// Stopwatch is a simple elapsed-time tracker.
+pub struct Stopwatch {
+    start: int
+    running: bool
+}
+
+impl Stopwatch as sw {
+    // new creates a new stopped Stopwatch.
+    pub func new() -> (Stopwatch) {
+        return Stopwatch{start: 0, running: false}
+    }
+
+    // start starts the stopwatch.
+    pub mut func start() -> (void) {
+        sw.start = monotonicNow()
+        sw.running = true
+        return void
+    }
+
+    // stop stops the stopwatch and returns the elapsed duration.
+    pub mut func stop() -> (Duration) {
+        sw.running = false
+        return monotonicSince(sw.start)
+    }
+
+    // reset resets the stopwatch to zero.
+    pub mut func reset() -> (void) {
+        sw.start = monotonicNow()
+        return void
+    }
+
+    // elapsed returns the elapsed time since start.
+    pub func elapsed() -> (Duration) {
+        if !sw.running {
+            return Duration{nanos: 0}
+        }
+        return monotonicSince(sw.start)
+    }
+
+    // isRunning returns true if the stopwatch is running.
+    pub func isRunning() -> (bool) {
+        return sw.running
+    }
+}
+
+// sleepUntil sleeps until the given Time.
+pub func sleepUntil(t: Time) -> (void) {
+    var d: Duration = t.until(now())
+    if d.asNanos() > 0 {
+        sleep(d)
+    }
+    return void
+}
+
+// tick creates a Timer that fires every interval.
+pub func tick(interval: Duration) -> (Timer) {
+    return Timer{start: now(), interval: interval}
+}

@@ -561,16 +561,8 @@ func isBuiltinTypeName(name string) bool {
 	return slices.Contains(builtinTypeNames, name)
 }
 
-func (tc *TypeChecker) suggestIdentifier(name string) string {
-	return bestSuggestion(name, tc.collectIdentifierCandidates())
-}
-
 func (tc *TypeChecker) suggestIdentifiers(name string, limit int) []string {
 	return bestSuggestions(name, tc.collectIdentifierCandidates(), limit)
-}
-
-func (tc *TypeChecker) suggestTypeName(name string) string {
-	return bestSuggestion(name, tc.collectTypeCandidates())
 }
 
 func (tc *TypeChecker) suggestTypeNames(name string, limit int) []string {
@@ -778,14 +770,6 @@ func (tc *TypeChecker) collectFunctionCandidates() []string {
 	return candidates
 }
 
-func bestSuggestion(name string, candidates []string) string {
-	suggestions := bestSuggestions(name, candidates, 1)
-	if len(suggestions) == 0 {
-		return ""
-	}
-	return suggestions[0]
-}
-
 func bestSuggestions(name string, candidates []string, limit int) []string {
 	name = strings.TrimSpace(name)
 	if name == "" || len(candidates) == 0 || limit <= 0 {
@@ -920,23 +904,6 @@ func absInt(val int) int {
 		return -val
 	}
 	return val
-}
-
-func extractVecElementType(vecType string) string {
-	if !strings.HasPrefix(vecType, "Vec<") {
-		return ""
-	}
-	inner := strings.TrimPrefix(vecType, "Vec<")
-	inner = strings.TrimSuffix(inner, ">")
-	parts := strings.Split(inner, ",")
-	if len(parts) >= 1 {
-		elem := strings.TrimSpace(parts[0])
-		if idx := strings.LastIndex(elem, "."); idx != -1 {
-			elem = elem[idx+1:]
-		}
-		return elem
-	}
-	return ""
 }
 
 func (tc *TypeChecker) isNumericType(t ast.TypeExpression) bool {

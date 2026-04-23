@@ -39,10 +39,6 @@ const (
 
 // --- Helpers ---
 
-func needsREX(reg int) bool {
-	return reg >= 8
-}
-
 func rexByte(w, r, x, b int) byte {
 	return byte(0x40 | (w << 3) | (r << 2) | (x << 1) | b)
 }
@@ -428,16 +424,6 @@ func emitXorRegReg(buf *[]byte, dst, src int) {
 }
 
 // --- Byte-level memory access ---
-
-// emitMovByteMemBaseDispReg: mov byte [base+disp], src_low8
-func emitMovByteMemBaseDispReg(buf *[]byte, base int, disp int, src int) {
-	if src >= 4 || base >= 8 {
-		*buf = append(*buf, rexByte(0, regHi(src), 0, regHi(base)))
-	}
-	*buf = append(*buf, 0x88)
-	*buf = append(*buf, modRM(2, src, base))
-	appendI32LE(buf, int32(disp))
-}
 
 // emitMovzxRegByteMemBaseDisp: movzx dst, byte [base+disp]
 func emitMovzxRegByteMemBaseDisp(buf *[]byte, dst int, base int, disp int) {

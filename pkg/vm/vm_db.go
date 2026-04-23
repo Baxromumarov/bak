@@ -14,7 +14,7 @@ import (
 // callBuiltinDB bridges VM database builtin calls to the Go implementations.
 func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value, error) {
 	if !vm.permissions.AllowNet {
-		return makeResultErr(vm, runtimecap.PermissionError(dbPermissionOp(name), runtimecap.FlagAllowNet)), nil
+		return makeResultErr(runtimecap.PermissionError(dbPermissionOp(name), runtimecap.FlagAllowNet)), nil
 	}
 
 	switch name {
@@ -22,57 +22,57 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 		connStr := args[0].AsString
 		db, err := dbConnect("postgres", connStr)
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, compiler.NewInt(int64(db))), nil
+		return makeResultOk(compiler.NewInt(int64(db))), nil
 
 	case "pg_query":
 		handle := int(args[0].AsInt)
 		sql := args[1].AsString
 		queryArgs, err := dbQueryArgs(args, "__builtin_pg_query")
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
 		result, err := dbQuery(vm, handle, sql, queryArgs)
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, result), nil
+		return makeResultOk(result), nil
 
 	case "pg_close":
 		handle := int(args[0].AsInt)
 		if err := dbClose(handle); err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, compiler.NewNil()), nil
+		return makeResultOk(compiler.NewNil()), nil
 
 	case "mysql_connect":
 		connStr := args[0].AsString
 		db, err := dbConnect("mysql", connStr)
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, compiler.NewInt(int64(db))), nil
+		return makeResultOk(compiler.NewInt(int64(db))), nil
 
 	case "mysql_query":
 		handle := int(args[0].AsInt)
 		sql := args[1].AsString
 		queryArgs, err := dbQueryArgs(args, "__builtin_mysql_query")
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
 		result, err := dbQuery(vm, handle, sql, queryArgs)
 		if err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, result), nil
+		return makeResultOk(result), nil
 
 	case "mysql_close":
 		handle := int(args[0].AsInt)
 		if err := dbClose(handle); err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, compiler.NewNil()), nil
+		return makeResultOk(compiler.NewNil()), nil
 
 	case "db_config":
 		handle := int(args[0].AsInt)
@@ -80,9 +80,9 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 		maxIdle := int(args[2].AsInt)
 		maxLife := int(args[3].AsInt) // seconds
 		if err := dbConfig(handle, maxOpen, maxIdle, maxLife); err != nil {
-			return makeResultErr(vm, err.Error()), nil
+			return makeResultErr(err.Error()), nil
 		}
-		return makeResultOk(vm, compiler.NewNil()), nil
+		return makeResultOk(compiler.NewNil()), nil
 
 	default:
 		return compiler.NewNil(), fmt.Errorf("unknown db builtin: %s", name)
@@ -276,7 +276,7 @@ func dbQueryArgs(args []compiler.Value, fnName string) ([]any, error) {
 	return queryArgs, nil
 }
 
-func makeResultOk(vm *VM, val compiler.Value) compiler.Value {
+func makeResultOk(val compiler.Value) compiler.Value {
 	result := &compiler.ResultInstance{
 		IsErr: false,
 		Value: val,
@@ -284,7 +284,7 @@ func makeResultOk(vm *VM, val compiler.Value) compiler.Value {
 	return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
 }
 
-func makeResultErr(vm *VM, msg string) compiler.Value {
+func makeResultErr(msg string) compiler.Value {
 	result := &compiler.ResultInstance{
 		IsErr: true,
 		Value: compiler.NewString(msg),

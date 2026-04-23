@@ -3,12 +3,6 @@ package typechecker
 // This file provides additional suggestion helpers for better error messages.
 // The main levenshtein distance implementation is in typechecker.go.
 
-// suggestField suggests a similar field name for "has no field" errors.
-// It uses the existing bestSuggestion function from typechecker.go.
-func (tc *TypeChecker) suggestField(name string, structFields []string) string {
-	return bestSuggestion(name, structFields)
-}
-
 func (tc *TypeChecker) suggestFields(name string, structFields []string, limit int) []string {
 	return bestSuggestions(name, structFields, limit)
 }

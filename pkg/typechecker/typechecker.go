@@ -3776,10 +3776,6 @@ var resultMethodCandidates = []string{
 	"unwrapErr",
 }
 
-func isToStringMethod(name string) bool {
-	return name == "toString"
-}
-
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {
 	funcName := ""
 	var sig *FunctionSig

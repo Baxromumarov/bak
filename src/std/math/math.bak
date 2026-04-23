@@ -426,3 +426,341 @@ func atanSeries(value: float64) -> (float64) {
     }
     return sum
 }
+
+// =============================================================================
+// Number Theory
+// =============================================================================
+
+// gcd returns the greatest common divisor of a and b (Euclidean algorithm).
+pub func gcd(a: int, b: int) -> (int) {
+    mut var x: int = absInt(a)
+    mut var y: int = absInt(b)
+    while y != 0 {
+        var t: int = y
+        y = x % y
+        x = t
+    }
+    return x
+}
+
+// lcm returns the least common multiple of a and b.
+pub func lcm(a: int, b: int) -> (int) {
+    if a == 0 || b == 0 {
+        return 0
+    }
+    return absInt(a / gcd(a, b) * b)
+}
+
+// factorial returns n! (factorial). Returns 1 for n <= 0.
+pub func factorial(n: int) -> (int) {
+    if n <= 0 {
+        return 1
+    }
+    if n > 20 {
+        // Prevent overflow for 64-bit ints
+        return 0
+    }
+    mut var result: int = 1
+    mut var i: int = 2
+    while i <= n {
+        result = result * i
+        i = i + 1
+    }
+    return result
+}
+
+// fibonacci returns the nth Fibonacci number.
+pub func fibonacci(n: int) -> (int) {
+    if n <= 0 {
+        return 0
+    }
+    if n == 1 {
+        return 1
+    }
+    mut var a: int = 0
+    mut var b: int = 1
+    mut var i: int = 2
+    while i <= n {
+        var t: int = a + b
+        a = b
+        b = t
+        i = i + 1
+    }
+    return b
+}
+
+// isPrime checks if n is a prime number.
+pub func isPrime(n: int) -> (bool) {
+    if n < 2 {
+        return false
+    }
+    if n == 2 {
+        return true
+    }
+    if n % 2 == 0 {
+        return false
+    }
+    mut var i: int = 3
+    while i * i <= n {
+        if n % i == 0 {
+            return false
+        }
+        i = i + 2
+    }
+    return true
+}
+
+// nextPrime returns the smallest prime number >= n.
+pub func nextPrime(n: int) -> (int) {
+    if n <= 2 {
+        return 2
+    }
+    mut var candidate: int = n
+    if candidate % 2 == 0 {
+        candidate = candidate + 1
+    }
+    while !isPrime(candidate) {
+        candidate = candidate + 2
+    }
+    return candidate
+}
+
+// nCr returns the binomial coefficient "n choose r".
+pub func nCr(n: int, mut r: int) -> (int) {
+    if r < 0 || r > n {
+        return 0
+    }
+    if r == 0 || r == n {
+        return 1
+    }
+    if r > n - r {
+        r = n - r
+    }
+    mut var result: int = 1
+    mut var i: int = 1
+    while i <= r {
+        result = result * (n - r + i) / i
+        i = i + 1
+    }
+    return result
+}
+
+// nPr returns the number of permutations of n items taken r at a time.
+pub func nPr(n: int, r: int) -> (int) {
+    if r < 0 || r > n {
+        return 0
+    }
+    mut var result: int = 1
+    mut var i: int = 0
+    while i < r {
+        result = result * (n - i)
+        i = i + 1
+    }
+    return result
+}
+
+// =============================================================================
+// Interpolation and Utility
+// =============================================================================
+
+// lerp linearly interpolates between a and b by t (0.0 to 1.0).
+pub func lerp(a: float64, b: float64, t: float64) -> (float64) {
+    return a + (b - a) * t
+}
+
+// invLerp returns the normalized position of value between a and b.
+pub func invLerp(a: float64, b: float64, value: float64) -> (float64) {
+    if b == a {
+        return 0.0
+    }
+    return (value - a) / (b - a)
+}
+
+// remap maps value from range [inMin, inMax] to [outMin, outMax].
+pub func remap(value: float64, inMin: float64, inMax: float64, outMin: float64, outMax: float64) -> (float64) {
+    return lerp(outMin, outMax, invLerp(inMin, inMax, value))
+}
+
+// step returns 0.0 if value < edge, otherwise 1.0.
+pub func step(edge: float64, value: float64) -> (float64) {
+    if value < edge {
+        return 0.0
+    }
+    return 1.0
+}
+
+// smoothstep performs smooth Hermite interpolation between 0 and 1.
+pub func smoothstep(edge0: float64, edge1: float64, value: float64) -> (float64) {
+    if value <= edge0 {
+        return 0.0
+    }
+    if value >= edge1 {
+        return 1.0
+    }
+    var t: float64 = (value - edge0) / (edge1 - edge0)
+    return t * t * (3.0 - 2.0 * t)
+}
+
+// copySign returns a value with the magnitude of mag and sign of sign.
+pub func copySign(mag: float64, sign: float64) -> (float64) {
+    if (mag < 0.0 && sign > 0.0) || (mag > 0.0 && sign < 0.0) {
+        return -mag
+    }
+    return mag
+}
+
+// toDegrees converts radians to degrees (alias for rad2deg).
+pub func toDegrees(radians: float64) -> (float64) {
+    return rad2deg(radians)
+}
+
+// toRadians converts degrees to radians (alias for deg2rad).
+pub func toRadians(degrees: float64) -> (float64) {
+    return deg2rad(degrees)
+}
+
+// sec returns the secant of value.
+pub func sec(value: float64) -> (float64) {
+    var c: float64 = cos(value)
+    if c == 0.0 {
+        return 0.0
+    }
+    return 1.0 / c
+}
+
+// csc returns the cosecant of value.
+pub func csc(value: float64) -> (float64) {
+    var s: float64 = sin(value)
+    if s == 0.0 {
+        return 0.0
+    }
+    return 1.0 / s
+}
+
+// cot returns the cotangent of value.
+pub func cot(value: float64) -> (float64) {
+    var s: float64 = sin(value)
+    if s == 0.0 {
+        return 0.0
+    }
+    return cos(value) / s
+}
+
+// =============================================================================
+// Statistics for int Vec
+// =============================================================================
+
+// sumFloat returns the sum of a float Vec.
+pub func sumFloat(v: &Vec<float64, _>) -> (float64) {
+    mut var total: float64 = 0.0
+    mut var i: int = 0
+    while i < v.len() {
+        total = total + v[i]
+        i = i + 1
+    }
+    return total
+}
+
+// productInt returns the product of all elements in an int Vec.
+pub func productInt(v: &Vec<int, _>) -> (int) {
+    if v.len() == 0 {
+        return 0
+    }
+    mut var total: int = 1
+    mut var i: int = 0
+    while i < v.len() {
+        total = total * v[i]
+        i = i + 1
+    }
+    return total
+}
+
+// productFloat returns the product of all elements in a float Vec.
+pub func productFloat(v: &Vec<float64, _>) -> (float64) {
+    if v.len() == 0 {
+        return 0.0
+    }
+    mut var total: float64 = 1.0
+    mut var i: int = 0
+    while i < v.len() {
+        total = total * v[i]
+        i = i + 1
+    }
+    return total
+}
+
+// meanInt returns the arithmetic mean of an int Vec.
+pub func meanInt(v: &Vec<int, _>) -> (float64) {
+    if v.len() == 0 {
+        return 0.0
+    }
+    mut var total: int = 0
+    mut var i: int = 0
+    while i < v.len() {
+        total = total + v[i]
+        i = i + 1
+    }
+    return float64(total) / float64(v.len())
+}
+
+// meanFloat returns the arithmetic mean of a float Vec.
+pub func meanFloat(v: &Vec<float64, _>) -> (float64) {
+    if v.len() == 0 {
+        return 0.0
+    }
+    return sumFloat(v) / float64(v.len())
+}
+
+// medianInt returns the median of an int Vec (requires sorting).
+pub func medianInt(v: &Vec<int, _>) -> (float64) {
+    if v.len() == 0 {
+        return 0.0
+    }
+    // Create a copy and sort it
+    mut var copy: Vec<int, _> = Vec.withCap(v.len())
+    mut var i: int = 0
+    while i < v.len() {
+        copy.push(v[i])
+        i = i + 1
+    }
+    // Simple bubble sort
+    mut var j: int = 0
+    while j < copy.len() {
+        mut var k: int = 0
+        while k < copy.len() - j - 1 {
+            if copy[k] > copy[k + 1] {
+                var t: int = copy[k]
+                copy[k] = copy[k + 1]
+                copy[k + 1] = t
+            }
+            k = k + 1
+        }
+        j = j + 1
+    }
+    var mid: int = copy.len() / 2
+    if copy.len() % 2 == 1 {
+        return float64(copy[mid])
+    }
+    return (float64(copy[mid - 1]) + float64(copy[mid])) / 2.0
+}
+
+// varianceInt returns the population variance of an int Vec.
+pub func varianceInt(v: &Vec<int, _>) -> (float64) {
+    if v.len() == 0 {
+        return 0.0
+    }
+    var m: float64 = meanInt(v)
+    mut var total: float64 = 0.0
+    mut var i: int = 0
+    while i < v.len() {
+        var diff: float64 = float64(v[i]) - m
+        total = total + diff * diff
+        i = i + 1
+    }
+    return total / float64(v.len())
+}
+
+// stdDevInt returns the population standard deviation of an int Vec.
+pub func stdDevInt(v: &Vec<int, _>) -> (float64) {
+    return sqrt(varianceInt(v))
+}

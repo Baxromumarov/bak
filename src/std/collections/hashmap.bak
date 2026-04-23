@@ -370,3 +370,114 @@ impl HashMap {
     }
 }
 
+
+// =============================================================================
+// Additional HashMap utilities
+// =============================================================================
+
+// merge inserts all key-value pairs from other into m, overwriting existing keys.
+pub func merge<K, V>(m: &mut HashMap<K, V>, other: &HashMap<K, V>) -> (void) {
+    mut var i: int = 0
+    while i < other.cap {
+        if (int(other.ctrl[i]) & 0x80) == 0 && other.buckets[i].filled {
+            m.insert(other.buckets[i].key, other.buckets[i].value)
+        }
+        i = i + 1
+    }
+    return void
+}
+
+// getOrDefault returns the value for key, or defaultValue if not present.
+pub func getOrDefault<K, V>(m: &HashMap<K, V>, key: &K, defaultValue: V) -> (V) {
+    switch m.get(key) {
+        case Ok(v) { return v }
+        case Err(_) { return defaultValue }
+    }
+}
+
+// getOrInsert returns the value for key, inserting defaultValue if not present.
+pub func getOrInsert<K, V>(m: &mut HashMap<K, V>, key: K, defaultValue: V) -> (V) {
+    switch m.get(&key) {
+        case Ok(v) { return v }
+        case Err(_) {
+            m.insert(key, defaultValue)
+            return defaultValue
+        }
+    }
+}
+
+// equal checks if two HashMaps have the same key-value pairs.
+pub func equal<K, V>(a: &HashMap<K, V>, b: &HashMap<K, V>) -> (bool) {
+    if a.len != b.len {
+        return false
+    }
+    mut var i: int = 0
+    while i < a.cap {
+        if (int(a.ctrl[i]) & 0x80) == 0 && a.buckets[i].filled {
+            switch b.get(&a.buckets[i].key) {
+                case Ok(v) {
+                    if v != a.buckets[i].value {
+                        return false
+                    }
+                }
+                case Err(_) { return false }
+            }
+        }
+        i = i + 1
+    }
+    return true
+}
+
+// clone returns a shallow copy of a HashMap.
+pub func clone<K, V>(m: &HashMap<K, V>) -> (HashMap<K, V>) {
+    mut var result: HashMap<K, V> = withCapHashMap(m.cap)
+    mut var i: int = 0
+    while i < m.cap {
+        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+            result.insert(m.buckets[i].key, m.buckets[i].value)
+        }
+        i = i + 1
+    }
+    return result
+}
+
+// fromPairs creates a HashMap from parallel Vecs of keys and values.
+pub func fromPairs<K, V>(keys: &Vec<K, _>, values: &Vec<V, _>) -> (HashMap<K, V>) {
+    mut var result: HashMap<K, V> = newHashMap()
+    mut var i: int = 0
+    while i < keys.len() && i < values.len() {
+        result.insert(keys[i], values[i])
+        i = i + 1
+    }
+    return result
+}
+
+// toPairs returns keys and values as two parallel Vecs.
+pub func toPairs<K, V>(m: &HashMap<K, V>) -> (Vec<K, _>, Vec<V, _>) {
+    mut var ks: Vec<K, _> = Vec.withCap(m.len)
+    mut var vs: Vec<V, _> = Vec.withCap(m.len)
+    mut var i: int = 0
+    while i < m.cap {
+        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+            ks.push(m.buckets[i].key)
+            vs.push(m.buckets[i].value)
+        }
+        i = i + 1
+    }
+    return ks, vs
+}
+
+// filterBy returns a new HashMap with entries satisfying predicate.
+pub func filterBy<K, V>(m: &HashMap<K, V>, predicate: func(&K, &V) -> (bool)) -> (HashMap<K, V>) {
+    mut var result: HashMap<K, V> = newHashMap()
+    mut var i: int = 0
+    while i < m.cap {
+        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+            if predicate(&m.buckets[i].key, &m.buckets[i].value) {
+                result.insert(m.buckets[i].key, m.buckets[i].value)
+            }
+        }
+        i = i + 1
+    }
+    return result
+}

@@ -438,10 +438,6 @@ func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
 	tc.emitError(diag)
 }
 
-func (tc *TypeChecker) errorUndefinedType(name string, line, col int) {
-	tc.errorUndefinedTypeInFile(name, line, col, tc.currentPkgPath)
-}
-
 func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file string) {
 	suggestions := tc.suggestTypeNames(name, 3)
 	help := suggestionsHelp(suggestions, "")

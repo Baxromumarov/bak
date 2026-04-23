@@ -201,3 +201,76 @@ pub func nextFloat() -> (float64) {
 
     return float64(res) / 9007199254740992.0
 } // 2^53
+
+// =============================================================================
+// Additional Random Utilities
+// =============================================================================
+
+// choice returns a random element from a Vec, or Err if empty.
+pub func choice<T>(arr: &Vec<T, _>) -> (Result<T, string>) {
+    if arr.len() == 0 {
+        return Err("empty array")
+    }
+    return Ok(arr[intN(arr.len())])
+}
+
+// sample returns a Vec of n random elements from arr (sampling without replacement).
+// If n > arr.len(), returns all elements in random order.
+pub func sample<T>(arr: &Vec<T, _>, n: int) -> (Vec<T, _>) {
+    mut var result: Vec<T, _> = Vec.new()
+    if arr.len() == 0 || n <= 0 {
+        return result
+    }
+    mut var count: int = n
+    if count > arr.len() {
+        count = arr.len()
+    }
+    // Fisher-Yates shuffle a copy and take first n
+    mut var copy: Vec<T, _> = Vec.withCap(arr.len())
+    mut var i: int = 0
+    while i < arr.len() {
+        copy.push(arr[i])
+        i = i + 1
+    }
+    mut var j: int = copy.len() - 1
+    while j > 0 {
+        var k: int = intN(j + 1)
+        var tmp: T = copy[j]
+        copy[j] = copy[k]
+        copy[k] = tmp
+        j = j - 1
+    }
+    i = 0
+    while i < count {
+        result.push(copy[i])
+        i = i + 1
+    }
+    return result
+}
+
+// randomString returns a random string of length n using the given charset.
+pub func randomString(n: int, charset: &string) -> (string) {
+    if n <= 0 || charset.len() == 0 {
+        return ""
+    }
+    mut var result: string = ""
+    mut var i: int = 0
+    while i < n {
+        var idx: int = intN(charset.len())
+        result = result + string(charset[idx])
+        i = i + 1
+    }
+    return result
+}
+
+// hex returns a random hex string of length n (n bytes -> 2*n hex chars).
+pub func hex(n: int) -> (string) {
+    var hexChars: string = "0123456789abcdef"
+    return randomString(n * 2, &hexChars)
+}
+
+// alphanumeric returns a random alphanumeric string of length n.
+pub func alphanumeric(n: int) -> (string) {
+    var chars: string = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return randomString(n, &chars)
+}

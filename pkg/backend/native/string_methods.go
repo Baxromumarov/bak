@@ -55,12 +55,12 @@ func (s *EmitState) emitStringStartsWith(obj, prefix ast.Expression) error {
 }
 
 // emitStringTrim implements s.trim()
-func (s *EmitState) emitStringTrim(obj ast.Expression) error {
+func (s *EmitState) emitStringTrim(_ ast.Expression) error {
 	return fmt.Errorf("native: string.trim not yet implemented")
 }
 
 // emitStringSplit implements s.split(sep)
-func (s *EmitState) emitStringSplit(obj, sep ast.Expression) error {
+func (s *EmitState) emitStringSplit(_ ast.Expression, _ ast.Expression) error {
 	return fmt.Errorf("native: string.split not yet implemented")
 }
 
