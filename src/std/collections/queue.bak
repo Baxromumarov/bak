@@ -46,8 +46,25 @@ impl Queue as q {
         return q.items.len() - q.head
     }
 
+    pub func toVec() -> (Vec<T, _>) {
+        mut var out: Vec<T, _> = Vec.withCap(q.len())
+        mut var i: int = q.head
+        while i < q.items.len() {
+            out.push(q.items[i])
+            i = i + 1
+        }
+        return out
+    }
+
     pub func isEmpty() -> (bool) {
         return q.head >= q.items.len()
+    }
+
+    pub func peekOr(defaultValue: T) -> (T) {
+        if q.head >= q.items.len() {
+            return defaultValue
+        }
+        return q.items[q.head]
     }
 
     pub mut func clear() -> (void) {
@@ -55,6 +72,23 @@ impl Queue as q {
 
         q.items = items
         q.head = 0
+    }
+
+    pub mut func popOr(defaultValue: T) -> (T) {
+        switch q.pop() {
+            case Ok(value) {
+                return value
+            }
+            case Err(_) {
+                return defaultValue
+            }
+        }
+    }
+
+    pub mut func drain() -> (Vec<T, _>) {
+        var out: Vec<T, _> = q.toVec()
+        q.clear()
+        return out
     }
 
     mut func compact() -> (void) {

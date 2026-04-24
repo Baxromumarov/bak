@@ -82,6 +82,33 @@ impl Set as s {
         }
         return true
     }
+
+    pub func intersects(other: &Set<T>) -> (bool) {
+        for value in s.values() {
+            if other.contains(value) {
+                return true
+            }
+        }
+        return false
+    }
+
+    pub func equals(other: &Set<T>) -> (bool) {
+        if s.len() != other.len() {
+            return false
+        }
+        return s.isSubsetOf(other)
+    }
+
+    pub func containsAll(values: &Vec<T, _>) -> (bool) {
+        mut var i: int = 0
+        while i < values.len() {
+            if !s.contains(values[i]) {
+                return false
+            }
+            i = i + 1
+        }
+        return true
+    }
 }
 
 // StringSet is a simple set backed by Set<string>.
@@ -137,6 +164,18 @@ impl StringSet as s {
     pub func isSubsetOf(other: &StringSet) -> (bool) {
         return s.inner.isSubsetOf(&other.inner)
     }
+
+    pub func intersects(other: &StringSet) -> (bool) {
+        return s.inner.intersects(&other.inner)
+    }
+
+    pub func equals(other: &StringSet) -> (bool) {
+        return s.inner.equals(&other.inner)
+    }
+
+    pub func containsAll(values: &Vec<string, _>) -> (bool) {
+        return s.inner.containsAll(values)
+    }
 }
 
 // IntSet is a simple set backed by Set<int>.
@@ -191,5 +230,17 @@ impl IntSet as s {
 
     pub func isSubsetOf(other: &IntSet) -> (bool) {
         return s.inner.isSubsetOf(&other.inner)
+    }
+
+    pub func intersects(other: &IntSet) -> (bool) {
+        return s.inner.intersects(&other.inner)
+    }
+
+    pub func equals(other: &IntSet) -> (bool) {
+        return s.inner.equals(&other.inner)
+    }
+
+    pub func containsAll(values: &Vec<int, _>) -> (bool) {
+        return s.inner.containsAll(values)
     }
 }

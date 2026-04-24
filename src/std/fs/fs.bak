@@ -1,6 +1,8 @@
 // File system operations for the Bak standard library.
 package fs
 
+import "src/std/path/path.bak" as path
+
 // File represents an open file handle
 pub struct File {
     path: string
@@ -120,6 +122,11 @@ pub func join(base: string, elem: string) -> (string) {
     return result
 }
 
+// joinParts joins path components and normalizes the final path.
+pub func joinParts(parts: Vec<string, _>) -> (string) {
+    return path.joinParts(parts)
+}
+
 // ext returns the file extension (including the dot)
 pub func ext(path: string) -> (string) {
     mut var dotIndex: int = -1
@@ -162,6 +169,65 @@ pub func dir(path: string) -> (string) {
         result = substring(&path, 0, lastSlash)
     }
     return result
+}
+
+// ensureDir creates a directory if it does not exist.
+// Returns Err when the path exists and is not a directory.
+pub func ensureDir(path: string) -> (Result<void, string>) {
+    if path.len() == 0 {
+        return Err("path is empty")
+    }
+    var existsPath: string = clone_ref_string(&path)
+    if exists(existsPath) {
+        var dirPath: string = clone_ref_string(&path)
+        if isDir(dirPath) {
+            return Ok(void)
+        }
+        var msgPath: string = clone_ref_string(&path)
+        return Err("path exists and is not a directory: " + msgPath)
+    }
+    return mkdir(path)
+}
+
+// readFileOr reads a file or returns fallback when read fails.
+pub func readFileOr(path: string, fallback: string) -> (string) {
+    switch readFile(path) {
+        case Ok(text) {
+            return text
+        }
+        case Err(_) {
+            return fallback
+        }
+    }
+}
+
+// writeIfChanged writes file contents only when different.
+// Returns Ok(true) when file was written, Ok(false) when unchanged.
+pub func writeIfChanged(path: string, content: string) -> (Result<bool, string>) {
+    var existsPath: string = clone_ref_string(&path)
+    var filePath: string = clone_ref_string(&path)
+    if exists(existsPath) && isFile(filePath) {
+        var readPath: string = clone_ref_string(&path)
+        switch readFile(readPath) {
+            case Ok(current) {
+                if current == content {
+                    return Ok(false)
+                }
+            }
+            case Err(err) {
+                return Err(err)
+            }
+        }
+    }
+
+    switch writeFile(path, content) {
+        case Ok(_) {
+            return Ok(true)
+        }
+        case Err(err) {
+            return Err(err)
+        }
+    }
 }
 
 // substring returns a substring from start to end (exclusive)

@@ -2,6 +2,8 @@ package main
 
 import "src/std/strings/strings.bak" as strings
 import "src/std/path/path.bak" as path
+import "src/std/filepath/filepath.bak" as filepath
+import "src/std/fs/fs.bak" as fs
 import "src/std/test/test.bak" as test
 
 func test_strings_enhancements() -> (void) {
@@ -59,5 +61,24 @@ func test_path_enhancements() -> (void) {
     t.isFalse(path.hasExt(&no_ext))
     t.eqString(path.stem(&no_ext), "notes")
     t.eqString(path.withoutExt(&no_ext), "notes")
+    t.finish()
+}
+
+func test_filepath_and_fs_helpers() -> (void) {
+    mut var t: test.T = test.new("test_filepath_and_fs_helpers")
+
+    t.eqString(filepath.clean("a//b/./c"), "a/b/c")
+    t.isTrue(filepath.isRel("tmp/file.txt"))
+    t.isFalse(filepath.isRel("/tmp/file.txt"))
+    t.isTrue(filepath.hasExt("tmp/file.txt"))
+    t.eqString(filepath.stem("archive.tar.gz"), "archive.tar")
+    t.eqString(filepath.withoutExt("/tmp/archive.tar.gz"), "/tmp/archive.tar")
+    t.eqString(filepath.withExt("/tmp/archive.tar.gz", "bak"), "/tmp/archive.tar.bak")
+    t.eqString(filepath.withExt("/tmp/archive.tar.gz", ".tmp"), "/tmp/archive.tar.tmp")
+
+    var joined: string = fs.joinParts(Vec.from(["/tmp", "bak", "logs", "..", "today.log"]))
+    t.eqString(joined, "/tmp/bak/today.log")
+    t.eqString(fs.readFileOr("/definitely/missing/file.bak", "fallback"), "fallback")
+
     t.finish()
 }

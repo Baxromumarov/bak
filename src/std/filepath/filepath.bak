@@ -15,6 +15,10 @@ pub func isAbs(p: string) -> (bool) {
     return path.isAbs(p)
 }
 
+pub func isRel(p: string) -> (bool) {
+    return path.isRel(p)
+}
+
 pub func clean(p: string) -> (string) {
     return path.clean(p)
 }
@@ -37,6 +41,22 @@ pub func dir(p: string) -> (string) {
 
 pub func ext(p: string) -> (string) {
     return path.ext(&p)
+}
+
+pub func hasExt(p: string) -> (bool) {
+    return path.hasExt(&p)
+}
+
+pub func stem(p: string) -> (string) {
+    return path.stem(&p)
+}
+
+pub func withoutExt(p: string) -> (string) {
+    return path.withoutExt(&p)
+}
+
+pub func withExt(p: string, new_ext: string) -> (string) {
+    return path.withExt(&p, &new_ext)
 }
 
 pub func split(p: string) -> (Split) {
