@@ -24,22 +24,25 @@ func Collect(paths []string, skipDirs ...string) ([]string, error) {
 		}
 
 		if info.IsDir() {
-			err := filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
-				if walkErr != nil {
-					return walkErr
-				}
-				if d.IsDir() {
-					if skip[d.Name()] {
-						return filepath.SkipDir
+			err := filepath.WalkDir(
+				path,
+				func(p string, d fs.DirEntry, walkErr error) error {
+					if walkErr != nil {
+						return walkErr
+					}
+					if d.IsDir() {
+						if skip[d.Name()] {
+							return filepath.SkipDir
+						}
+						return nil
+					}
+					if strings.HasSuffix(p, ".bak") && !seen[p] {
+						seen[p] = true
+						files = append(files, p)
 					}
 					return nil
-				}
-				if strings.HasSuffix(p, ".bak") && !seen[p] {
-					seen[p] = true
-					files = append(files, p)
-				}
-				return nil
-			})
+				},
+			)
 			if err != nil {
 				return nil, err
 			}

@@ -550,16 +550,16 @@ func (e *TypeEnv) IsPoisoned(name string) bool {
 
 // MarkBorrowedMut marks a variable as mutably borrowed in the CURRENT scope only.
 func (e *TypeEnv) MarkBorrowedMut(name string) {
-	e.MarkBorrowedMutAt(name, 0, 0)
+	e.MarkBorrowedMutAt(name, ast.Position{})
 }
 
 // MarkBorrowedMutAt marks a variable as mutably borrowed in the current scope
 // and records where the borrow started.
-func (e *TypeEnv) MarkBorrowedMutAt(name string, line, col int) {
+func (e *TypeEnv) MarkBorrowedMutAt(name string, pos ast.Position) {
 	// Always mark in current environment to support lexical scoping (cleared on scope exit)
 	e.borrowedMut[name] = true
-	if line > 0 {
-		e.borrowedMutAt[name] = &BorrowInfo{Line: line, Column: col, Mutable: true}
+	if pos.Line > 0 {
+		e.borrowedMutAt[name] = &BorrowInfo{Line: pos.Line, Column: pos.Column, Mutable: true}
 	}
 }
 
@@ -599,14 +599,14 @@ func (e *TypeEnv) GetBorrowedMutInfo(name string) *BorrowInfo {
 
 // MarkBorrowedIm records an immutable borrow for the named variable in the CURRENT scope.
 func (e *TypeEnv) MarkBorrowedIm(name string) {
-	e.MarkBorrowedImAt(name, 0, 0)
+	e.MarkBorrowedImAt(name, ast.Position{})
 }
 
 // MarkBorrowedImAt records an immutable borrow and, for the first active borrow
 // in this scope, where it started.
-func (e *TypeEnv) MarkBorrowedImAt(name string, line, col int) {
-	if e.borrowedIm[name] == 0 && line > 0 {
-		e.borrowedImAt[name] = &BorrowInfo{Line: line, Column: col, Mutable: false}
+func (e *TypeEnv) MarkBorrowedImAt(name string, pos ast.Position) {
+	if e.borrowedIm[name] == 0 && pos.Line > 0 {
+		e.borrowedImAt[name] = &BorrowInfo{Line: pos.Line, Column: pos.Column, Mutable: false}
 	}
 	e.borrowedIm[name]++
 }
@@ -899,10 +899,10 @@ func isStdlibSourcePath(path string) bool {
 	return strings.Contains(normalized, "src/std/")
 }
 
-func (tc *TypeChecker) rejectOptionUsage(line, col int) {
+func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
 	tc.addErrorWithHelp(
-		line,
-		col,
+		pos.Line,
+		pos.Column,
 		"Option<T> is not supported; use Result<T, string>",
 		"replace Option/Some/None flows with Result using Ok(...) and Err(...)",
 	)
@@ -912,13 +912,13 @@ func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
 	return runtimecap.CurrentFeatureEnabled(feature)
 }
 
-func (tc *TypeChecker) addExperimentalFeatureError(line, col int, syntax, feature string) {
+func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, feature string) {
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrExperimentalFeature,
 		Level:   diagnostics.LevelError,
 		Message: fmt.Sprintf("%s is experimental and disabled by default", syntax),
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		File:    tc.currentPkgPath,
 		Help:    experimentalFeatureHelp(feature),
 	})
@@ -1092,7 +1092,7 @@ func (tc *TypeChecker) isCopyType(t ast.TypeExpression) bool {
 // trackMoveFromExpression checks if an expression contains a variable that should be moved
 // and marks it as moved if so. This is used for return statements and assignments.
 // Note: Copy types (primitives) are not moved, they are copied.
-func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col int, reason MoveReason, detail string) {
+func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Position, reason MoveReason, detail string) {
 	if expr == nil {
 		return
 	}
@@ -1109,7 +1109,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 			!tc.env.IsPoisoned(e.Value) {
 
 			moveInfo := tc.env.GetMoveInfo(e.Value)
-			tc.errorUseAfterMove(e.Value, line, col, moveInfo)
+			tc.errorUseAfterMove(e.Value, pos.Line, pos.Column, moveInfo)
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -1118,15 +1118,15 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, line, col, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
+			tc.errorCannotMove(e.Value, pos.Line, pos.Column, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return
 		}
 		// Mark as moved
 		tc.env.MarkMovedWithInfo(e.Value, &MoveInfo{
-			Line:   line,
-			Column: col,
+			Line:   pos.Line,
+			Column: pos.Column,
 			Reason: reason,
 			Detail: detail,
 		})
@@ -1142,7 +1142,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 			!tc.env.IsPoisoned(e.Value) {
 
 			moveInfo := tc.env.GetMoveInfo(e.Value)
-			tc.errorUseAfterMove(e.Value, line, col, moveInfo)
+			tc.errorUseAfterMove(e.Value, pos.Line, pos.Column, moveInfo)
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -1151,15 +1151,15 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, line, col, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
+			tc.errorCannotMove(e.Value, pos.Line, pos.Column, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return
 		}
 
 		tc.env.MarkMovedWithInfo(e.Value, &MoveInfo{
-			Line:   line,
-			Column: col,
+			Line:   pos.Line,
+			Column: pos.Column,
 			Reason: reason,
 			Detail: detail,
 		})
@@ -1172,7 +1172,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, line, col in
 	case *ast.TupleExpression:
 		// For tuples, check each element
 		for _, elem := range e.Elements {
-			tc.trackMoveFromExpression(elem, line, col, reason, detail)
+			tc.trackMoveFromExpression(elem, pos, reason, detail)
 		}
 	}
 }
@@ -1312,7 +1312,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			typeParams := []string{}
 			for _, p := range s.TypeParams {
@@ -1345,7 +1345,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			variants := make(map[string]EnumVariantDef)
 			for _, v := range s.Variants {
@@ -1370,7 +1370,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(s.Name.Token.Line, s.Name.Token.Column, "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			params := make([]ast.TypeExpression, len(s.Parameters))
 			for i, p := range s.Parameters {
@@ -1416,7 +1416,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				continue
 			}
 			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
-				tc.addExperimentalFeatureError(s.TypeName.Token.Line, s.TypeName.Token.Column, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(tokenPos(s.TypeName.Token), "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			if structDef, ok := tc.env.LookupStruct(s.TypeName.Value); ok {
 				for _, method := range s.Methods {
@@ -1424,7 +1424,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 						continue
 					}
 					if len(method.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(method.Name.Token.Filename) {
-						tc.addExperimentalFeatureError(method.Name.Token.Line, method.Name.Token.Column, "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
+						tc.addExperimentalFeatureError(tokenPos(method.Name.Token), "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
 					}
 					params := make([]ast.TypeExpression, len(method.Parameters))
 					for i, p := range method.Parameters {
@@ -1457,7 +1457,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			restore := tc.setTypeParams(typeParamNames(s.TypeParams))
 			for _, f := range s.Fields {
 				if f != nil && f.Type != nil && f.Name != nil {
-					tc.validateTypeUsage(f.Type, f.Name.Token.Line, f.Name.Token.Column)
+					tc.validateTypeUsage(f.Type, tokenPos(f.Name.Token))
 				}
 			}
 			restore()
@@ -1465,11 +1465,11 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			restore := tc.setTypeParams(typeParamNames(s.TypeParams))
 			for _, p := range s.Parameters {
 				if p != nil && p.Name != nil {
-					tc.validateTypeUsage(p.Type, p.Name.Token.Line, p.Name.Token.Column)
+					tc.validateTypeUsage(p.Type, tokenPos(p.Name.Token))
 				}
 			}
 			if s.Name != nil {
-				tc.validateTypeUsage(s.ReturnType, s.Name.Token.Line, s.Name.Token.Column)
+				tc.validateTypeUsage(s.ReturnType, tokenPos(s.Name.Token))
 			}
 			restore()
 		case *ast.EnumDecl:
@@ -1479,14 +1479,14 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 					continue
 				}
 				for _, f := range v.Fields {
-					tc.validateTypeUsage(f, v.Name.Token.Line, v.Name.Token.Column)
+					tc.validateTypeUsage(f, tokenPos(v.Name.Token))
 				}
 			}
 			restore()
 		case *ast.TypeDecl:
-			tc.validateTypeUsage(s.Underlying, s.Token.Line, s.Token.Column)
+			tc.validateTypeUsage(s.Underlying, tokenPos(s.Token))
 		case *ast.AliasDecl:
-			tc.validateTypeUsage(s.Underlying, s.Token.Line, s.Token.Column)
+			tc.validateTypeUsage(s.Underlying, tokenPos(s.Token))
 		}
 	}
 }
@@ -1675,7 +1675,7 @@ func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 }
 
 // validateTypeUsage checks for invalid or ambiguous type names used in annotations
-func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
+func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position) {
 	if t == nil {
 		return
 	}
@@ -1689,22 +1689,22 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 		case *ast.SimpleType:
 			// Disallow ambiguous 'float' type name; require explicit float32 or float64
 			if tt.Name == "float" {
-				tc.addError(line, col, "invalid type 'float': use 'float32' or 'float64'")
+				tc.addError(pos.Line, pos.Column, "invalid type 'float': use 'float32' or 'float64'")
 				return
 			}
 			if tt.Name == "Option" {
-				tc.rejectOptionUsage(line, col)
+				tc.rejectOptionUsage(pos)
 				return
 			}
 			// Disallow standalone 'Box' type (must use 'T box' syntax)
 			if tt.Name == "Box" {
-				tc.addError(line, col, "invalid use of 'Box' as a type; use 'T box' syntax (e.g. 'int box')")
+				tc.addError(pos.Line, pos.Column, "invalid use of 'Box' as a type; use 'T box' syntax (e.g. 'int box')")
 				return
 			}
-			tc.validateTypeName(tt.Name, line, col, tt.Token.Filename)
+			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)
 		case *ast.GenericType:
 			if tt.Name == "Option" {
-				tc.rejectOptionUsage(line, col)
+				tc.rejectOptionUsage(pos)
 				for _, p := range tt.TypeParams {
 					walk(p)
 				}
@@ -1712,19 +1712,19 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 			}
 			isStdlibTypeContext := isStdlibSourcePath(tt.Token.Filename) || isStdlibSourcePath(tc.currentPkgPath)
 			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibTypeContext {
-				tc.addExperimentalFeatureError(line, col, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(pos, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
 			}
-			tc.validateTypeName(tt.Name, line, col, tt.Token.Filename)
+			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)
 			for _, p := range tt.TypeParams {
 				walk(p)
 			}
 		case *ast.BorrowType:
 			walk(tt.Inner)
 		case *ast.BoxType:
-			tc.addErrorWithHelp(line, col, "remove box syntax and use stable value types", "box types are not supported in the frozen v0.1 language surface")
+			tc.addErrorWithHelp(pos.Line, pos.Column, "remove box syntax and use stable value types", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.BoxOptionalType:
-			tc.addErrorWithHelp(line, col, "remove box syntax and use stable value types with Result<T, E>", "box types are not supported in the frozen v0.1 language surface")
+			tc.addErrorWithHelp(pos.Line, pos.Column, "remove box syntax and use stable value types with Result<T, E>", "box types are not supported in the frozen v0.1 language surface")
 			walk(tt.Inner)
 		case *ast.TupleType:
 			for _, e := range tt.Elements {
@@ -1747,12 +1747,12 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, line, col int) {
 	walk(t)
 }
 
-func (tc *TypeChecker) validateTypeName(name string, line, col int, filename string) bool {
+func (tc *TypeChecker) validateTypeName(name string, pos ast.Position, filename string) bool {
 	if name == "" {
 		return true
 	}
 	if name == "Option" {
-		tc.rejectOptionUsage(line, col)
+		tc.rejectOptionUsage(pos)
 		return false
 	}
 	if tc.isTypeParamName(name) {
@@ -1795,7 +1795,7 @@ func (tc *TypeChecker) validateTypeName(name string, line, col int, filename str
 			}
 		}
 	}
-	tc.errorUndefinedTypeInFile(name, line, col, filename)
+	tc.errorUndefinedTypeInFile(name, pos.Line, pos.Column, filename)
 	return false
 }
 
@@ -2061,7 +2061,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 				tc.nodeTypes[e] = typeToString(inferred)
 				return inferred
 			} else if gt.Name == "Option" {
-				tc.rejectOptionUsage(e.Token.Line, e.Token.Column)
+				tc.rejectOptionUsage(tokenPos(e.Token))
 				inferred := &ast.ErrorType{Message: "option is not supported"}
 				tc.nodeTypes[e] = typeToString(inferred)
 				return inferred
@@ -2195,19 +2195,11 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 					p.Name.Token.Column,
 				)
 				// validate parameter types too
-				tc.validateTypeUsage(
-					p.Type,
-					p.Name.Token.Line,
-					p.Name.Token.Column,
-				)
+				tc.validateTypeUsage(p.Type, tokenPos(p.Name.Token))
 			}
 		}
 		// Validate return type annotation
-		tc.validateTypeUsage(
-			e.ReturnType,
-			e.Token.Line,
-			e.Token.Column,
-		)
+		tc.validateTypeUsage(e.ReturnType, tokenPos(e.Token))
 		if e.Body != nil {
 			tc.checkBlockStatement(e.Body)
 		}
@@ -2607,10 +2599,10 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 			)
 			return nil
 		}
-		tc.env.MarkBorrowedMutAt(varName, line, column)
+		tc.env.MarkBorrowedMutAt(varName, ast.Position{Line: line, Column: column})
 	} else {
 		// Immutable borrow: mark an immutable borrow (allows multiple immutable borrows)
-		tc.env.MarkBorrowedImAt(varName, line, column)
+		tc.env.MarkBorrowedImAt(varName, ast.Position{Line: line, Column: column})
 	}
 
 	return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
@@ -3243,7 +3235,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 						}
 						// Enforce move semantics for spawn arguments
 						if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
-							tc.trackMoveFromExpression(arg, mc.Token.Line, mc.Token.Column, MovedByCall, "thread.spawn")
+							tc.trackMoveFromExpression(arg, tokenPos(mc.Token), MovedByCall, "thread.spawn")
 						}
 					}
 				}
@@ -3508,7 +3500,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 
 	// Handle Option method type checking
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Option" {
-		tc.rejectOptionUsage(mc.Token.Line, mc.Token.Column)
+		tc.rejectOptionUsage(tokenPos(mc.Token))
 		for _, arg := range mc.Arguments {
 			tc.inferType(arg)
 		}
@@ -3881,7 +3873,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							}
 							// Enforce move semantics for spawn arguments
 							if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
-								tc.trackMoveFromExpression(arg, ce.Token.Line, ce.Token.Column, MovedByCall, "thread.spawn")
+								tc.trackMoveFromExpression(arg, tokenPos(ce.Token), MovedByCall, "thread.spawn")
 							}
 						}
 					}

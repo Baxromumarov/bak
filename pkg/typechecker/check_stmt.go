@@ -10,20 +10,20 @@ import (
 )
 
 // enum payload error helpers
-func (tc *TypeChecker) errorEnumRequiresPayload(line, col int, variantName string) {
+func (tc *TypeChecker) errorEnumRequiresPayload(pos ast.Position, variantName string) {
 	tc.addErrorWithHelp(
-		line,
-		col,
+		pos.Line,
+		pos.Column,
 		fmt.Sprintf("provide payload arguments like `%s(value)`", variantName),
 		"enum variant '%s' requires payload",
 		variantName,
 	)
 }
 
-func (tc *TypeChecker) errorEnumNoPayload(line, col int, variantName string) {
+func (tc *TypeChecker) errorEnumNoPayload(pos ast.Position, variantName string) {
 	tc.addErrorWithHelp(
-		line,
-		col,
+		pos.Line,
+		pos.Column,
 		fmt.Sprintf("remove the parentheses from `%s()`", variantName),
 		"enum variant '%s' does not accept payload",
 		variantName,
@@ -31,15 +31,14 @@ func (tc *TypeChecker) errorEnumNoPayload(line, col int, variantName string) {
 }
 
 func (tc *TypeChecker) errorEnumPayloadCount(
-	line int,
-	col int,
+	pos ast.Position,
 	variantName string,
 	expected int,
 	got int,
 ) {
 	tc.addErrorWithHelp(
-		line,
-		col,
+		pos.Line,
+		pos.Column,
 		fmt.Sprintf("provide exactly %d payload field(s) in order", expected),
 		"enum variant '%s' expects %d payload fields, but got %d",
 		variantName,
@@ -105,8 +104,7 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 	case *ast.UnsafeBlock:
 		if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
 			tc.addExperimentalFeatureError(
-				s.Token.Line,
-				s.Token.Column,
+				tokenPos(s.Token),
 				"`unsafe` blocks",
 				runtimecap.ExperimentalFeatureUnsafe,
 			)
@@ -120,7 +118,7 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 	switchType := tc.inferType(ss.Value)
 	if gt, ok := tc.resolveType(switchType).(*ast.GenericType); ok && gt.Name == "Option" {
-		tc.rejectOptionUsage(ss.Token.Line, ss.Token.Column)
+		tc.rejectOptionUsage(tokenPos(ss.Token))
 	}
 
 	enumDef := tc.resolveSwitchEnumDef(switchType)
@@ -164,7 +162,7 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 			return false
 		}
 		if variant.HasPayload {
-			tc.errorEnumRequiresPayload(v.Token.Line, v.Token.Column, v.Value)
+			tc.errorEnumRequiresPayload(tokenPos(v.Token), v.Value)
 		}
 		return true
 
@@ -173,7 +171,7 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(v.Values, variant, variant.Fields, v.Token.Line, v.Token.Column, v.Variant.Value)
+		tc.checkEnumPayloadBindings(v.Values, variant, variant.Fields, tokenPos(v.Token), v.Variant.Value)
 		return true
 
 	case *ast.CallExpression:
@@ -197,7 +195,7 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, variantName)
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), variantName)
 		return true
 
 	case *ast.FieldAccessExpression:
@@ -210,7 +208,7 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, variantName)
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), variantName)
 		return true
 	}
 	return false
@@ -226,7 +224,7 @@ func (tc *TypeChecker) matchKnownEnumFieldAccessCall(fa *ast.FieldAccessExpressi
 	if !found {
 		return false
 	}
-	tc.checkEnumPayloadBindings(args, variant, variant.Fields, fa.Token.Line, fa.Token.Column, variantName)
+	tc.checkEnumPayloadBindings(args, variant, variant.Fields, tokenPos(fa.Token), variantName)
 	return true
 }
 
@@ -241,7 +239,7 @@ func (tc *TypeChecker) matchKnownEnumFieldAccess(fa *ast.FieldAccessExpression, 
 		return false
 	}
 	if variant.HasPayload {
-		tc.errorEnumRequiresPayload(fa.Token.Line, fa.Token.Column, variantName)
+		tc.errorEnumRequiresPayload(tokenPos(fa.Token), variantName)
 	}
 	return true
 }
@@ -267,7 +265,7 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 		if enumDef == nil {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, ce.Token.Line, ce.Token.Column, fn.Value)
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), fn.Value)
 		return true
 
 	case *ast.FieldAccessExpression:
@@ -276,7 +274,7 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 			return false
 		}
 		fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, fieldTypes, ce.Token.Line, ce.Token.Column, fn.Field.Value)
+		tc.checkEnumPayloadBindings(ce.Arguments, variant, fieldTypes, tokenPos(ce.Token), fn.Field.Value)
 		return true
 	}
 	return false
@@ -289,7 +287,7 @@ func (tc *TypeChecker) matchFallbackEnumFieldAccessCall(fa *ast.FieldAccessExpre
 	}
 	fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
 	variantName := fa.Field.Value
-	tc.checkEnumPayloadBindings(args, variant, fieldTypes, fa.Token.Line, fa.Token.Column, variantName)
+	tc.checkEnumPayloadBindings(args, variant, fieldTypes, tokenPos(fa.Token), variantName)
 	return true
 }
 
@@ -310,29 +308,29 @@ func (tc *TypeChecker) checkEnumPayloadBindings(
 	args []ast.Expression,
 	variant EnumVariantDef,
 	fields []ast.TypeExpression,
-	line, col int,
+	pos ast.Position,
 	variantName string,
 ) {
 	if !variant.HasPayload {
 		if len(args) > 0 {
-			tc.errorEnumNoPayload(line, col, variantName)
+			tc.errorEnumNoPayload(pos, variantName)
 		}
 		return
 	}
 
 	if len(args) == 0 {
-		tc.errorEnumRequiresPayload(line, col, variantName)
+		tc.errorEnumRequiresPayload(pos, variantName)
 		return
 	}
 
 	if len(args) != len(fields) {
-		tc.errorEnumPayloadCount(line, col, variantName, len(fields), len(args))
+		tc.errorEnumPayloadCount(pos, variantName, len(fields), len(args))
 		return
 	}
 
 	for i, arg := range args {
 		if name, mutable, ok := bindingFromPattern(arg); ok {
-			tc.env.DefineSymbol(name, fields[i], mutable, ast.Private, line, col)
+			tc.env.DefineSymbol(name, fields[i], mutable, ast.Private, pos.Line, pos.Column)
 		} else {
 			tc.inferType(arg)
 		}
@@ -474,8 +472,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	// Validate the annotated/inferred type for deprecated/ambiguous names
 	tc.validateTypeUsage(
 		vs.Type,
-		vs.Name.Token.Line,
-		vs.Name.Token.Column,
+		tokenPos(vs.Name.Token),
 	)
 
 	tc.env.DefineSymbol(
@@ -550,15 +547,24 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 
 	// Check for forbidden direct array literal assignment
 	if _, ok := vs.Value.(*ast.VecLiteral); ok {
-		tc.addError(vs.Token.Line, vs.Token.Column,
-			"cannot assign array literal directly to Vec; use Vec.from([...]) instead")
+		tc.addError(
+			vs.Token.Line,
+			vs.Token.Column,
+			"cannot assign array literal directly to Vec; use Vec.from([...]) instead",
+		)
 		return
 	}
 
 	// Check for method call expressions (Vec.from, Vec.new, Vec.withCap)
 	if mc, ok := vs.Value.(*ast.MethodCallExpression); ok {
 		if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
-			tc.checkVecConstructor(vs.Token.Line, vs.Token.Column, vs.Mutable, vecType, mc)
+			tc.checkVecConstructor(
+				tokenPos(vs.Token),
+				vs.Mutable,
+				vecType,
+				mc,
+			)
+
 			return
 		}
 	}
@@ -605,7 +611,7 @@ func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 	}
 
 	// Validate the constant's type annotation for deprecated/ambiguous names
-	tc.validateTypeUsage(cs.Type, cs.Name.Token.Line, cs.Name.Token.Column)
+	tc.validateTypeUsage(cs.Type, tokenPos(cs.Name.Token))
 	tc.env.DefineSymbol(cs.Name.Value, cs.Type, false, cs.Visibility, cs.Name.Token.Line, cs.Name.Token.Column)
 }
 
@@ -678,7 +684,7 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 
 	// Track ownership transfer for returned values
 	// If we're returning a variable (not a borrow), mark it as moved
-	tc.trackMoveFromExpression(rs.ReturnValue, rs.Token.Line, rs.Token.Column, MovedByReturn, "return")
+	tc.trackMoveFromExpression(rs.ReturnValue, tokenPos(rs.Token), MovedByReturn, "return")
 }
 
 func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
@@ -788,7 +794,7 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	// Handle field access assignments (e.g., obj.field = value)
 	if fa, ok := as.Left.(*ast.FieldAccessExpression); ok {
-		tc.checkFieldAssignment(fa, as.Value, as.Token.Line, as.Token.Column)
+		tc.checkFieldAssignment(fa, as.Value, tokenPos(as.Token))
 		return
 	}
 

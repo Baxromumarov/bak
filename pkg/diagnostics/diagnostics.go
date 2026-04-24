@@ -8,6 +8,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	"github.com/baxromumarov/bak/pkg/ast"
 )
 
 // ANSI Color Codes
@@ -513,8 +515,7 @@ func TypeMismatch(
 func VecMutatingMethodOnImmutable(
 	varName,
 	method string,
-	line,
-	col int,
+	pos ast.Position,
 ) Diagnostic {
 	return Diagnostic{
 		Code:  ErrMutabilityRequired,
@@ -524,14 +525,14 @@ func VecMutatingMethodOnImmutable(
 			method,
 			varName,
 		),
-		Line:   line,
-		Column: col,
+		Line:   pos.Line,
+		Column: pos.Column,
 		Help:   "declare the variable as 'mut var'",
 	}
 }
 
 // VecDynamicOnlyMethod creates a diagnostic for dynamic-only Vec methods
-func VecDynamicOnlyMethod(method, vecType string, line, col int) Diagnostic {
+func VecDynamicOnlyMethod(method, vecType string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:  ErrVecDynamicOnly,
 		Level: LevelError,
@@ -540,32 +541,32 @@ func VecDynamicOnlyMethod(method, vecType string, line, col int) Diagnostic {
 			method,
 			vecType,
 		),
-		Line:   line,
-		Column: col,
+		Line:   pos.Line,
+		Column: pos.Column,
 		Help:   "use Vec<T, _> for dynamic arrays",
 	}
 }
 
 // UnusedImport creates a diagnostic for unused imports
-func UnusedImport(importPath string, line, col int) Diagnostic {
+func UnusedImport(importPath string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedImport,
 		Level:   LevelWarning,
 		Message: fmt.Sprintf("unused import: '%s'", importPath),
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Help:    "remove this import if it's not used",
 	}
 }
 
 // UnusedVariable creates a diagnostic for unused variables (Warning)
-func UnusedVariable(varName string, line, col int) Diagnostic {
+func UnusedVariable(varName string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedVariable,
 		Level:   LevelWarning,
 		Message: fmt.Sprintf("unused variable: '%s'", varName),
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Help:    "prefix with _ to ignore: '_" + varName + "'",
 	}
 }

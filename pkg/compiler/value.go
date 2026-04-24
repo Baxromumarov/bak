@@ -3,6 +3,8 @@ package compiler
 import (
 	"fmt"
 	"strings"
+
+	"github.com/baxromumarov/bak/pkg/ast"
 )
 
 // Value represents a runtime value in the VM.
@@ -276,10 +278,7 @@ type FunctionObj struct {
 }
 
 // SourcePos represents a position in the source code.
-type SourcePos struct {
-	Line   int
-	Column int
-}
+type SourcePos = ast.Position
 
 // Closure wraps a function with captured upvalues.
 type Closure struct {

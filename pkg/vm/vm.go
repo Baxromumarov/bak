@@ -3,7 +3,6 @@ package vm
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"os"
 	"sort"
@@ -319,7 +318,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		if frame.returning {
 			done, result, err := vm.resumeReturn(frame, fn.Name, frame.ip)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			if done {
 				return result, nil
@@ -336,7 +335,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 			done, result, err := vm.resumeReturn(frame, fn.Name, frame.ip)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			if done {
 				return result, nil
@@ -416,7 +415,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			} else {
 				result, err := vm.add(a, b)
 				if err != nil {
-					return compiler.NewNil(), err
+					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
 				vm.stack[vm.sp] = result
 				vm.sp++
@@ -435,7 +434,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			} else {
 				result, err := vm.sub(a, b)
 				if err != nil {
-					return compiler.NewNil(), err
+					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
 				vm.stack[vm.sp] = result
 				vm.sp++
@@ -446,7 +445,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			a := vm.pop()
 			result, err := vm.mul(a, b)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			vm.push(result)
 
@@ -455,7 +454,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			a := vm.pop()
 			result, err := vm.div(a, b)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			vm.push(result)
 
@@ -463,10 +462,10 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("modulo requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "modulo requires integers")
 			}
 			if b.AsInt == 0 {
-				return compiler.NewNil(), fmt.Errorf("division by zero (modulo)")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "division by zero (modulo)")
 			}
 			vm.push(compiler.NewInt(a.AsInt % b.AsInt))
 
@@ -478,7 +477,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			case compiler.VAL_FLOAT:
 				vm.push(compiler.NewFloat(-a.AsFloat))
 			default:
-				return compiler.NewNil(), fmt.Errorf("cannot negate %v", a.Type)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot negate %v", a.Type)
 			}
 
 		case compiler.OP_NOT:
@@ -489,7 +488,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			case compiler.VAL_INT:
 				vm.push(compiler.NewInt(^a.AsInt))
 			default:
-				return compiler.NewNil(), fmt.Errorf("cannot apply ! to %v", a.Type)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot apply ! to %v", a.Type)
 			}
 
 		case compiler.OP_EQ:
@@ -514,7 +513,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			} else {
 				result, err := vm.compare(a, b)
 				if err != nil {
-					return compiler.NewNil(), fmt.Errorf("%s: %w", fn.Name, err)
+					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
 				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: result < 0}
 				vm.sp++
@@ -532,7 +531,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			} else {
 				result, err := vm.compare(a, b)
 				if err != nil {
-					return compiler.NewNil(), fmt.Errorf("%s: %w", fn.Name, err)
+					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
 				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: result <= 0}
 				vm.sp++
@@ -543,7 +542,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			a := vm.pop()
 			result, err := vm.compare(a, b)
 			if err != nil {
-				return compiler.NewNil(), fmt.Errorf("%s: %w", fn.Name, err)
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			vm.push(compiler.NewBool(result > 0))
 
@@ -552,7 +551,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			a := vm.pop()
 			result, err := vm.compare(a, b)
 			if err != nil {
-				return compiler.NewNil(), fmt.Errorf("%s: %w", fn.Name, err)
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			vm.push(compiler.NewBool(result >= 0))
 
@@ -560,7 +559,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("bitwise AND requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "bitwise AND requires integers")
 			}
 			vm.push(compiler.NewInt(a.AsInt & b.AsInt))
 
@@ -568,7 +567,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("bitwise OR requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "bitwise OR requires integers")
 			}
 			vm.push(compiler.NewInt(a.AsInt | b.AsInt))
 
@@ -576,7 +575,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("bitwise XOR requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "bitwise XOR requires integers")
 			}
 			vm.push(compiler.NewInt(a.AsInt ^ b.AsInt))
 
@@ -584,10 +583,10 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("shift requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "shift requires integers")
 			}
 			if b.AsInt < 0 {
-				return compiler.NewNil(), fmt.Errorf("negative shift count: %d", b.AsInt)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "negative shift count: %d", b.AsInt)
 			}
 			vm.push(compiler.NewInt(a.AsInt << uint(b.AsInt)))
 
@@ -595,10 +594,10 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			b := vm.pop()
 			a := vm.pop()
 			if a.Type != compiler.VAL_INT || b.Type != compiler.VAL_INT {
-				return compiler.NewNil(), fmt.Errorf("shift requires integers")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "shift requires integers")
 			}
 			if b.AsInt < 0 {
-				return compiler.NewNil(), fmt.Errorf("negative shift count: %d", b.AsInt)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "negative shift count: %d", b.AsInt)
 			}
 			vm.push(compiler.NewInt(a.AsInt >> uint(b.AsInt)))
 
@@ -655,7 +654,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 			// Fall back to general callValue for closures, builtins, etc.
 			if err := vm.callValue(callee, argc); err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 
 		case compiler.OP_CALL_METHOD:
@@ -664,16 +663,13 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 			methodName := fn.Constants[methodNameIdx].AsString
 			if err := vm.executeMethodCall(methodName, argc, fn.Name, frame.ip, false); err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			continue
 
 		case compiler.OP_DEFER:
 			argc := int(vm.readByte(frame, fn))
-			args := make([]compiler.Value, argc)
-			for i := argc - 1; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
+			args := vm.popN(argc)
 			callee := vm.pop()
 			frame.defers = append(frame.defers, DeferAction{
 				kind: deferFunc,
@@ -684,10 +680,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_DEFER_METHOD:
 			methodNameIdx := vm.readShort(frame, fn)
 			argc := int(vm.readByte(frame, fn))
-			args := make([]compiler.Value, argc-1)
-			for i := argc - 2; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
+			args := vm.popN(argc - 1)
 			receiver := vm.pop()
 			methodName := fn.Constants[methodNameIdx].AsString
 			frame.defers = append(frame.defers, DeferAction{
@@ -700,10 +693,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_DEFER_BUILTIN:
 			builtinID := compiler.BuiltinID(vm.readByte(frame, fn))
 			argc := int(vm.readByte(frame, fn))
-			args := make([]compiler.Value, argc)
-			for i := argc - 1; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
+			args := vm.popN(argc)
 			frame.defers = append(frame.defers, DeferAction{
 				kind:      deferBuiltin,
 				builtinID: builtinID,
@@ -728,7 +718,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 					AsObject: vm.module.Functions[fnIdx],
 				})
 			} else {
-				return compiler.NewNil(), fmt.Errorf("invalid function index: %d", fnIdx)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "invalid function index: %d", fnIdx)
 			}
 
 		case compiler.OP_RETURN:
@@ -758,7 +748,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			frame.returning = true
 			done, res, err := vm.resumeReturn(frame, fn.Name, frame.ip)
 			if err != nil {
-				return compiler.ValueNil, err
+				return compiler.ValueNil, vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			if done {
 				return res, nil
@@ -771,7 +761,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			frame.returning = true
 			done, result, err := vm.resumeReturn(frame, fn.Name, frame.ip)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			if done {
 				return result, nil
@@ -815,7 +805,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				if idx, ok := structDef.FieldIndex[fieldName]; ok {
 					vm.push(instance.Fields[idx])
 				} else {
-					return compiler.NewNil(), fmt.Errorf("undefined field: %s", fieldName)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "undefined field: %s", fieldName)
 				}
 			case compiler.VAL_OPTION:
 				option := obj.AsObject.(*compiler.OptionInstance)
@@ -831,86 +821,8 @@ func (vm *VM) run() (result compiler.Value, err error) {
 						vm.push(compiler.NewNil())
 					}
 				default:
-					// Print a small disassembly around the current ip to aid debugging.
-					fmt.Fprintf(os.Stderr, "DISASM for function %s around ip %d:\n", fn.Name, frame.ip)
-					start := 0
-					end := len(fn.Code)
-					// Decode instructions properly (respecting immediate sizes)
-					pc := start
-					for pc < end {
-						op := compiler.Opcode(fn.Code[pc])
-						marker := "   "
-						if pc == frame.ip-1 {
-							marker = "-> "
-						}
-						switch op {
-						case compiler.OP_CONST:
-							if pc+2 < len(fn.Code) {
-								hi := int(fn.Code[pc+1])
-								lo := int(fn.Code[pc+2])
-								idx := (hi << 8) | lo
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (const idx=%d)\n", marker, pc, op.String(), fn.Code[pc], idx)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
-							}
-							pc += 3
-						case compiler.OP_GET_LOCAL, compiler.OP_SET_LOCAL, compiler.OP_NEG, compiler.OP_POP, compiler.OP_DUP, compiler.OP_SWAP, compiler.OP_PRINT, compiler.OP_PRINTLN, compiler.OP_TRUE, compiler.OP_FALSE, compiler.OP_NIL:
-							if pc+1 < len(fn.Code) {
-								arg := int(fn.Code[pc+1])
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (arg=%d)\n", marker, pc, op.String(), fn.Code[pc], arg)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (no-arg)\n", marker, pc, op.String())
-							}
-							pc += 2
-						case compiler.OP_GET_GLOBAL, compiler.OP_SET_GLOBAL, compiler.OP_GET_FIELD, compiler.OP_SET_FIELD, compiler.OP_GET_FUNC, compiler.OP_JMP_IF_FALSE, compiler.OP_JMP_IF_TRUE:
-							if pc+2 < len(fn.Code) {
-								hi := int(fn.Code[pc+1])
-								lo := int(fn.Code[pc+2])
-								idx := (hi << 8) | lo
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (idx=%d)\n", marker, pc, op.String(), fn.Code[pc], idx)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
-							}
-							pc += 3
-						case compiler.OP_CALL:
-							if pc+1 < len(fn.Code) {
-								argc := int(fn.Code[pc+1])
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (argc=%d)\n", marker, pc, op.String(), fn.Code[pc], argc)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
-							}
-							pc += 2
-						case compiler.OP_CALL_METHOD:
-							if pc+3 < len(fn.Code) {
-								hi := int(fn.Code[pc+1])
-								lo := int(fn.Code[pc+2])
-								methodIdx := (hi << 8) | lo
-								argc := int(fn.Code[pc+3])
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (methodIdx=%d argc=%d)\n", marker, pc, op.String(), fn.Code[pc], methodIdx, argc)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
-							}
-							pc += 4
-						case compiler.OP_BUILTIN:
-							if pc+2 < len(fn.Code) {
-								builtinID := int(fn.Code[pc+1])
-								argc := int(fn.Code[pc+2])
-								fmt.Fprintf(os.Stderr, "%s%4d: %s %d (builtinID=%d argc=%d)\n", marker, pc, op.String(), fn.Code[pc], builtinID, argc)
-							} else {
-								fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
-							}
-							pc += 3
-						default:
-							fmt.Fprintf(os.Stderr, "%s%4d: %s %d\n", marker, pc, op.String(), fn.Code[pc])
-							pc += 1
-						}
-					}
-					// Also print constants snapshot
-					fmt.Fprintf(os.Stderr, "CONSTANTS: len=%d\n", len(fn.Constants))
-					for ci := 0; ci < len(fn.Constants) && ci < 40; ci++ {
-						fmt.Fprintf(os.Stderr, "  [%d] = %#v\n", ci, fn.Constants[ci])
-					}
-					return compiler.NewNil(), fmt.Errorf("undefined field: Option.%s in function %s at ip %d", fieldName, fn.Name, frame.ip)
+					vm.dumpFunctionDebug(fn, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "undefined field: Option.%s", fieldName)
 				}
 			case compiler.VAL_ENUM:
 				enumInst := obj.AsObject.(*compiler.EnumInstance)
@@ -927,30 +839,30 @@ func (vm *VM) run() (result compiler.Value, err error) {
 							vm.push(compiler.NewNil())
 						}
 					default:
-						return compiler.NewNil(), fmt.Errorf("undefined field: Result.%s", fieldName)
+						return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "undefined field: Result.%s", fieldName)
 					}
 				} else {
-					return compiler.NewNil(), fmt.Errorf("cannot access field on enum %s", enumInst.EnumName)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot access field on enum %s", enumInst.EnumName)
 				}
 			case compiler.VAL_ARRAY:
 				if fieldName == "len" {
 					vec := obj.AsObject.(*compiler.ArrayInstance)
 					vm.push(compiler.NewInt(int64(len(vec.Elements))))
 				} else {
-					return compiler.NewNil(), fmt.Errorf("undefined field: Vec.%s", fieldName)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "undefined field: Vec.%s", fieldName)
 				}
 			case compiler.VAL_TUPLE:
 				idx, err := strconv.Atoi(fieldName)
 				if err != nil {
-					return compiler.NewNil(), fmt.Errorf("invalid tuple index: %s", fieldName)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "invalid tuple index: %s", fieldName)
 				}
 				tuple := obj.AsObject.(*compiler.TupleInstance)
 				if idx < 0 || idx >= len(tuple.Elements) {
-					return compiler.NewNil(), fmt.Errorf("tuple index out of bounds: %d", idx)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "tuple index out of bounds: %d", idx)
 				}
 				vm.push(tuple.Elements[idx])
 			default:
-				return compiler.NewNil(), fmt.Errorf("cannot access field on %v", obj.Type)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot access field on %v", obj.Type)
 			}
 
 		case compiler.OP_SET_FIELD:
@@ -960,7 +872,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			value := vm.pop()
 
 			if obj.Type != compiler.VAL_STRUCT {
-				return compiler.NewNil(), fmt.Errorf("cannot set field on non-struct (%s.%s)", fn.Name, fieldName)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot set field on non-struct (%s.%s)", fn.Name, fieldName)
 			}
 
 			instance := obj.AsObject.(*compiler.StructInstance)
@@ -968,7 +880,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			if idx, ok := structDef.FieldIndex[fieldName]; ok {
 				instance.Fields[idx] = value
 			} else {
-				return compiler.NewNil(), fmt.Errorf("undefined field: %s", fieldName)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "undefined field: %s", fieldName)
 			}
 
 		case compiler.OP_NEW_ENUM:
@@ -998,30 +910,37 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				VariantID:   variantID,
 				Payload:     payload,
 			}
-			vm.push(compiler.Value{Type: compiler.VAL_ENUM, AsObject: instance})
+			vm.push(compiler.Value{
+				Type:     compiler.VAL_ENUM,
+				AsObject: instance,
+			})
 
 		case compiler.OP_IS_VARIANT:
 			variantID := vm.pop()
 			enumID := vm.pop()
 			obj := vm.pop()
 
-			if obj.Type != compiler.VAL_ENUM || enumID.Type != compiler.VAL_INT || variantID.Type != compiler.VAL_INT {
+			if obj.Type != compiler.VAL_ENUM ||
+				enumID.Type != compiler.VAL_INT ||
+				variantID.Type != compiler.VAL_INT {
 				vm.push(compiler.NewBool(false))
 				break
 			}
 
 			enumInst := obj.AsObject.(*compiler.EnumInstance)
-			matched := enumInst.EnumID == int(enumID.AsInt) && enumInst.VariantID == int(variantID.AsInt)
+			matched := enumInst.EnumID == int(enumID.AsInt) &&
+				enumInst.VariantID == int(variantID.AsInt)
 			vm.push(compiler.NewBool(matched))
 
 		case compiler.OP_GET_PAYLOAD:
 			indexVal := vm.pop()
 			obj := vm.pop()
-			if obj.Type == compiler.VAL_ENUM && indexVal.Type == compiler.VAL_INT {
+			if obj.Type == compiler.VAL_ENUM &&
+				indexVal.Type == compiler.VAL_INT {
 				enumInst := obj.AsObject.(*compiler.EnumInstance)
 				idx := int(indexVal.AsInt)
 				if idx < 0 || idx >= len(enumInst.Payload) {
-					return compiler.NewNil(), fmt.Errorf("payload index out of range")
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "payload index out of range")
 				}
 				vm.push(enumInst.Payload[idx])
 				break
@@ -1030,12 +949,12 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				enumInst := indexVal.AsObject.(*compiler.EnumInstance)
 				idx := int(obj.AsInt)
 				if idx < 0 || idx >= len(enumInst.Payload) {
-					return compiler.NewNil(), fmt.Errorf("payload index out of range")
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "payload index out of range")
 				}
 				vm.push(enumInst.Payload[idx])
 				break
 			}
-			return compiler.NewNil(), fmt.Errorf("payload access requires enum and int index (got %v and %v)", obj.Type, indexVal.Type)
+			return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "payload access requires enum and int index (got %v and %v)", obj.Type, indexVal.Type)
 
 		case compiler.OP_NEW_OPTION_SOME:
 			value := vm.pop()
@@ -1069,25 +988,10 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			}
 			vm.push(compiler.Value{Type: compiler.VAL_RESULT, AsObject: result})
 
-		case compiler.OP_NEW_VEC_FIXED:
+		case compiler.OP_NEW_VEC_FIXED, compiler.OP_NEW_VEC_DYNAMIC:
 			count := int(vm.pop().AsInt)
-			elements := make([]compiler.Value, count)
-			for i := count - 1; i >= 0; i-- {
-				elements[i] = vm.pop()
-			}
 			vec := &compiler.ArrayInstance{
-				Elements: elements,
-			}
-			vm.push(compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec})
-
-		case compiler.OP_NEW_VEC_DYNAMIC:
-			count := int(vm.pop().AsInt)
-			elements := make([]compiler.Value, count)
-			for i := count - 1; i >= 0; i-- {
-				elements[i] = vm.pop()
-			}
-			vec := &compiler.ArrayInstance{
-				Elements: elements,
+				Elements: vm.popN(count),
 			}
 			vm.push(compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec})
 
@@ -1101,41 +1005,16 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_UNPACK_N:
 			// Immediate byte contains number of elements to unpack
 			n := int(vm.readByte(frame, fn))
-			obj := vm.pop()
-			switch obj.Type {
-			case compiler.VAL_ARRAY:
-				vec := obj.AsObject.(*compiler.ArrayInstance)
-				if len(vec.Elements) < n {
-					return compiler.NewNil(), fmt.Errorf("unpack requires at least %d elements (got %d) in function %s at ip %d", n, len(vec.Elements), fn.Name, frame.ip)
-				}
-				// push elements 0..n-1 so element n-1 ends up on top
-				for i := range n {
-					vm.push(vec.Elements[i])
-				}
-				return compiler.NewNil(), nil
-			case compiler.VAL_TUPLE:
-				tuple := obj.AsObject.(*compiler.TupleInstance)
-				if len(tuple.Elements) < n {
-					return compiler.NewNil(), fmt.Errorf("unpack requires at least %d elements (got %d) in function %s at ip %d", n, len(tuple.Elements), fn.Name, frame.ip)
-				}
-				for i := range n {
-					vm.push(tuple.Elements[i])
-				}
-				return compiler.NewNil(), nil
+			if err := vm.unpackTopN(vm.pop(), n, fn.Name, frame.ip); err != nil {
+				return compiler.NewNil(), err
 			}
-			// Non-vector value
-			return compiler.NewNil(), fmt.Errorf("unpack requires a vector, got %v in function %s at ip %d", obj.Type, fn.Name, frame.ip)
+			continue
 
 		case compiler.OP_NEW_TUPLE:
 			count := int(vm.readByte(frame, fn))
-
-			elements := make([]compiler.Value, count)
-			for i := count - 1; i >= 0; i-- {
-				elements[i] = vm.pop()
-			}
 			vm.push(compiler.Value{
 				Type:     compiler.VAL_TUPLE,
-				AsObject: &compiler.TupleInstance{Elements: elements},
+				AsObject: &compiler.TupleInstance{Elements: vm.popN(count)},
 			})
 
 		case compiler.OP_VEC_LEN:
@@ -1167,9 +1046,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 					vm.push(compiler.NewInt(int64(vecLen)))
 					break
 				}
-				return compiler.NewNil(), fmt.Errorf("len() requires a vector, string, or range (got struct %s)", inst.TypeName)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "len() requires a vector, string, or range (got struct %s)", inst.TypeName)
 			default:
-				return compiler.NewNil(), fmt.Errorf("len() requires a vector, string, or range (got %s)", obj.Type.String())
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "len() requires a vector, string, or range (got %s)", obj.Type.String())
 			}
 
 		case compiler.OP_VEC_GET:
@@ -1180,14 +1059,14 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vec := obj.AsObject.(*compiler.ArrayInstance)
 				i := int(idx.AsInt)
 				if i < 0 || i >= len(vec.Elements) {
-					return compiler.NewNil(), fmt.Errorf("index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index out of bounds: %d", i)
 				}
 				vm.push(vec.Elements[i])
 			case compiler.VAL_STRING:
 				i := int(idx.AsInt)
 				runes := []rune(obj.AsString)
 				if i < 0 || i >= len(runes) {
-					return compiler.NewNil(), fmt.Errorf("string index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "string index out of bounds: %d", i)
 				}
 				vm.push(compiler.NewChar(runes[i]))
 			case compiler.VAL_STRUCT:
@@ -1195,12 +1074,12 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				if vecArr, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
 					i := int(idx.AsInt)
 					if i < 0 || i >= vecLen {
-						return compiler.NewNil(), fmt.Errorf("Vec index out of bounds: %d", i)
+						return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "Vec index out of bounds: %d", i)
 					}
 					vm.push(vecArr.Elements[i])
 					break
 				}
-				return compiler.NewNil(), fmt.Errorf("index requires a vector, string, or range (got struct %s)", inst.TypeName)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index requires a vector, string, or range (got struct %s)", inst.TypeName)
 			case compiler.VAL_RANGE:
 				r := obj.AsObject.(*compiler.RangeObj)
 				start := r.Start
@@ -1212,15 +1091,15 @@ func (vm *VM) run() (result compiler.Value, err error) {
 					end--
 				}
 				if end < start {
-					return compiler.NewNil(), fmt.Errorf("index out of bounds (range): %d in function %s at ip %d", idx.AsInt, fn.Name, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index out of bounds (range): %d", idx.AsInt)
 				}
 				i := int(idx.AsInt)
 				if i < 0 || int64(i) > end-start {
-					return compiler.NewNil(), fmt.Errorf("index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index out of bounds: %d", i)
 				}
 				vm.push(compiler.NewInt(start + int64(i)))
 			default:
-				return compiler.NewNil(), fmt.Errorf("index requires a vector, string, or range (got %s, idx=%s) in function %s at ip %d", obj.Type.String(), idx.Type.String(), fn.Name, frame.ip)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index requires a vector, string, or range (got %s, idx=%s)", obj.Type.String(), idx.Type.String())
 			}
 
 		case compiler.OP_VEC_SET:
@@ -1232,7 +1111,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vec := obj.AsObject.(*compiler.ArrayInstance)
 				i := int(idx.AsInt)
 				if i < 0 || i >= len(vec.Elements) {
-					return compiler.NewNil(), fmt.Errorf("index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index out of bounds: %d", i)
 				}
 				vec.Elements[i] = value
 			case compiler.VAL_STRUCT:
@@ -1240,19 +1119,19 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				if vecArr, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
 					i := int(idx.AsInt)
 					if i < 0 || i >= vecLen {
-						return compiler.NewNil(), fmt.Errorf("index out of bounds: %d in function %s at ip %d", i, fn.Name, frame.ip)
+						return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "index out of bounds: %d", i)
 					}
 					vecArr.Elements[i] = value
 					break
 				}
-				return compiler.NewNil(), fmt.Errorf(
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip,
 					"index requires a vector, got struct %s (idx=%s, value=%s)",
 					inst.TypeName,
 					idx.Type.String(),
 					value.Type.String(),
 				)
 			default:
-				return compiler.NewNil(), fmt.Errorf(
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip,
 					"index requires a vector, got %s (idx=%s, value=%s)",
 					obj.Type.String(),
 					idx.Type.String(),
@@ -1322,11 +1201,11 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			target := vm.pop()
 			val := vm.pop()
 			if target.Type != compiler.VAL_BORROW {
-				return compiler.NewNil(), fmt.Errorf("invalid store target: %s", target.Type)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "invalid store target: %s", target.Type)
 			}
 			b := target.AsObject.(*compiler.BorrowInstance)
 			if !b.Mutable {
-				return compiler.NewNil(), fmt.Errorf("cannot store to immutable borrow")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot store to immutable borrow")
 			}
 			*b.Location = val
 
@@ -1368,7 +1247,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 					isErr = true
 					inner = val
 				default:
-					return compiler.NewNil(), fmt.Errorf("cannot unwrap enum variant %s", e.VariantName)
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot unwrap enum variant %s", e.VariantName)
 				}
 			case compiler.VAL_BOX:
 				b := val.AsObject.(*compiler.BoxInstance)
@@ -1382,7 +1261,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				isErr = true
 				inner = val
 			default:
-				return compiler.NewNil(), fmt.Errorf("cannot unwrap type: %s", val.Type)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot unwrap type: %s", val.Type)
 			}
 
 			if !isErr {
@@ -1413,7 +1292,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				frame.returning = true
 				done, res, err := vm.resumeReturn(frame, fn.Name, frame.ip)
 				if err != nil {
-					return compiler.ValueNil, err
+					return compiler.ValueNil, vm.opWrapErr(fn.Name, frame.ip, err)
 				}
 				if done {
 					return res, nil
@@ -1447,13 +1326,13 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			alias := fn.Constants[aliasIdx].AsString
 			resolvedPath := vm.resolveImportPath(importPath)
 			if resolvedPath == "" {
-				return compiler.NewNil(), fmt.Errorf("import error for %s: cannot resolve import path", importPath)
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "import error for %s: cannot resolve import path", importPath)
 			}
 
 			// Load module if not already cached
 			if _, loaded := vm.loadedModules[resolvedPath]; !loaded {
 				if err := vm.loadModule(resolvedPath, alias); err != nil {
-					return compiler.NewNil(), fmt.Errorf("import error for %s: %w", importPath, err)
+					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, fmt.Errorf("import error for %s: %w", importPath, err))
 				}
 			}
 			// Store alias -> path mapping
@@ -1463,7 +1342,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			value := vm.pop()
 			obj := vm.derefAll(vm.pop())
 			if obj.Type != compiler.VAL_ARRAY {
-				return compiler.NewNil(), fmt.Errorf("push requires a vector")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "push requires a vector")
 			}
 			vec := obj.AsObject.(*compiler.ArrayInstance)
 			vec.Elements = append(vec.Elements, value)
@@ -1471,11 +1350,11 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_VEC_POP:
 			obj := vm.derefAll(vm.pop())
 			if obj.Type != compiler.VAL_ARRAY {
-				return compiler.NewNil(), fmt.Errorf("pop requires a vector")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "pop requires a vector")
 			}
 			vec := obj.AsObject.(*compiler.ArrayInstance)
 			if len(vec.Elements) == 0 {
-				return compiler.NewNil(), fmt.Errorf("cannot pop from empty vector")
+				return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot pop from empty vector")
 			}
 			last := vec.Elements[len(vec.Elements)-1]
 			vec.Elements = vec.Elements[:len(vec.Elements)-1]
@@ -1510,19 +1389,16 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			builtinID := compiler.BuiltinID(vm.readByte(frame, fn))
 			argc := int(vm.readByte(frame, fn))
 
-			args := make([]compiler.Value, argc)
-			for i := argc - 1; i >= 0; i-- {
-				args[i] = vm.pop()
-			}
+			args := vm.popN(argc)
 
 			result, err := vm.callBuiltin(builtinID, args)
 			if err != nil {
-				return compiler.NewNil(), err
+				return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 			}
 			vm.push(result)
 
 		default:
-			return compiler.NewNil(), fmt.Errorf("unknown opcode: %d", op)
+			return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "unknown opcode: %d", op)
 		}
 	}
 
@@ -1539,8 +1415,132 @@ func (vm *VM) push(v compiler.Value) {
 }
 
 func (vm *VM) pop() compiler.Value {
+	if vm.sp <= 0 {
+		panic("stack underflow")
+	}
 	vm.sp--
 	return vm.stack[vm.sp]
+}
+
+func (vm *VM) popN(count int) []compiler.Value {
+	if count < 0 {
+		panic(fmt.Sprintf("invalid pop count: %d", count))
+	}
+	args := make([]compiler.Value, count)
+	for i := count - 1; i >= 0; i-- {
+		args[i] = vm.pop()
+	}
+	return args
+}
+
+func (vm *VM) unpackTopN(obj compiler.Value, n int, fnName string, ip int) error {
+	if n < 0 {
+		return vm.opErr(fnName, ip, "unpack requires a non-negative element count (got %d)", n)
+	}
+	switch obj.Type {
+	case compiler.VAL_ARRAY:
+		elements := obj.AsObject.(*compiler.ArrayInstance).Elements
+		if len(elements) < n {
+			return vm.opErr(fnName, ip, "unpack requires at least %d elements (got %d)", n, len(elements))
+		}
+		// Push elements 0..n-1 so element n-1 ends up on top.
+		for i := range n {
+			vm.push(elements[i])
+		}
+		return nil
+	case compiler.VAL_TUPLE:
+		elements := obj.AsObject.(*compiler.TupleInstance).Elements
+		if len(elements) < n {
+			return vm.opErr(fnName, ip, "unpack requires at least %d elements (got %d)", n, len(elements))
+		}
+		for i := range n {
+			vm.push(elements[i])
+		}
+		return nil
+	default:
+		return vm.opErr(fnName, ip, "unpack requires a vector or tuple, got %v", obj.Type)
+	}
+}
+
+func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
+	if fn == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "DISASM for function %s around ip %d:\n", fn.Name, ip)
+	pc := 0
+	for pc < len(fn.Code) {
+		op := compiler.Opcode(fn.Code[pc])
+		marker := "   "
+		if pc == ip-1 {
+			marker = "-> "
+		}
+		switch op {
+		case compiler.OP_CONST:
+			if pc+2 < len(fn.Code) {
+				hi := int(fn.Code[pc+1])
+				lo := int(fn.Code[pc+2])
+				idx := (hi << 8) | lo
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (const idx=%d)\n", marker, pc, op.String(), fn.Code[pc], idx)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
+			}
+			pc += 3
+		case compiler.OP_GET_LOCAL, compiler.OP_SET_LOCAL, compiler.OP_NEG, compiler.OP_POP, compiler.OP_DUP, compiler.OP_SWAP, compiler.OP_PRINT, compiler.OP_PRINTLN, compiler.OP_TRUE, compiler.OP_FALSE, compiler.OP_NIL:
+			if pc+1 < len(fn.Code) {
+				arg := int(fn.Code[pc+1])
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (arg=%d)\n", marker, pc, op.String(), fn.Code[pc], arg)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (no-arg)\n", marker, pc, op.String())
+			}
+			pc += 2
+		case compiler.OP_GET_GLOBAL, compiler.OP_SET_GLOBAL, compiler.OP_GET_FIELD, compiler.OP_SET_FIELD, compiler.OP_GET_FUNC, compiler.OP_JMP_IF_FALSE, compiler.OP_JMP_IF_TRUE:
+			if pc+2 < len(fn.Code) {
+				hi := int(fn.Code[pc+1])
+				lo := int(fn.Code[pc+2])
+				idx := (hi << 8) | lo
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (idx=%d)\n", marker, pc, op.String(), fn.Code[pc], idx)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
+			}
+			pc += 3
+		case compiler.OP_CALL:
+			if pc+1 < len(fn.Code) {
+				argc := int(fn.Code[pc+1])
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (argc=%d)\n", marker, pc, op.String(), fn.Code[pc], argc)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
+			}
+			pc += 2
+		case compiler.OP_CALL_METHOD:
+			if pc+3 < len(fn.Code) {
+				hi := int(fn.Code[pc+1])
+				lo := int(fn.Code[pc+2])
+				methodIdx := (hi << 8) | lo
+				argc := int(fn.Code[pc+3])
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (methodIdx=%d argc=%d)\n", marker, pc, op.String(), fn.Code[pc], methodIdx, argc)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
+			}
+			pc += 4
+		case compiler.OP_BUILTIN:
+			if pc+2 < len(fn.Code) {
+				builtinID := int(fn.Code[pc+1])
+				argc := int(fn.Code[pc+2])
+				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (builtinID=%d argc=%d)\n", marker, pc, op.String(), fn.Code[pc], builtinID, argc)
+			} else {
+				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
+			}
+			pc += 3
+		default:
+			fmt.Fprintf(os.Stderr, "%s%4d: %s %d\n", marker, pc, op.String(), fn.Code[pc])
+			pc++
+		}
+	}
+
+	fmt.Fprintf(os.Stderr, "CONSTANTS: len=%d\n", len(fn.Constants))
+	for ci := 0; ci < len(fn.Constants) && ci < 40; ci++ {
+		fmt.Fprintf(os.Stderr, "  [%d] = %#v\n", ci, fn.Constants[ci])
+	}
 }
 
 func (vm *VM) derefAll(v compiler.Value) compiler.Value {
@@ -1564,7 +1564,11 @@ func (vm *VM) derefAll(v compiler.Value) compiler.Value {
 }
 
 func (vm *VM) peek(distance int) compiler.Value {
-	return vm.stack[vm.sp-1-distance]
+	idx := vm.sp - 1 - distance
+	if idx < 0 {
+		panic(fmt.Sprintf("stack underflow on peek(%d)", distance))
+	}
+	return vm.stack[idx]
 }
 
 // Helper methods
@@ -1603,10 +1607,7 @@ func (vm *VM) callValueWithFlags(callee compiler.Value, argc int, discardReturn 
 		return vm.callWithFlags(cl.Function, argc, discardReturn)
 	case compiler.VAL_BUILTIN:
 		builtin := callee.AsObject.(*compiler.BuiltinObj)
-		args := make([]compiler.Value, argc)
-		for i := argc - 1; i >= 0; i-- {
-			args[i] = vm.pop()
-		}
+		args := vm.popN(argc)
 		vm.pop() // Pop callee
 		result := builtin.Fn(args)
 		if !discardReturn {
@@ -1644,6 +1645,23 @@ func (vm *VM) wrapRuntimeError(err error) error {
 	return err
 }
 
+func (vm *VM) opErr(fnName string, ip int, format string, args ...any) error {
+	if fnName == "" {
+		fnName = "<anonymous>"
+	}
+	return fmt.Errorf("%s@%d: %s", fnName, ip, fmt.Sprintf(format, args...))
+}
+
+func (vm *VM) opWrapErr(fnName string, ip int, err error) error {
+	if err == nil {
+		return nil
+	}
+	if fnName == "" {
+		fnName = "<anonymous>"
+	}
+	return fmt.Errorf("%s@%d: %w", fnName, ip, err)
+}
+
 func (vm *VM) call(fn *compiler.FunctionObj, argc int) error {
 	return vm.callWithFlags(fn, argc, false)
 }
@@ -1676,925 +1694,6 @@ func (vm *VM) callWithFlags(fn *compiler.FunctionObj, argc int, discardReturn bo
 
 	// Allocate space for locals (args are already in place)
 	return nil
-}
-
-func (vm *VM) pushMethodResult(result compiler.Value, discardReturn bool) {
-	if discardReturn {
-		return
-	}
-	vm.push(result)
-}
-
-func vmArgCountError(method string, want int) error {
-	if want == 0 {
-		return fmt.Errorf("%s() requires 0 arguments", method)
-	}
-	if want == 1 {
-		return fmt.Errorf("%s() requires 1 argument", method)
-	}
-	return fmt.Errorf("%s() requires %d arguments", method, want)
-}
-
-func vmUndefinedMethodError(typ, method string) error {
-	return fmt.Errorf("undefined method: %s.%s", typ, method)
-}
-
-func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip int, discardReturn bool) error {
-	receiver := vm.derefAll(vm.peek(argc - 1))
-
-	// REMOVED: Option/Result method interception - now handled by bak impl blocks
-	// Methods like isSome(), unwrap(), isOk(), etc. are now implemented in
-	// src/std/option.bak and src/std/result.bak and dispatched through the
-	// standard method lookup mechanism below.
-
-	// Special-case: if the receiver is a function value and the method
-	// being called is `dispatch`, treat this as invoking the function
-	// directly with the provided arguments (excluding the receiver).
-	if receiver.Type == compiler.VAL_FUNCTION {
-		callArgs := make([]compiler.Value, 0, argc-1)
-		for i := 0; i < argc-1; i++ {
-			val := vm.pop()
-			callArgs = append([]compiler.Value{val}, callArgs...)
-		}
-		recv := vm.pop()
-		fnObj := recv.AsObject.(*compiler.FunctionObj)
-		vm.push(compiler.Value{Type: compiler.VAL_FUNCTION, AsObject: fnObj})
-		for _, a := range callArgs {
-			vm.push(a)
-		}
-		return vm.callWithFlags(fnObj, len(callArgs), discardReturn)
-	}
-
-	// Pop arguments and receiver (common for all built-in type methods)
-	args := make([]compiler.Value, argc-1)
-	for i := argc - 2; i >= 0; i-- {
-		args[i] = vm.pop()
-	}
-	vm.pop() // pop receiver
-
-	// Handle built-in type methods directly
-	switch receiver.Type {
-	case compiler.VAL_INT:
-		switch methodName {
-		case "toString":
-			if len(args) != 0 {
-				return vmArgCountError("toString", 0)
-			}
-			vm.pushMethodResult(compiler.NewString(strconv.FormatInt(receiver.AsInt, 10)), discardReturn)
-			return nil
-		case "toFloat":
-			if len(args) != 0 {
-				return vmArgCountError("toFloat", 0)
-			}
-			vm.pushMethodResult(compiler.NewFloat(float64(receiver.AsInt)), discardReturn)
-			return nil
-		case "abs":
-			if len(args) != 0 {
-				return vmArgCountError("abs", 0)
-			}
-			if receiver.AsInt < 0 {
-				vm.pushMethodResult(compiler.NewInt(-receiver.AsInt), discardReturn)
-			} else {
-				vm.pushMethodResult(receiver, discardReturn)
-			}
-			return nil
-		default:
-			return vmUndefinedMethodError("int", methodName)
-		}
-	case compiler.VAL_FLOAT:
-		switch methodName {
-		case "toString":
-			if len(args) != 0 {
-				return vmArgCountError("toString", 0)
-			}
-			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', -1, 64)), discardReturn)
-			return nil
-		case "toInt":
-			if len(args) != 0 {
-				return vmArgCountError("toInt", 0)
-			}
-			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsFloat)), discardReturn)
-			return nil
-		case "toFixed":
-			if len(args) != 1 {
-				return vmArgCountError("toFixed", 1)
-			}
-			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("toFixed() requires precision (int)")
-			}
-			precision := int(args[0].AsInt)
-			vm.pushMethodResult(compiler.NewString(strconv.FormatFloat(receiver.AsFloat, 'f', precision, 64)), discardReturn)
-			return nil
-		case "abs":
-			if len(args) != 0 {
-				return vmArgCountError("abs", 0)
-			}
-			vm.pushMethodResult(compiler.NewFloat(math.Abs(receiver.AsFloat)), discardReturn)
-			return nil
-		case "floor":
-			if len(args) != 0 {
-				return vmArgCountError("floor", 0)
-			}
-			vm.pushMethodResult(compiler.NewFloat(math.Floor(receiver.AsFloat)), discardReturn)
-			return nil
-		case "ceil":
-			if len(args) != 0 {
-				return vmArgCountError("ceil", 0)
-			}
-			vm.pushMethodResult(compiler.NewFloat(math.Ceil(receiver.AsFloat)), discardReturn)
-			return nil
-		case "round":
-			if len(args) != 0 {
-				return vmArgCountError("round", 0)
-			}
-			vm.pushMethodResult(compiler.NewFloat(math.Round(receiver.AsFloat)), discardReturn)
-			return nil
-		default:
-			return vmUndefinedMethodError("float", methodName)
-		}
-	case compiler.VAL_BOOL:
-		switch methodName {
-		case "toString":
-			if len(args) != 0 {
-				return vmArgCountError("toString", 0)
-			}
-			if receiver.AsBool {
-				vm.pushMethodResult(compiler.NewString("true"), discardReturn)
-			} else {
-				vm.pushMethodResult(compiler.NewString("false"), discardReturn)
-			}
-			return nil
-		default:
-			return vmUndefinedMethodError("bool", methodName)
-		}
-	case compiler.VAL_CHAR:
-		switch methodName {
-		case "toString":
-			if len(args) != 0 {
-				return vmArgCountError("toString", 0)
-			}
-			vm.pushMethodResult(compiler.NewString(string(receiver.AsChar)), discardReturn)
-			return nil
-		case "isDigit":
-			if len(args) != 0 {
-				return vmArgCountError("isDigit", 0)
-			}
-			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= '0' && receiver.AsChar <= '9'), discardReturn)
-			return nil
-		case "isLetter", "isAlpha":
-			if len(args) != 0 {
-				return vmArgCountError(methodName, 0)
-			}
-			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z')
-			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
-			return nil
-		case "isAlphaNum":
-			if len(args) != 0 {
-				return vmArgCountError("isAlphaNum", 0)
-			}
-			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
-				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
-				(receiver.AsChar >= '0' && receiver.AsChar <= '9')
-			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
-			return nil
-		case "isWhitespace":
-			if len(args) != 0 {
-				return vmArgCountError("isWhitespace", 0)
-			}
-			v := receiver.AsChar == ' ' || receiver.AsChar == '\t' || receiver.AsChar == '\n' || receiver.AsChar == '\r'
-			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
-			return nil
-		case "isUpper":
-			if len(args) != 0 {
-				return vmArgCountError("isUpper", 0)
-			}
-			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z'), discardReturn)
-			return nil
-		case "isLower":
-			if len(args) != 0 {
-				return vmArgCountError("isLower", 0)
-			}
-			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 'a' && receiver.AsChar <= 'z'), discardReturn)
-			return nil
-		case "isAscii":
-			if len(args) != 0 {
-				return vmArgCountError("isAscii", 0)
-			}
-			vm.pushMethodResult(compiler.NewBool(receiver.AsChar >= 0 && receiver.AsChar <= 127), discardReturn)
-			return nil
-		case "isIdentStart":
-			if len(args) != 0 {
-				return vmArgCountError("isIdentStart", 0)
-			}
-			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') || (receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') || receiver.AsChar == '_'
-			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
-			return nil
-		case "isIdentPart":
-			if len(args) != 0 {
-				return vmArgCountError("isIdentPart", 0)
-			}
-			v := (receiver.AsChar >= 'a' && receiver.AsChar <= 'z') ||
-				(receiver.AsChar >= 'A' && receiver.AsChar <= 'Z') ||
-				(receiver.AsChar >= '0' && receiver.AsChar <= '9') ||
-				receiver.AsChar == '_'
-			vm.pushMethodResult(compiler.NewBool(v), discardReturn)
-			return nil
-		case "toAscii":
-			if len(args) != 0 {
-				return vmArgCountError("toAscii", 0)
-			}
-			vm.pushMethodResult(compiler.NewInt(int64(receiver.AsChar)), discardReturn)
-			return nil
-		case "toUpper":
-			if len(args) != 0 {
-				return vmArgCountError("toUpper", 0)
-			}
-			if receiver.AsChar >= 'a' && receiver.AsChar <= 'z' {
-				vm.pushMethodResult(compiler.NewChar(receiver.AsChar-32), discardReturn)
-			} else {
-				vm.pushMethodResult(receiver, discardReturn)
-			}
-			return nil
-		case "toLower":
-			if len(args) != 0 {
-				return vmArgCountError("toLower", 0)
-			}
-			if receiver.AsChar >= 'A' && receiver.AsChar <= 'Z' {
-				vm.pushMethodResult(compiler.NewChar(receiver.AsChar+32), discardReturn)
-			} else {
-				vm.pushMethodResult(receiver, discardReturn)
-			}
-			return nil
-		default:
-			return vmUndefinedMethodError("char", methodName)
-		}
-	case compiler.VAL_BOX:
-		box := receiver.AsObject.(*compiler.BoxInstance)
-		var result compiler.Value
-		switch methodName {
-		case "isNil":
-			result = compiler.NewBool(box.IsNil)
-		case "unwrap":
-			if len(args) != 0 {
-				return vmArgCountError("unwrap", 0)
-			}
-			if box.IsNil {
-				return fmt.Errorf("unwrap called on nil box")
-			}
-			result = box.Value
-		default:
-			return vmUndefinedMethodError("Box", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
-	case compiler.VAL_OPTION:
-		// Internal compatibility path only. Frozen user code cannot define/use
-		// Option<T>, but VM still supports this value kind for legacy artifacts.
-		opt := receiver.AsObject.(*compiler.OptionInstance)
-		if len(args) != 0 {
-			return vmArgCountError(methodName, 0)
-		}
-
-		var result compiler.Value
-		switch methodName {
-		case "isSome":
-			result = compiler.NewBool(opt.IsSome)
-		case "isNone":
-			result = compiler.NewBool(!opt.IsSome)
-		case "unwrap":
-			if !opt.IsSome {
-				return fmt.Errorf("unwrap called on None")
-			}
-			result = opt.Value
-		default:
-			return vmUndefinedMethodError("Option", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
-	case compiler.VAL_RESULT:
-		res := receiver.AsObject.(*compiler.ResultInstance)
-		if len(args) != 0 {
-			return vmArgCountError(methodName, 0)
-		}
-
-		var result compiler.Value
-		switch methodName {
-		case "isOk":
-			result = compiler.NewBool(!res.IsErr)
-		case "isErr":
-			result = compiler.NewBool(res.IsErr)
-		case "unwrap":
-			if res.IsErr {
-				return fmt.Errorf("unwrap called on Err result")
-			}
-			result = res.Value
-		case "unwrapErr":
-			if !res.IsErr {
-				return fmt.Errorf("unwrapErr called on Ok result")
-			}
-			result = res.Value
-		default:
-			return vmUndefinedMethodError("Result", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
-	case compiler.VAL_STRING:
-		str := receiver.AsString
-
-		// Handle static struct type method calls (e.g., "hashmap.HashMap" -> HashMap.new())
-		if after, ok := strings.CutPrefix(str, "__struct__:"); ok {
-			structTypeName := after
-			// Look up the static method on this struct type
-			fullMethodName := structTypeName + "." + methodName
-			if fnIdx, ok := vm.module.FunctionIndices[fullMethodName]; ok {
-				fn := vm.module.Functions[fnIdx]
-				// Push function args back onto stack and call
-				for _, a := range args {
-					vm.push(a)
-				}
-				return vm.callWithFlags(fn, len(args), discardReturn)
-			}
-			return fmt.Errorf("undefined static method: %s.%s", structTypeName, methodName)
-		}
-
-		var result compiler.Value
-		resultOk := func(v compiler.Value) compiler.Value {
-			return compiler.Value{
-				Type: compiler.VAL_RESULT,
-				AsObject: &compiler.ResultInstance{
-					IsErr: false,
-					Value: v,
-				},
-			}
-		}
-		resultErr := func(msg string) compiler.Value {
-			return compiler.Value{
-				Type: compiler.VAL_RESULT,
-				AsObject: &compiler.ResultInstance{
-					IsErr: true,
-					Value: compiler.NewString(msg),
-				},
-			}
-		}
-		switch methodName {
-		case "toString":
-			if len(args) != 0 {
-				return vmArgCountError("toString", 0)
-			}
-			result = compiler.NewString(str)
-		case "len":
-			if len(args) != 0 {
-				return vmArgCountError("len", 0)
-			}
-			result = compiler.NewInt(int64(utf8.RuneCountInString(str)))
-		case "hash":
-			if len(args) != 0 {
-				return vmArgCountError("hash", 0)
-			}
-			var h uint32 = 2166136261
-			for i := 0; i < len(str); i++ {
-				h = (h ^ uint32(str[i])) * 16777619
-			}
-			result = compiler.NewInt(int64(h))
-		case "bytes":
-			if len(args) != 0 {
-				return vmArgCountError("bytes", 0)
-			}
-			bytes := []byte(str)
-			values := make([]compiler.Value, len(bytes))
-			for i, b := range bytes {
-				values[i] = compiler.NewInt(int64(b))
-			}
-			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
-		case "chars":
-			if len(args) != 0 {
-				return vmArgCountError("chars", 0)
-			}
-			runes := []rune(str)
-			values := make([]compiler.Value, len(runes))
-			for i, r := range runes {
-				values[i] = compiler.NewChar(r)
-			}
-			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: values}}
-		case "isEmpty":
-			if len(args) != 0 {
-				return vmArgCountError("isEmpty", 0)
-			}
-			result = compiler.NewBool(len(str) == 0)
-		case "toLower":
-			if len(args) != 0 {
-				return vmArgCountError("toLower", 0)
-			}
-			result = compiler.NewString(strings.ToLower(str))
-		case "toUpper":
-			if len(args) != 0 {
-				return vmArgCountError("toUpper", 0)
-			}
-			result = compiler.NewString(strings.ToUpper(str))
-		case "trimSpace":
-			if len(args) != 0 {
-				return vmArgCountError("trimSpace", 0)
-			}
-			result = compiler.NewString(strings.TrimSpace(str))
-		case "trimPrefix":
-			if len(args) != 1 {
-				return vmArgCountError("trimPrefix", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("trimPrefix() requires a string")
-			}
-			result = compiler.NewString(strings.TrimPrefix(str, args[0].AsString))
-		case "trimSuffix":
-			if len(args) != 1 {
-				return vmArgCountError("trimSuffix", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("trimSuffix() requires a string")
-			}
-			result = compiler.NewString(strings.TrimSuffix(str, args[0].AsString))
-		case "split":
-			if len(args) != 1 {
-				return vmArgCountError("split", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("split() requires a string")
-			}
-			parts := strings.Split(str, args[0].AsString)
-			vec := &compiler.ArrayInstance{Elements: make([]compiler.Value, len(parts))}
-			for i, p := range parts {
-				vec.Elements[i] = compiler.NewString(p)
-			}
-			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}
-		case "get":
-			if len(args) != 1 {
-				return vmArgCountError("get", 1)
-			}
-			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("get() requires an integer index")
-			}
-			idx := int(args[0].AsInt)
-			runes := []rune(str)
-			if idx < 0 || idx >= len(runes) {
-				result = resultErr("index out of bounds")
-			} else {
-				result = resultOk(compiler.NewChar(runes[idx]))
-			}
-		case "indexOf":
-			if len(args) != 1 {
-				return vmArgCountError("indexOf", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("indexOf() requires a string")
-			}
-			idx := stringIndexOfRunes(str, args[0].AsString)
-			if idx < 0 {
-				result = resultErr("substring not found")
-			} else {
-				result = resultOk(compiler.NewInt(int64(idx)))
-			}
-		case "lastIndexOf":
-			if len(args) != 1 {
-				return vmArgCountError("lastIndexOf", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("lastIndexOf() requires a string")
-			}
-			idx := stringLastIndexOfRunes(str, args[0].AsString)
-			if idx < 0 {
-				result = resultErr("substring not found")
-			} else {
-				result = resultOk(compiler.NewInt(int64(idx)))
-			}
-		case "contains":
-			if len(args) != 1 {
-				return vmArgCountError("contains", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("contains() requires a string")
-			}
-			result = compiler.NewBool(strings.Contains(str, args[0].AsString))
-		case "startsWith":
-			if len(args) != 1 {
-				return vmArgCountError("startsWith", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("startsWith() requires a string")
-			}
-			result = compiler.NewBool(strings.HasPrefix(str, args[0].AsString))
-		case "endsWith":
-			if len(args) != 1 {
-				return vmArgCountError("endsWith", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("endsWith() requires a string")
-			}
-			result = compiler.NewBool(strings.HasSuffix(str, args[0].AsString))
-		case "replace":
-			if len(args) != 2 {
-				return vmArgCountError("replace", 2)
-			}
-			if args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
-				return fmt.Errorf("replace() requires string arguments")
-			}
-			result = compiler.NewString(strings.ReplaceAll(str, args[0].AsString, args[1].AsString))
-		case "parseInt":
-			if len(args) != 0 {
-				return vmArgCountError("parseInt", 0)
-			}
-			var i int64
-			if _, err := fmt.Sscanf(str, "%d", &i); err != nil {
-				result = resultErr("invalid integer")
-				break
-			}
-			result = resultOk(compiler.NewInt(i))
-		case "parseFloat":
-			if len(args) != 0 {
-				return vmArgCountError("parseFloat", 0)
-			}
-			var f float64
-			if _, err := fmt.Sscanf(str, "%f", &f); err != nil {
-				result = resultErr("invalid float")
-				break
-			}
-			result = resultOk(compiler.NewFloat(f))
-		case "substring":
-			if len(args) != 2 {
-				return vmArgCountError("substring", 2)
-			}
-			if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
-				return fmt.Errorf("substring() requires integer indices")
-			}
-			start := int(args[0].AsInt)
-			end := int(args[1].AsInt)
-			runes := []rune(str)
-			runeLen := len(runes)
-			if start < 0 {
-				start = 0
-			}
-			if end < start {
-				end = start
-			}
-			if end > runeLen {
-				end = runeLen
-			}
-			if start > runeLen {
-				start = runeLen
-			}
-			result = compiler.NewString(string(runes[start:end]))
-		default:
-			return vmUndefinedMethodError("string", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
-	case compiler.VAL_ARRAY:
-		arr := receiver.AsObject.(*compiler.ArrayInstance)
-		resultOk := func(v compiler.Value) compiler.Value {
-			return compiler.Value{
-				Type: compiler.VAL_RESULT,
-				AsObject: &compiler.ResultInstance{
-					IsErr: false,
-					Value: v,
-				},
-			}
-		}
-		resultErr := func(msg string) compiler.Value {
-			return compiler.Value{
-				Type: compiler.VAL_RESULT,
-				AsObject: &compiler.ResultInstance{
-					IsErr: true,
-					Value: compiler.NewString(msg),
-				},
-			}
-		}
-
-		var result compiler.Value
-		switch methodName {
-		case "len":
-			if len(args) != 0 {
-				return vmArgCountError("len", 0)
-			}
-			result = compiler.NewInt(int64(len(arr.Elements)))
-		case "cap":
-			if len(args) != 0 {
-				return vmArgCountError("cap", 0)
-			}
-			result = compiler.NewInt(int64(cap(arr.Elements)))
-		case "isEmpty":
-			if len(args) != 0 {
-				return vmArgCountError("isEmpty", 0)
-			}
-			result = compiler.NewBool(len(arr.Elements) == 0)
-		case "get":
-			if len(args) != 1 {
-				return vmArgCountError("get", 1)
-			}
-			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("get() requires an integer index")
-			}
-			idx := int(args[0].AsInt)
-			if idx < 0 || idx >= len(arr.Elements) {
-				result = resultErr("index out of bounds")
-			} else {
-				result = resultOk(arr.Elements[idx])
-			}
-		case "set":
-			if len(args) != 2 {
-				return vmArgCountError("set", 2)
-			}
-			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("set() requires an integer index")
-			}
-			idx := int(args[0].AsInt)
-			if idx < 0 || idx >= len(arr.Elements) {
-				return fmt.Errorf("set(): index out of bounds: %d", idx)
-			}
-			arr.Elements[idx] = args[1]
-			result = compiler.NewNil()
-		case "push":
-			if len(args) != 1 {
-				return vmArgCountError("push", 1)
-			}
-			arr.Elements = append(arr.Elements, args[0])
-			result = compiler.NewNil()
-		case "pop":
-			if len(args) != 0 {
-				return vmArgCountError("pop", 0)
-			}
-			if len(arr.Elements) == 0 {
-				result = resultErr("vec is empty")
-				break
-			}
-			result = resultOk(arr.Elements[len(arr.Elements)-1])
-			arr.Elements = arr.Elements[:len(arr.Elements)-1]
-		case "append":
-			if len(args) != 1 {
-				return vmArgCountError("append", 1)
-			}
-			if args[0].Type != compiler.VAL_ARRAY {
-				return fmt.Errorf("append() requires a vector/array argument")
-			}
-			other := args[0].AsObject.(*compiler.ArrayInstance)
-			arr.Elements = append(arr.Elements, other.Elements...)
-			result = compiler.NewNil()
-		case "remove":
-			if len(args) != 1 {
-				return vmArgCountError("remove", 1)
-			}
-			if args[0].Type != compiler.VAL_INT {
-				return fmt.Errorf("remove() requires an integer index")
-			}
-			idx := int(args[0].AsInt)
-			if idx < 0 || idx >= len(arr.Elements) {
-				result = resultErr("index out of bounds")
-				break
-			}
-			removed := arr.Elements[idx]
-			arr.Elements = append(arr.Elements[:idx], arr.Elements[idx+1:]...)
-			result = resultOk(removed)
-		case "first":
-			if len(args) != 0 {
-				return vmArgCountError("first", 0)
-			}
-			if len(arr.Elements) == 0 {
-				result = resultErr("vec is empty")
-			} else {
-				result = resultOk(arr.Elements[0])
-			}
-		case "last":
-			if len(args) != 0 {
-				return vmArgCountError("last", 0)
-			}
-			if len(arr.Elements) == 0 {
-				result = resultErr("vec is empty")
-			} else {
-				result = resultOk(arr.Elements[len(arr.Elements)-1])
-			}
-		case "contains":
-			if len(args) != 1 {
-				return vmArgCountError("contains", 1)
-			}
-			found := false
-			for _, elem := range arr.Elements {
-				if vm.valuesEqual(elem, args[0]) {
-					found = true
-					break
-				}
-			}
-			result = compiler.NewBool(found)
-		case "join":
-			if len(args) != 1 {
-				return vmArgCountError("join", 1)
-			}
-			if args[0].Type != compiler.VAL_STRING {
-				return fmt.Errorf("join() requires a string separator")
-			}
-			parts := make([]string, len(arr.Elements))
-			for i, elem := range arr.Elements {
-				parts[i] = elem.String()
-			}
-			result = compiler.NewString(strings.Join(parts, args[0].AsString))
-		case "reverse":
-			if len(args) != 0 {
-				return vmArgCountError("reverse", 0)
-			}
-			for i, j := 0, len(arr.Elements)-1; i < j; i, j = i+1, j-1 {
-				arr.Elements[i], arr.Elements[j] = arr.Elements[j], arr.Elements[i]
-			}
-			result = compiler.NewNil()
-		case "clear":
-			if len(args) != 0 {
-				return vmArgCountError("clear", 0)
-			}
-			arr.Elements = arr.Elements[:0]
-			result = compiler.NewNil()
-		case "slice":
-			if len(args) != 2 {
-				return vmArgCountError("slice", 2)
-			}
-			if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
-				return fmt.Errorf("slice() requires integer start/end")
-			}
-			start := int(args[0].AsInt)
-			end := int(args[1].AsInt)
-			if start < 0 {
-				start = 0
-			}
-			if end > len(arr.Elements) {
-				end = len(arr.Elements)
-			}
-			if start > end {
-				start = end
-			}
-			sliced := make([]compiler.Value, end-start)
-			copy(sliced, arr.Elements[start:end])
-			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: sliced}}
-		case "toVec":
-			if len(args) != 0 {
-				return vmArgCountError("toVec", 0)
-			}
-			dup := make([]compiler.Value, len(arr.Elements))
-			copy(dup, arr.Elements)
-			result = compiler.Value{Type: compiler.VAL_ARRAY, AsObject: &compiler.ArrayInstance{Elements: dup}}
-		default:
-			return vmUndefinedMethodError("array", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
-	case compiler.VAL_THREAD:
-		if len(args) != 0 {
-			return vmArgCountError(methodName, 0)
-		}
-
-		switch methodName {
-		case "join":
-			result, err := vm.callBuiltin(compiler.BUILTIN_JOIN, []compiler.Value{receiver})
-			if err != nil {
-				return err
-			}
-			vm.pushMethodResult(result, discardReturn)
-			return nil
-		default:
-			return vmUndefinedMethodError("thread", methodName)
-		}
-	}
-
-	// Restore receiver and args on the stack for fallback method lookup
-	vm.push(receiver)
-	for _, a := range args {
-		vm.push(a)
-	}
-
-	// Get type name from receiver
-	var typeName string
-	switch receiver.Type {
-	case compiler.VAL_STRUCT:
-		typeName = receiver.AsObject.(*compiler.StructInstance).TypeName
-	case compiler.VAL_STRING:
-		typeName = "string"
-	case compiler.VAL_ARRAY:
-		typeName = "vec"
-	case compiler.VAL_OPTION:
-		typeName = "Option"
-	case compiler.VAL_RESULT:
-		typeName = "Result"
-	case compiler.VAL_ENUM:
-		typeName = receiver.AsObject.(*compiler.EnumInstance).EnumName
-	default:
-		return fmt.Errorf("cannot call method '%s' on %v (value=%#v) in function %s at ip %d", methodName, receiver.Type, receiver, fnName, ip)
-	}
-
-	// Look up method
-	var methodFn *compiler.FunctionObj
-	fnIdx, ok := vm.module.LookupMethod(typeName, methodName)
-	if ok {
-		methodFn = vm.module.Functions[fnIdx]
-	} else {
-		found := false
-		if strings.Contains(typeName, ".") {
-			parts := strings.SplitN(typeName, ".", 2)
-			baseType := parts[1]
-			if fnIdx, ok := vm.module.LookupMethod(baseType, methodName); ok {
-				methodFn = vm.module.Functions[fnIdx]
-				found = true
-			} else {
-				alias := parts[0]
-				if importPath, hasAlias := vm.moduleAliases[alias]; hasAlias {
-					if impMod, loaded := vm.loadedModules[importPath]; loaded {
-						if fnIdx, ok := impMod.LookupMethod(baseType, methodName); ok {
-							methodFn = impMod.Functions[fnIdx]
-							found = true
-						}
-					}
-				}
-			}
-		}
-		if !found {
-			if receiver.Type == compiler.VAL_STRUCT {
-				inst := receiver.AsObject.(*compiler.StructInstance)
-				if structDef, ok := vm.module.StructDefs[inst.TypeName]; ok {
-					if fieldIdx, ok := structDef.FieldIndex[methodName]; ok {
-						fieldVal := inst.Fields[fieldIdx]
-
-						var fnObj *compiler.FunctionObj
-						switch fieldVal.Type {
-						case compiler.VAL_FUNCTION:
-							fnObj = fieldVal.AsObject.(*compiler.FunctionObj)
-						case compiler.VAL_CLOSURE:
-							fnObj = fieldVal.AsObject.(*compiler.Closure).Function
-						}
-
-						if fnObj != nil {
-							if fnObj.Arity == argc-1 {
-								vm.stack[vm.sp-argc] = fieldVal
-								if err := vm.callWithFlags(fnObj, argc-1, discardReturn); err != nil {
-									return err
-								}
-								return nil
-							}
-							return fmt.Errorf("method %s not found on %s, and field function has wrong arity %d (expected %d)", methodName, typeName, fnObj.Arity, argc-1)
-						}
-					}
-				}
-			}
-			return vmUndefinedMethodError(typeName, methodName)
-		}
-	}
-
-	for i := range argc {
-		vm.stack[vm.sp-i] = vm.stack[vm.sp-i-1]
-	}
-	vm.stack[vm.sp-argc] = compiler.NewNil() // placeholder
-	vm.sp++
-
-	return vm.callWithFlags(methodFn, argc, discardReturn)
-}
-
-func stringIndexOfRunes(haystack, needle string) int {
-	h := []rune(haystack)
-	n := []rune(needle)
-	if len(n) == 0 {
-		return 0
-	}
-	if len(n) > len(h) {
-		return -1
-	}
-	for i := 0; i <= len(h)-len(n); i++ {
-		match := true
-		for j := range n {
-			if h[i+j] != n[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
-}
-
-func stringLastIndexOfRunes(haystack, needle string) int {
-	h := []rune(haystack)
-	n := []rune(needle)
-	if len(n) == 0 {
-		return len(h)
-	}
-	if len(n) > len(h) {
-		return -1
-	}
-	for i := len(h) - len(n); i >= 0; i-- {
-		match := true
-		for j := range n {
-			if h[i+j] != n[j] {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
 }
 
 func (vm *VM) executeDefer(action DeferAction, fnName string, ip int) error {

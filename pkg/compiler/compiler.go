@@ -592,7 +592,9 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 	}
 
 	// Ensure method returns
-	if len(fn.Code) == 0 || fn.Code[len(fn.Code)-1] != byte(OP_RETURN) && fn.Code[len(fn.Code)-1] != byte(OP_RETURN_VOID) {
+	if len(fn.Code) == 0 ||
+		fn.Code[len(fn.Code)-1] != byte(OP_RETURN) &&
+			fn.Code[len(fn.Code)-1] != byte(OP_RETURN_VOID) {
 		c.emit(OP_RETURN_VOID)
 	}
 
@@ -1019,13 +1021,6 @@ func (c *Compiler) resolveImportPath(importPath string) string {
 	return packages.ResolveImportPathFrom(importPath, c.sourcePath)
 }
 
-func parseImportProgram(resolvedPath string) (*ast.Program, error) {
-	return packages.ParseProgram(resolvedPath)
-}
-
-func parseProgramDir(dir string) (*ast.Program, error) {
-	return packages.ParseProgram(dir)
-}
 
 func (c *Compiler) compileConstStatement(cs *ast.ConstStatement) error {
 	if err := c.compileExpression(cs.Value); err != nil {

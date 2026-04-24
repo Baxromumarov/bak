@@ -21,14 +21,23 @@ type Lexer struct {
 	errors       []string // lexer errors (unterminated strings, invalid literals, etc.)
 }
 
+type sourcePos struct {
+	Line   int
+	Column int
+}
+
+func newSourcePos(line, col int) sourcePos {
+	return sourcePos{Line: line, Column: col}
+}
+
 // Errors returns all lexer errors encountered during tokenization
 func (l *Lexer) Errors() []string {
 	return l.errors
 }
 
 // addError records a lexer error with position information
-func (l *Lexer) addError(line, col int, msg string) {
-	l.errors = append(l.errors, fmt.Sprintf("lexer error at %d:%d: %s", line, col, msg))
+func (l *Lexer) addError(pos sourcePos, msg string) {
+	l.errors = append(l.errors, fmt.Sprintf("lexer error at %d:%d: %s", pos.Line, pos.Column, msg))
 }
 
 // New creates a new Lexer for the given input
@@ -287,7 +296,7 @@ func (l *Lexer) skipComments() {
 				l.readChar()
 			}
 			if !terminated {
-				l.addError(startLine, startCol, "unterminated multi-line comment")
+				l.addError(newSourcePos(startLine, startCol), "unterminated multi-line comment")
 			}
 			l.skipWhitespace()
 		} else {
@@ -317,7 +326,7 @@ func (l *Lexer) readNumber(startLine, startColumn int) token.Token {
 			l.readChar() // consume '0'
 			l.readChar() // consume 'b'
 			if l.ch != '0' && l.ch != '1' {
-				l.addError(startLine, startColumn, "binary literal '0b' has no digits")
+				l.addError(newSourcePos(startLine, startColumn), "binary literal '0b' has no digits")
 			}
 			for l.ch == '0' || l.ch == '1' {
 				l.readChar()
@@ -335,7 +344,7 @@ func (l *Lexer) readNumber(startLine, startColumn int) token.Token {
 			l.readChar() // consume '0'
 			l.readChar() // consume 'o'
 			if l.ch < '0' || l.ch > '7' {
-				l.addError(startLine, startColumn, "octal literal '0o' has no digits")
+				l.addError(newSourcePos(startLine, startColumn), "octal literal '0o' has no digits")
 			}
 			for l.ch >= '0' && l.ch <= '7' {
 				l.readChar()
@@ -353,7 +362,7 @@ func (l *Lexer) readNumber(startLine, startColumn int) token.Token {
 			l.readChar() // consume '0'
 			l.readChar() // consume 'x'
 			if !isHexDigit(l.ch) {
-				l.addError(startLine, startColumn, "hex literal '0x' has no digits")
+				l.addError(newSourcePos(startLine, startColumn), "hex literal '0x' has no digits")
 			}
 			for isHexDigit(l.ch) {
 				l.readChar()
@@ -420,14 +429,14 @@ func (l *Lexer) readString() string {
 			break
 		}
 		if l.ch == 0 {
-			l.addError(startLine, startCol, "unterminated string literal")
+			l.addError(newSourcePos(startLine, startCol), "unterminated string literal")
 			return l.input[position:l.position]
 		}
 		// Handle escape sequences
 		if l.ch == '\\' {
 			l.readChar()
 			if l.ch == 0 {
-				l.addError(startLine, startCol, "unterminated string literal (ends with backslash)")
+				l.addError(newSourcePos(startLine, startCol), "unterminated string literal (ends with backslash)")
 				return l.input[position:l.position]
 			}
 		}
@@ -443,14 +452,14 @@ func (l *Lexer) readCharLiteral() string {
 	startCol := l.column
 	l.readChar() // consume opening quote
 	if l.ch == 0 {
-		l.addError(startLine, startCol, "unterminated character literal")
+		l.addError(newSourcePos(startLine, startCol), "unterminated character literal")
 		return ""
 	}
 	ch := string(l.ch)
 	if l.ch == '\\' {
 		l.readChar()
 		if l.ch == 0 {
-			l.addError(startLine, startCol, "unterminated character literal (ends with backslash)")
+			l.addError(newSourcePos(startLine, startCol), "unterminated character literal (ends with backslash)")
 			return "\\"
 		}
 		ch = "\\" + string(l.ch)
@@ -459,7 +468,7 @@ func (l *Lexer) readCharLiteral() string {
 	if l.ch == '\'' {
 		l.readChar() // consume closing quote
 	} else {
-		l.addError(startLine, startCol, "unterminated character literal, expected closing '")
+		l.addError(newSourcePos(startLine, startCol), "unterminated character literal, expected closing '")
 	}
 	return ch
 }
@@ -478,7 +487,7 @@ func (l *Lexer) readRawString() string {
 	if l.ch == '`' {
 		l.readChar() // consume closing backtick
 	} else {
-		l.addError(startLine, startCol, "unterminated raw string literal, expected closing backtick")
+		l.addError(newSourcePos(startLine, startCol), "unterminated raw string literal, expected closing backtick")
 	}
 	return result
 }

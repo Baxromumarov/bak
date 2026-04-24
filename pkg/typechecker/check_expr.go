@@ -41,8 +41,7 @@ func stringStdlibReplacementHint(method string) string {
 func (tc *TypeChecker) checkFieldAssignment(
 	fa *ast.FieldAccessExpression,
 	value ast.Expression,
-	line,
-	col int,
+	pos ast.Position,
 ) {
 	// First, get the object being accessed
 	var objName string
@@ -62,7 +61,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 		!tc.env.IsPoisoned(objName) {
 
 		moveInfo := tc.env.GetMoveInfo(objName)
-		tc.errorUseAfterMove(objName, line, col, moveInfo)
+		tc.errorUseAfterMoveAt(objName, pos, moveInfo)
 		tc.env.MarkPoisoned(objName)
 
 		return
@@ -75,12 +74,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 	}
 
 	if !tc.checkMutableReceiver(fa.Object) {
-		tc.errorMutabilityRequired(
-			objName,
-			line,
-			col,
-			fmt.Sprintf("assign to field '%s'", fa.Field.Value),
-		)
+		tc.errorMutabilityRequiredAt(objName, pos, fmt.Sprintf("assign to field '%s'", fa.Field.Value))
 		return
 	}
 
@@ -91,9 +85,8 @@ func (tc *TypeChecker) checkFieldAssignment(
 	if valueType != nil &&
 		fieldType != nil &&
 		!tc.typesMatch(fieldType, valueType) {
-		tc.errorTypeMismatch(
-			line,
-			col,
+		tc.errorTypeMismatchAt(
+			pos,
 			typeToString(fieldType),
 			typeToString(valueType),
 			fmt.Sprintf("field '%s.%s'", objName, fa.Field.Value),
@@ -104,7 +97,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 
 // checkVecConstructor validates Vec constructor calls (Vec.new, Vec.from, Vec.withCap)
 // It is used for both variable declarations and other initializations (like struct literals).
-func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType *ast.GenericType, mc *ast.MethodCallExpression) ast.TypeExpression {
+func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecType *ast.GenericType, mc *ast.MethodCallExpression) ast.TypeExpression {
 	method := mc.Method.Value
 
 	// Determine if it's static (Vec<T,N>) or dynamic (Vec<T,_>)
@@ -124,13 +117,13 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 	case "new":
 		// Vec.new() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addError(line, col,
+			tc.addErrorAt(pos,
 				"Vec.new() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Vec.new() requires mut for the variable to be useful
 		if !mutable {
-			tc.addError(line, col,
+			tc.addErrorAt(pos,
 				"Vec.new() should be assigned to a mutable variable (use 'mut var' or ensure field is in mutable struct)")
 		}
 		return vecType
@@ -138,7 +131,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 	case "from":
 		// Vec.from() is allowed for both static and dynamic Vec
 		if len(mc.Arguments) != 1 {
-			tc.addError(line, col,
+			tc.addErrorAt(pos,
 				"Vec.from() requires exactly one argument (an array literal)")
 			return &ast.ErrorType{Message: "invalid Vec.from() arguments"}
 		}
@@ -155,7 +148,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 			if isStatic {
 				literalSize := int64(len(vecLit.Elements))
 				if literalSize != staticSize {
-					tc.addError(line, col,
+					tc.addErrorAt(pos,
 						"Vec<%s,%d> expects %d elements, but %d were provided",
 						typeToString(vecType.TypeParams[0]), staticSize, staticSize, literalSize)
 				}
@@ -166,7 +159,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 				for i, elem := range vecLit.Elements {
 					if sl, ok := elem.(*ast.StructLiteral); ok && (sl.Name == nil || sl.Name.Value == "") {
 						if !tc.fitsInType(expectedElemType, elem) {
-							tc.errorTypeMismatch(line, col,
+							tc.errorTypeMismatchAt(pos,
 								typeToString(expectedElemType), "struct literal",
 								fmt.Sprintf("element %d in Vec.from()", i),
 								elem)
@@ -176,7 +169,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 					}
 					elemType := tc.inferType(elem)
 					if elemType != nil && !tc.fitsInType(expectedElemType, elem) {
-						tc.errorTypeMismatch(line, col,
+						tc.errorTypeMismatchAt(pos,
 							typeToString(expectedElemType), typeToString(elemType),
 							fmt.Sprintf("element %d in Vec.from()", i),
 							elem)
@@ -185,20 +178,20 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 				}
 			}
 		} else {
-			tc.addError(line, col, "Vec.from() requires an array literal like [...]")
+			tc.addErrorAt(pos, "Vec.from() requires an array literal like [...]")
 		}
 		return vecType
 
 	case "withCap":
 		// Vec.withCap() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addError(line, col,
+			tc.addErrorAt(pos,
 				"Vec.withCap() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Requires mut
 		if !mutable {
-			tc.addError(line, col,
+			tc.addErrorAt(pos,
 				"Vec.withCap() should be assigned to a mutable variable (use 'mut var')")
 		}
 		return vecType
@@ -207,7 +200,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 		if structDef, ok := tc.env.LookupStruct("Vec"); ok {
 			if methodSig, ok := structDef.Methods[method]; ok {
 				if len(mc.Arguments) != len(methodSig.Parameters) {
-					tc.addError(line, col, "method %s expects %d arguments, but %d were provided",
+					tc.addErrorAt(pos, "method %s expects %d arguments, but %d were provided",
 						method, len(methodSig.Parameters), len(mc.Arguments))
 					return &ast.ErrorType{Message: "arg count mismatch"}
 				}
@@ -215,7 +208,7 @@ func (tc *TypeChecker) checkVecConstructor(line, col int, mutable bool, vecType 
 					arg := mc.Arguments[i]
 					argType := tc.inferType(arg)
 					if !tc.fitsInType(paramType, arg) {
-						tc.errorTypeMismatch(line, col, typeToString(paramType), typeToString(argType), fmt.Sprintf("argument %d", i), arg)
+						tc.errorTypeMismatchAt(pos, typeToString(paramType), typeToString(argType), fmt.Sprintf("argument %d", i), arg)
 					}
 				}
 				return methodSig.ReturnType
@@ -272,6 +265,7 @@ func (tc *TypeChecker) checkMutableReceiver(expr ast.Expression) bool {
 
 func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
 	method := mc.Method.Value
+	callPos := tokenPos(mc.Token)
 	argTypes := make([]ast.TypeExpression, len(mc.Arguments))
 	for i, arg := range mc.Arguments {
 		argTypes[i] = tc.inferType(arg)
@@ -284,8 +278,8 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 				method,
 				want,
 				len(mc.Arguments),
-				mc.Token.Line,
-				mc.Token.Column,
+				callPos.Line,
+				callPos.Column,
 				nil,
 			)
 		}
@@ -332,9 +326,8 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		case "toFixed":
 			requireArgs(1)
 			if len(argTypes) == 1 && !tc.isIntegerType(argTypes[0]) {
-				tc.errorTypeMismatch(
-					mc.Token.Line,
-					mc.Token.Column,
+				tc.errorTypeMismatchAt(
+					callPos,
 					"int",
 					typeToString(argTypes[0]),
 					"toFixed precision argument",
@@ -370,11 +363,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 	}
 
 	tc.errorUndefinedMethod(
-		typeName,
-		method,
-		mc.Token.Line,
-		mc.Token.Column,
-		primitiveMethodCandidates,
+		typeName, method, callPos.Line, callPos.Column, primitiveMethodCandidates,
 	)
 
 	return nil
@@ -382,6 +371,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 
 func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
 	method := mc.Method.Value
+	callPos := tokenPos(mc.Token)
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}
@@ -392,14 +382,14 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 				method,
 				0,
 				len(mc.Arguments),
-				mc.Token.Line,
-				mc.Token.Column,
+				callPos.Line,
+				callPos.Column,
 				nil,
 			)
 		}
 		return &ast.SimpleType{Name: "string"}
 	}
-	tc.errorUndefinedMethod(typeName, method, mc.Token.Line, mc.Token.Column, primitiveMethodCandidates)
+	tc.errorUndefinedMethodAt(typeName, method, callPos, primitiveMethodCandidates)
 	return nil
 }
 
@@ -454,11 +444,12 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 			&ast.SimpleType{Name: "string"},
 		}}
 	default:
+		callPos := tokenPos(mc.Token)
 		if hint := stringStdlibReplacementHint(method); hint != "" {
-			tc.errorUndefinedMethodWithHelp("string", method, mc.Token.Line, mc.Token.Column, stringMethodCandidates, hint)
+			tc.errorUndefinedMethodWithHelpAt("string", method, callPos, stringMethodCandidates, hint)
 			return nil
 		}
-		tc.errorUndefinedMethod("string", method, mc.Token.Line, mc.Token.Column, stringMethodCandidates)
+		tc.errorUndefinedMethodAt("string", method, callPos, stringMethodCandidates)
 		return nil
 	}
 }
@@ -467,24 +458,23 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 // Also enforces ownership and mutability rules for Vec operations
 func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType *ast.GenericType) ast.TypeExpression {
 	method := mc.Method.Value
+	callPos := tokenPos(mc.Token)
 
 	// Get the variable name if the object is an identifier
 	var varName string
-	var line, col int = mc.Token.Line, mc.Token.Column
+	usePos := callPos
 	if ident, ok := mc.Object.(*ast.Identifier); ok {
 		varName = ident.Value
-		line = ident.Token.Line
-		col = ident.Token.Column
+		usePos = tokenPos(ident.Token)
 	} else if mutIdent, ok := mc.Object.(*ast.MutableIdentifier); ok {
 		varName = mutIdent.Value
-		line = mutIdent.Token.Line
-		col = mutIdent.Token.Column
+		usePos = tokenPos(mutIdent.Token)
 	}
 
 	// Check if the Vec has been moved
 	if varName != "" && tc.env.IsMoved(varName) && !tc.env.IsPoisoned(varName) {
 		moveInfo := tc.env.GetMoveInfo(varName)
-		tc.errorUseAfterMove(varName, line, col, moveInfo)
+		tc.errorUseAfterMoveAt(varName, usePos, moveInfo)
 		tc.env.MarkPoisoned(varName)
 		return &ast.ErrorType{Message: "use of moved value"}
 	}
@@ -519,8 +509,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 			if targetName == "" {
 				targetName = "expression"
 			}
-			tc.errorMutabilityRequired(targetName, mc.Token.Line, mc.Token.Column,
-				fmt.Sprintf("call '%s'", method))
+			tc.errorMutabilityRequiredAt(targetName, callPos, fmt.Sprintf("call '%s'", method))
 			return &ast.ErrorType{Message: "mutability required"}
 		}
 	}
@@ -536,7 +525,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 
 	if dynamicOnlyMethods[method] && isFixedSize {
 		vecLabel := formatVecTypeForDiagnostic(vecType)
-		tc.addError(mc.Token.Line, mc.Token.Column,
+		tc.addErrorAt(callPos,
 			"cannot call %s on fixed-size %s", method, vecLabel)
 		return nil
 	}
@@ -546,7 +535,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	case "push":
 		// Check that the argument type matches the Vec's element type
 		if len(mc.Arguments) != 1 {
-			tc.addError(mc.Token.Line, mc.Token.Column,
+			tc.addErrorAt(callPos,
 				"push requires exactly 1 argument, got %d", len(mc.Arguments))
 			return &ast.ErrorType{Message: "wrong number of arguments"}
 		}
@@ -554,13 +543,13 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		// If elemType is nil, it means we have an untyped Vec (raw generic), which should be illegal.
 		// We error here as a failsafe, though checkVarStatement should prevent it from existing.
 		if elemType == nil {
-			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'push' on untyped Vec; use explicit type (Vec<T, _>)")
+			tc.addErrorAt(callPos, "cannot call 'push' on untyped Vec; use explicit type (Vec<T, _>)")
 			return &ast.ErrorType{Message: "untyped vec"}
 		}
 
 		argType := tc.inferType(mc.Arguments[0])
 		if argType != nil && !tc.typesMatch(elemType, argType) {
-			tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
+			tc.errorTypeMismatchAt(callPos,
 				typeToString(elemType), typeToString(argType),
 				fmt.Sprintf("argument to '%s.push'", varName),
 				mc.Arguments[0])
@@ -571,13 +560,13 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	case "append":
 		// Check that the argument is a Vec of the same element type
 		if len(mc.Arguments) != 1 {
-			tc.addError(mc.Token.Line, mc.Token.Column,
+			tc.addErrorAt(callPos,
 				"append requires exactly 1 argument, got %d", len(mc.Arguments))
 			return &ast.ErrorType{Message: "wrong number of arguments"}
 		}
 
 		if elemType == nil {
-			tc.addError(mc.Token.Line, mc.Token.Column, "cannot call 'append' on untyped Vec; use explicit type (Vec<T, _>)")
+			tc.addErrorAt(callPos, "cannot call 'append' on untyped Vec; use explicit type (Vec<T, _>)")
 			return &ast.ErrorType{Message: "untyped vec"}
 		}
 
@@ -586,7 +575,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		if argType != nil {
 			if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" {
 				if len(gt.TypeParams) >= 1 && !tc.typesMatch(elemType, gt.TypeParams[0]) {
-					tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
+					tc.errorTypeMismatchAt(callPos,
 						fmt.Sprintf("Vec<%s, _>", typeToString(elemType)),
 						typeToString(argType),
 						fmt.Sprintf("argument to '%s.append'", varName),
@@ -618,21 +607,21 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	case "set":
 		// set(index int, value T) -> void
 		if len(mc.Arguments) != 2 {
-			tc.addError(mc.Token.Line, mc.Token.Column,
+			tc.addErrorAt(callPos,
 				"set requires exactly 2 arguments (index, value), got %d", len(mc.Arguments))
 			return &ast.ErrorType{Message: "wrong number of arguments"}
 		}
 		// Check index type
 		idxType := tc.inferType(mc.Arguments[0])
 		if idxType != nil && !tc.isIntegerType(idxType) {
-			tc.addError(mc.Token.Line, mc.Token.Column,
+			tc.addErrorAt(callPos,
 				"set: first argument must be integer, got %s", typeToString(idxType))
 		}
 		// Check value type matches element type
 		if elemType != nil {
 			if !tc.fitsInType(elemType, mc.Arguments[1]) {
 				valType := tc.inferType(mc.Arguments[1])
-				tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
+				tc.errorTypeMismatchAt(callPos,
 					typeToString(elemType), typeToString(valType),
 					fmt.Sprintf("argument to '%s.set'", varName),
 					mc.Arguments[1])
@@ -674,7 +663,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		// Fallback to raw vec if inference failed (will error at var decl)
 		return vecType
 	default:
-		tc.errorUndefinedMethod("Vec", method, mc.Token.Line, mc.Token.Column, vecMethodCandidates)
+		tc.errorUndefinedMethodAt("Vec", method, callPos, vecMethodCandidates)
 		return nil
 	}
 }

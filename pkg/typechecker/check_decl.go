@@ -166,7 +166,7 @@ func (tc *TypeChecker) checkUnusedElements() {
 		if tc.usedImports[alias] {
 			continue
 		}
-		tc.emitter.Emit(diagnostics.UnusedImport(info.Path, info.Line, info.Column))
+		tc.emitter.Emit(diagnostics.UnusedImport(info.Path, ast.Position{Line: info.Line, Column: info.Column}))
 	}
 }
 
@@ -184,13 +184,13 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 		tc.env.DefineSymbol(param.Name.Value, param.Type, param.Mutable, ast.Private, param.Name.Token.Line, param.Name.Token.Column)
 		tc.nodeTypes[param.Name] = typeToString(param.Type)
 		// Validate parameter type usage (catch deprecated/ambiguous types like 'float')
-		tc.validateTypeUsage(param.Type, param.Name.Token.Line, param.Name.Token.Column)
+		tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
 		paramNames = append(paramNames, param.Name.Value)
 		paramInfo[param.Name.Value] = param
 	}
 
 	// Validate function return type annotations (catch uses like 'float')
-	tc.validateTypeUsage(fd.ReturnType, fd.Name.Token.Line, fd.Name.Token.Column)
+	tc.validateTypeUsage(fd.ReturnType, tokenPos(fd.Name.Token))
 	oldRet := tc.currentFuncRet
 	tc.currentFuncRet = fd.ReturnType
 
@@ -303,14 +303,14 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		}
 
 		for _, param := range method.Parameters {
-			tc.validateTypeUsage(param.Type, param.Name.Token.Line, param.Name.Token.Column)
+			tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
 			tc.env.DefineSymbol(param.Name.Value, param.Type, param.Mutable, ast.Private, param.Name.Token.Line, param.Name.Token.Column)
 		}
 
 		oldRet := tc.currentFuncRet
 		oldReceiver := tc.currentReceiver
 		tc.currentFuncRet = method.ReturnType
-		tc.validateTypeUsage(method.ReturnType, method.Name.Token.Line, method.Name.Token.Column)
+		tc.validateTypeUsage(method.ReturnType, tokenPos(method.Name.Token))
 		if id.Receiver != nil {
 			tc.currentReceiver = id.Receiver.Value
 		}

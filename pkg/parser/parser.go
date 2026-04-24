@@ -121,7 +121,7 @@ func isStdlibSourcePath(path string) bool {
 
 func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
 	core := fmt.Sprintf("%s is experimental and disabled by default", syntax)
-	p.errors = append(p.errors, p.formatMessage(tok.Line, tok.Column, core, featureFlagHint(feature)))
+	p.errors = append(p.errors, p.formatMessage(tokenPos(tok), core, featureFlagHint(feature)))
 }
 
 func (p *Parser) pushContext(ctx string) {
@@ -209,7 +209,7 @@ func (p *Parser) Diagnostics() []diagnostics.Diagnostic {
 	return p.emitter.Diagnostics()
 }
 
-func (p *Parser) emitParserDiagnostic(line, col int, message, help string, notes []diagnostics.Note) {
+func (p *Parser) emitParserDiagnostic(pos ast.Position, message, help string, notes []diagnostics.Note) {
 	if p.emitter == nil {
 		p.emitter = diagnostics.NewEmitter(p.filename)
 	}
@@ -217,8 +217,8 @@ func (p *Parser) emitParserDiagnostic(line, col int, message, help string, notes
 		Code:    diagnostics.ErrParser,
 		Level:   diagnostics.LevelError,
 		Message: message,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		File:    p.filename,
 		Help:    help,
 		Notes:   notes,
@@ -327,8 +327,14 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	core := fmt.Sprintf("expected next token to be %s, got %s instead", t, p.describeToken(p.peekToken))
-	msg := p.formatMessage(p.peekToken.Line, p.peekToken.Column, core, "")
+	core := fmt.Sprintf(
+		"expected next token to be %s, got %s instead",
+		t,
+		p.describeToken(p.peekToken),
+	)
+
+	msg := p.formatMessage(tokenPos(p.peekToken), core, "")
+
 	p.errors = append(p.errors, msg)
 }
 
@@ -341,7 +347,7 @@ func (p *Parser) describeToken(tok token.Token) string {
 
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 	core := fmt.Sprintf("no prefix parse function for %s found", t)
-	msg := p.formatMessage(p.curToken.Line, p.curToken.Column, core, "")
+	msg := p.formatMessage(tokenPos(p.curToken), core, "")
 	p.errors = append(p.errors, msg)
 }
 
@@ -349,12 +355,12 @@ func (p *Parser) ident() *ast.Identifier {
 	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
-func (p *Parser) formatMessage(line, col int, core string, help string) string {
-	return p.formatMessageWithSummary(line, col, core, true, help)
+func (p *Parser) formatMessage(pos ast.Position, core string, help string) string {
+	return p.formatMessageWithSummary(pos, core, true, help)
 }
 
-func (p *Parser) formatMessageWithSummary(line, col int, core string, includeSummary bool, help string) string {
-	msg := fmt.Sprintf("line %d:%d: %s", line, col, core)
+func (p *Parser) formatMessageWithSummary(pos ast.Position, core string, includeSummary bool, help string) string {
+	msg := fmt.Sprintf("line %d:%d: %s", pos.Line, pos.Column, core)
 	diagMsg := core
 
 	if ctx := p.currentContext(); ctx != "" {
@@ -375,7 +381,7 @@ func (p *Parser) formatMessageWithSummary(line, col int, core string, includeSum
 		}
 	}
 
-	p.emitParserDiagnostic(line, col, diagMsg, help, notes)
+	p.emitParserDiagnostic(pos, diagMsg, help, notes)
 	return msg
 }
 
@@ -1343,8 +1349,7 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 	// Support Box<T> as syntax sugar for T box
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Box" && len(gt.TypeParams) == 1 {
 		p.errors = append(p.errors, p.formatMessage(
-			gt.Token.Line,
-			gt.Token.Column,
+			tokenPos(gt.Token),
 			"Box<T> and box types are not supported in the frozen v0.1 language surface",
 			"remove box syntax and use stable value types",
 		))
@@ -1358,8 +1363,7 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 	// Check for box modifier: Type box or Type box?
 	if p.peekTokenIs(token.BOX) {
 		p.errors = append(p.errors, p.formatMessage(
-			p.peekToken.Line,
-			p.peekToken.Column,
+			tokenPos(p.peekToken),
 			"box types are not supported in the frozen v0.1 language surface",
 			"remove box syntax and use stable value types",
 		))
@@ -1476,7 +1480,7 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 
 	p.nextToken()
 	if p.curTokenIs(token.GT) {
-		msg := fmt.Sprintf("line %d:%d: expected type parameter after '<' in generic type", p.curToken.Line, p.curToken.Column)
+		msg := p.formatMessage(tokenPos(p.curToken), "expected type parameter after '<' in generic type", "")
 		p.errors = append(p.errors, msg)
 		return gt
 	}
@@ -1494,7 +1498,7 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 		p.nextToken()
 		p.nextToken()
 		if p.curTokenIs(token.GT) {
-			msg := fmt.Sprintf("line %d:%d: expected type parameter after ',' in generic type", p.curToken.Line, p.curToken.Column)
+			msg := p.formatMessage(tokenPos(p.curToken), "expected type parameter after ',' in generic type", "")
 			p.errors = append(p.errors, msg)
 			return gt
 		}
@@ -1720,8 +1724,7 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 	}
 	if p.peekTokenIs(token.COLON) {
 		p.errors = append(p.errors, p.formatMessage(
-			p.peekToken.Line,
-			p.peekToken.Column,
+			tokenPos(p.peekToken),
 			"bounded generic parameters are not supported in the frozen v0.1 language surface",
 			"remove the ': Bound' clause from type parameters",
 		))
@@ -1745,8 +1748,7 @@ func (p *Parser) parseTypeParams() []*ast.TypeParameter {
 		}
 		if p.peekTokenIs(token.COLON) {
 			p.errors = append(p.errors, p.formatMessage(
-				p.peekToken.Line,
-				p.peekToken.Column,
+				tokenPos(p.peekToken),
 				"bounded generic parameters are not supported in the frozen v0.1 language surface",
 				"remove the ': Bound' clause from type parameters",
 			))
@@ -1859,8 +1861,8 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 	}
 
 	if !p.peekTokenIs(token.LBRACE) {
-		msg := fmt.Sprintf("line %d:%d: expected '{' to start struct '%s' body",
-			p.peekToken.Line, p.peekToken.Column, stmt.Name.Value)
+		core := fmt.Sprintf("expected '{' to start struct '%s' body", stmt.Name.Value)
+		msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 		p.errors = append(p.errors, msg)
 		for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 			p.nextToken()
@@ -2054,8 +2056,7 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 
 	if p.peekTokenIs(token.COLON) {
 		p.errors = append(p.errors, p.formatMessage(
-			p.peekToken.Line,
-			p.peekToken.Column,
+			tokenPos(p.peekToken),
 			"colon-qualified impl syntax is not supported in the frozen v0.1 language surface",
 			"remove the ':' clause and use plain impl blocks",
 		))
@@ -2304,8 +2305,8 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		msg := fmt.Sprintf("line %d:%d: could not parse %q as integer",
-			p.curToken.Line, p.curToken.Column, p.curToken.Literal)
+		core := fmt.Sprintf("could not parse %q as integer", p.curToken.Literal)
+		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -2319,8 +2320,8 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		msg := fmt.Sprintf("line %d:%d: could not parse %q as float",
-			p.curToken.Line, p.curToken.Column, p.curToken.Literal)
+		core := fmt.Sprintf("could not parse %q as float", p.curToken.Literal)
+		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -2364,7 +2365,7 @@ func (p *Parser) parseFStringLiteral() ast.Expression {
 			}
 
 			if braceCount > 0 {
-				p.errors = append(p.errors, fmt.Sprintf("line %d:%d: unclosed '{' in format string", p.curToken.Line, p.curToken.Column))
+				p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "unclosed '{' in format string", ""))
 				return nil
 			}
 
@@ -2554,8 +2555,7 @@ func (p *Parser) parseDerefExpression() ast.Expression {
 
 func (p *Parser) parseBoxExpression() ast.Expression {
 	p.errors = append(p.errors, p.formatMessage(
-		p.curToken.Line,
-		p.curToken.Column,
+		tokenPos(p.curToken),
 		"box expressions are not supported in the frozen v0.1 language surface",
 		"remove box expressions and use stable value types",
 	))
@@ -2821,7 +2821,7 @@ func (p *Parser) parseStructFieldValue(lit *ast.StructLiteral) {
 	if !p.peekTokenIs(token.COLON) {
 		core := fmt.Sprintf("struct field %q requires a value; add ': <value>' or remove the field", fieldName)
 		help := "add ': <value>' or remove the field"
-		msg := p.formatMessageWithSummary(p.peekToken.Line, p.peekToken.Column, core, false, help)
+		msg := p.formatMessageWithSummary(tokenPos(p.peekToken), core, false, help)
 		p.errors = append(p.errors, msg)
 		return
 	}
@@ -2845,7 +2845,7 @@ func (p *Parser) parseInferredStructLiteral() ast.Expression {
 	}
 
 	if !p.peekTokenIs(token.IDENT) {
-		msg := fmt.Sprintf("line %d:%d: expected field name in struct literal", p.peekToken.Line, p.peekToken.Column)
+		msg := p.formatMessage(tokenPos(p.peekToken), "expected field name in struct literal", "")
 		p.errors = append(p.errors, msg)
 		return nil
 	}

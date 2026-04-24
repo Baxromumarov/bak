@@ -207,8 +207,7 @@ type printer struct {
 
 func (p *printer) printProgram(program *ast.Program) {
 	for i, stmt := range program.Statements {
-		line, col := statementPosition(stmt)
-		p.flushCommentsBefore(line, col)
+		p.flushCommentsBefore(statementPosition(stmt))
 		p.writeIndent()
 		p.printStatement(stmt)
 		if i < len(program.Statements)-1 {
@@ -218,7 +217,7 @@ func (p *printer) printProgram(program *ast.Program) {
 			}
 		}
 	}
-	p.flushCommentsBefore(maxInt, maxInt)
+	p.flushCommentsBefore(ast.Position{Line: maxInt, Column: maxInt})
 }
 
 func isImportStatement(stmt ast.Statement) bool {
@@ -313,8 +312,7 @@ func isControlStructure(stmt ast.Statement) bool {
 
 func (p *printer) printStatements(stmts []ast.Statement) {
 	for i, stmt := range stmts {
-		line, col := statementPosition(stmt)
-		p.flushCommentsBefore(line, col)
+		p.flushCommentsBefore(statementPosition(stmt))
 		p.writeIndent()
 		p.printStatement(stmt)
 		p.newline()
@@ -350,8 +348,7 @@ func (p *printer) printStatement(stmt ast.Statement) {
 		p.newline()
 		p.indent++
 		for _, imp := range s.Imports {
-			line, col := statementPosition(imp)
-			p.flushCommentsBefore(line, col)
+			p.flushCommentsBefore(statementPosition(imp))
 			p.writeIndent()
 			p.write("\"")
 			p.write(imp.Path)
@@ -410,8 +407,7 @@ func (p *printer) printStatement(stmt ast.Statement) {
 		p.newline()
 		p.indent++
 		for _, c := range s.Constants {
-			line, col := statementPosition(c)
-			p.flushCommentsBefore(line, col)
+			p.flushCommentsBefore(statementPosition(c))
 			p.writeIndent()
 			p.write(c.Name.Value)
 			if c.Type != nil {
@@ -505,8 +501,7 @@ func (p *printer) printVarBlock(vb *ast.VarBlock) {
 	p.newline()
 	p.indent++
 	for _, v := range vb.Variables {
-		line, col := statementPosition(v)
-		p.flushCommentsBefore(line, col)
+		p.flushCommentsBefore(statementPosition(v))
 		p.writeIndent()
 		p.write(v.Name.Value)
 		if v.Type != nil {
@@ -550,7 +545,7 @@ func (p *printer) printSwitchStatement(stmt *ast.SwitchStatement) {
 	p.indent++
 	for _, c := range stmt.Cases {
 		if c.Token.Line != 0 {
-			p.flushCommentsBefore(c.Token.Line, c.Token.Column)
+			p.flushCommentsBefore(tokenPos(c.Token))
 		}
 		p.writeIndent()
 		if c.Default {
@@ -682,14 +677,14 @@ func (p *printer) printImplDecl(id *ast.ImplDecl) {
 	p.indent++
 	for i, method := range id.Methods {
 		if method.Token.Line != 0 {
-			p.flushCommentsBefore(method.Token.Line, method.Token.Column)
+			p.flushCommentsBefore(tokenPos(method.Token))
 		}
 		p.writeIndent()
 		p.printMethodDecl(method)
 		p.newline()
 		if i < len(id.Methods)-1 {
 			nextMethod := id.Methods[i+1]
-			if !p.hasPendingCommentBefore(nextMethod.Token.Line, nextMethod.Token.Column) {
+			if !p.hasPendingCommentBefore(tokenPos(nextMethod.Token)) {
 				p.newline()
 			}
 		}
@@ -1192,10 +1187,10 @@ func (p *printer) writeComment(c Comment) {
 	}
 }
 
-func (p *printer) flushCommentsBefore(line, col int) {
+func (p *printer) flushCommentsBefore(pos ast.Position) {
 	for p.commentIndex < len(p.comments) {
 		c := p.comments[p.commentIndex]
-		if c.Line < line || (c.Line == line && c.Column <= col) {
+		if c.Line < pos.Line || (c.Line == pos.Line && c.Column <= pos.Column) {
 			p.writeComment(c)
 			p.commentIndex++
 			continue
@@ -1204,69 +1199,73 @@ func (p *printer) flushCommentsBefore(line, col int) {
 	}
 }
 
-func (p *printer) hasPendingCommentBefore(line, col int) bool {
+func (p *printer) hasPendingCommentBefore(pos ast.Position) bool {
 	if p.commentIndex >= len(p.comments) {
 		return false
 	}
 	c := p.comments[p.commentIndex]
-	return c.Line < line || (c.Line == line && c.Column <= col)
+	return c.Line < pos.Line || (c.Line == pos.Line && c.Column <= pos.Column)
 }
 
-func statementPosition(stmt ast.Statement) (int, int) {
+func statementPosition(stmt ast.Statement) ast.Position {
 	switch s := stmt.(type) {
 	case *ast.PackageStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ImportStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ImportBlock:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.VarStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.MultiVarStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ConstStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ConstBlock:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ReturnStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ExpressionStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.BlockStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.IfStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.WhileStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ForStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.SwitchStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.DeferStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.UnsafeBlock:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.BreakStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ContinueStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.AssignmentStatement:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.FunctionDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.StructDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.TypeDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.AliasDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.EnumDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	case *ast.ImplDecl:
-		return s.Token.Line, s.Token.Column
+		return tokenPos(s.Token)
 	default:
-		return 0, 0
+		return ast.Position{}
 	}
+}
+
+func tokenPos(tok token.Token) ast.Position {
+	return ast.Position{Line: tok.Line, Column: tok.Column}
 }
 
 func unwrapElseIf(block *ast.BlockStatement) *ast.IfStatement {

@@ -448,7 +448,7 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 	if expGen, ok := expected.(*ast.GenericType); ok && expGen.Name == "Vec" {
 		if mc, ok := expr.(*ast.MethodCallExpression); ok {
 			if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
-				tc.checkVecConstructor(mc.Token.Line, mc.Token.Column, true, expGen, mc)
+				tc.checkVecConstructor(tokenPos(mc.Token), true, expGen, mc)
 				return true
 			}
 		}
@@ -464,7 +464,7 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 						&ast.SizeExpression{Value: expArr.Size},
 					},
 				}
-				tc.checkVecConstructor(mc.Token.Line, mc.Token.Column, true, staticVec, mc)
+				tc.checkVecConstructor(tokenPos(mc.Token), true, staticVec, mc)
 				return true
 			}
 		}
