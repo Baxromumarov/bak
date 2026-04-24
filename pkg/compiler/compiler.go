@@ -1021,7 +1021,6 @@ func (c *Compiler) resolveImportPath(importPath string) string {
 	return packages.ResolveImportPathFrom(importPath, c.sourcePath)
 }
 
-
 func (c *Compiler) compileConstStatement(cs *ast.ConstStatement) error {
 	if err := c.compileExpression(cs.Value); err != nil {
 		return err
@@ -1251,109 +1250,28 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			continue
 		}
 
-		// For each value in the case
 		caseJumps := []int{}
-		var boundVar string
-		var isUserEnumPattern bool
-		var isOkPattern bool
-		var isErrPattern bool
+		patternState := switchCasePatternState{}
 
-	caseValueLoop:
 		for _, caseValue := range switchCase.Values {
-			// Handle Result variant patterns.
-			if ev, ok := caseValue.(*ast.EnumVariantExpression); ok {
-				if ev.Variant.Value == "Ok" && len(ev.Values) == 1 {
-					if name, ok := patternBindingName(ev.Values[0]); ok {
-						isOkPattern = true
-						boundVar = name
-						c.emit(OP_GET_LOCAL)
-						c.emitByte(byte(switchSlot))
-						c.emit(OP_BUILTIN)
-						c.emitByte(byte(BUILTIN_IS_OK))
-						c.emitByte(1)
-						caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-						continue caseValueLoop
-					}
-				} else if ev.Variant.Value == "Err" && len(ev.Values) == 1 {
-					if name, ok := patternBindingName(ev.Values[0]); ok {
-						isErrPattern = true
-						boundVar = name
-						c.emit(OP_GET_LOCAL)
-						c.emitByte(byte(switchSlot))
-						c.emit(OP_BUILTIN)
-						c.emitByte(byte(BUILTIN_IS_ERR))
-						c.emitByte(1)
-						caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-						continue caseValueLoop
-					}
+			if builtinID, boundName, ok := resultPatternBinding(caseValue); ok {
+				patternState.boundVar = boundName
+				if builtinID == BUILTIN_IS_OK {
+					patternState.isOkPattern = true
+				} else {
+					patternState.isErrPattern = true
 				}
+				caseJumps = append(caseJumps, c.emitSwitchBuiltinPatternJump(switchSlot, builtinID))
+				continue
 			}
 
-			// Also check for CallExpression (alternative parsing)
-			if call, ok := caseValue.(*ast.CallExpression); ok {
-				if ident, ok := call.Function.(*ast.Identifier); ok {
-					if ident.Value == "Ok" && len(call.Arguments) == 1 {
-						if name, ok := patternBindingName(call.Arguments[0]); ok {
-							isOkPattern = true
-							boundVar = name
-							c.emit(OP_GET_LOCAL)
-							c.emitByte(byte(switchSlot))
-							c.emit(OP_BUILTIN)
-							c.emitByte(byte(BUILTIN_IS_OK))
-							c.emitByte(1)
-							caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-							continue caseValueLoop
-						}
-					} else if ident.Value == "Err" && len(call.Arguments) == 1 {
-						if name, ok := patternBindingName(call.Arguments[0]); ok {
-							isErrPattern = true
-							boundVar = name
-							c.emit(OP_GET_LOCAL)
-							c.emitByte(byte(switchSlot))
-							c.emit(OP_BUILTIN)
-							c.emitByte(byte(BUILTIN_IS_ERR))
-							c.emitByte(1)
-							caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-							continue caseValueLoop
-						}
-					}
+			if boundName, jump, ok := c.matchUserEnumCasePattern(caseValue, switchSlot); ok {
+				patternState.isUserEnumPattern = true
+				if boundName != "" {
+					patternState.boundVar = boundName
 				}
-			}
-
-			// Check for user-defined enum variant patterns as CallExpression, e.g., Object(entries)
-			if call, ok := caseValue.(*ast.CallExpression); ok {
-				if ident, ok := call.Function.(*ast.Identifier); ok {
-					// Check if this is a known enum variant
-					for _, enumDef := range c.module.EnumDefs {
-						if variantIdx, ok := enumDef.VariantIndex[ident.Value]; ok {
-							// This is an enum variant pattern!
-							variant := enumDef.Variants[variantIdx]
-							if len(call.Arguments) == variant.PayloadCount {
-								// Extract binding names
-								bindings := make([]string, 0, len(call.Arguments))
-								for _, arg := range call.Arguments {
-									if name, ok := patternBindingName(arg); ok {
-										bindings = append(bindings, name)
-									}
-								}
-								if len(bindings) == len(call.Arguments) {
-									// This is a valid pattern match with bindings
-									// Use OP_IS_VARIANT to check: push obj, enumId, variantId
-									c.emit(OP_GET_LOCAL)
-									c.emitByte(byte(switchSlot))
-									c.emitConstant(NewInt(int64(enumDef.EnumID)))
-									c.emitConstant(NewInt(int64(variantIdx)))
-									c.emit(OP_IS_VARIANT)
-									caseJumps = append(caseJumps, c.emitJump(OP_JMP_IF_TRUE))
-									// Store bindings for later extraction
-									boundVar = bindings[0] // For now, support single binding
-									isUserEnumPattern = true
-									continue caseValueLoop
-								}
-							}
-						}
-					}
-				}
+				caseJumps = append(caseJumps, jump)
+				continue
 			}
 
 			// Regular case value comparison
@@ -1374,34 +1292,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			c.patchJump(j)
 		}
 
-		if isOkPattern && boundVar != "" {
-			c.beginScope()
-			c.emit(OP_GET_LOCAL)
-			c.emitByte(byte(switchSlot))
-			c.emit(OP_BUILTIN)
-			c.emitByte(byte(BUILTIN_UNWRAP))
-			c.emitByte(1)
-			c.addLocal(boundVar)
-		} else if isErrPattern && boundVar != "" {
-			c.beginScope()
-			c.emit(OP_GET_LOCAL)
-			c.emitByte(byte(switchSlot))
-			c.emit(OP_BUILTIN)
-			c.emitByte(byte(BUILTIN_UNWRAP_ERR))
-			c.emitByte(1)
-			c.addLocal(boundVar)
-		} else if isUserEnumPattern && boundVar != "" {
-			c.beginScope()
-			// For user-defined enum patterns, extract payload at index 0
-			c.emit(OP_GET_LOCAL)
-			c.emitByte(byte(switchSlot))
-			c.emitConstant(NewInt(0)) // payload index 0
-			c.emit(OP_GET_PAYLOAD)
-			// Store in local variable
-			c.addLocal(boundVar)
-		} else {
-			c.beginScope()
-		}
+		c.beginSwitchCaseScope(switchSlot, patternState)
 
 		// Compile case body
 		for _, stmt := range switchCase.Body.Statements {
@@ -1432,6 +1323,142 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 	c.endScope()
 
 	return nil
+}
+
+type switchCasePatternState struct {
+	boundVar          string
+	isUserEnumPattern bool
+	isOkPattern       bool
+	isErrPattern      bool
+}
+
+func resultPatternBinding(expr ast.Expression) (BuiltinID, string, bool) {
+	switch v := expr.(type) {
+	case *ast.EnumVariantExpression:
+		if len(v.Values) != 1 {
+			return 0, "", false
+		}
+		name, ok := patternBindingName(v.Values[0])
+		if !ok {
+			return 0, "", false
+		}
+		switch v.Variant.Value {
+		case "Ok":
+			return BUILTIN_IS_OK, name, true
+		case "Err":
+			return BUILTIN_IS_ERR, name, true
+		}
+	case *ast.CallExpression:
+		if len(v.Arguments) != 1 {
+			return 0, "", false
+		}
+		ident, ok := v.Function.(*ast.Identifier)
+		if !ok {
+			return 0, "", false
+		}
+		name, ok := patternBindingName(v.Arguments[0])
+		if !ok {
+			return 0, "", false
+		}
+		switch ident.Value {
+		case "Ok":
+			return BUILTIN_IS_OK, name, true
+		case "Err":
+			return BUILTIN_IS_ERR, name, true
+		}
+	}
+	return 0, "", false
+}
+
+func (c *Compiler) emitSwitchBuiltinPatternJump(switchSlot int, builtinID BuiltinID) int {
+	c.emit(OP_GET_LOCAL)
+	c.emitByte(byte(switchSlot))
+	c.emit(OP_BUILTIN)
+	c.emitByte(byte(builtinID))
+	c.emitByte(1)
+	return c.emitJump(OP_JMP_IF_TRUE)
+}
+
+func (c *Compiler) matchUserEnumCasePattern(caseValue ast.Expression, switchSlot int) (string, int, bool) {
+	call, ok := caseValue.(*ast.CallExpression)
+	if !ok {
+		return "", 0, false
+	}
+	ident, ok := call.Function.(*ast.Identifier)
+	if !ok {
+		return "", 0, false
+	}
+
+	for _, enumDef := range c.module.EnumDefs {
+		variantIdx, ok := enumDef.VariantIndex[ident.Value]
+		if !ok {
+			continue
+		}
+
+		variant := enumDef.Variants[variantIdx]
+		if len(call.Arguments) != variant.PayloadCount {
+			continue
+		}
+
+		bindings := make([]string, 0, len(call.Arguments))
+		validBindings := true
+		for _, arg := range call.Arguments {
+			name, ok := patternBindingName(arg)
+			if !ok {
+				validBindings = false
+				break
+			}
+			bindings = append(bindings, name)
+		}
+		if !validBindings {
+			continue
+		}
+
+		// Pattern matched: check variant tag.
+		c.emit(OP_GET_LOCAL)
+		c.emitByte(byte(switchSlot))
+		c.emitConstant(NewInt(int64(enumDef.EnumID)))
+		c.emitConstant(NewInt(int64(variantIdx)))
+		c.emit(OP_IS_VARIANT)
+		jump := c.emitJump(OP_JMP_IF_TRUE)
+
+		if len(bindings) > 0 {
+			return bindings[0], jump, true // For now, support single binding.
+		}
+		return "", jump, true
+	}
+
+	return "", 0, false
+}
+
+func (c *Compiler) beginSwitchCaseScope(switchSlot int, state switchCasePatternState) {
+	c.beginScope()
+	if state.boundVar == "" {
+		return
+	}
+
+	switch {
+	case state.isOkPattern:
+		c.emit(OP_GET_LOCAL)
+		c.emitByte(byte(switchSlot))
+		c.emit(OP_BUILTIN)
+		c.emitByte(byte(BUILTIN_UNWRAP))
+		c.emitByte(1)
+		c.addLocal(state.boundVar)
+	case state.isErrPattern:
+		c.emit(OP_GET_LOCAL)
+		c.emitByte(byte(switchSlot))
+		c.emit(OP_BUILTIN)
+		c.emitByte(byte(BUILTIN_UNWRAP_ERR))
+		c.emitByte(1)
+		c.addLocal(state.boundVar)
+	case state.isUserEnumPattern:
+		c.emit(OP_GET_LOCAL)
+		c.emitByte(byte(switchSlot))
+		c.emitConstant(NewInt(0)) // payload index 0
+		c.emit(OP_GET_PAYLOAD)
+		c.addLocal(state.boundVar)
+	}
 }
 
 func patternBindingName(expr ast.Expression) (string, bool) {

@@ -7,6 +7,6 @@ func main() -> (void) {
     mut var nums: Vec<int, _> = Vec.new()
     nums.push(1)
     nums.push(2)
-    // nums.push("three")
+    nums.push("three")
     return void
 }
