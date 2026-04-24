@@ -30,6 +30,66 @@ func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 	return []diagnostics.Note{noteDiag}
 }
 
+func (tc *TypeChecker) baseDiagnostic(
+	code diagnostics.DiagnosticCode,
+	line, col int,
+	message string,
+) diagnostics.Diagnostic {
+	return diagnostics.Diagnostic{
+		Code:    code,
+		Level:   diagnostics.LevelError,
+		Message: message,
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+	}
+}
+
+func (tc *TypeChecker) emitSuggestedDiagnostic(
+	code diagnostics.DiagnosticCode,
+	line, col int,
+	file string,
+	message string,
+	help string,
+	fromText string,
+	suggestions []string,
+) {
+	diag := tc.baseDiagnostic(code, line, col, message)
+	if file != "" {
+		diag.File = file
+	}
+	diag.Help = help
+	diag.Fixes = append(diag.Fixes, suggestionFixes(fromText, suggestions, line, col)...)
+	tc.emitError(diag)
+}
+
+func argumentCountHelp(expected, got int) string {
+	switch {
+	case got < expected:
+		return fmt.Sprintf("add %d more argument(s)", expected-got)
+	case got > expected:
+		return fmt.Sprintf("remove %d argument(s)", got-expected)
+	default:
+		return ""
+	}
+}
+
+func (tc *TypeChecker) signatureDeclNote(sig *FunctionSig, message string) []diagnostics.Note {
+	if sig == nil || sig.Line <= 0 {
+		return nil
+	}
+	noteFile := sig.PackagePath
+	if noteFile == "" {
+		noteFile = tc.currentPkgPath
+	}
+	return []diagnostics.Note{{
+		Message: message,
+		Line:    sig.Line,
+		Column:  sig.Column,
+		File:    noteFile,
+	}}
+}
+
 func replacementFix(title, fromText, toText string, line, col int) diagnostics.Fix {
 	width := utf8.RuneCountInString(fromText)
 	if width <= 0 {
@@ -150,31 +210,15 @@ func (tc *TypeChecker) typeMismatchFixes(expected, got string, node ast.Node, li
 // addError adds a type error (legacy support, treated as fatal)
 func (tc *TypeChecker) addError(line, col int, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	// Map to diagnostics
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.ErrGeneric,
-		Level:   diagnostics.LevelError,
-		Message: msg,
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-	})
-	tc.hasFatalError = true
+	tc.emitError(tc.baseDiagnostic(diagnostics.ErrGeneric, line, col, msg))
 }
 
 // addErrorWithHelp adds a type error with a help suggestion
 func (tc *TypeChecker) addErrorWithHelp(line, col int, help, format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.ErrGeneric,
-		Level:   diagnostics.LevelError,
-		Message: msg,
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	})
-	tc.hasFatalError = true
+	diag := tc.baseDiagnostic(diagnostics.ErrGeneric, line, col, msg)
+	diag.Help = help
+	tc.emitError(diag)
 }
 
 // addFatalError adds a fatal error and marks the checker to stop
@@ -395,8 +439,8 @@ func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnost
 		File:    tc.currentPkgPath,
 	}
 	const assignmentPrefix = "assignment to variable '"
-	if strings.HasPrefix(context, assignmentPrefix) {
-		rest := strings.TrimPrefix(context, assignmentPrefix)
+	if after, ok := strings.CutPrefix(context, assignmentPrefix); ok {
+		rest := after
 		if idx := strings.Index(rest, "'"); idx > 0 {
 			name := rest[:idx]
 			if info, ok := tc.lookupSymbolWithoutMark(name); ok && info.Line > 0 {
@@ -425,17 +469,15 @@ func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
 	suggestions := tc.suggestIdentifiers(name, 3)
 	help := suggestionsHelp(suggestions, "check for a typo or missing import")
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrUndefinedVariable,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("undefined: %s", name),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrUndefinedVariable,
+		line, col,
+		tc.currentPkgPath,
+		fmt.Sprintf("undefined: %s", name),
+		help,
+		name,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file string) {
@@ -444,17 +486,15 @@ func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file
 	if file == "" {
 		file = tc.currentPkgPath
 	}
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrUnknownType,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("undefined type: %s", name),
-		Line:    line,
-		Column:  col,
-		File:    file,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrUnknownType,
+		line, col,
+		file,
+		fmt.Sprintf("undefined type: %s", name),
+		help,
+		name,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorUndefinedMethod(typeName, method string, line, col int, candidates []string) {
@@ -477,65 +517,57 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, lin
 			help = extraHelp
 		}
 	}
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrUndefinedMethod,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("undefined method '%s' for %s", method, typeName),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(method, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrUndefinedMethod,
+		line, col,
+		tc.currentPkgPath,
+		fmt.Sprintf("undefined method '%s' for %s", method, typeName),
+		help,
+		method,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorUndefinedFunction(name string, line, col int) {
 	suggestions := tc.suggestFunctionNames(name, 3)
 	help := suggestionsHelp(suggestions, "check for a typo or define the function before calling it")
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrUndefinedFunction,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("undefined function '%s'", name),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(name, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrUndefinedFunction,
+		line, col,
+		tc.currentPkgPath,
+		fmt.Sprintf("undefined function '%s'", name),
+		help,
+		name,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorStructHasNoField(structName, field string, line, col int, candidates []string) {
 	suggestions := tc.suggestFields(field, candidates, 3)
 	help := suggestionsHelp(suggestions, "")
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrGeneric,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("struct '%s' has no field '%s'", structName, field),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(field, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrGeneric,
+		line, col,
+		tc.currentPkgPath,
+		fmt.Sprintf("struct '%s' has no field '%s'", structName, field),
+		help,
+		field,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorTypeHasNoField(typeName, field string, line, col int, candidates []string) {
 	suggestions := tc.suggestFields(field, candidates, 3)
 	help := suggestionsHelp(suggestions, "")
-	diag := diagnostics.Diagnostic{
-		Code:    diagnostics.ErrGeneric,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("type '%s' has no field '%s'", typeName, field),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	}
-	diag.Fixes = append(diag.Fixes, suggestionFixes(field, suggestions, line, col)...)
-	tc.emitError(diag)
+	tc.emitSuggestedDiagnostic(
+		diagnostics.ErrGeneric,
+		line, col,
+		tc.currentPkgPath,
+		fmt.Sprintf("type '%s' has no field '%s'", typeName, field),
+		help,
+		field,
+		suggestions,
+	)
 }
 
 func (tc *TypeChecker) errorArgumentCountMismatch(
@@ -546,38 +578,13 @@ func (tc *TypeChecker) errorArgumentCountMismatch(
 	col int,
 	sig *FunctionSig,
 ) {
-	help := ""
-	if got < expected {
-		help = fmt.Sprintf("add %d more argument(s)", expected-got)
-	} else if got > expected {
-		help = fmt.Sprintf("remove %d argument(s)", got-expected)
-	}
-	diag := diagnostics.Diagnostic{
-		Code:  diagnostics.ErrArgumentCount,
-		Level: diagnostics.LevelError,
-		Message: fmt.Sprintf(
-			"function '%s' expects %d argument(s), but got %d",
-			name,
-			expected,
-			got,
-		),
-		Line:   line,
-		Column: col,
-		File:   tc.currentPkgPath,
-		Help:   help,
-	}
-	if sig != nil && sig.Line > 0 {
-		noteFile := sig.PackagePath
-		if noteFile == "" {
-			noteFile = tc.currentPkgPath
-		}
-		diag.Notes = append(diag.Notes, diagnostics.Note{
-			Message: fmt.Sprintf("function '%s' declared here", name),
-			Line:    sig.Line,
-			Column:  sig.Column,
-			File:    noteFile,
-		})
-	}
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrArgumentCount,
+		line, col,
+		fmt.Sprintf("function '%s' expects %d argument(s), but got %d", name, expected, got),
+	)
+	diag.Help = argumentCountHelp(expected, got)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, fmt.Sprintf("function '%s' declared here", name))...)
 	tc.emitError(diag)
 }
 
@@ -602,15 +609,13 @@ func (tc *TypeChecker) errorArgumentCountRangeMismatch(
 		rangeHint = fmt.Sprintf("at least %d", minExpected)
 	}
 
-	tc.emitError(diagnostics.Diagnostic{
-		Code:    diagnostics.ErrArgumentCount,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("function '%s' expects %s argument(s), but got %d", name, rangeHint, got),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	})
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrArgumentCount,
+		line, col,
+		fmt.Sprintf("function '%s' expects %s argument(s), but got %d", name, rangeHint, got),
+	)
+	diag.Help = help
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) errorMethodArgumentCountMismatch(
@@ -622,43 +627,13 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatch(
 	col int,
 	sig *FunctionSig,
 ) {
-	help := ""
-	if got < expected {
-		help = fmt.Sprintf("add %d more argument(s)", expected-got)
-	} else if got > expected {
-		help = fmt.Sprintf("remove %d argument(s)", got-expected)
-	}
-	diag := diagnostics.Diagnostic{
-		Code:  diagnostics.ErrArgumentCount,
-		Level: diagnostics.LevelError,
-		Message: fmt.Sprintf(
-			"method '%s.%s' expects %d argument(s), but got %d",
-			typeName,
-			method,
-			expected,
-			got,
-		),
-		Line:   line,
-		Column: col,
-		File:   tc.currentPkgPath,
-		Help:   help,
-	}
-	if sig != nil && sig.Line > 0 {
-		noteFile := sig.PackagePath
-		if noteFile == "" {
-			noteFile = tc.currentPkgPath
-		}
-		diag.Notes = append(diag.Notes, diagnostics.Note{
-			Message: fmt.Sprintf(
-				"method '%s.%s' declared here",
-				typeName,
-				method,
-			),
-			Line:   sig.Line,
-			Column: sig.Column,
-			File:   noteFile,
-		})
-	}
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrArgumentCount,
+		line, col,
+		fmt.Sprintf("method '%s.%s' expects %d argument(s), but got %d", typeName, method, expected, got),
+	)
+	diag.Help = argumentCountHelp(expected, got)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, fmt.Sprintf("method '%s.%s' declared here", typeName, method))...)
 	tc.emitError(diag)
 }
 
@@ -668,13 +643,11 @@ func (tc *TypeChecker) errorMissingReturn(line, col int, expected ast.TypeExpres
 	if expectedName != "" && expectedName != "void" {
 		help = fmt.Sprintf("add `return ...` of type %s or change the return type to void", expectedName)
 	}
-	tc.emitError(diagnostics.Diagnostic{
-		Code:    diagnostics.ErrMissingReturn,
-		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("missing return of type %s", expectedName),
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	})
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrMissingReturn,
+		line, col,
+		fmt.Sprintf("missing return of type %s", expectedName),
+	)
+	diag.Help = help
+	tc.emitError(diag)
 }

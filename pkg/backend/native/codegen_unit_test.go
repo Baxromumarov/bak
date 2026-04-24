@@ -671,7 +671,7 @@ func TestPeepholePushPopR8(t *testing.T) {
 	if optimized != 1 {
 		t.Fatalf("expected 1 optimization, got %d", optimized)
 	}
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		if code[i] != 0x90 {
 			t.Fatalf("expected NOP at %d, got 0x%02x", i, code[i])
 		}

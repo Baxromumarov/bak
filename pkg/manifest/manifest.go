@@ -231,8 +231,8 @@ func ValidateSourceAllowed(source string, trusted []string) error {
 		if pattern == source {
 			return nil
 		}
-		if strings.HasSuffix(pattern, "/*") {
-			prefix := strings.TrimSuffix(pattern, "/*")
+		if before, ok := strings.CutSuffix(pattern, "/*"); ok {
+			prefix := before
 			if strings.HasPrefix(source, prefix+"/") || source == prefix {
 				return nil
 			}

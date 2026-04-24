@@ -27,7 +27,6 @@ func TestExampleProjectsSmokeCheck(t *testing.T) {
 	}
 
 	for _, target := range targets {
-		target := target
 		name := filepath.Base(filepath.Dir(target))
 		t.Run(name, func(t *testing.T) {
 			if _, err := os.Stat(target); err != nil {

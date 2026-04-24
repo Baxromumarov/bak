@@ -924,6 +924,33 @@ func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, fea
 	})
 }
 
+func parameterTypes(params []*ast.Parameter) []ast.TypeExpression {
+	types := make([]ast.TypeExpression, len(params))
+	for i, p := range params {
+		if p != nil {
+			types[i] = p.Type
+		}
+	}
+	return types
+}
+
+func (tc *TypeChecker) userGenericsAllowedForDecl(filename string) bool {
+	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) || isStdlibSourcePath(filename)
+}
+
+func (tc *TypeChecker) reportUserGenericDeclIfDisabled(typeParamCount int, pos ast.Position, filename, syntax string) {
+	if typeParamCount == 0 || tc.userGenericsAllowedForDecl(filename) {
+		return
+	}
+	tc.addExperimentalFeatureError(pos, syntax, runtimecap.ExperimentalFeatureUserGenerics)
+}
+
+func (tc *TypeChecker) userGenericsAllowedForTypeContext(filename string) bool {
+	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) ||
+		isStdlibSourcePath(filename) ||
+		isStdlibSourcePath(tc.currentPkgPath)
+}
+
 // IsSymbolUsed checks if a symbol was used during type checking. Used by linter.
 func (tc *TypeChecker) IsSymbolUsed(name string) bool {
 	return tc.env.used[name]
@@ -1311,15 +1338,8 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
-			typeParams := []string{}
-			for _, p := range s.TypeParams {
-				if p != nil {
-					typeParams = append(typeParams, p.Name.Value)
-				}
-			}
+			tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic struct declarations")
+			typeParams := typeParamNames(s.TypeParams)
 			fields := make(map[string]FieldDef)
 			for _, f := range s.Fields {
 				if f == nil || f.Name == nil {
@@ -1344,9 +1364,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
+			tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic enum declarations")
 			variants := make(map[string]EnumVariantDef)
 			for _, v := range s.Variants {
 				if v == nil || v.Name == nil {
@@ -1369,15 +1387,8 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.Name.Token.Filename) {
-				tc.addExperimentalFeatureError(tokenPos(s.Name.Token), "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
-			params := make([]ast.TypeExpression, len(s.Parameters))
-			for i, p := range s.Parameters {
-				if p != nil {
-					params[i] = p.Type
-				}
-			}
+			tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic function declarations")
+			params := parameterTypes(s.Parameters)
 			typeParams := make([]string, len(s.TypeParams))
 			for i, tp := range s.TypeParams {
 				typeParams[i] = tp.Name.Value
@@ -1415,23 +1426,14 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.TypeName == nil {
 				continue
 			}
-			if len(s.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(s.TypeName.Token.Filename) {
-				tc.addExperimentalFeatureError(tokenPos(s.TypeName.Token), "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
-			}
+			tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.TypeName.Token), s.TypeName.Token.Filename, "generic impl declarations")
 			if structDef, ok := tc.env.LookupStruct(s.TypeName.Value); ok {
 				for _, method := range s.Methods {
 					if method == nil || method.Name == nil {
 						continue
 					}
-					if len(method.TypeParams) > 0 && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibSourcePath(method.Name.Token.Filename) {
-						tc.addExperimentalFeatureError(tokenPos(method.Name.Token), "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
-					}
-					params := make([]ast.TypeExpression, len(method.Parameters))
-					for i, p := range method.Parameters {
-						if p != nil {
-							params[i] = p.Type
-						}
-					}
+					tc.reportUserGenericDeclIfDisabled(len(method.TypeParams), tokenPos(method.Name.Token), method.Name.Token.Filename, "generic method declarations")
+					params := parameterTypes(method.Parameters)
 					// Check for duplicate methods
 					if _, exists := structDef.Methods[method.Name.Value]; exists {
 						tc.addError(method.Name.Token.Line, method.Name.Token.Column,
@@ -1710,8 +1712,7 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position)
 				}
 				return
 			}
-			isStdlibTypeContext := isStdlibSourcePath(tt.Token.Filename) || isStdlibSourcePath(tc.currentPkgPath)
-			if !stableFrozenGenericTypeName(tt.Name) && !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) && !isStdlibTypeContext {
+			if !stableFrozenGenericTypeName(tt.Name) && !tc.userGenericsAllowedForTypeContext(tt.Token.Filename) {
 				tc.addExperimentalFeatureError(pos, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)

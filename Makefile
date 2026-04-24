@@ -4,6 +4,8 @@ SHELL := /usr/bin/env bash
 GO ?= go
 BINDIR ?= bin
 
+GO_BUILD := $(GO) build -o
+
 BAK_BIN := $(BINDIR)/bak
 BAKFMT_BIN := $(BINDIR)/bakfmt
 BAKLINT_BIN := $(BINDIR)/baklint
@@ -30,6 +32,13 @@ LEGACY_TEST_SCRIPTS := \
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
 .PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-scripts-legacy test-comprehensive test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
+
+define run_script_list
+	@for script in $(1); do \
+		echo "==> $$script"; \
+		bash "$$script"; \
+	done
+endef
 
 help:
 	@echo "Bak project Makefile"
@@ -75,30 +84,30 @@ $(BINDIR):
 	@mkdir -p $(BINDIR)
 
 build-bak: | $(BINDIR)
-	$(GO) build -o $(BAK_BIN) ./cmd/bak
+	$(GO_BUILD) $(BAK_BIN) ./cmd/bak
 
 build-root-bak:
-	$(GO) build -o bak ./cmd/bak
+	$(GO_BUILD) bak ./cmd/bak
 
 build-bakfmt: | $(BINDIR)
-	$(GO) build -o $(BAKFMT_BIN) ./cmd/bakfmt
+	$(GO_BUILD) $(BAKFMT_BIN) ./cmd/bakfmt
 
 build-bak-fmt: build-bakfmt
 
 build-baklint: | $(BINDIR)
-	$(GO) build -o $(BAKLINT_BIN) ./cmd/baklint
+	$(GO_BUILD) $(BAKLINT_BIN) ./cmd/baklint
 
 build-bakcheck: | $(BINDIR)
-	$(GO) build -o $(BAKCHECK_BIN) ./cmd/bakcheck
+	$(GO_BUILD) $(BAKCHECK_BIN) ./cmd/bakcheck
 
 build-bakc-test: | $(BINDIR)
-	$(GO) build -o $(BAKCTEST_BIN) ./cmd/bakc-test
+	$(GO_BUILD) $(BAKCTEST_BIN) ./cmd/bakc-test
 
 build-dump-bc: | $(BINDIR)
-	$(GO) build -o $(DUMPBC_BIN) ./cmd/dump_bc
+	$(GO_BUILD) $(DUMPBC_BIN) ./cmd/dump_bc
 
 build-lsp: | $(BINDIR)
-	$(GO) build -o $(LSP_BIN) ./lsp
+	$(GO_BUILD) $(LSP_BIN) ./lsp
 
 test: test-unit
 
@@ -106,16 +115,10 @@ test-unit:
 	$(GO) test ./...
 
 test-scripts: build-root-bak
-	@for script in $(TEST_SCRIPTS); do \
-		echo "==> $$script"; \
-		bash $$script; \
-	done
+	$(call run_script_list,$(TEST_SCRIPTS))
 
 test-scripts-legacy: build-root-bak
-	@for script in $(LEGACY_TEST_SCRIPTS); do \
-		echo "==> $$script"; \
-		bash $$script; \
-	done
+	$(call run_script_list,$(LEGACY_TEST_SCRIPTS))
 
 test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"

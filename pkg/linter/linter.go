@@ -266,12 +266,12 @@ func isCommentOnlyLine(line string, inBlockComment *bool) bool {
 	}
 
 	if *inBlockComment {
-		end := strings.Index(trimmed, "*/")
-		if end == -1 {
+		_, after, ok := strings.Cut(trimmed, "*/")
+		if !ok {
 			return true
 		}
 		*inBlockComment = false
-		rest := strings.TrimSpace(trimmed[end+2:])
+		rest := strings.TrimSpace(after)
 		if rest == "" || strings.HasPrefix(rest, "//") || strings.HasPrefix(rest, "/*") {
 			if strings.HasPrefix(rest, "/*") && !strings.Contains(rest, "*/") {
 				*inBlockComment = true
@@ -289,8 +289,8 @@ func isCommentOnlyLine(line string, inBlockComment *bool) bool {
 			*inBlockComment = true
 		}
 		rest := ""
-		if idx := strings.Index(trimmed, "*/"); idx != -1 {
-			rest = strings.TrimSpace(trimmed[idx+2:])
+		if _, after, ok := strings.Cut(trimmed, "*/"); ok {
+			rest = strings.TrimSpace(after)
 		}
 		return rest == "" || strings.HasPrefix(rest, "//")
 	}

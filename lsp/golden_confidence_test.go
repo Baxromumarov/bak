@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -281,12 +282,7 @@ func signatureLabelAt(t *testing.T, s *Server, uri, src, needle string) string {
 }
 
 func containsLabel(labels []string, want string) bool {
-	for _, label := range labels {
-		if label == want {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(labels, want)
 }
 
 func hoverAt(t *testing.T, s *Server, uri, src, needle string) string {

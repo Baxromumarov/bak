@@ -2,6 +2,7 @@ package runtimecap
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -39,12 +40,7 @@ func IsKnownExperimentalFeature(name string) bool {
 	if name == "" {
 		return false
 	}
-	for _, feature := range KnownExperimentalFeatures() {
-		if name == feature {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(KnownExperimentalFeatures(), name)
 }
 
 type Permissions struct {

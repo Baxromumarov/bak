@@ -20,7 +20,6 @@ func TestStdlibCoreExamplesCompileAndRun(t *testing.T) {
 	}
 
 	for _, target := range targets {
-		target := target
 		t.Run(filepath.Base(target), func(t *testing.T) {
 			if ok := runTestFile(target, runtimecap.Permissions{}); !ok {
 				t.Fatalf("stdlib example failed: %s", target)

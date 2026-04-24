@@ -2976,9 +2976,7 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 		}
 
 		merged := mergeBranchStates(base, []map[string]vecLenState{consequenceStates, alternativeStates})
-		for name, st := range merged {
-			states[name] = st
-		}
+		maps.Copy(states, merged)
 	case *ast.SwitchStatement:
 		if s == nil {
 			return
@@ -3005,9 +3003,7 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 			branchStates = append(branchStates, cloneVecLenStates(base))
 		}
 		merged := mergeBranchStates(base, branchStates)
-		for name, st := range merged {
-			states[name] = st
-		}
+		maps.Copy(states, merged)
 	case *ast.UnsafeBlock:
 		if s != nil && s.Body != nil {
 			applyVecLengthStatements(s.Body.Statements, states)
@@ -3033,9 +3029,7 @@ func applyVecLengthStatements(stmts []ast.Statement, states map[string]vecLenSta
 
 func cloneVecLenStates(states map[string]vecLenState) map[string]vecLenState {
 	out := make(map[string]vecLenState, len(states))
-	for name, st := range states {
-		out[name] = st
-	}
+	maps.Copy(out, states)
 	return out
 }
 
@@ -4845,14 +4839,8 @@ func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
 		severity = 4
 	}
 
-	line := finding.Line - 1
-	if line < 0 {
-		line = 0
-	}
-	column := finding.Column - 1
-	if column < 0 {
-		column = 0
-	}
+	line := max(finding.Line-1, 0)
+	column := max(finding.Column-1, 0)
 
 	return Diagnostic{
 		Range: Range{

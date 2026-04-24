@@ -11,8 +11,7 @@ import (
 )
 
 func TestDifferentialParitySeeds(t *testing.T) {
-	for i := 0; i < 12; i++ {
-		i := i
+	for i := range 12 {
 		t.Run(fmt.Sprintf("seed_%02d", i), func(t *testing.T) {
 			seed := differentialSeed(i)
 			source := buildDifferentialProgram(seed)
@@ -22,7 +21,7 @@ func TestDifferentialParitySeeds(t *testing.T) {
 }
 
 func FuzzEvaluatorVMNativeDifferential(f *testing.F) {
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		f.Add(differentialSeed(i))
 	}
 
