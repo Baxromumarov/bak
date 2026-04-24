@@ -3,6 +3,9 @@ package linter
 import (
 	"strings"
 	"testing"
+
+	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/parser"
 )
 
 func TestLintSourceFindsNamingConventionIssue(t *testing.T) {
@@ -90,6 +93,57 @@ func TestLintSourceSkipsStyleChecksForCommentOnlyLines(t *testing.T) {
 	for _, f := range findings {
 		if strings.HasPrefix(f.Rule, "style/") {
 			t.Fatalf("unexpected style finding on comment line: %#v", findings)
+		}
+	}
+}
+
+func TestAvailableRulesSorted(t *testing.T) {
+	rules := AvailableRules()
+	expected := []string{
+		"complexity",
+		"empty-block",
+		"naming-convention",
+		"style",
+	}
+	if len(rules) != len(expected) {
+		t.Fatalf("unexpected rule count: got=%d want=%d", len(rules), len(expected))
+	}
+	for i := range expected {
+		if rules[i] != expected[i] {
+			t.Fatalf("unexpected rule at index %d: got=%q want=%q", i, rules[i], expected[i])
+		}
+	}
+}
+
+func TestApplyDisabledRulesCSV(t *testing.T) {
+	config := DefaultConfig()
+	ApplyDisabledRulesCSV(config, " naming-convention , style ,, ")
+	if !config.DisabledRules["naming-convention"] {
+		t.Fatalf("expected naming-convention to be disabled")
+	}
+	if !config.DisabledRules["style"] {
+		t.Fatalf("expected style to be disabled")
+	}
+	if len(config.DisabledRules) != 2 {
+		t.Fatalf("unexpected disabled rules: %#v", config.DisabledRules)
+	}
+}
+
+func TestLintProgramMatchesLintSource(t *testing.T) {
+	source := "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	fromSource := LintSource("demo.bak", source, nil)
+	fromProgram := LintProgram("demo.bak", source, program, nil)
+
+	if len(fromProgram) != len(fromSource) {
+		t.Fatalf("unexpected finding count: fromProgram=%d fromSource=%d", len(fromProgram), len(fromSource))
+	}
+	for i := range fromSource {
+		if fromProgram[i] != fromSource[i] {
+			t.Fatalf("mismatch at index %d: fromProgram=%#v fromSource=%#v", i, fromProgram[i], fromSource[i])
 		}
 	}
 }

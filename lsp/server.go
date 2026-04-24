@@ -194,15 +194,19 @@ type Server struct {
 	stdImportPaths []string
 	stdPackages    []string
 	pendingLocks   map[string]*time.Timer
+	lintConfig     *linter.Config
 }
 
 func NewServer() *Server {
+	lintConfig := linter.DefaultConfig()
+	linter.ApplyDisabledRulesCSV(lintConfig, os.Getenv("BAK_LSP_DISABLE_RULES"))
 	return &Server{
 		Documents:     make(map[string]string),
 		Cache:         make(map[string]*AnalysisResult),
 		Indexes:       make(map[string]*FileIndex),
 		PublicIndexes: make(map[string]*FileIndex),
 		pendingLocks:  make(map[string]*time.Timer),
+		lintConfig:    lintConfig,
 	}
 }
 
@@ -3657,7 +3661,7 @@ func buildReferenceIndex(
 	tc *typechecker.TypeChecker,
 	uri string,
 	idxImports map[string]string,
-	idx *FileIndex,
+	_ *FileIndex,
 	srv *Server,
 ) (
 	map[string][]Location,
@@ -4287,7 +4291,7 @@ func collectQualifiedMethodRefs(prog *ast.Program, uri string, qualifier string,
 	return locs
 }
 
-func collectInlayHints(text string, result *AnalysisResult, s *Server) []InlayHint {
+func collectInlayHints(text string, result *AnalysisResult, _ *Server) []InlayHint {
 	hints := []InlayHint{}
 	lines := strings.Split(text, "\n")
 	var walk func(node ast.Node)
@@ -4580,7 +4584,7 @@ func (s *Server) handleFormatting(req Request) []TextEdit {
 	}
 }
 
-func (s *Server) handleSemanticTokensFull(req Request) *SemanticTokens {
+func (s *Server) handleSemanticTokensFull(_ Request) *SemanticTokens {
 	// Disable server-side semantic tokens. Returning an empty token
 	// set forces the client to fall back to TextMate grammar + theme
 	// for syntax coloring and avoids theme mismatches.
@@ -4740,7 +4744,7 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 		}
 	}
 
-	for _, finding := range linter.LintSource(filePath, text, nil) {
+	for _, finding := range linter.LintProgram(filePath, text, prog, s.lintConfig) {
 		diagnostics = append(diagnostics, lintFindingToDiagnostic(finding))
 	}
 
@@ -5578,10 +5582,11 @@ func isPositionInComment(text string, pos Position) bool {
 
 		switch ch {
 		case '/':
-			if next == '/' {
+			switch next {
+			case '/':
 				inLineComment = true
 				i++
-			} else if next == '*' {
+			case '*':
 				inBlockComment = true
 				i++
 			}

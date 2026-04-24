@@ -1107,28 +1107,22 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 		return &ast.SimpleType{Name: "bool"}
 	case "unwrap":
 		if guardState == resultGuardIsErr {
-			tc.emitError(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("W0901"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.isErr()'", guardVar, guardVar),
-				Line:    mc.Token.Line,
-				Column:  mc.Token.Column,
-				File:    tc.currentPkgPath,
-				Help:    "use unwrapErr() here, or move unwrap() into an isOk() branch (or switch on Ok/Err)",
-			})
+			tc.emitWarningAt(
+				diagnostics.DiagnosticCode("W0901"),
+				tokenPos(mc.Token),
+				fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.isErr()'", guardVar, guardVar),
+				"use unwrapErr() here, or move unwrap() into an isOk() branch (or switch on Ok/Err)",
+			)
 		}
 		return okType
 	case "unwrapErr":
 		if guardState == resultGuardIsOk {
-			tc.emitError(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("W0902"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("'%s.unwrapErr()' is guaranteed to panic in this branch after '%s.isOk()'", guardVar, guardVar),
-				Line:    mc.Token.Line,
-				Column:  mc.Token.Column,
-				File:    tc.currentPkgPath,
-				Help:    "use unwrap() here, or move unwrapErr() into an isErr() branch (or switch on Ok/Err)",
-			})
+			tc.emitWarningAt(
+				diagnostics.DiagnosticCode("W0902"),
+				tokenPos(mc.Token),
+				fmt.Sprintf("'%s.unwrapErr()' is guaranteed to panic in this branch after '%s.isOk()'", guardVar, guardVar),
+				"use unwrap() here, or move unwrapErr() into an isErr() branch (or switch on Ok/Err)",
+			)
 		}
 		return errType
 	case "toString":

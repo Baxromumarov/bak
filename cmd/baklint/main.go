@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/pkg/linter"
@@ -15,12 +14,20 @@ func main() {
 	maxParams := flag.Int("max-params", 7, "maximum function parameters")
 	maxNesting := flag.Int("max-nesting", 5, "maximum nesting depth")
 	disable := flag.String("disable", "", "comma-separated list of rules to disable")
+	listRules := flag.Bool("list-rules", false, "list available lint rules and exit")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: baklint [flags] [path ...]\n\n")
 		fmt.Fprintf(flag.CommandLine.Output(), "Lint Bak source files for style and correctness issues.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	if *listRules {
+		for _, rule := range linter.AvailableRules() {
+			fmt.Fprintln(os.Stdout, rule)
+		}
+		return
+	}
 
 	paths := flag.Args()
 	if len(paths) == 0 {
@@ -32,11 +39,7 @@ func main() {
 	config.MaxLineLength = *maxLine
 	config.MaxFuncParams = *maxParams
 	config.MaxNestingDepth = *maxNesting
-	if *disable != "" {
-		for rule := range strings.SplitSeq(*disable, ",") {
-			config.DisabledRules[strings.TrimSpace(rule)] = true
-		}
-	}
+	linter.ApplyDisabledRulesCSV(config, *disable)
 
 	files, err := collectBakFiles(paths)
 	if err != nil {

@@ -83,6 +83,26 @@ func TestBaklintWalksDirectoriesAndSkipsBakCache(t *testing.T) {
 	}
 }
 
+func TestBaklintListRules(t *testing.T) {
+	stdout, stderr, exitCode := runBaklint(t, []string{"--list-rules"})
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d stdout=%q stderr=%q", exitCode, stdout, stderr)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	got := strings.Fields(stdout)
+	want := []string{"complexity", "empty-block", "naming-convention", "style"}
+	if len(got) != len(want) {
+		t.Fatalf("unexpected rules: got=%v want=%v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("unexpected rule at index %d: got=%q want=%q", i, got[i], want[i])
+		}
+	}
+}
+
 func TestBaklintHelperProcess(t *testing.T) {
 	if os.Getenv("BAKLINT_HELPER_PROCESS") != "1" {
 		return

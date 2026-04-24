@@ -463,7 +463,62 @@ func (tc *TypeChecker) lookupSymbolWithoutMark(name string) (*TypeInfo, bool) {
 
 func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 	tc.emitter.Emit(d)
-	tc.hasFatalError = true
+	if d.Level == diagnostics.LevelError {
+		tc.hasFatalError = true
+	}
+}
+
+func (tc *TypeChecker) emitWarning(
+	code diagnostics.DiagnosticCode,
+	line,
+	col int,
+	message,
+	help string,
+) {
+	tc.emitter.Emit(diagnostics.Diagnostic{
+		Code:    code,
+		Level:   diagnostics.LevelWarning,
+		Message: message,
+		Line:    line,
+		Column:  col,
+		File:    tc.currentPkgPath,
+		Help:    help,
+	})
+}
+
+func (tc *TypeChecker) emitWarningAt(
+	code diagnostics.DiagnosticCode,
+	pos ast.Position,
+	message,
+	help string,
+) {
+	tc.emitWarning(code, pos.Line, pos.Column, message, help)
+}
+
+func (tc *TypeChecker) addFatalErrorAt(
+	code diagnostics.DiagnosticCode,
+	pos ast.Position,
+	message,
+	help string,
+) {
+	tc.addFatalError(TypeError{
+		Code:    code,
+		Tier:    TierFatal,
+		Line:    pos.Line,
+		Column:  pos.Column,
+		Message: message,
+		Help:    help,
+	})
+}
+
+func (tc *TypeChecker) errorMissingTypeAt(pos ast.Position, message, help string) {
+	tc.addFatalErrorAt(diagnostics.ErrMissingType, pos, message, help)
+}
+
+func (tc *TypeChecker) emitMissingTypeErrorAt(pos ast.Position, message, help string) {
+	diag := tc.baseDiagnostic(diagnostics.ErrMissingType, pos.Line, pos.Column, message)
+	diag.Help = help
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {

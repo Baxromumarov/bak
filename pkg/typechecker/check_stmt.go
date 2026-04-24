@@ -373,14 +373,13 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 	// If type is not specified, infer it from value (strict mode)
 	if vs.Type == nil {
+		varPos := tokenPos(vs.Token)
 		if vs.Value == nil {
-			tc.addFatalError(TypeError{
-				Code:    diagnostics.ErrMissingType,
-				Line:    vs.Token.Line,
-				Column:  vs.Token.Column,
-				Message: fmt.Sprintf("variable '%s' requires a type annotation or an initial value", vs.Name.Value),
-				Help:    "add an explicit type or initialize the variable from a function or method call",
-			})
+			tc.errorMissingTypeAt(
+				varPos,
+				fmt.Sprintf("variable '%s' requires a type annotation or an initial value", vs.Name.Value),
+				"add an explicit type or initialize the variable from a function or method call",
+			)
 			return
 		}
 
@@ -392,13 +391,11 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		}
 
 		if !canInfer {
-			tc.addFatalError(TypeError{
-				Code:    diagnostics.ErrMissingType,
-				Line:    vs.Token.Line,
-				Column:  vs.Token.Column,
-				Message: fmt.Sprintf("missing type annotation for variable '%s'", vs.Name.Value),
-				Help:    "every variable type must be written explicitly unless getting value from function",
-			})
+			tc.errorMissingTypeAt(
+				varPos,
+				fmt.Sprintf("missing type annotation for variable '%s'", vs.Name.Value),
+				"every variable type must be written explicitly unless getting value from function",
+			)
 		}
 
 		// Infer type from value
@@ -412,15 +409,11 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 		// Check for untyped Vec (e.g. var x = Vec.new())
 		if gt, ok := inferredType.(*ast.GenericType); ok && gt.Name == "Vec" && len(gt.TypeParams) == 0 {
-			tc.emitError(diagnostics.Diagnostic{
-				Code:    diagnostics.ErrMissingType,
-				Level:   diagnostics.LevelError,
-				Message: "cannot infer Vec element type from Vec.new()",
-				Line:    vs.Token.Line,
-				Column:  vs.Token.Column,
-				File:    tc.currentPkgPath,
-				Help:    "add explicit type, e.g. `var arr: Vec<T,_> = Vec.new()` or use `Vec.from([...])`",
-			})
+			tc.emitMissingTypeErrorAt(
+				varPos,
+				"cannot infer Vec element type from Vec.new()",
+				"add explicit type, e.g. `var arr: Vec<T,_> = Vec.new()` or use `Vec.from([...])`",
+			)
 			return
 		}
 
@@ -650,15 +643,13 @@ func (tc *TypeChecker) checkBlockStatement(bs *ast.BlockStatement) {
 			continue
 		}
 		if !tc.env.used[name] {
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.ErrUnusedVariable,
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused variable: '%s'", name),
-				Line:    info.Line,
-				Column:  info.Column,
-				File:    tc.currentPkgPath,
-				Help:    "prefix with _ to ignore",
-			})
+			tc.emitWarning(
+				diagnostics.ErrUnusedVariable,
+				info.Line,
+				info.Column,
+				fmt.Sprintf("unused variable: '%s'", name),
+				"prefix with _ to ignore",
+			)
 		}
 	}
 	// Restore the previous environment

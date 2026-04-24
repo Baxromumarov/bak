@@ -55,18 +55,33 @@ type Rule interface {
 	Check(prog *ast.Program, source string, config *Config) []Finding
 }
 
-var allRules []Rule
-
-// RegisterRule adds a rule to the global registry.
-func RegisterRule(r Rule) {
-	allRules = append(allRules, r)
+var defaultRules = []Rule{
+	&NamingConventionRule{},
+	&StyleRule{},
+	&ComplexityRule{},
+	&EmptyBlockRule{},
 }
 
-func init() {
-	RegisterRule(&NamingConventionRule{})
-	RegisterRule(&StyleRule{})
-	RegisterRule(&ComplexityRule{})
-	RegisterRule(&EmptyBlockRule{})
+// AvailableRules returns all built-in lint rules in sorted order.
+func AvailableRules() []string {
+	names := make([]string, 0, len(defaultRules))
+	for _, rule := range defaultRules {
+		names = append(names, rule.Name())
+	}
+	sort.Strings(names)
+	return names
+}
+
+// ApplyDisabledRulesCSV parses a comma-separated list and disables those rules.
+func ApplyDisabledRulesCSV(config *Config, csv string) {
+	config = normalizeConfig(config)
+	for rule := range strings.SplitSeq(csv, ",") {
+		rule = strings.TrimSpace(rule)
+		if rule == "" {
+			continue
+		}
+		config.DisabledRules[rule] = true
+	}
 }
 
 // LintFile parses and lints a single file.
@@ -80,10 +95,15 @@ func LintFile(path string, config *Config) []Finding {
 
 // LintSource parses and lints an in-memory source string.
 func LintSource(path, source string, config *Config) []Finding {
-	config = normalizeConfig(config)
 	l := lexer.New(source)
 	p := parser.New(l)
 	program := p.ParseProgram()
+	return LintProgram(path, source, program, config)
+}
+
+// LintProgram lints a pre-parsed AST and avoids reparsing.
+func LintProgram(path, source string, program *ast.Program, config *Config) []Finding {
+	config = normalizeConfig(config)
 	if program == nil {
 		return nil
 	}
@@ -91,9 +111,8 @@ func LintSource(path, source string, config *Config) []Finding {
 }
 
 func lintProgram(path, source string, program *ast.Program, config *Config) []Finding {
-
 	var findings []Finding
-	for _, rule := range allRules {
+	for _, rule := range defaultRules {
 		if config.DisabledRules[rule.Name()] {
 			continue
 		}

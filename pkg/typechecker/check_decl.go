@@ -44,15 +44,13 @@ func (tc *TypeChecker) checkUnusedElements() {
 			!strings.HasPrefix(name, "_") &&
 			info.Visibility == ast.Private {
 
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.ErrUnusedVariable,
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused variable: '%s'", name),
-				Line:    info.Line,
-				Column:  info.Column,
-				File:    tc.currentPkgPath,
-				Help:    "prefix with _ to ignore",
-			})
+			tc.emitWarning(
+				diagnostics.ErrUnusedVariable,
+				info.Line,
+				info.Column,
+				fmt.Sprintf("unused variable: '%s'", name),
+				"prefix with _ to ignore",
+			)
 		}
 	}
 	// Check unused type definitions
@@ -64,15 +62,13 @@ func (tc *TypeChecker) checkUnusedElements() {
 			!strings.HasPrefix(name, "_") &&
 			def.Visibility == ast.Private {
 
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("UnusedTypeDef"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused type: '%s'", name),
-				Line:    def.Line,
-				Column:  def.Column,
-				File:    tc.currentPkgPath,
-				Help:    "remove if not used",
-			})
+			tc.emitWarning(
+				diagnostics.DiagnosticCode("UnusedTypeDef"),
+				def.Line,
+				def.Column,
+				fmt.Sprintf("unused type: '%s'", name),
+				"remove if not used",
+			)
 		}
 	}
 
@@ -85,15 +81,13 @@ func (tc *TypeChecker) checkUnusedElements() {
 			!strings.HasPrefix(name, "_") &&
 			def.Visibility == ast.Private {
 
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("UnusedAlias"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused alias: '%s'", name),
-				Line:    def.Line,
-				Column:  def.Column,
-				File:    tc.currentPkgPath,
-				Help:    "remove if not used",
-			})
+			tc.emitWarning(
+				diagnostics.DiagnosticCode("UnusedAlias"),
+				def.Line,
+				def.Column,
+				fmt.Sprintf("unused alias: '%s'", name),
+				"remove if not used",
+			)
 		}
 	}
 
@@ -117,15 +111,13 @@ func (tc *TypeChecker) checkUnusedElements() {
 			!strings.HasPrefix(name, "_") &&
 			vis == ast.Private {
 
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("UnusedFunc"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused function: '%s'", name),
-				Line:    sig.Line,
-				Column:  sig.Column,
-				File:    tc.currentPkgPath,
-				Help:    "remove if not used",
-			})
+			tc.emitWarning(
+				diagnostics.DiagnosticCode("UnusedFunc"),
+				sig.Line,
+				sig.Column,
+				fmt.Sprintf("unused function: '%s'", name),
+				"remove if not used",
+			)
 		}
 	}
 
@@ -142,15 +134,13 @@ func (tc *TypeChecker) checkUnusedElements() {
 			!strings.HasPrefix(name, "_") &&
 			vis == ast.Private {
 
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.DiagnosticCode("UnusedType"),
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused struct: '%s'", name),
-				Line:    def.Line,
-				Column:  def.Column,
-				File:    tc.currentPkgPath,
-				Help:    "remove if not used",
-			})
+			tc.emitWarning(
+				diagnostics.DiagnosticCode("UnusedType"),
+				def.Line,
+				def.Column,
+				fmt.Sprintf("unused struct: '%s'", name),
+				"remove if not used",
+			)
 		}
 		// NOTE: We intentionally do NOT warn about unused struct fields.
 		// Field assignment is part of constructing a value, not dead code.
@@ -218,15 +208,13 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 				continue
 			}
 			info := paramInfo[name]
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.ErrUnusedVariable,
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused parameter: '%s'", name),
-				Line:    info.Name.Token.Line,
-				Column:  info.Name.Token.Column,
-				File:    tc.currentPkgPath,
-				Help:    "prefix with _ to ignore",
-			})
+			tc.emitWarning(
+				diagnostics.ErrUnusedVariable,
+				info.Name.Token.Line,
+				info.Name.Token.Column,
+				fmt.Sprintf("unused parameter: '%s'", name),
+				"prefix with _ to ignore",
+			)
 		}
 	}
 
@@ -242,15 +230,13 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 			if fd.Body != nil && tc.identifierOccursInNode(fd.Body, name) {
 				continue
 			}
-			tc.emitter.Emit(diagnostics.Diagnostic{
-				Code:    diagnostics.ErrUnusedVariable,
-				Level:   diagnostics.LevelWarning,
-				Message: fmt.Sprintf("unused variable: '%s'", name),
-				Line:    info.Line,
-				Column:  info.Column,
-				File:    tc.currentPkgPath,
-				Help:    "prefix with _ to ignore or remove the variable",
-			})
+			tc.emitWarning(
+				diagnostics.ErrUnusedVariable,
+				info.Line,
+				info.Column,
+				fmt.Sprintf("unused variable: '%s'", name),
+				"prefix with _ to ignore or remove the variable",
+			)
 		}
 	}
 

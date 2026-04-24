@@ -59,6 +59,36 @@ func expectError(t *testing.T, source string, substr string) {
 	t.Fatalf("expected error containing %q, got:\n%s", substr, strings.Join(errs, "\n"))
 }
 
+func TestCheck_WarningDoesNotSetFatalState(t *testing.T) {
+	source := `
+package main
+func main() -> (void) {
+	var r: Result<int, string> = Err("boom")
+	if r.isErr() {
+		var _v: int = r.unwrap()
+	}
+	return void
+}
+`
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := New()
+	tc.SetSuppressUnused(true)
+	errs := tc.Check(program)
+	if tc.hasFatalError {
+		t.Fatalf("expected warning-only program to keep hasFatalError=false, got true")
+	}
+	joined := strings.Join(errs, "\n")
+	if !strings.Contains(joined, "guaranteed to panic") {
+		t.Fatalf("expected unwrap flow warning, got: %v", errs)
+	}
+}
+
 // =============================================================================
 // Valid Programs
 // =============================================================================

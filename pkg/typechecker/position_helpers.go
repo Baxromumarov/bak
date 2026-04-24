@@ -16,10 +16,6 @@ func (tc *TypeChecker) addErrorAt(pos ast.Position, format string, args ...any) 
 	tc.addError(pos.Line, pos.Column, format, args...)
 }
 
-func (tc *TypeChecker) addErrorWithHelpAt(pos ast.Position, help, format string, args ...any) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, help, format, args...)
-}
-
 func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, moveInfo *MoveInfo) {
 	tc.errorUseAfterMove(varName, pos.Line, pos.Column, moveInfo)
 }
