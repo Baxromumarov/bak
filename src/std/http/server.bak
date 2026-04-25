@@ -25,19 +25,24 @@ impl Server as self {
         if portIdx.isErr() {
             return Err("invalid address: missing port")
         }
+
         var host: string = addr.substring(
             0,
             portIdx.unwrap(),
         )
+        
         var portStr: string = addr.substring(
             portIdx.unwrap() + 1,
             addr.len(),
         )
+        
         var portRes = portStr.parseInt()
         if portRes.isErr() {
             return Err("invalid port")
         }
+        
         var port: int = portRes.unwrap()
+        
         var bindRes = net.bind(
             host,
             port,
@@ -45,8 +50,10 @@ impl Server as self {
         if bindRes.isErr() {
             return Err(bindRes.unwrapErr())
         }
+        
         mut var listener = bindRes.unwrap()
         log.info("Server listening on " + addr)
+        
         while true {
             var connRes = net.accept(&mut listener)
             if connRes.isOk() {
@@ -76,7 +83,7 @@ impl Server as self {
         var dataStr: string = strings.fromBytes(data)
         var reqRes = parseRequest(dataStr)
         if reqRes.isErr() {
-            send_response(
+            sendResponse(
                 conn,
                 text(
                     400,
@@ -93,7 +100,7 @@ impl Server as self {
         // Log
         log.info(req.method + " " + req.path + " -> " + string(resp.status) + " " + resp.reason)
         // Send response
-        send_response(
+        sendResponse(
             conn,
             resp,
             self.version,
@@ -108,10 +115,11 @@ pub func listenAndServe(addr: string, r: Router) -> (Result<void, string>) {
         addr,
         r,
     )
+
     return s.start()
 }
 
-func send_response(
+func sendResponse(
     conn: &mut net.TcpStream,
     resp: Response,
     version: string,

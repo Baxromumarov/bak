@@ -1,0 +1,351 @@
+package redis
+
+import "src/std/strconv/strconv.bak" as strconv
+import "src/std/strings/strings.bak" as strings
+import "src/std/sync/sync.bak" as sync
+import "src/std/time/time.bak" as time
+
+pub struct StoreStats {
+    pub size: int
+    pub hits: int
+    pub misses: int
+    pub writes: int
+    pub deletes: int
+}
+
+pub struct Store {
+    mu: sync.Mutex
+    keys: Vec<string, _>
+    values: Vec<string, _>
+    expiresAtNs: Vec<int, _>
+    hits: int
+    misses: int
+    writes: int
+    deletes: int
+}
+
+pub func newStore() -> (Store) {
+    return Store{
+        mu: sync.newMutex(),
+        keys: Vec.new(),
+        values: Vec.new(),
+        expiresAtNs: Vec.new(),
+        hits: 0,
+        misses: 0,
+        writes: 0,
+        deletes: 0,
+    }
+}
+
+impl Store as s {
+    func findIndexLocked(key: &string) -> (int) {
+        mut var i: int = 0
+        while i < s.keys.len() {
+            if s.keys[i] == *key {
+                return i
+            }
+            i = i + 1
+        }
+        return -1
+    }
+
+    mut func removeAtLocked(index: int) -> (bool) {
+        if index < 0 || index >= s.keys.len() {
+            return false
+        }
+        s.keys.remove(index)
+        s.values.remove(index)
+        s.expiresAtNs.remove(index)
+        s.deletes = s.deletes + 1
+        return true
+    }
+
+    mut func removeKeyLocked(key: &string) -> (bool) {
+        var index: int = s.findIndexLocked(key)
+        if index < 0 {
+            return false
+        }
+        return s.removeAtLocked(index)
+    }
+
+    func hasExpiredAtLocked(index: int, nowNs: int) -> (bool) {
+        if index < 0 || index >= s.expiresAtNs.len() {
+            return false
+        }
+        var expireAt: int = s.expiresAtNs[index]
+        if expireAt <= 0 {
+            return false
+        }
+        return expireAt <= nowNs
+    }
+
+    mut func cleanupExpiredLocked(nowNs: int) -> (int) {
+        mut var removed: int = 0
+        mut var i: int = 0
+        while i < s.keys.len() {
+            if s.hasExpiredAtLocked(i, nowNs) {
+                s.removeAtLocked(i)
+                removed = removed + 1
+                continue
+            }
+            i = i + 1
+        }
+        return removed
+    }
+
+    func snapshotKeysLocked() -> (Vec<string, _>) {
+        mut var out: Vec<string, _> = Vec.withCap(s.keys.len())
+        mut var i: int = 0
+        while i < s.keys.len() {
+            out.push(strings.clone(&s.keys[i]))
+            i = i + 1
+        }
+        return out
+    }
+
+    mut func clearAllLocked() -> (void) {
+        while s.keys.len() > 0 {
+            var last: int = s.keys.len() - 1
+            s.keys.remove(last)
+            s.values.remove(last)
+            s.expiresAtNs.remove(last)
+        }
+        return void
+    }
+
+    pub mut func set(key: string, value: string) -> (void) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        var index: int = s.findIndexLocked(&key)
+        if index >= 0 {
+            s.values[index] = value
+            s.expiresAtNs[index] = 0
+        } else {
+            s.keys.push(strings.clone(&key))
+            s.values.push(value)
+            s.expiresAtNs.push(0)
+        }
+
+        s.writes = s.writes + 1
+        m.unlock()
+        return void
+    }
+
+    pub mut func setWithTTL(key: string, value: string, ttl: time.Duration) -> (void) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        if ttl.asNanos() <= 0 {
+            s.removeKeyLocked(&key)
+            m.unlock()
+            return void
+        }
+
+        var expireAt: int = time.monotonicNow() + ttl.asNanos()
+        var index: int = s.findIndexLocked(&key)
+        if index >= 0 {
+            s.values[index] = value
+            s.expiresAtNs[index] = expireAt
+        } else {
+            s.keys.push(strings.clone(&key))
+            s.values.push(value)
+            s.expiresAtNs.push(expireAt)
+        }
+
+        s.writes = s.writes + 1
+        m.unlock()
+        return void
+    }
+
+    pub mut func get(key: string) -> (Result<string, string>) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        var index: int = s.findIndexLocked(&key)
+        if index < 0 {
+            s.misses = s.misses + 1
+            m.unlock()
+            return Err("key not found")
+        }
+
+        var nowNs: int = time.monotonicNow()
+        if s.hasExpiredAtLocked(index, nowNs) {
+            s.removeAtLocked(index)
+            s.misses = s.misses + 1
+            m.unlock()
+            return Err("key not found")
+        }
+
+        s.hits = s.hits + 1
+        var value: string = s.values[index]
+        m.unlock()
+        return Ok(value)
+    }
+
+    pub mut func has(key: string) -> (bool) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        var index: int = s.findIndexLocked(&key)
+        if index < 0 {
+            m.unlock()
+            return false
+        }
+
+        var nowNs: int = time.monotonicNow()
+        if s.hasExpiredAtLocked(index, nowNs) {
+            s.removeAtLocked(index)
+            m.unlock()
+            return false
+        }
+
+        m.unlock()
+        return true
+    }
+
+    pub mut func delete(key: string) -> (bool) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        var removed: bool = s.removeKeyLocked(&key)
+        m.unlock()
+        return removed
+    }
+
+    pub mut func len() -> (int) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        s.cleanupExpiredLocked(time.monotonicNow())
+        var size: int = s.keys.len()
+        m.unlock()
+        return size
+    }
+
+    pub mut func keys() -> (Vec<string, _>) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        s.cleanupExpiredLocked(time.monotonicNow())
+        var result: Vec<string, _> = s.snapshotKeysLocked()
+        m.unlock()
+        return result
+    }
+
+    pub mut func clear() -> (void) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        s.clearAllLocked()
+        m.unlock()
+        return void
+    }
+
+    pub mut func resetStats() -> (void) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        s.hits = 0
+        s.misses = 0
+        s.writes = 0
+        s.deletes = 0
+        m.unlock()
+        return void
+    }
+
+    pub mut func stats() -> (StoreStats) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        s.cleanupExpiredLocked(time.monotonicNow())
+        var snapshot: StoreStats = StoreStats{
+            size: s.keys.len(),
+            hits: s.hits,
+            misses: s.misses,
+            writes: s.writes,
+            deletes: s.deletes,
+        }
+        m.unlock()
+        return snapshot
+    }
+
+    pub mut func cleanupExpired() -> (int) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+        var removed: int = s.cleanupExpiredLocked(time.monotonicNow())
+        m.unlock()
+        return removed
+    }
+
+    pub mut func ttl(key: string) -> (Result<time.Duration, string>) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        mut var index: int = s.findIndexLocked(&key)
+        if index < 0 {
+            m.unlock()
+            return Err("key not found")
+        }
+
+        var nowNs: int = time.monotonicNow()
+        if s.hasExpiredAtLocked(index, nowNs) {
+            s.removeAtLocked(index)
+            m.unlock()
+            return Err("key not found")
+        }
+
+        var expireAt: int = s.expiresAtNs[index]
+        if expireAt <= 0 {
+            m.unlock()
+            return Err("key has no ttl")
+        }
+
+        var remaining: int = expireAt - nowNs
+        if remaining <= 0 {
+            s.removeAtLocked(index)
+            m.unlock()
+            return Err("key not found")
+        }
+
+        var result: time.Duration = time.nanos(remaining)
+        m.unlock()
+        return Ok(result)
+    }
+
+    pub mut func incr(key: string, delta: int) -> (Result<int, string>) {
+        var m: sync.Mutex = s.mu
+        m.lock()
+
+        mut var index: int = s.findIndexLocked(&key)
+        var nowNs: int = time.monotonicNow()
+        if index >= 0 && s.hasExpiredAtLocked(index, nowNs) {
+            s.removeAtLocked(index)
+            index = -1
+        }
+
+        mut var current: int = 0
+        if index >= 0 {
+            switch strconv.atoi(&s.values[index]) {
+                case Ok(parsed) {
+                    current = parsed
+                }
+                case Err(parseErr) {
+                    m.unlock()
+                    return Err("value is not an integer")
+                }
+            }
+        }
+
+        var next: int = current + delta
+        if index >= 0 {
+            s.values[index] = next.toString()
+        } else {
+            s.keys.push(strings.clone(&key))
+            s.values.push(next.toString())
+            s.expiresAtNs.push(0)
+        }
+
+        s.writes = s.writes + 1
+        m.unlock()
+        return Ok(next)
+    }
+
+    pub mut func decr(key: string, delta: int) -> (Result<int, string>) {
+        return s.incr(key, -delta)
+    }
+}

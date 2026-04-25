@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -813,13 +814,9 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 	case *ast.FloatLiteral:
 		p.write(e.Token.Literal)
 	case *ast.StringLiteral:
-		p.write("\"")
-		p.write(e.Value)
-		p.write("\"")
+		p.write(strconv.Quote(e.Value))
 	case *ast.CharLiteral:
-		p.write("'")
-		p.write(string(e.Value))
-		p.write("'")
+		p.write(strconv.QuoteRune(e.Value))
 	case *ast.BooleanLiteral:
 		if e.Value {
 			p.write("true")

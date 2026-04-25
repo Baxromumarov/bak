@@ -572,7 +572,7 @@ func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
 	case "__builtin_join":
 		return &ast.FunctionType{
 			Params: []ast.TypeExpression{
-				ast.NewSimpleType("any"),
+				ast.NewSimpleType("Thread"),
 			},
 			ReturnType: &ast.VoidType{},
 		}

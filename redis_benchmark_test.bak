@@ -1,0 +1,371 @@
+package main
+
+import "redis.bak" as redis
+import "src/std/test/test.bak" as test
+import "src/std/thread/thread.bak" as thread
+import "src/std/time/time.bak" as time
+
+const MODE_READ: int = 1
+const MODE_WRITE: int = 2
+const MODE_MIXED: int = 3
+const MODE_INCR: int = 4
+
+struct BenchResult {
+    name: string
+    ops: int
+    elapsedNanos: int
+    elapsedMillis: int
+    opsPerSec: int
+    nsPerOp: int
+}
+
+struct WorkerArgs {
+    threadId: int
+    ops: int
+    mode: int
+    keySpace: int
+    writePercent: int
+}
+
+mut var benchStore: redis.Store = redis.newStore()
+mut var benchSink: int = 0
+
+func absInt(n: int) -> (int) {
+    if n < 0 {
+        return -n
+    }
+    return n
+}
+
+func benchKey(threadId: int, i: int, keySpace: int) -> (string) {
+    mut var idx: int = (threadId * 1000003) + (i * 97) + (i / 7)
+    idx = absInt(idx)
+    if keySpace > 0 {
+        idx = idx % keySpace
+    } else {
+        idx = 0
+    }
+    return "k" + idx.toString()
+}
+
+func seedStore(size: int) -> (void) {
+    benchStore.clear()
+    mut var i: int = 0
+    while i < size {
+        var key: string = "k" + i.toString()
+        benchStore.set(key, "seed-" + i.toString())
+        i = i + 1
+    }
+    benchStore.resetStats()
+    return void
+}
+
+func finalizeBench(name: string, ops: int, startMono: int) -> (BenchResult) {
+    var elapsed: time.Duration = time.monotonicSince(startMono)
+    mut var elapsedNanos: int = elapsed.asNanos()
+    if elapsedNanos <= 0 {
+        elapsedNanos = 1
+    }
+
+    var opsPerSec: int = (ops * time.Second) / elapsedNanos
+    mut var nsPerOp: int = 0
+    if ops > 0 {
+        nsPerOp = elapsedNanos / ops
+    }
+
+    return BenchResult{
+        name: name,
+        ops: ops,
+        elapsedNanos: elapsedNanos,
+        elapsedMillis: time.nanos(elapsedNanos).asMillis(),
+        opsPerSec: opsPerSec,
+        nsPerOp: nsPerOp,
+    }
+}
+
+func printBench(result: &BenchResult) -> (void) {
+    println(
+        "[bench]",
+        (*result).name,
+        "ops=",
+        (*result).ops,
+        "elapsedMs=",
+        (*result).elapsedMillis,
+        "ops/sec=",
+        (*result).opsPerSec,
+        "ns/op=",
+        (*result).nsPerOp,
+    )
+    return void
+}
+
+func benchmarkWorker(args: WorkerArgs) -> (void) {
+    mut var i: int = 0
+    while i < args.ops {
+        var key: string = benchKey(args.threadId, i, args.keySpace)
+
+        if args.mode == MODE_READ {
+            switch benchStore.get(key) {
+                case Ok(value) {
+                    benchSink = benchSink + value.len()
+                }
+                case Err(_) {
+                    benchSink = benchSink + 1
+                }
+            }
+        } else if args.mode == MODE_WRITE {
+            benchStore.set(key, "value-" + args.threadId.toString() + "-" + i.toString())
+        } else if args.mode == MODE_MIXED {
+            var selector: int = (i + (args.threadId * 13)) % 100
+            if selector < args.writePercent {
+                benchStore.set(key, "mixed-" + i.toString())
+            } else {
+                switch benchStore.get(key) {
+                    case Ok(value) {
+                        benchSink = benchSink + value.len()
+                    }
+                    case Err(_) {
+                        benchSink = benchSink + 1
+                    }
+                }
+            }
+        } else {
+            switch benchStore.incr(key, 1) {
+                case Ok(v) {
+                    benchSink = benchSink + (v % 7)
+                }
+                case Err(_) {}
+            }
+        }
+
+        i = i + 1
+    }
+    return void
+}
+
+func runSingleThreadSetBench() -> (BenchResult) {
+    var ops: int = 1000
+    benchStore.clear()
+    benchStore.resetStats()
+
+    var start: int = time.monotonicNow()
+    mut var i: int = 0
+    while i < ops {
+        var key: string = "set-" + i.toString()
+        benchStore.set(key, "value-" + i.toString())
+        i = i + 1
+    }
+    return finalizeBench("single_thread_set", ops, start)
+}
+
+func runSingleThreadGetHitBench() -> (BenchResult) {
+    var seedSize: int = 800
+    var ops: int = 1500
+    seedStore(seedSize)
+
+    var start: int = time.monotonicNow()
+    mut var i: int = 0
+    while i < ops {
+        var key: string = "k" + (i % seedSize).toString()
+        switch benchStore.get(key) {
+            case Ok(value) { benchSink = benchSink + value.len() }
+            case Err(_) { benchSink = benchSink + 1 }
+        }
+        i = i + 1
+    }
+    return finalizeBench("single_thread_get_hit", ops, start)
+}
+
+func runSingleThreadGetMissBench() -> (BenchResult) {
+    var ops: int = 1500
+    seedStore(800)
+
+    var start: int = time.monotonicNow()
+    mut var i: int = 0
+    while i < ops {
+        var key: string = "missing-" + i.toString()
+        switch benchStore.get(key) {
+            case Ok(value) { benchSink = benchSink + value.len() }
+            case Err(_) { benchSink = benchSink + 1 }
+        }
+        i = i + 1
+    }
+    return finalizeBench("single_thread_get_miss", ops, start)
+}
+
+func runSingleThreadMixedBench() -> (BenchResult) {
+    var ops: int = 1800
+    var keySpace: int = 800
+    seedStore(keySpace)
+
+    var start: int = time.monotonicNow()
+    mut var i: int = 0
+    while i < ops {
+        var key: string = "k" + (i % keySpace).toString()
+        if (i % 10) < 3 {
+            benchStore.set(key, "mixed-v-" + i.toString())
+        } else {
+            switch benchStore.get(key) {
+                case Ok(value) { benchSink = benchSink + value.len() }
+                case Err(_) { benchSink = benchSink + 1 }
+            }
+        }
+        i = i + 1
+    }
+    return finalizeBench("single_thread_mixed_70r_30w", ops, start)
+}
+
+func runConcurrentBench(
+    name: string,
+    mode: int,
+    workerCount: int,
+    opsPerWorker: int,
+    keySpace: int,
+    writePercent: int,
+) -> (BenchResult) {
+    mut var threads: Vec<thread.Thread, _> = Vec.new()
+    var start: int = time.monotonicNow()
+
+    mut var i: int = 0
+    while i < workerCount {
+        var args: WorkerArgs = WorkerArgs{
+            threadId: i,
+            ops: opsPerWorker,
+            mode: mode,
+            keySpace: keySpace,
+            writePercent: writePercent,
+        }
+        threads.push(thread.spawn(benchmarkWorker, args))
+        i = i + 1
+    }
+
+    for th in threads {
+        th.join()
+    }
+
+    return finalizeBench(name, workerCount * opsPerWorker, start)
+}
+
+func runTTLCleanupBench() -> (BenchResult) {
+    var ops: int = 1200
+    benchStore.clear()
+    benchStore.resetStats()
+
+    mut var i: int = 0
+    while i < ops {
+        var key: string = "ttl-" + i.toString()
+        benchStore.setWithTTL(key, "x", time.millis(1))
+        i = i + 1
+    }
+
+    time.sleepMs(5)
+    var start: int = time.monotonicNow()
+    var removed: int = benchStore.cleanupExpired()
+    benchSink = benchSink + removed
+    return finalizeBench("ttl_cleanup", ops, start)
+}
+
+func test_benchmark_single_thread_workloads() -> (void) {
+    mut var t: test.T = test.new("benchmark_single_thread_workloads")
+
+    var setResult: BenchResult = runSingleThreadSetBench()
+    var hitResult: BenchResult = runSingleThreadGetHitBench()
+    var missResult: BenchResult = runSingleThreadGetMissBench()
+    var mixedResult: BenchResult = runSingleThreadMixedBench()
+
+    printBench(&setResult)
+    printBench(&hitResult)
+    printBench(&missResult)
+    printBench(&mixedResult)
+
+    t.gt(setResult.opsPerSec, 0)
+    t.gt(hitResult.opsPerSec, 0)
+    t.gt(missResult.opsPerSec, 0)
+    t.gt(mixedResult.opsPerSec, 0)
+
+    t.finish()
+}
+
+func test_benchmark_concurrent_read_heavy() -> (void) {
+    mut var t: test.T = test.new("benchmark_concurrent_read_heavy")
+
+    var keySpace: int = 800
+    seedStore(keySpace)
+    var result: BenchResult = runConcurrentBench(
+        "concurrent_read_heavy_6w",
+        MODE_READ,
+        6,
+        500,
+        keySpace,
+        0,
+    )
+
+    printBench(&result)
+    t.gt(result.opsPerSec, 0)
+    t.gte(benchStore.len(), 1)
+    t.finish()
+}
+
+func test_benchmark_concurrent_mixed_workload() -> (void) {
+    mut var t: test.T = test.new("benchmark_concurrent_mixed_workload")
+
+    var keySpace: int = 700
+    seedStore(keySpace)
+    var result: BenchResult = runConcurrentBench(
+        "concurrent_mixed_80r_20w_6w",
+        MODE_MIXED,
+        6,
+        400,
+        keySpace,
+        20,
+    )
+
+    printBench(&result)
+    t.gt(result.opsPerSec, 0)
+    t.gte(benchStore.len(), 1)
+    t.finish()
+}
+
+func test_benchmark_concurrent_increment() -> (void) {
+    mut var t: test.T = test.new("benchmark_concurrent_increment")
+
+    var keySpace: int = 200
+    benchStore.clear()
+    benchStore.resetStats()
+
+    var result: BenchResult = runConcurrentBench(
+        "concurrent_incr_6w",
+        MODE_INCR,
+        6,
+        700,
+        keySpace,
+        0,
+    )
+
+    printBench(&result)
+    t.gt(result.opsPerSec, 0)
+    t.gte(benchStore.len(), 1)
+    t.lte(benchStore.len(), keySpace)
+
+    var sampleKey: string = "k0"
+    switch benchStore.get(sampleKey) {
+        case Ok(v) {
+            t.isTrue(v.len() > 0)
+        }
+        case Err(err) {
+            t.fail("expected sample key after increment benchmark, got err: " + err)
+        }
+    }
+
+    t.finish()
+}
+
+func test_benchmark_ttl_cleanup() -> (void) {
+    mut var t: test.T = test.new("benchmark_ttl_cleanup")
+
+    var result: BenchResult = runTTLCleanupBench()
+    printBench(&result)
+    t.gt(result.opsPerSec, 0)
+    t.eq(benchStore.len(), 0)
+    t.finish()
+}

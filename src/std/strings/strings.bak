@@ -40,6 +40,12 @@ pub func len(s: &string) -> (int) {
     return s.len()
 }
 
+// clone returns a distinct string value with the same content.
+pub func clone(s: &string) -> (string) {
+    var bytes: Vec<int, _> = (*s).bytes()
+    return fromBytes(bytes)
+}
+
 // substring returns a substring from start to end (exclusive)
 pub func substring(s: &string, start: int, end: int) -> (string) {
     mut var startIdx: int = start

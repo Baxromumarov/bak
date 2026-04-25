@@ -32,6 +32,7 @@ func test_strings_snake_case_api() -> (void) {
     t.eqString(strings.replaceFirst(&phrase, &"bak", &"BAK"), "BAK language")
     t.eqString(strings.padLeft(&"7", 3, char('0')), "007")
     t.eqString(strings.padRight(&"7", 3, char('0')), "700")
+    t.eqString(strings.clone(&phrase), phrase)
 
     switch strings.charAt(&name, 0) {
         case Ok(ch) { t.eqString(string(ch), "b") }

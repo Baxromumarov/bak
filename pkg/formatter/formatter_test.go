@@ -140,3 +140,16 @@ func TestFormatIdempotent(t *testing.T) {
 		t.Fatalf("formatting is not idempotent\nfirst:\n%q\nsecond:\n%q", first, second)
 	}
 }
+
+func TestFormatPreservesStringEscapes(t *testing.T) {
+	input := "package main\nfunc main()->(void){println(\"POST /tasks body: {\\\"title\\\":\\\"ship bak\\\"}\")\nprintln(\"C:\\\\tmp\\\\x\")}"
+	want := "package main\n\nfunc main() -> (void) {\n    println(\"POST /tasks body: {\\\"title\\\":\\\"ship bak\\\"}\")\n    println(\"C:\\\\tmp\\\\x\")\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+}

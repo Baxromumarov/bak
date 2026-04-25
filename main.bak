@@ -6,372 +6,509 @@ import "src/std/db/db.bak" as db
 import "src/std/encoding/json/json.bak" as json
 
 pub struct Task {
-	pub id: int
-	pub title: string
-	pub completed: bool
+    pub id:        int
+    pub title:     string
+    pub completed: bool
 }
 
 impl Task as t {
-	pub func to_json() -> (json.Json) {
-		return json.encode_obj(t, taskJsonEntries)
-	}
+    pub func to_json() -> (json.Json) {
+        return json.encode_obj(
+            t,
+            taskJsonEntries,
+        )
+    }
 }
 
 func taskJsonEntries(t: Task) -> (Vec<json.JsonEntry, _>) {
-	return Vec.from(
-		[
-				json.entryInt("id", t.id),
-				json.entryString("title", t.title),
-				json.entryBool("completed", t.completed),
-		],
-	)
+    return Vec.from(
+        [
+            json.entryInt(
+                "id",
+                t.id,
+            ),
+            json.entryString(
+                "title",
+                t.title,
+            ),
+            json.entryBool(
+                "completed",
+                t.completed,
+            ),
+        ],
+    )
 }
 
 struct TaskInput {
-	title: string
+    title: string
 }
 
 struct TasksDB {
-	conn: db.Connection
-	ready: bool
+    conn:  db.Connection
+    ready: bool
 }
 
 mut var tasks_db: TasksDB = TasksDB{
-	conn: db.Connection{Handle: 0}, ready: false}
+    conn:  db.Connection{Handle: 0},
+    ready: false,
+}
 
 func connectToDb() -> (TasksDB) {
-	// Update this to your local Postgres credentials as needed.
-	var conn_str: string = "host=localhost port=5432 user=postgres password=postgres dbname=bakdb sslmode=disable"
-	var conn_result = postgres.connect(conn_str)
-	if conn_result.isErr() {
-		println("Database connection error: " + conn_result.unwrapErr())
-		return TasksDB{ready: false}
-	}
+    // Update this to your local Postgres credentials as needed.
+    var conn_str: string = "host=localhost port=5432 user=postgres password=postgres dbname=bakdb sslmode=disable"
+    var conn_result = postgres.connect(conn_str)
 
-	var conn: db.Connection = conn_result.unwrap()
-	var schema_result = ensureSchema(&conn)
-	if schema_result.isErr() {
-		println("Schema init error: " + schema_result.unwrapErr())
-		return TasksDB{ready: false}
-	}
+    if conn_result.isErr() {
+        println("Database connection error: " + conn_result.unwrapErr())
 
-	println("Postgres connected and schema ready")
+        return TasksDB{ready: false}
+    }
 
-	return TasksDB{conn: conn, ready: true}
+    var conn: db.Connection = conn_result.unwrap()
+    var schema_result = ensureSchema(&conn)
+
+    if schema_result.isErr() {
+        println("Schema init error: " + schema_result.unwrapErr())
+
+        return TasksDB{ready: false}
+    }
+
+    println("Postgres connected and schema ready")
+
+    return TasksDB{conn: conn, ready: true}
 }
 
 func ensureSchema(conn: &db.Connection) -> (Result<void, string>) {
-	var sql: string = "CREATE TABLE IF NOT EXISTS tasks (
+    var sql: string = "CREATE TABLE IF NOT EXISTS tasks (
                             id SERIAL PRIMARY KEY,
                             title TEXT NOT NULL,
                             completed BOOLEAN NOT NULL DEFAULT FALSE)"
-	
-	var q = postgres.query(conn, sql)
+    var q = postgres.query(
+        conn,
+        sql,
+    )
 
-	if q.isErr() {
-		return Err(q.unwrapErr())
-	}
+    if q.isErr() {
+        return Err(q.unwrapErr())
+    }
 
-	return Ok(void)
+    return Ok(void)
 }
 
 func healthHandler(_req: http.Request) -> (http.Response) {
-	mut var entries: Vec<json.JsonEntry, _> = Vec.new()
+    mut var entries: Vec<json.JsonEntry, _> = Vec.new()
 
-	entries.push(json.entry("status", json.Json.String("ok")))
-	entries.push(json.entry("db_ready", json.Json.Boolean(tasks_db.ready)))
-	
-    return http.json(200, json.marshal(json.object(entries)))
+    entries.push(json.entry(
+        "status",
+        json.Json.String("ok"),
+    ))
+    entries.push(json.entry(
+        "db_ready",
+        json.Json.Boolean(tasks_db.ready),
+    ))
+
+    return http.json(
+        200,
+        json.marshal(json.object(entries)),
+    )
 }
 
 func listTasksHandler(_req: http.Request) -> (http.Response) {
-	if !tasks_db.ready {
-		return http.error("database is not ready")
-	}
+    if !tasks_db.ready {
+        return http.error("database is not ready")
+    }
 
-	var sql: string = "SELECT id, title, completed FROM tasks ORDER BY id"
-	var result = postgres.query(&tasks_db.conn, sql)
-	if result.isErr() {
-		return http.error("query failed: " + result.unwrapErr())
-	}
+    var sql: string = "SELECT id, title, completed FROM tasks ORDER BY id"
+    var result = postgres.query(
+        &tasks_db.conn,
+        sql,
+    )
 
-	var tasks_result = mapQueryResultToTasks(result.unwrap())
-	switch tasks_result {
-		case Ok(tasks) {
-			return http.json(200, json.marshal_array(tasks, taskToJson))
-		}
-		case Err(e) {
-			return http.error("mapping failed: " + e)
-		}
-	}
+    if result.isErr() {
+        return http.error("query failed: " + result.unwrapErr())
+    }
 
-	return http.Response{}
+    var tasks_result = mapQueryResultToTasks(result.unwrap())
+
+    switch tasks_result {
+        case Ok(tasks) {
+            return http.json(
+                200,
+                json.marshal_array(
+                    tasks,
+                    taskToJson,
+                ),
+            )
+        }
+        case Err(e) {
+            return http.error("mapping failed: " + e)
+        }
+    }
+
+    return http.Response{}
 }
 
 func createTaskHandler(req: http.Request) -> (http.Response) {
-	if !tasks_db.ready {
-		return http.error("database is not ready")
-	}
+    if !tasks_db.ready {
+        return http.error("database is not ready")
+    }
 
-	var input_result = parseTaskInput(req.bodyString())
-	if input_result.isErr() {
-		return http.text(400, input_result.unwrapErr())
-	}
+    var input_result = parseTaskInput(req.bodyString())
 
-	var input: TaskInput = input_result.unwrap()
-	var sql: string = "INSERT INTO tasks (title, completed) VALUES ($1, FALSE) RETURNING id, title, completed"
-	var params: Vec<string, _> = Vec.from([input.title])
-	
-	var query_result = postgres.queryParams(&tasks_db.conn, sql, params)
+    if input_result.isErr() {
+        return http.text(
+            400,
+            input_result.unwrapErr(),
+        )
+    }
 
-	if query_result.isErr() {
-		return http.error("insert failed: " + query_result.unwrapErr())
-	}
+    var input: TaskInput = input_result.unwrap()
+    var sql: string = "INSERT INTO tasks (title, completed) VALUES ($1, FALSE) RETURNING id, title, completed"
+    var params: Vec<string, _> = Vec.from([input.title])
+    var query_result = postgres.queryParams(
+        &tasks_db.conn,
+        sql,
+        params,
+    )
 
-	var task_result = mapQueryResultToTask(query_result.unwrap())
-	switch task_result {
-		case Ok(task) {
-			return http.json(201, json.marshal(task.to_json()))
-		}
-		case Err(e) {
-			return http.error("create mapping failed: " + e)
-		}
-	}
+    if query_result.isErr() {
+        return http.error("insert failed: " + query_result.unwrapErr())
+    }
 
-	return http.Response{}
+    var task_result = mapQueryResultToTask(query_result.unwrap())
+
+    switch task_result {
+        case Ok(task) {
+            return http.json(
+                201,
+                json.marshal(task.to_json()),
+            )
+        }
+        case Err(e) {
+            return http.error("create mapping failed: " + e)
+        }
+    }
+
+    return http.Response{}
 }
 
 func toggleTaskHandler(req: http.Request) -> (http.Response) {
-	if !tasks_db.ready {
-		return http.error("database is not ready")
-	}
+    if !tasks_db.ready {
+        return http.error("database is not ready")
+    }
 
-	var id_result = parseIdParam(&req)
-	if id_result.isErr() {
-		return http.text(400, id_result.unwrapErr())
-	}
+    var id_result = parseIdParam(&req)
 
-	var sql: string = "UPDATE tasks SET completed = NOT completed WHERE id = $1 RETURNING id, title, completed"
-	var params: Vec<string, _> = Vec.from([id_result.unwrap().toString()])
-	var result = postgres.queryParams(&tasks_db.conn, sql, params)
-	if result.isErr() {
-		return http.error("toggle failed: " + result.unwrapErr())
-	}
+    if id_result.isErr() {
+        return http.text(
+            400,
+            id_result.unwrapErr(),
+        )
+    }
 
-	var task_result = mapQueryResultToTask(result.unwrap())
-	switch task_result {
-		case Ok(task) {
-			return http.json(200, json.marshal(task.to_json()))
-		}
-		case Err(e) {
-			if e == "not found" {
-				return http.notFound()
-			}
-			return http.error("toggle mapping failed: " + e)
-		}
-	}
+    var sql: string = "UPDATE tasks SET completed = NOT completed WHERE id = $1 RETURNING id, title, completed"
+    var params: Vec<string, _> = Vec.from([id_result.unwrap().toString()])
+    var result = postgres.queryParams(
+        &tasks_db.conn,
+        sql,
+        params,
+    )
 
-	return http.Response{}
+    if result.isErr() {
+        return http.error("toggle failed: " + result.unwrapErr())
+    }
+
+    var task_result = mapQueryResultToTask(result.unwrap())
+
+    switch task_result {
+        case Ok(task) {
+            return http.json(
+                200,
+                json.marshal(task.to_json()),
+            )
+        }
+        case Err(e) {
+            if e == "not found" {
+                return http.notFound()
+            }
+
+            return http.error("toggle mapping failed: " + e)
+        }
+    }
+
+    return http.Response{}
 }
 
 func deleteTaskHandler(req: http.Request) -> (http.Response) {
-	if !tasks_db.ready {
-		return http.error("database is not ready")
-	}
+    if !tasks_db.ready {
+        return http.error("database is not ready")
+    }
 
-	var id_result = parseIdParam(&req)
-	if id_result.isErr() {
-		return http.text(400, id_result.unwrapErr())
-	}
+    var id_result = parseIdParam(&req)
 
-	var sql: string = "DELETE FROM tasks WHERE id = $1 RETURNING id, title, completed"
-	var params: Vec<string, _> = Vec.from([id_result.unwrap().toString()])
-	var result = postgres.queryParams(&tasks_db.conn, sql, params)
-	if result.isErr() {
-		return http.error("delete failed: " + result.unwrapErr())
-	}
+    if id_result.isErr() {
+        return http.text(
+            400,
+            id_result.unwrapErr(),
+        )
+    }
 
-	var task_result = mapQueryResultToTask(result.unwrap())
-	switch task_result {
-		case Ok(task) {
-			return http.json(200, json.marshal(task.to_json()))
-		}
-		case Err(e) {
-			if e == "not found" {
-				return http.notFound()
-			}
-			return http.error("delete mapping failed: " + e)
-		}
-	}
+    var sql: string = "DELETE FROM tasks WHERE id = $1 RETURNING id, title, completed"
+    var params: Vec<string, _> = Vec.from([id_result.unwrap().toString()])
+    var result = postgres.queryParams(
+        &tasks_db.conn,
+        sql,
+        params,
+    )
 
-	return http.Response{}
+    if result.isErr() {
+        return http.error("delete failed: " + result.unwrapErr())
+    }
+
+    var task_result = mapQueryResultToTask(result.unwrap())
+
+    switch task_result {
+        case Ok(task) {
+            return http.json(
+                200,
+                json.marshal(task.to_json()),
+            )
+        }
+        case Err(e) {
+            if e == "not found" {
+                return http.notFound()
+            }
+
+            return http.error("delete mapping failed: " + e)
+        }
+    }
+
+    return http.Response{}
 }
 
 func taskToJson(t: Task) -> (json.Json) {
-	return t.to_json()
+    return t.to_json()
 }
 
 func parseIdParam(req: &http.Request) -> (Result<int, string>) {
-	var id_result = parseIdFromPath(req.path)
-	if id_result.isErr() {
-		return Err(id_result.unwrapErr())
-	}
+    var id_result = parseIdFromPath(req.path)
 
-	return Ok(id_result.unwrap())
+    if id_result.isErr() {
+        return Err(id_result.unwrapErr())
+    }
+
+    return Ok(id_result.unwrap())
 }
 
 func parseIdFromPath(path: string) -> (Result<int, string>) {
-	mut var end: int = path.len()
-	if path.endsWith("/toggle") {
-		end = path.len() - 7
-	}
+    mut var end: int = path.len()
 
-	if end <= 0 {
-		return Err("missing id param")
-	}
+    if path.endsWith("/toggle") {
+        end = path.len() - 7
+    }
 
-	mut var start: int = end - 1
-	while start >= 0 && path[start] != '/' {
-		start = start - 1
-	}
-	start = start + 1
+    if end <= 0 {
+        return Err("missing id param")
+    }
 
-	if start >= end {
-		return Err("missing id param")
-	}
+    mut var start: int = end - 1
 
-	var id_str: string = path.substring(start, end)
-	if id_str.len() == 0 {
-		return Err("missing id param")
-	}
+    while start >= 0 && path[start] != '/' {
+        start = start - 1
+    }
 
-	var id_result = id_str.parseInt()
-	if id_result.isErr() {
-		return Err("invalid id param")
-	}
+    start = start + 1
 
-	return Ok(id_result.unwrap())
+    if start >= end {
+        return Err("missing id param")
+    }
+
+    var id_str: string = path.substring(
+        start,
+        end,
+    )
+
+    if id_str.len() == 0 {
+        return Err("missing id param")
+    }
+
+    var id_result = id_str.parseInt()
+
+    if id_result.isErr() {
+        return Err("invalid id param")
+    }
+
+    return Ok(id_result.unwrap())
 }
 
 func parseTaskInput(body: string) -> (Result<TaskInput, string>) {
-	if body.len() == 0 {
-		return Err("request body is empty")
-	}
+    if body.len() == 0 {
+        return Err("request body is empty")
+    }
 
-	var parsed = json.unmarshal(body)
-	if parsed.isErr() {
-		return Err("invalid JSON: " + parsed.unwrapErr())
-	}
+    var parsed = json.unmarshal(body)
 
-	var obj_result = json.asObject(parsed.unwrap())
-	if obj_result.isErr() {
-		return Err(obj_result.unwrapErr())
-	}
-	var obj: json.Json = obj_result.unwrap()
+    if parsed.isErr() {
+        return Err("invalid JSON: " + parsed.unwrapErr())
+    }
 
-	var title_result = json.requireString(&obj, "title")
-	
-	if title_result.isErr() {
-		return Err(title_result.unwrapErr())
-	}
+    var obj_result = json.asObject(parsed.unwrap())
 
-	return Ok(TaskInput{title: title_result.unwrap()})
+    if obj_result.isErr() {
+        return Err(obj_result.unwrapErr())
+    }
+
+    var obj: json.Json = obj_result.unwrap()
+    var title_result = json.requireString(
+        &obj,
+        "title",
+    )
+
+    if title_result.isErr() {
+        return Err(title_result.unwrapErr())
+    }
+
+    return Ok(TaskInput{title: title_result.unwrap()})
 }
 
-func mapQueryResultToTasks(result: db.QueryResult) -> (Result<Vec<Task, _>, string>) {
-	mut var tasks: Vec<Task, _> = Vec.new()
-	var rows: Vec<db.Row, _> = db.rows(&result)
+func mapQueryResultToTasks(
+    result: db.QueryResult,
+) -> (Result<Vec<Task, _>, string>) {
+    mut var tasks: Vec<Task, _> = Vec.new()
+    var rows: Vec<db.Row, _> = db.rows(&result)
 
-	for row in rows {
-		var id_result = row.getInt("id")
-		if id_result.isErr() {
-			return Err(id_result.unwrapErr())
-		}
+    for row in rows {
+        var id_result = row.getInt("id")
 
-		var title_result = getRequiredString(&row, "title")
-		if title_result.isErr() {
-			return Err(title_result.unwrapErr())
-		}
+        if id_result.isErr() {
+            return Err(id_result.unwrapErr())
+        }
 
-		var completed_result = getRequiredBool(&row, "completed")
-		if completed_result.isErr() {
-			return Err(completed_result.unwrapErr())
-		}
+        var title_result = getRequiredString(
+            &row,
+            "title",
+        )
 
-		tasks.push(Task{
-			id: id_result.unwrap(),
-			title: title_result.unwrap(),
-			completed: completed_result.unwrap(),
-		})
-	}
+        if title_result.isErr() {
+            return Err(title_result.unwrapErr())
+        }
 
-	return Ok(tasks)
+        var completed_result = getRequiredBool(
+            &row,
+            "completed",
+        )
+
+        if completed_result.isErr() {
+            return Err(completed_result.unwrapErr())
+        }
+
+        tasks.push(
+            Task{
+                completed: completed_result.unwrap(),
+                id:        id_result.unwrap(),
+                title:     title_result.unwrap(),
+            },
+        )
+    }
+
+    return Ok(tasks)
 }
 
 func mapQueryResultToTask(result: db.QueryResult) -> (Result<Task, string>) {
-	var rows: Vec<db.Row, _> = db.rows(&result)
-	if rows.len() == 0 {
-		return Err("not found")
-	}
+    var rows: Vec<db.Row, _> = db.rows(&result)
 
-	var row: db.Row = rows[0]
+    if rows.len() == 0 {
+        return Err("not found")
+    }
 
-	var id_result = row.getInt("id")
-	if id_result.isErr() {
-		return Err(id_result.unwrapErr())
-	}
+    var row: db.Row = rows[0]
+    var id_result = row.getInt("id")
 
-	var title_result = getRequiredString(&row, "title")
-	if title_result.isErr() {
-		return Err(title_result.unwrapErr())
-	}
+    if id_result.isErr() {
+        return Err(id_result.unwrapErr())
+    }
 
-	var completed_result = getRequiredBool(&row, "completed")
-	if completed_result.isErr() {
-		return Err(completed_result.unwrapErr())
-	}
+    var title_result = getRequiredString(
+        &row,
+        "title",
+    )
 
-	return Ok(Task{
-		id: id_result.unwrap(),
-		title: title_result.unwrap(),
-		completed: completed_result.unwrap(),
-	})
+    if title_result.isErr() {
+        return Err(title_result.unwrapErr())
+    }
+
+    var completed_result = getRequiredBool(
+        &row,
+        "completed",
+    )
+
+    if completed_result.isErr() {
+        return Err(completed_result.unwrapErr())
+    }
+
+    return Ok(
+        Task{
+            completed: completed_result.unwrap(),
+            id:        id_result.unwrap(),
+            title:     title_result.unwrap(),
+        },
+    )
 }
 
 func getRequiredString(row: &db.Row, name: string) -> (Result<string, string>) {
-	return row.getString(name)
+    return row.getString(name)
 }
 
 func getRequiredBool(row: &db.Row, name: string) -> (Result<bool, string>) {
-	return row.getBool(name)
+    return row.getBool(name)
 }
 
 func main() -> (void) {
-	tasks_db = connectToDb()
-	defer {
-		if tasks_db.ready {
-			var close_result = postgres.close(tasks_db.conn)
-			if close_result.isErr() {
-				println("Database close error: " + close_result.unwrapErr())
-			}
-		}
-	}
+    tasks_db = connectToDb()
+    defer {
+        if tasks_db.ready {
+            var close_result = postgres.close(tasks_db.conn)
+
+            if close_result.isErr() {
+                println("Database close error: " + close_result.unwrapErr())
+            }
+        }
+    }
 
     mut var router: http.Router = http.newRouter()
-	router.get("/health", healthHandler)
-	router.get("/tasks", listTasksHandler)
-	router.post("/tasks", createTaskHandler)
-	router.put("/tasks/:id/toggle", toggleTaskHandler)
-	router.delete("/tasks/:id", deleteTaskHandler)
 
-	println("API listening on 0.0.0.0:8080")
-	println("POST /tasks body: {\"title\":\"ship bak\"}")
-	println("PUT /tasks/:id/toggle")
+    router.get(
+        "/health",
+        healthHandler,
+    )
+    router.get(
+        "/tasks",
+        listTasksHandler,
+    )
+    router.post(
+        "/tasks",
+        createTaskHandler,
+    )
+    router.put(
+        "/tasks/:id/toggle",
+        toggleTaskHandler,
+    )
+    router.delete(
+        "/tasks/:id",
+        deleteTaskHandler,
+    )
+    println("API listening on 0.0.0.0:8080")
+    println("POST /tasks body: {\"title\":\"ship bak\"}")
+    println("PUT /tasks/:id/toggle")
 
-	var serve = http.listenAndServe("0.0.0.0:8080", router)
-	if serve.isErr() {
-		println("Server error: " + serve.unwrapErr())
-	}
+    var serve = http.listenAndServe(
+        "0.0.0.0:8080",
+        router,
+    )
 
-	return void
+    if serve.isErr() {
+        println("Server error: " + serve.unwrapErr())
+    }
+
+    return void
 }
