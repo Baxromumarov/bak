@@ -54,7 +54,7 @@ The current experimental language set is:
 
 ### Internal
 
-Anything used only for compiler implementation, bootstrap work, native runtime plumbing, or research-track docs is internal and outside the language contract.
+Anything used only for compiler implementation, native runtime plumbing, or design experiments is internal and outside the language contract.
 
 ## Freeze rules
 
@@ -117,6 +117,6 @@ For the next phase of Bak, maintainers should prefer work in this order:
 As of 2026-04-19:
 
 - the frozen language line is `Bak v0.1`,
-- the Go implementation in `pkg/` and `cmd/` is the compiler of record,
-- self-hosting work in `src/` remains valuable but is not the release gate,
+- the Go implementation in `pkg/` and `cmd/` is the supported compiler,
+- `src/std` contains the Bak standard library sources,
 - features not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as experimental or internal.

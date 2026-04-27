@@ -10,7 +10,6 @@ BAK_BIN := $(BINDIR)/bak
 BAKFMT_BIN := $(BINDIR)/bakfmt
 BAKLINT_BIN := $(BINDIR)/baklint
 BAKCHECK_BIN := $(BINDIR)/bakcheck
-BAKCTEST_BIN := $(BINDIR)/bakc-test
 DUMPBC_BIN := $(BINDIR)/dump_bc
 LSP_BIN := $(BINDIR)/bak-lsp
 
@@ -20,18 +19,9 @@ TEST_SCRIPTS := \
 	tests/run_func_arg_tests.sh \
 	tests/run_typechecker_tests.sh
 
-LEGACY_TEST_SCRIPTS := \
-	tests/run_native_bytes_tests.sh \
-	tests/run_native_enum_tests.sh \
-	tests/run_native_strconv_tests.sh \
-	tests/run_native_string_tests.sh \
-	tests/run_native_strings_std_tests.sh \
-	tests/run_native_time_tests.sh \
-	tests/run_native_vec_tests.sh
-
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-scripts-legacy test-comprehensive test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-comprehensive test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -51,7 +41,6 @@ help:
 	@echo "  make build-bak-fmt    Alias for build-bakfmt"
 	@echo "  make build-baklint    Build $(BAKLINT_BIN)"
 	@echo "  make build-bakcheck   Build $(BAKCHECK_BIN)"
-	@echo "  make build-bakc-test  Build $(BAKCTEST_BIN)"
 	@echo "  make build-dump-bc    Build $(DUMPBC_BIN)"
 	@echo "  make build-lsp        Build $(LSP_BIN)"
 	@echo ""
@@ -59,7 +48,6 @@ help:
 	@echo "  make test             Run go test ./..."
 	@echo "  make test-unit        Run go test ./..."
 	@echo "  make test-scripts     Run executable test scripts under tests/"
-	@echo "  make test-scripts-legacy Run legacy native/self-host script sweep"
 	@echo "  make test-comprehensive Run legacy broad-pattern comprehensive script"
 	@echo "  make test-frozen      Run frozen-surface language and docs guardrails"
 	@echo "  make test-parity      Run evaluator/vm/native parity matrix"
@@ -74,7 +62,7 @@ help:
 
 all: build
 
-build: build-bak build-bakfmt build-baklint build-bakcheck build-bakc-test build-dump-bc build-lsp
+build: build-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp
 
 build-tools: build
 
@@ -100,9 +88,6 @@ build-baklint: | $(BINDIR)
 build-bakcheck: | $(BINDIR)
 	$(GO_BUILD) $(BAKCHECK_BIN) ./cmd/bakcheck
 
-build-bakc-test: | $(BINDIR)
-	$(GO_BUILD) $(BAKCTEST_BIN) ./cmd/bakc-test
-
 build-dump-bc: | $(BINDIR)
 	$(GO_BUILD) $(DUMPBC_BIN) ./cmd/dump_bc
 
@@ -116,9 +101,6 @@ test-unit:
 
 test-scripts: build-root-bak
 	$(call run_script_list,$(TEST_SCRIPTS))
-
-test-scripts-legacy: build-root-bak
-	$(call run_script_list,$(LEGACY_TEST_SCRIPTS))
 
 test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"
@@ -141,8 +123,8 @@ clean: clean-binaries
 
 clean-binaries:
 	@rm -rf $(BINDIR)
-	@rm -f bak bakfmt baklint bakcheck bakc-test bak-lsp dump_bc
-	@rm -f bak_test_binary bakc-stage0 bakc-stage1 bakc-stage2 bakc
+	@rm -f bak bakfmt baklint bakcheck bak-lsp dump_bc
+	@rm -f bak_test_binary
 
 clean-cache:
 	$(GO) clean -cache -testcache

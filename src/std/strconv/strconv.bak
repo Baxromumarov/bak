@@ -39,7 +39,7 @@ pub func formatInt(n: int, base: int) -> (string) {
         return ""
     }
 
-    // Native backend keeps this intentionally minimal for bootstrap stability.
+    // Native backend keeps this intentionally minimal for runtime stability.
     // Non-decimal formatting currently falls back to decimal output.
     return n.toString()
 }

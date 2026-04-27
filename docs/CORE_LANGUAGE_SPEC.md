@@ -190,7 +190,7 @@ This document freezes the language surface. It does not, by itself, freeze:
 - the standard-library API in full,
 - CLI flag details,
 - package-manager policy,
-- self-hosting milestones,
+- compiler implementation milestones,
 - native backend target expansion beyond the current project scope.
 
 Those are governed by their own docs and release policy.

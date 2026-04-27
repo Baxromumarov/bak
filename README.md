@@ -2,9 +2,9 @@
 
 Current status:
 
-- The Go implementation in `pkg/` and `cmd/` is the compiler of record.
-- Full self-hosting in `src/` is no longer the primary release path.
-- The active project roadmap is in `GO_FIRST_ROADMAP.md`.
+- The Go implementation in `pkg/` and `cmd/` is the supported compiler.
+- `src/std` contains the Bak standard library sources used by examples and tests.
+- The active project roadmap is in `GO_ROADMAP.md`.
 
 Purpose: concise overview of Bak syntax, tooling, and project direction.
 
@@ -45,7 +45,7 @@ Those features are outside the frozen `v0.1` compatibility promise and require e
 - Import other modules with a file path and alias:
 
 ```bak
-import "src/compiler/bytecode/module.bak" as bytecode
+import "std/http" as http
 ```
 
 - `pub` marks exported declarations.
@@ -234,12 +234,12 @@ Selected std packages and examples:
 
 ## Project Direction
 
-Bak is currently developed with a Go-first strategy:
+Bak is developed as a Go-implemented language toolchain:
 
-- use `go build -o bakc-stage0 ./cmd/bak` for the canonical compiler,
-- use `bakc-stage0` for normal compilation work,
-- treat `src/` as experimental or supplemental,
-- do not treat full self-hosting as a release blocker.
+- use `go build -o bak ./cmd/bak` to build the compiler,
+- use `bak run`, `bak check`, and `bak build` for normal project work,
+- treat `src/std` as the Bak standard library source tree,
+- keep compiler/runtime/tooling correctness ahead of new syntax.
 
 ## Stability Notes
 
@@ -261,8 +261,7 @@ Bak is currently developed with a Go-first strategy:
 
 See:
 
-- `GO_FIRST_ROADMAP.md`
-- `BOOTSTRAP.md`
+- `GO_ROADMAP.md`
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/STDLIB_PHASE3.md`

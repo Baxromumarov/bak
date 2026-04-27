@@ -72,7 +72,7 @@ const s string = readFile()      // NO
 ## Rationale
 
 - Matches Go's ergonomics and Rust's discipline.
-- Easy to implement and self-host.
+- Easy to implement and reason about.
 - Zero runtime impact.
 
 ---

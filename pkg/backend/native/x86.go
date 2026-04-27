@@ -1,7 +1,6 @@
 package native
 
 // x86_64 instruction encoder for native code generation.
-// Ported from src/compiler/native/x86_64.bak.
 
 // Register constants (SysV ABI)
 const (

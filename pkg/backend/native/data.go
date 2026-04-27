@@ -1,7 +1,6 @@
 package native
 
 // Data section management for string literals and other data items.
-// Ported from src/compiler/native/backend.bak data handling.
 
 // DataItem represents a piece of data to be placed in the data section.
 type DataItem struct {

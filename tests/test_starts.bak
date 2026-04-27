@@ -1,7 +1,7 @@
 package main
 
 func main() -> (int) {
-    var s: string = "src/compiler/driver/driver.bak"
+    var s: string = "src/std/http/server.bak"
 
     if s.startsWith("./") {
         println("starts with ./")

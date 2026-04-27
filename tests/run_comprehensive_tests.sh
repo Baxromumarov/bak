@@ -45,7 +45,6 @@ EXPECTED_FAILS=(
     "err_private_const.bak"
     "err_private_func.bak"
     "err_private_struct.bak"
-    "test_bakc_typechecker_smoke.bak"
 )
 
 # Build compiler

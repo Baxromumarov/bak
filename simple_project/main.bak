@@ -40,7 +40,7 @@ func main() -> (void) {
     // 3. Anonymous Functions & Borrowing: Filtering with references
     println("\nFiltering Electronics (ID > 100):")
     
-    // Explicit type for bakc compatibility
+    // Explicit type for compiler compatibility
     var filterFunc: func(&items.Product) -> (bool) = func(p: &items.Product) -> (bool) {
         // Borrowing 'p' to check fields
         return p.ID > 100 && p.Kind == items.Category.Electronics

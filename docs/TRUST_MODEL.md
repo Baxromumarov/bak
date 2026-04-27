@@ -89,7 +89,7 @@ Until Bak has a stronger permission model, follow these rules:
 
 ## Near-Term Roadmap
 
-The active Go-first roadmap calls for additional hardening:
+The active Go toolchain roadmap calls for additional hardening:
 
 1. ✅ Runtime permission model v1 baseline is complete (interpreter/VM/native compile-time gating plus native runtime defense-in-depth).
 2. ✅ Native exec policy documented: direct-exec, no timeout/output capture in emitted binaries.
@@ -98,5 +98,4 @@ The active Go-first roadmap calls for additional hardening:
 
 See:
 
-- `GO_FIRST_ROADMAP.md`
-- `BOOTSTRAP.md`
+- `GO_ROADMAP.md`

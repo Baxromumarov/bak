@@ -163,8 +163,6 @@ func hasBlockingDiagnostics(diags []string) bool {
 
 func shouldSkipBakcheckFile(path string) bool {
 	normalized := filepath.ToSlash(path)
-	return strings.HasPrefix(normalized, "src/compiler/") ||
-		strings.Contains(normalized, "/src/compiler/") ||
-		strings.HasPrefix(normalized, "src/std/any/") ||
+	return strings.HasPrefix(normalized, "src/std/any/") ||
 		strings.Contains(normalized, "/src/std/any/")
 }

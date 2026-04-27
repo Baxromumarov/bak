@@ -3,7 +3,6 @@ package native
 import "github.com/baxromumarov/bak/pkg/ast"
 
 // Variable and scope management for the native code generator.
-// Ported from src/compiler/native/backend.bak scope management.
 
 // Local represents a local variable on the stack.
 type Local struct {
@@ -111,7 +110,7 @@ func (s *EmitState) currentLoop() *LoopContext {
 	if len(s.LoopStack) == 0 {
 		return nil
 	}
-	
+
 	return &s.LoopStack[len(s.LoopStack)-1]
 }
 

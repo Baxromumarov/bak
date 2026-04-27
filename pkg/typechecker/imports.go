@@ -1,18 +1,11 @@
 package typechecker
 
 import (
-	"path/filepath"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
 )
-
-func isCompilerInternalImport(path string) bool {
-	normalized := filepath.ToSlash(path)
-	return strings.HasPrefix(normalized, "src/compiler/") ||
-		strings.Contains(normalized, "/src/compiler/")
-}
 
 func (tc *TypeChecker) checkPackageStatement(ps *ast.PackageStatement) {
 	if ps.Name != nil {
@@ -100,9 +93,6 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
 			for _, modErr := range modErrors {
-				if isCompilerInternalImport(importPath) {
-					continue
-				}
 				tc.addErrorWithHelp(
 					is.Token.Line,
 					is.Token.Column,

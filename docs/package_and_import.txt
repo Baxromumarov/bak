@@ -29,7 +29,7 @@ refactoring
 
 Unicode handling
 
-self-hosting
+tooling
 
 Good call.
 
@@ -180,7 +180,7 @@ clearer APIs
 
 better error messages
 
-simpler self-hosting
+simpler tooling
 
 future features like:
 
@@ -258,7 +258,7 @@ From another package:
 - Easier refactoring
 - Clearer APIs
 - Better error messages
-- Simpler self-hosting
+- Simpler tooling
 - Enables future features (e.g., `pub(crate)`, docs generation)
 
 ## Restrictions

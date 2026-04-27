@@ -3774,7 +3774,7 @@ func evalStructLiteral(sl *ast.StructLiteral, env *object.Environment) object.Ob
 			// Use the alias name, not the underlying struct name
 			structName = sl.Name.Value
 		} else if _, isEnumCtor := info.Value.(*object.EnumVariantConstructor); isEnumCtor {
-			// Name collision case (for example in src/compiler/ast/ast.bak):
+			// Name collision case between an imported module and a local binding:
 			// keep evaluating as an untyped struct literal.
 			def = nil
 			structName = sl.Name.Value

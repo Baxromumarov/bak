@@ -13,7 +13,6 @@ import (
 )
 
 // Code generation: AST -> x86_64 machine code.
-// Ported from src/compiler/native/backend.bak.
 
 const (
 	codeBase     = x86BaseAddr + x86CodeOffset // runtime address where code starts
@@ -5479,7 +5478,7 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 	emitMovRegReg(&s.Code, R12, RAX)             // use newly allocated header
 
 	// Persist the initialized Vec header back when the receiver address is valid.
-	// Field/index receivers are common in self-hosted backend state updates.
+	// Field/index receivers are common in backend state updates.
 	switch obj.(type) {
 	case *ast.Identifier, *ast.MutableIdentifier, *ast.FieldAccessExpression, *ast.IndexExpression:
 		emitPushReg(&s.Code, R12)

@@ -63,5 +63,4 @@ m.len()
 - The compiler links the correct hash function for each type.
 - No dynamic dispatch or vtables required.
 
-This approach is simple, explicit, and self-hosting friendly.
-
+This approach is simple, explicit, and compiler-friendly.

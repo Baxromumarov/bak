@@ -1,7 +1,6 @@
 package native
 
 // Runtime syscall stubs emitted as machine code before user functions.
-// Ported from src/compiler/native/runtime.bak.
 
 // emitRuntimeStubs emits all runtime helper functions into the code buffer
 // and registers them as function symbols.

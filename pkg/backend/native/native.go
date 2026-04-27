@@ -21,7 +21,7 @@ type BuildOptions struct {
 // ProgramWithPath holds a program along with its path-derived name
 type ProgramWithPath struct {
 	Program  *ast.Program
-	PathName string // path-derived name (e.g., "elf" from "src/compiler/native/elf.bak")
+	PathName string // path-derived module name
 }
 
 // BuildExecutable compiles the AST into a native ELF64 binary.

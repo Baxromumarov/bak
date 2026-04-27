@@ -1017,7 +1017,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect() requires string host and int port")
 		}
-		// Accept either an int or an enum/Result wrapping the int (self-host may pass a Result)
+		// Accept either an int or an enum/Result wrapping the int.
 		var portVal int64
 		switch args[1].Type {
 		case compiler.VAL_INT:
