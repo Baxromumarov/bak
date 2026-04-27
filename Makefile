@@ -1,10 +1,13 @@
 SHELL := /usr/bin/env bash
-.SHELLFLAGS := -eu -o pipefail -c
+.SHELLFLAGS := -e -o pipefail -c
 
 GO ?= go
 BINDIR ?= bin
 
-GO_BUILD := $(GO) build -o
+define go_build
+	@echo "$(GO) build -mod=readonly -o $(1) $(2)"
+	@$(GO) build -mod=readonly -o $(1) $(2) 2> >(grep -v '^go: writing stat cache: .*read-only file system$$' >&2)
+endef
 
 BAK_BIN := $(BINDIR)/bak
 BAKFMT_BIN := $(BINDIR)/bakfmt
@@ -72,27 +75,27 @@ $(BINDIR):
 	@mkdir -p $(BINDIR)
 
 build-bak: | $(BINDIR)
-	$(GO_BUILD) $(BAK_BIN) ./cmd/bak
+	$(call go_build,$(BAK_BIN),./cmd/bak)
 
 build-root-bak:
-	$(GO_BUILD) bak ./cmd/bak
+	$(call go_build,bak,./cmd/bak)
 
 build-bakfmt: | $(BINDIR)
-	$(GO_BUILD) $(BAKFMT_BIN) ./cmd/bakfmt
+	$(call go_build,$(BAKFMT_BIN),./cmd/bakfmt)
 
 build-bak-fmt: build-bakfmt
 
 build-baklint: | $(BINDIR)
-	$(GO_BUILD) $(BAKLINT_BIN) ./cmd/baklint
+	$(call go_build,$(BAKLINT_BIN),./cmd/baklint)
 
 build-bakcheck: | $(BINDIR)
-	$(GO_BUILD) $(BAKCHECK_BIN) ./cmd/bakcheck
+	$(call go_build,$(BAKCHECK_BIN),./cmd/bakcheck)
 
 build-dump-bc: | $(BINDIR)
-	$(GO_BUILD) $(DUMPBC_BIN) ./cmd/dump_bc
+	$(call go_build,$(DUMPBC_BIN),./cmd/dump_bc)
 
 build-lsp: | $(BINDIR)
-	$(GO_BUILD) $(LSP_BIN) ./lsp
+	$(call go_build,$(LSP_BIN),./lsp)
 
 test: test-unit
 

@@ -29,7 +29,7 @@ TOTAL=0
 # Build the compiler first
 echo -e "${BLUE}=== Building Bak Compiler ===${NC}"
 cd "$PROJECT_ROOT"
-if ! go build -o bak ./cmd/bak 2>&1; then
+if ! go build -mod=readonly -o bak ./cmd/bak 2> >(grep -v '^go: writing stat cache: .*read-only file system$' >&2); then
     echo -e "${RED}ERROR: Failed to build compiler${NC}"
     exit 1
 fi

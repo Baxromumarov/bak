@@ -51,7 +51,7 @@ EXPECTED_FAILS=(
 build_compiler() {
     cd "$PROJECT_ROOT"
     echo -e "${BLUE}Building Bak compiler...${NC}"
-    if ! go build -o bak ./cmd/bak; then
+    if ! go build -mod=readonly -o bak ./cmd/bak 2> >(grep -v '^go: writing stat cache: .*read-only file system$' >&2); then
         echo -e "${RED}ERROR: Failed to build compiler${NC}"
         exit 1
     fi

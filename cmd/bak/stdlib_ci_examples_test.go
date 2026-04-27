@@ -21,7 +21,8 @@ func TestStdlibCoreExamplesCompileAndRun(t *testing.T) {
 
 	for _, target := range targets {
 		t.Run(filepath.Base(target), func(t *testing.T) {
-			if ok := runTestFile(target, runtimecap.Permissions{}); !ok {
+			result := runTestFile(target, runtimecap.Permissions{}, "")
+			if !result.Executed || !result.Passed {
 				t.Fatalf("stdlib example failed: %s", target)
 			}
 		})
@@ -31,7 +32,8 @@ func TestStdlibCoreExamplesCompileAndRun(t *testing.T) {
 func TestStdlibCollectionsExamplesCompileAndRun(t *testing.T) {
 	root := findRepoRootForGuardrail(t)
 	target := filepath.Join(root, "tests", "std_collections_ci_test.bak")
-	if ok := runTestFile(target, runtimecap.Permissions{}); !ok {
+	result := runTestFile(target, runtimecap.Permissions{}, "")
+	if !result.Executed || !result.Passed {
 		t.Fatalf("stdlib collection example failed: %s", target)
 	}
 }

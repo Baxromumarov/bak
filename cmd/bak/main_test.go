@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -52,6 +54,79 @@ func TestParsePackageCommandOptionsRejectsUnknownFlag(t *testing.T) {
 	_, _, err := parsePackageCommandOptions([]string{"--unknown"})
 	if err == nil {
 		t.Fatalf("expected error for unknown flag")
+	}
+}
+
+func TestParseTestCommandOptions(t *testing.T) {
+	opts, rest, err := parseTestCommandOptions([]string{"--run", "math", "--package=core,util", "tests", "pkg"})
+	if err != nil {
+		t.Fatalf("parseTestCommandOptions returned error: %v", err)
+	}
+	if opts.RunPattern != "math" {
+		t.Fatalf("unexpected run pattern: %q", opts.RunPattern)
+	}
+	if _, ok := opts.PackageFilters["core"]; !ok {
+		t.Fatalf("expected core package filter")
+	}
+	if _, ok := opts.PackageFilters["util"]; !ok {
+		t.Fatalf("expected util package filter")
+	}
+	if want := []string{"tests", "pkg"}; !reflect.DeepEqual(rest, want) {
+		t.Fatalf("unexpected remaining args: got %#v want %#v", rest, want)
+	}
+}
+
+func TestParseTestCommandOptionsRejectsUnknownFlag(t *testing.T) {
+	_, _, err := parseTestCommandOptions([]string{"--unknown"})
+	if err == nil {
+		t.Fatalf("expected error for unknown test flag")
+	}
+}
+
+func TestParseTestCommandOptionsRequiresFlagValue(t *testing.T) {
+	_, _, err := parseTestCommandOptions([]string{"--run"})
+	if err == nil {
+		t.Fatalf("expected error for missing run pattern")
+	}
+}
+
+func TestExplainDiagnosticCodeKnown(t *testing.T) {
+	var out bytes.Buffer
+	if !explainDiagnosticCode(&out, "e0100") {
+		t.Fatalf("expected known diagnostic code explanation to succeed")
+	}
+	text := out.String()
+	if !strings.Contains(text, "E0100") {
+		t.Fatalf("expected code header in output, got: %s", text)
+	}
+	if !strings.Contains(text, "use of moved value") {
+		t.Fatalf("expected explanation title in output, got: %s", text)
+	}
+}
+
+func TestExplainDiagnosticCodeUnknown(t *testing.T) {
+	var out bytes.Buffer
+	if explainDiagnosticCode(&out, "E1234") {
+		t.Fatalf("expected unknown diagnostic code explanation to fail")
+	}
+	text := out.String()
+	if !strings.Contains(text, "Unknown diagnostic code: E1234") {
+		t.Fatalf("expected unknown code message, got: %s", text)
+	}
+	if !strings.Contains(text, "bak explain --list") {
+		t.Fatalf("expected list guidance, got: %s", text)
+	}
+}
+
+func TestPrintDiagnosticCodeList(t *testing.T) {
+	var out bytes.Buffer
+	printDiagnosticCodeList(&out)
+	text := out.String()
+	if !strings.Contains(text, "Known diagnostic codes") {
+		t.Fatalf("expected diagnostic code list heading, got: %s", text)
+	}
+	if !strings.Contains(text, "E0100") {
+		t.Fatalf("expected known code in list output, got: %s", text)
 	}
 }
 
@@ -219,6 +294,387 @@ func TestResolveProjectFeatureStateNoManifestDefaultsFrozen(t *testing.T) {
 	}
 }
 
+func TestRunDoctorReportsHealthyProject(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"src/std/collections",
+		"src/std/strings",
+		"src/std/fs",
+		"src/std/os",
+		"examples",
+	} {
+		if err := os.MkdirAll(filepath.Join(dir, rel), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+	}
+	files := map[string]string{
+		"bak.toml":                    "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nlanguage_mode = \"frozen\"\n",
+		"src/std/result.bak":          "package std\n",
+		"src/std/collections/vec.bak": "package collections\n",
+		"src/std/strings/strings.bak": "package strings\n",
+		"src/std/fs/fs.bak":           "package fs\n",
+		"src/std/os/os.bak":           "package os\n",
+		"examples/hello.bak":          "package main\n",
+	}
+	for rel, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	if !runDoctor(&out, dir) {
+		t.Fatalf("expected healthy project, got output:\n%s", out.String())
+	}
+	for _, want := range []string{
+		"Bak doctor",
+		"[ok] workspace",
+		"[ok] bak.toml - language_mode=frozen",
+		"[ok] src/std/result.bak",
+		"[ok] examples/hello.bak",
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("doctor output missing %q:\n%s", want, out.String())
+		}
+	}
+}
+
+func TestRunDoctorFailsWhenRequiredStdlibFileIsMissing(t *testing.T) {
+	var out bytes.Buffer
+	if runDoctor(&out, t.TempDir()) {
+		t.Fatalf("expected doctor to fail for missing stdlib, got output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "[fail] src/std/result.bak") {
+		t.Fatalf("doctor output missing stdlib failure:\n%s", out.String())
+	}
+}
+
+func TestRunDoctorWarnsWhenManifestDepsMissingLockfile(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"src/std/collections",
+		"src/std/strings",
+		"src/std/fs",
+		"src/std/os",
+		"examples",
+	} {
+		if err := os.MkdirAll(filepath.Join(dir, rel), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+	}
+	files := map[string]string{
+		"bak.toml":                    "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nlanguage_mode = \"frozen\"\n\n[dependencies]\ndemo = { git = \"github.com/acme/demo\", version = \"1.2.3\" }\n",
+		"src/std/result.bak":          "package std\n",
+		"src/std/collections/vec.bak": "package collections\n",
+		"src/std/strings/strings.bak": "package strings\n",
+		"src/std/fs/fs.bak":           "package fs\n",
+		"src/std/os/os.bak":           "package os\n",
+		"examples/hello.bak":          "package main\n",
+	}
+	for rel, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	if !runDoctor(&out, dir) {
+		t.Fatalf("expected warning-only doctor result to pass, got output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "[warn] bak.lock - missing with declared dependencies") {
+		t.Fatalf("doctor output missing actionable bak.lock warning:\n%s", out.String())
+	}
+}
+
+func TestRunDoctorFailsOnLockIntegrityMismatch(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"src/std/collections",
+		"src/std/strings",
+		"src/std/fs",
+		"src/std/os",
+		"examples",
+	} {
+		if err := os.MkdirAll(filepath.Join(dir, rel), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+	}
+	files := map[string]string{
+		"bak.toml":                    "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nlanguage_mode = \"frozen\"\n\n[dependencies]\ndemo = { git = \"github.com/acme/demo\", version = \"1.2.3\" }\n",
+		"bak.lock":                    "{\n  \"version\": 1,\n  \"packages\": {\n    \"demo\": {\n      \"name\": \"demo\",\n      \"version\": \"1.2.3\",\n      \"source\": \"github.com/acme/demo\",\n      \"commit\": \"\",\n      \"checksum\": \"\",\n      \"path\": \".bak-cache/pkg/demo@deadbeef\"\n    }\n  }\n}\n",
+		"src/std/result.bak":          "package std\n",
+		"src/std/collections/vec.bak": "package collections\n",
+		"src/std/strings/strings.bak": "package strings\n",
+		"src/std/fs/fs.bak":           "package fs\n",
+		"src/std/os/os.bak":           "package os\n",
+		"examples/hello.bak":          "package main\n",
+	}
+	for rel, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	if runDoctor(&out, dir) {
+		t.Fatalf("expected doctor to fail on lock integrity mismatch, got output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "[fail] bak.lock integrity") {
+		t.Fatalf("doctor output missing bak.lock integrity failure:\n%s", out.String())
+	}
+}
+
+func TestRunDoctorCacheChecksumOK(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"src/std/collections",
+		"src/std/strings",
+		"src/std/fs",
+		"src/std/os",
+		"examples",
+		".bak-cache/pkg",
+	} {
+		if err := os.MkdirAll(filepath.Join(dir, rel), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+	}
+
+	cachePath := filepath.Join(dir, ".bak-cache", "pkg", "demo-lock")
+	if err := os.MkdirAll(cachePath, 0o755); err != nil {
+		t.Fatalf("mkdir cachePath: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cachePath, "README.md"), []byte("cached package"), 0o644); err != nil {
+		t.Fatalf("write cache file: %v", err)
+	}
+	checksum, err := directoryChecksum(cachePath)
+	if err != nil {
+		t.Fatalf("directoryChecksum(cachePath): %v", err)
+	}
+
+	files := map[string]string{
+		"bak.toml":                    "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nlanguage_mode = \"frozen\"\n\n[dependencies]\ndemo = { git = \"github.com/acme/demo\", version = \"1.2.3\" }\n",
+		"bak.lock":                    fmt.Sprintf("{\n  \"version\": 1,\n  \"packages\": {\n    \"demo\": {\n      \"name\": \"demo\",\n      \"version\": \"1.2.3\",\n      \"source\": \"github.com/acme/demo\",\n      \"commit\": \"abc123\",\n      \"checksum\": %q,\n      \"path\": \".bak-cache/pkg/demo-lock\"\n    }\n  }\n}\n", checksum),
+		"src/std/result.bak":          "package std\n",
+		"src/std/collections/vec.bak": "package collections\n",
+		"src/std/strings/strings.bak": "package strings\n",
+		"src/std/fs/fs.bak":           "package fs\n",
+		"src/std/os/os.bak":           "package os\n",
+		"examples/hello.bak":          "package main\n",
+	}
+	for rel, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	if !runDoctor(&out, dir) {
+		t.Fatalf("expected doctor to pass for valid cache checksum, got output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "[ok] lock cache checksums") {
+		t.Fatalf("doctor output missing cache checksum ok status:\n%s", out.String())
+	}
+}
+
+func TestRunDoctorFailsOnCacheChecksumMismatch(t *testing.T) {
+	dir := t.TempDir()
+	for _, rel := range []string{
+		"src/std/collections",
+		"src/std/strings",
+		"src/std/fs",
+		"src/std/os",
+		"examples",
+		".bak-cache/pkg",
+	} {
+		if err := os.MkdirAll(filepath.Join(dir, rel), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", rel, err)
+		}
+	}
+
+	cachePath := filepath.Join(dir, ".bak-cache", "pkg", "demo-lock")
+	if err := os.MkdirAll(cachePath, 0o755); err != nil {
+		t.Fatalf("mkdir cachePath: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(cachePath, "README.md"), []byte("cached package changed"), 0o644); err != nil {
+		t.Fatalf("write cache file: %v", err)
+	}
+
+	files := map[string]string{
+		"bak.toml":                    "[package]\nname = \"demo\"\nversion = \"0.1.0\"\nlanguage_mode = \"frozen\"\n\n[dependencies]\ndemo = { git = \"github.com/acme/demo\", version = \"1.2.3\" }\n",
+		"bak.lock":                    "{\n  \"version\": 1,\n  \"packages\": {\n    \"demo\": {\n      \"name\": \"demo\",\n      \"version\": \"1.2.3\",\n      \"source\": \"github.com/acme/demo\",\n      \"commit\": \"abc123\",\n      \"checksum\": \"deadbeef\",\n      \"path\": \".bak-cache/pkg/demo-lock\"\n    }\n  }\n}\n",
+		"src/std/result.bak":          "package std\n",
+		"src/std/collections/vec.bak": "package collections\n",
+		"src/std/strings/strings.bak": "package strings\n",
+		"src/std/fs/fs.bak":           "package fs\n",
+		"src/std/os/os.bak":           "package os\n",
+		"examples/hello.bak":          "package main\n",
+	}
+	for rel, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(contents), 0o644); err != nil {
+			t.Fatalf("write %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	if runDoctor(&out, dir) {
+		t.Fatalf("expected doctor to fail on cache checksum mismatch, got output:\n%s", out.String())
+	}
+	if !strings.Contains(out.String(), "[fail] lock cache checksums") {
+		t.Fatalf("doctor output missing cache checksum failure:\n%s", out.String())
+	}
+}
+
+func TestCollectTestFilesPrefersTestFiles(t *testing.T) {
+	dir := t.TempDir()
+	fileA := filepath.Join(dir, "alpha.bak")
+	fileB := filepath.Join(dir, "alpha_test.bak")
+	if err := os.WriteFile(fileA, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write alpha.bak: %v", err)
+	}
+	if err := os.WriteFile(fileB, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write alpha_test.bak: %v", err)
+	}
+
+	got, err := collectTestFiles(dir)
+	if err != nil {
+		t.Fatalf("collectTestFiles returned error: %v", err)
+	}
+	want := []string{fileB}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected files: got %#v want %#v", got, want)
+	}
+}
+
+func TestCollectTestFilesFallsBackToAllBak(t *testing.T) {
+	dir := t.TempDir()
+	fileA := filepath.Join(dir, "alpha.bak")
+	fileB := filepath.Join(dir, "beta.bak")
+	if err := os.WriteFile(fileA, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write alpha.bak: %v", err)
+	}
+	if err := os.WriteFile(fileB, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write beta.bak: %v", err)
+	}
+
+	got, err := collectTestFiles(dir)
+	if err != nil {
+		t.Fatalf("collectTestFiles returned error: %v", err)
+	}
+	want := []string{fileA, fileB}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected files: got %#v want %#v", got, want)
+	}
+}
+
+func TestCollectTestFilesForTargetsDeduplicatesOverlaps(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "sub")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatalf("mkdir sub: %v", err)
+	}
+	fileA := filepath.Join(dir, "alpha_test.bak")
+	fileB := filepath.Join(sub, "beta_test.bak")
+	if err := os.WriteFile(fileA, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write alpha_test.bak: %v", err)
+	}
+	if err := os.WriteFile(fileB, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write beta_test.bak: %v", err)
+	}
+
+	got, errs := collectTestFilesForTargets([]string{dir, sub})
+	if len(errs) != 0 {
+		t.Fatalf("unexpected target errors: %v", errs)
+	}
+	want := []string{fileA, fileB}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected files: got %#v want %#v", got, want)
+	}
+}
+
+func TestCollectTestFilesForTargetsDefaultsToCurrentDir(t *testing.T) {
+	dir := t.TempDir()
+	fileA := filepath.Join(dir, "alpha_test.bak")
+	if err := os.WriteFile(fileA, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write alpha_test.bak: %v", err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	defer func() {
+		_ = os.Chdir(oldWD)
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("chdir temp dir: %v", err)
+	}
+
+	got, errs := collectTestFilesForTargets(nil)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected target errors: %v", errs)
+	}
+	want := []string{filepath.Clean("alpha_test.bak")}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected files: got %#v want %#v", got, want)
+	}
+}
+
+func TestFilterTestsByNamePattern(t *testing.T) {
+	tests := []testFunctionInfo{
+		{name: "test_math_add", arity: 0},
+		{name: "test_io_read", arity: 1},
+	}
+
+	filtered := filterTestsByNamePattern(tests, "math")
+	want := []testFunctionInfo{{name: "test_math_add", arity: 0}}
+	if !reflect.DeepEqual(filtered, want) {
+		t.Fatalf("unexpected filtered tests: got %#v want %#v", filtered, want)
+	}
+}
+
+func TestFilterTestFilesByPackage(t *testing.T) {
+	dir := t.TempDir()
+	coreFile := filepath.Join(dir, "core_test.bak")
+	utilFile := filepath.Join(dir, "util_test.bak")
+	if err := os.WriteFile(coreFile, []byte("package core\n"), 0o644); err != nil {
+		t.Fatalf("write core_test.bak: %v", err)
+	}
+	if err := os.WriteFile(utilFile, []byte("package util\n"), 0o644); err != nil {
+		t.Fatalf("write util_test.bak: %v", err)
+	}
+
+	filtered, errs := filterTestFilesByPackage(
+		[]string{coreFile, utilFile},
+		map[string]struct{}{"core": {}},
+	)
+	if len(errs) != 0 {
+		t.Fatalf("unexpected package filter errors: %v", errs)
+	}
+	want := []string{coreFile}
+	if !reflect.DeepEqual(filtered, want) {
+		t.Fatalf("unexpected filtered files: got %#v want %#v", filtered, want)
+	}
+}
+
+func TestFilterTestFilesByPackageReturnsErrors(t *testing.T) {
+	dir := t.TempDir()
+	badFile := filepath.Join(dir, "bad_test.bak")
+	if err := os.WriteFile(badFile, []byte("func nope() -> (void) { return void }\n"), 0o644); err != nil {
+		t.Fatalf("write bad_test.bak: %v", err)
+	}
+
+	filtered, errs := filterTestFilesByPackage(
+		[]string{badFile},
+		map[string]struct{}{"core": {}},
+	)
+	if len(filtered) != 0 {
+		t.Fatalf("expected no filtered files, got %#v", filtered)
+	}
+	if len(errs) != 1 {
+		t.Fatalf("expected one package filter error, got %d", len(errs))
+	}
+}
+
 func TestResolveProjectFeatureStateNoManifestRejectsExperimental(t *testing.T) {
 	oldWD, err := os.Getwd()
 	if err != nil {
@@ -292,6 +748,51 @@ func TestCLIRunWarningOnlyDoesNotFail(t *testing.T) {
 	}
 	if !strings.Contains(text, "ok") {
 		t.Fatalf("expected program output in warning-only run, got: %s", text)
+	}
+}
+
+func TestCLIExplainRequiresCode(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "explain")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected explain without code to fail, got output: %s", string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "'explain' requires a diagnostic code") {
+		t.Fatalf("expected missing code error message, got: %s", text)
+	}
+}
+
+func TestCLIExplainKnownCode(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "explain", "E0300")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected explain known code to succeed, got err=%v output=%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "E0300") {
+		t.Fatalf("expected code header in explain output, got: %s", text)
+	}
+	if !strings.Contains(text, "type mismatch") {
+		t.Fatalf("expected explanation title in output, got: %s", text)
+	}
+}
+
+func TestCLIExplainList(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "explain", "--list")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected explain list to succeed, got err=%v output=%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "Known diagnostic codes") {
+		t.Fatalf("expected list heading, got: %s", text)
+	}
+	if !strings.Contains(text, "E0001") {
+		t.Fatalf("expected known code in list output, got: %s", text)
 	}
 }
 

@@ -13,6 +13,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -58,6 +60,207 @@ const LOGO = `
 type packageCommandOptions struct {
 	Offline        bool
 	FrozenLockfile bool
+}
+
+type testCommandOptions struct {
+	RunPattern     string
+	PackageFilters map[string]struct{}
+}
+
+type diagnosticExplanation struct {
+	Title   string
+	Summary string
+	Causes  []string
+	Fixes   []string
+}
+
+var diagnosticExplainCatalog = map[diagnostics.DiagnosticCode]diagnosticExplanation{
+	diagnostics.ErrMissingPackage: {
+		Title:   "missing package declaration",
+		Summary: "Bak source files should start with a package declaration.",
+		Causes:  []string{"The file starts with declarations before package.", "The package keyword is missing or misspelled."},
+		Fixes:   []string{"Add package <name> at the top of the file.", "Keep package as the first statement in the module file."},
+	},
+	diagnostics.ErrUseAfterMove: {
+		Title:   "use of moved value",
+		Summary: "A value was moved and later used again.",
+		Causes:  []string{"Passing an owned value by value into a function.", "Assigning ownership to another variable then reusing the original."},
+		Fixes:   []string{"Borrow with &T for read-only access.", "Clone/copy the value when duplication is intended."},
+	},
+	diagnostics.ErrBorrowAfterMove: {
+		Title:   "borrow after move",
+		Summary: "A reference was requested after ownership was already moved.",
+		Causes:  []string{"Borrowing a value after passing it by value.", "Reordering statements caused move-before-borrow."},
+		Fixes:   []string{"Borrow before move when possible.", "Change callee signature to accept a borrow instead of owned value."},
+	},
+	diagnostics.ErrMoveWhileBorrowed: {
+		Title:   "move while borrowed",
+		Summary: "Ownership transfer happened while active borrows still exist.",
+		Causes:  []string{"Moving a collection while references to elements are alive.", "Returning or storing an owned value with active borrow scope."},
+		Fixes:   []string{"End borrow scope before moving the value.", "Pass a borrow to consumers instead of moving ownership."},
+	},
+	diagnostics.ErrDoubleMutableBorrow: {
+		Title:   "multiple mutable borrows",
+		Summary: "Only one mutable borrow is allowed at a time.",
+		Causes:  []string{"Taking &mut twice in the same lexical scope.", "Holding a mutable reference across another mutable borrow."},
+		Fixes:   []string{"Split code into smaller scopes so the first borrow ends sooner.", "Use immutable borrows when mutation is not needed."},
+	},
+	diagnostics.ErrBorrowConflict: {
+		Title:   "borrow conflict",
+		Summary: "A mutable borrow conflicts with existing shared or mutable borrows.",
+		Causes:  []string{"Combining &T and &mut T on the same value simultaneously.", "Borrow lifetimes overlap due to lexical scope."},
+		Fixes:   []string{"Reorder code so borrows do not overlap.", "Extract logic into helper functions to shorten borrow lifetimes."},
+	},
+	diagnostics.ErrMutabilityRequired: {
+		Title:   "mutability required",
+		Summary: "An operation requires mutability but the binding/type is immutable.",
+		Causes:  []string{"Calling a mut method on an immutable binding.", "Using immutable borrow where mutable borrow is required."},
+		Fixes:   []string{"Declare binding as mut var when mutation is intended.", "Use &mut T when passing to mutable APIs."},
+	},
+	diagnostics.ErrAssignToImmutable: {
+		Title:   "assignment to immutable binding",
+		Summary: "Tried to assign to a variable that is not mutable.",
+		Causes:  []string{"Variable declared with var instead of mut var.", "Attempting to mutate immutable captured state."},
+		Fixes:   []string{"Change declaration to mut var.", "Return a new value instead of in-place mutation."},
+	},
+	diagnostics.ErrMutBorrowImmutable: {
+		Title:   "mutable borrow of immutable value",
+		Summary: "A mutable borrow was attempted from an immutable value.",
+		Causes:  []string{"Taking &mut of an immutable binding.", "Borrowing immutable struct/field mutably."},
+		Fixes:   []string{"Make owner binding mutable if mutation is intended.", "Use immutable borrow and avoid mutating operations."},
+	},
+	diagnostics.ErrTypeMismatch: {
+		Title:   "type mismatch",
+		Summary: "The provided type does not match the expected type.",
+		Causes:  []string{"Passing wrong argument type.", "Assigning expression to incompatible variable/field type."},
+		Fixes:   []string{"Convert or normalize value type before use.", "Update declaration/annotation so both sides agree."},
+	},
+	diagnostics.ErrUnknownType: {
+		Title:   "unknown type",
+		Summary: "A type name is not defined in scope.",
+		Causes:  []string{"Misspelled type name.", "Missing import or private type used across package boundary."},
+		Fixes:   []string{"Fix spelling/casing of the type.", "Import the package or use an exported/public type."},
+	},
+	diagnostics.ErrGenericMismatch: {
+		Title:   "generic parameter mismatch",
+		Summary: "Generic arguments do not satisfy expected arity or shape.",
+		Causes:  []string{"Wrong number of generic arguments.", "Incompatible generic argument types."},
+		Fixes:   []string{"Match generic argument count and order.", "Use concrete types compatible with API constraints."},
+	},
+	diagnostics.ErrVecSizeMismatch: {
+		Title:   "Vec size mismatch",
+		Summary: "A fixed-size Vec annotation does not match provided initializer size.",
+		Causes:  []string{"Vec<T,N> declared with N different from literal length.", "Constructor call produces different size than annotation."},
+		Fixes:   []string{"Adjust fixed size N.", "Update initializer elements to match declared size."},
+	},
+	diagnostics.ErrArgumentCount: {
+		Title:   "argument count mismatch",
+		Summary: "Function or method call has wrong number of arguments.",
+		Causes:  []string{"Missing required argument.", "Passing extra values not declared by signature."},
+		Fixes:   []string{"Match callsite argument count to signature.", "Check method receiver conventions and implicit params."},
+	},
+	diagnostics.ErrArgumentType: {
+		Title:   "argument type mismatch",
+		Summary: "At least one call argument has incompatible type.",
+		Causes:  []string{"Callsite expression type differs from parameter type.", "Wrong borrow/value form passed to function."},
+		Fixes:   []string{"Use expected type or conversion before call.", "Switch between owned and borrowed argument as required."},
+	},
+	diagnostics.ErrReturnType: {
+		Title:   "return type mismatch",
+		Summary: "Function return expression does not match declared return type.",
+		Causes:  []string{"Returning wrong concrete type.", "Missing tuple/void form expected by signature."},
+		Fixes:   []string{"Update return expression to match declaration.", "Adjust function signature when behavior changed intentionally."},
+	},
+	diagnostics.ErrUndefinedFunction: {
+		Title:   "undefined function",
+		Summary: "Called function is not found in current scope/package.",
+		Causes:  []string{"Name typo or wrong module alias.", "Function is private in another package."},
+		Fixes:   []string{"Fix symbol name and import alias.", "Export function with pub or call an exported API."},
+	},
+	diagnostics.ErrMissingReturn: {
+		Title:   "missing return",
+		Summary: "A non-void function has a path that does not return.",
+		Causes:  []string{"Conditional branch falls through without return.", "Loop exits without returning required value."},
+		Fixes:   []string{"Add explicit return in all code paths.", "Refactor control flow so non-void functions always return."},
+	},
+	diagnostics.ErrUndefinedMethod: {
+		Title:   "undefined method",
+		Summary: "A method call targets a method not defined for that type.",
+		Causes:  []string{"Method name typo.", "Method belongs to another type or requires different receiver mutability."},
+		Fixes:   []string{"Use existing method name/signature.", "Implement method in the corresponding impl block."},
+	},
+	diagnostics.ErrUndefinedVariable: {
+		Title:   "undefined variable",
+		Summary: "Identifier is not declared in the accessible scope.",
+		Causes:  []string{"Variable name typo.", "Variable declared in narrower scope and used outside."},
+		Fixes:   []string{"Fix identifier spelling.", "Move declaration to a broader scope or pass value as argument."},
+	},
+	diagnostics.ErrDuplicateVariable: {
+		Title:   "duplicate variable declaration",
+		Summary: "A variable name is declared more than once in the same scope.",
+		Causes:  []string{"Redeclaring existing local variable.", "Copy/paste duplicated declaration line."},
+		Fixes:   []string{"Rename one of the variables.", "Use assignment instead of redeclaration when updating value."},
+	},
+	diagnostics.ErrMissingType: {
+		Title:   "missing type annotation",
+		Summary: "Type annotation is required but missing.",
+		Causes:  []string{"Declaration form requires explicit type.", "Inference is unavailable for this position."},
+		Fixes:   []string{"Add explicit type annotation.", "Use expression forms that allow inference if appropriate."},
+	},
+	diagnostics.ErrUnusedVariable: {
+		Title:   "unused variable",
+		Summary: "A variable is declared but never read.",
+		Causes:  []string{"Value computed but not used.", "Refactor left stale declaration."},
+		Fixes:   []string{"Remove unused declaration.", "Prefix intentional ignore bindings with underscore."},
+	},
+	diagnostics.ErrVecDynamicOnly: {
+		Title:   "dynamic Vec API used on fixed-size Vec",
+		Summary: "Operation requires dynamic Vec but fixed-size Vec was provided.",
+		Causes:  []string{"Calling push/pop style API on Vec<T,N>.", "Type annotation enforces fixed-size behavior."},
+		Fixes:   []string{"Switch to dynamic Vec<T,_> if mutation/growth is needed.", "Use fixed-size compatible operations."},
+	},
+	diagnostics.ErrVecFixedOnly: {
+		Title:   "fixed-size Vec API used on dynamic Vec",
+		Summary: "Operation requires fixed-size Vec but dynamic Vec was provided.",
+		Causes:  []string{"Using fixed-size constructor or rule with Vec<T,_>.", "Type mismatch between annotation and operation contract."},
+		Fixes:   []string{"Use Vec<T,N> for fixed-size operations.", "Call dynamic Vec APIs when using Vec<T,_>."},
+	},
+	diagnostics.ErrVecInvalidInit: {
+		Title:   "invalid Vec initialization",
+		Summary: "Vec initializer does not satisfy expected constructor rules.",
+		Causes:  []string{"Initializer shape does not match Vec type parameters.", "Mixed element types in Vec literal."},
+		Fixes:   []string{"Use consistent element types.", "Use constructor form appropriate for dynamic or fixed Vec."},
+	},
+	diagnostics.ErrUnusedImport: {
+		Title:   "unused import",
+		Summary: "An imported module alias/path is never used.",
+		Causes:  []string{"Import left from refactor.", "Wrong alias used at callsite."},
+		Fixes:   []string{"Remove unused import.", "Use the intended alias in code references."},
+	},
+	diagnostics.ErrExperimentalFeature: {
+		Title:   "experimental feature blocked",
+		Summary: "Code uses an experimental feature outside allowed project mode/flags.",
+		Causes:  []string{"language_mode is frozen.", "Missing --experimental CLI feature selection."},
+		Fixes:   []string{"Set language_mode = \"experimental\" in bak.toml when opting in.", "Enable required feature explicitly via --experimental."},
+	},
+	diagnostics.ErrGeneric: {
+		Title:   "generic compiler error",
+		Summary: "A fallback error code used when no specific diagnostic code was attached.",
+		Causes:  []string{"Unexpected compiler state.", "Error originated from less-specific path."},
+		Fixes:   []string{"Inspect nearby diagnostics and source context.", "Report minimal repro if message is unclear."},
+	},
+	diagnostics.ErrParser: {
+		Title:   "parser error",
+		Summary: "Source could not be parsed due to syntax issues.",
+		Causes:  []string{"Unexpected token sequence.", "Missing delimiters such as parentheses, braces, or commas."},
+		Fixes:   []string{"Fix syntax near the reported token and line.", "Compare with examples in frozen v0.1 syntax docs."},
+	},
+	diagnostics.ErrParserHint: {
+		Title:   "parser hint",
+		Summary: "Additional parser guidance emitted for likely syntax intent.",
+		Causes:  []string{"Parser recovered and attached hint context.", "Nearby syntax likely reflects a common typo pattern."},
+		Fixes:   []string{"Apply hint suggestion and re-run check.", "Simplify expression to isolate syntax issue."},
+	},
 }
 
 var lastRunHadFatalDiagnostic bool
@@ -226,11 +429,15 @@ func main() {
 		installDependencies(opts)
 		return
 	case "test":
-		if len(args) < 2 {
-			fmt.Fprintln(os.Stderr, "Error: 'test' requires a file or directory argument")
+		testOpts, testTargets, err := parseTestCommandOptions(args[1:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		runTests(args[1], permissions, experimentalFeatures)
+		if len(testTargets) == 0 {
+			testTargets = []string{"."}
+		}
+		runTests(testTargets, permissions, experimentalFeatures, testOpts)
 		return
 
 	case "doc":
@@ -239,6 +446,32 @@ func main() {
 			os.Exit(1)
 		}
 		generateDocs(args[1])
+		return
+	case "explain":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "Error: 'explain' requires a diagnostic code (try 'bak explain --list')")
+			os.Exit(1)
+		}
+		if args[1] == "--list" || args[1] == "-l" {
+			if len(args) > 2 {
+				fmt.Fprintln(os.Stderr, "Error: 'explain --list' does not accept additional arguments")
+				os.Exit(1)
+			}
+			printDiagnosticCodeList(os.Stdout)
+			return
+		}
+		if len(args) > 2 {
+			fmt.Fprintln(os.Stderr, "Error: 'explain' accepts exactly one diagnostic code")
+			os.Exit(1)
+		}
+		if ok := explainDiagnosticCode(os.Stdout, args[1]); !ok {
+			os.Exit(1)
+		}
+		return
+	case "doctor":
+		if ok := runDoctor(os.Stdout, "."); !ok {
+			os.Exit(1)
+		}
 		return
 	case "--version", "-v":
 		fmt.Printf("bak version %s\n", VERSION)
@@ -285,10 +518,12 @@ func printHelp() {
 	fmt.Println("  bak build [flags] <file.bak|.>   Compile to native executable (like go build)")
 	fmt.Println("  bak run <file.bak>               Interpret a bak program")
 	fmt.Println("  bak check <file.bak>             Typecheck only")
-	fmt.Println("  bak test <file|dir>              Run tests (like go test)")
+	fmt.Println("  bak test [flags] [path ...]      Run tests for files/directories (default: .)")
+	fmt.Println("  bak explain <code>               Explain a diagnostic code")
 	fmt.Println("  bak init [name]                  Initialize a new project")
 	fmt.Println("  bak get [flags] <pkg[@ver]>      Add a dependency and pin it in bak.lock")
 	fmt.Println("  bak install [flags]              Install dependencies from bak.lock")
+	fmt.Println("  bak doctor                       Check local Bak toolchain health")
 	fmt.Println("  bak                              Start the REPL")
 	fmt.Println()
 	fmt.Println("Build flags:")
@@ -308,6 +543,10 @@ func printHelp() {
 	fmt.Println("  --offline              Use only cached packages; do not fetch from git")
 	fmt.Println("  --frozen-lockfile      Refuse operations that would change bak.lock")
 	fmt.Println()
+	fmt.Println("Test flags:")
+	fmt.Println("  --run <pattern>        Run only tests whose name contains pattern")
+	fmt.Println("  --package <name[,..]>  Run only test files with matching package name(s)")
+	fmt.Println()
 	fmt.Println("Experimental language flags:")
 	fmt.Println("  --experimental <list>  Enable experimental features outside frozen v0.1: unsafe, user-generics")
 	fmt.Println("                         Requires language_mode = \"experimental\" in bak.toml")
@@ -324,8 +563,376 @@ func printHelp() {
 	fmt.Println("  bak --experimental=user-generics run main.bak")
 	fmt.Println("  bak get github.com/u/repo@1.2.3 Add a versioned dependency")
 	fmt.Println("  bak install --offline            Install from cache only")
+	fmt.Println("  bak explain E0100                Explain a specific diagnostic code")
+	fmt.Println("  bak explain --list               List known diagnostic codes")
 	fmt.Println()
 	fmt.Println("For more information, visit: https://github.com/baxromumarov/bak")
+}
+
+func printDiagnosticCodeList(w io.Writer) {
+	fmt.Fprintln(w, "Known diagnostic codes:")
+	for _, code := range sortedDiagnosticExplainCodes() {
+		expl := diagnosticExplainCatalog[code]
+		fmt.Fprintf(w, "  %s - %s\n", code, expl.Title)
+	}
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, "Use: bak explain <code>")
+}
+
+func explainDiagnosticCode(w io.Writer, rawCode string) bool {
+	code := diagnostics.DiagnosticCode(strings.ToUpper(strings.TrimSpace(rawCode)))
+	expl, ok := diagnosticExplainCatalog[code]
+	if !ok {
+		fmt.Fprintf(w, "Unknown diagnostic code: %s\n", code)
+		suggestions := suggestDiagnosticCodes(string(code))
+		if len(suggestions) > 0 {
+			names := make([]string, 0, len(suggestions))
+			for _, suggestion := range suggestions {
+				names = append(names, string(suggestion))
+			}
+			fmt.Fprintf(w, "Closest known codes: %s\n", strings.Join(names, ", "))
+		}
+		fmt.Fprintln(w, "Use 'bak explain --list' to see available codes.")
+		return false
+	}
+
+	fmt.Fprintf(w, "%s\n", code)
+	fmt.Fprintf(w, "Title: %s\n", expl.Title)
+	fmt.Fprintf(w, "Summary: %s\n", expl.Summary)
+	if len(expl.Causes) > 0 {
+		fmt.Fprintln(w, "Common causes:")
+		for _, cause := range expl.Causes {
+			fmt.Fprintf(w, "  - %s\n", cause)
+		}
+	}
+	if len(expl.Fixes) > 0 {
+		fmt.Fprintln(w, "Suggested fixes:")
+		for _, fix := range expl.Fixes {
+			fmt.Fprintf(w, "  - %s\n", fix)
+		}
+	}
+
+	return true
+}
+
+func sortedDiagnosticExplainCodes() []diagnostics.DiagnosticCode {
+	codes := make([]diagnostics.DiagnosticCode, 0, len(diagnosticExplainCatalog))
+	for code := range diagnosticExplainCatalog {
+		codes = append(codes, code)
+	}
+	sort.Slice(codes, func(i, j int) bool {
+		return string(codes[i]) < string(codes[j])
+	})
+	return codes
+}
+
+func suggestDiagnosticCodes(rawCode string) []diagnostics.DiagnosticCode {
+	needle := strings.ToUpper(strings.TrimSpace(rawCode))
+	if needle == "" {
+		return nil
+	}
+
+	all := sortedDiagnosticExplainCodes()
+	appendMatches := func(predicate func(string) bool, existing []diagnostics.DiagnosticCode) []diagnostics.DiagnosticCode {
+		seen := make(map[diagnostics.DiagnosticCode]struct{}, len(existing))
+		for _, c := range existing {
+			seen[c] = struct{}{}
+		}
+		for _, code := range all {
+			if len(existing) >= 5 {
+				break
+			}
+			if _, ok := seen[code]; ok {
+				continue
+			}
+			if predicate(string(code)) {
+				existing = append(existing, code)
+				seen[code] = struct{}{}
+			}
+		}
+		return existing
+	}
+
+	var matches []diagnostics.DiagnosticCode
+	matches = appendMatches(func(code string) bool {
+		return strings.HasPrefix(code, needle) || strings.HasPrefix(needle, code)
+	}, matches)
+	if len(matches) == 0 && len(needle) >= 2 {
+		prefix := needle[:2]
+		matches = appendMatches(func(code string) bool {
+			return strings.HasPrefix(code, prefix)
+		}, matches)
+	}
+	if len(matches) == 0 {
+		prefix := needle[:1]
+		matches = appendMatches(func(code string) bool {
+			return strings.HasPrefix(code, prefix)
+		}, matches)
+	}
+
+	return matches
+}
+
+func runDoctor(w io.Writer, root string) bool {
+	ok := true
+	check := func(status, name, detail string) {
+		fmt.Fprintf(w, "[%s] %s", status, name)
+		if detail != "" {
+			fmt.Fprintf(w, " - %s", detail)
+		}
+		fmt.Fprintln(w)
+		if status == "fail" {
+			ok = false
+		}
+	}
+
+	fmt.Fprintf(w, "Bak doctor\n")
+	fmt.Fprintf(w, "version: %s\n", VERSION)
+	fmt.Fprintf(w, "host: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		check("fail", "workspace", err.Error())
+	} else {
+		check("ok", "workspace", absRoot)
+	}
+
+	for _, tool := range []string{"bak", "bakfmt", "baklint", "bakcheck", "bak-lsp"} {
+		if toolPath, source, err := resolveDoctorToolPath(root, tool); err != nil {
+			check("warn", "tool "+tool, "not found in PATH or ./bin")
+		} else {
+			version := doctorToolVersion(toolPath)
+			check("ok", "tool "+tool, source+": "+toolPath+" ("+version+")")
+		}
+	}
+
+	if goPath, err := exec.LookPath("go"); err == nil {
+		check("ok", "go toolchain", goPath)
+	} else {
+		check("warn", "go toolchain", "not found in PATH; building from source will fail")
+	}
+
+	var loadedManifest *manifest.Manifest
+	hasManifest := false
+	manifestPath := filepath.Join(root, "bak.toml")
+	if _, err := os.Stat(manifestPath); err == nil {
+		m, err := manifest.Load(manifestPath)
+		if err != nil {
+			check("fail", "bak.toml", err.Error())
+		} else {
+			loadedManifest = m
+			hasManifest = true
+			mode := m.LanguageMode
+			if mode == "" {
+				mode = manifest.LanguageModeFrozen
+			}
+			check("ok", "bak.toml", "language_mode="+mode)
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		check("warn", "bak.toml", "not found; commands default to frozen language mode")
+	} else {
+		check("fail", "bak.toml", err.Error())
+	}
+
+	requiredStdlib := []string{
+		"src/std/result.bak",
+		"src/std/collections/vec.bak",
+		"src/std/strings/strings.bak",
+		"src/std/fs/fs.bak",
+		"src/std/os/os.bak",
+	}
+	for _, rel := range requiredStdlib {
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			check("fail", rel, "missing or unreadable")
+		} else {
+			check("ok", rel, "")
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "examples", "hello.bak")); err != nil {
+		check("warn", "examples/hello.bak", "missing; example smoke checks may fail")
+	} else {
+		check("ok", "examples/hello.bak", "")
+		if err := doctorSmokeCheckBakFile(filepath.Join(root, "examples", "hello.bak")); err != nil {
+			check("warn", "examples/hello.bak smoke", err.Error())
+		} else {
+			check("ok", "examples/hello.bak smoke", "parse/typecheck passed")
+		}
+	}
+
+	if _, err := os.Stat(filepath.Join(root, "bak.lock")); err == nil {
+		lock, err := manifest.LoadLockfileFromDir(root)
+		if err != nil {
+			check("fail", "bak.lock", err.Error())
+		} else {
+			check("ok", "bak.lock", fmt.Sprintf("%d locked package(s)", len(lock.Packages)))
+			if hasManifest {
+				if err := manifest.ValidateLockfileIntegrity(lock, loadedManifest); err != nil {
+					check("fail", "bak.lock integrity", err.Error())
+				} else {
+					check("ok", "bak.lock integrity", "manifest-aligned dependency set")
+				}
+				if err := validateFrozenLockfile(root, lock); err != nil {
+					check("fail", "manifest/lock coherence", err.Error())
+				} else {
+					check("ok", "manifest/lock coherence", "bak.lock matches bak.toml dependency constraints")
+				}
+			}
+			cacheChecks := doctorLockCacheChecks(root, lock)
+			for _, c := range cacheChecks {
+				check(c.status, c.name, c.detail)
+			}
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		if hasManifest && len(loadedManifest.Dependencies) > 0 {
+			check("warn", "bak.lock", "missing with declared dependencies; run 'bak install' or 'bak get <pkg>'")
+		} else {
+			check("warn", "bak.lock", "not found; dependency installs are not pinned")
+		}
+	} else {
+		check("fail", "bak.lock", err.Error())
+	}
+
+	return ok
+}
+
+func resolveDoctorToolPath(root, tool string) (string, string, error) {
+	if toolPath, err := exec.LookPath(tool); err == nil {
+		return toolPath, "PATH", nil
+	}
+	localPath := filepath.Join(root, "bin", tool)
+	if info, err := os.Stat(localPath); err == nil && !info.IsDir() {
+		return localPath, "local", nil
+	}
+	return "", "", fmt.Errorf("tool %s not found", tool)
+}
+
+type doctorCheckResult struct {
+	status string
+	name   string
+	detail string
+}
+
+func doctorLockCacheChecks(root string, lock *manifest.Lockfile) []doctorCheckResult {
+	results := make([]doctorCheckResult, 0)
+	if lock == nil || len(lock.Packages) == 0 {
+		return results
+	}
+
+	cacheRoot := filepath.Join(root, ".bak-cache", "pkg")
+	if _, err := os.Stat(cacheRoot); errors.Is(err, os.ErrNotExist) {
+		results = append(results, doctorCheckResult{
+			status: "warn",
+			name:   "lock cache",
+			detail: "cache directory .bak-cache/pkg is missing; run 'bak install' to populate dependency cache",
+		})
+		return results
+	}
+
+	if err := verifyLockCacheChecksums(root, lock); err != nil {
+		results = append(results, doctorCheckResult{
+			status: "fail",
+			name:   "lock cache checksums",
+			detail: err.Error(),
+		})
+	} else {
+		results = append(results, doctorCheckResult{
+			status: "ok",
+			name:   "lock cache checksums",
+			detail: "cache entries match bak.lock checksums for available packages",
+		})
+	}
+
+	return results
+}
+
+func verifyLockCacheChecksums(root string, lock *manifest.Lockfile) error {
+	var problems []string
+	for _, name := range sortedLockedPackageNames(lock) {
+		pkg := lock.Packages[name]
+		targetPath := pkg.Path
+		if targetPath == "" {
+			problems = append(problems, fmt.Sprintf("%s has empty cache path; run 'bak install' to normalize bak.lock", name))
+			continue
+		}
+		if !filepath.IsAbs(targetPath) {
+			targetPath = filepath.Join(root, targetPath)
+		}
+		info, err := os.Stat(targetPath)
+		if errors.Is(err, os.ErrNotExist) {
+			problems = append(problems, fmt.Sprintf("%s cache is missing at %s; run 'bak install'", name, pkg.Path))
+			continue
+		}
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s cache check failed at %s: %v", name, pkg.Path, err))
+			continue
+		}
+		if !info.IsDir() {
+			problems = append(problems, fmt.Sprintf("%s cache path %s is not a directory", name, pkg.Path))
+			continue
+		}
+		if strings.TrimSpace(pkg.Checksum) == "" {
+			problems = append(problems, fmt.Sprintf("%s has empty checksum in bak.lock; run 'bak install' to refresh lock metadata", name))
+			continue
+		}
+		checksum, err := directoryChecksum(targetPath)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s checksum read failed: %v", name, err))
+			continue
+		}
+		if checksum != pkg.Checksum {
+			problems = append(problems, fmt.Sprintf("%s checksum mismatch (lock=%s cache=%s); run 'bak install' to repair cache", name, pkg.Checksum, checksum))
+		}
+	}
+
+	if len(problems) > 0 {
+		return errors.New(strings.Join(problems, "; "))
+	}
+	return nil
+}
+
+func doctorToolVersion(toolPath string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, toolPath, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "version unknown"
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return "version unknown"
+	}
+	if idx := strings.IndexByte(trimmed, '\n'); idx >= 0 {
+		trimmed = strings.TrimSpace(trimmed[:idx])
+	}
+	if trimmed == "" {
+		return "version unknown"
+	}
+	return trimmed
+}
+
+func doctorSmokeCheckBakFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
+	}
+
+	l := lexer.New(string(data))
+	p := parser.New(l)
+	p.SetFilename(path)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		return fmt.Errorf("parse failed (%s)", p.Errors()[0])
+	}
+
+	tc := typechecker.NewWithPath(path)
+	tc.SetSuppressUnused(true)
+	typeErrors := tc.Check(program)
+	if len(typeErrors) > 0 && hasFatalTypeErrors(tc) {
+		return fmt.Errorf("typecheck failed (%s)", typeErrors[0])
+	}
+	return nil
 }
 
 func runFile(filename string, scriptArgs []string, permissions runtimecap.Permissions, cliFeatures []string) {
@@ -555,79 +1162,183 @@ func buildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 	fmt.Printf("Built: %s\n", outputFile)
 }
 
-// runTests runs tests for a file or directory. If given a directory it
-// discovers *_test.bak files (fallback to all .bak) and runs each.
-func runTests(path string, permissions runtimecap.Permissions, cliFeatures []string) {
+type testFunctionInfo struct {
+	name  string
+	arity int
+}
+
+type testFileRunResult struct {
+	Executed bool
+	Passed   bool
+}
+
+// runTests runs tests for one or more files/directories. Directories prefer
+// *_test.bak discovery and fall back to all .bak files when needed.
+func runTests(paths []string, permissions runtimecap.Permissions, cliFeatures []string, opts testCommandOptions) {
 	permissions = loadProjectRuntimePermissions(permissions, cliFeatures)
-	info, err := os.Stat(path)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error stating path: %s\n", err)
+	files, pathErrors := collectTestFilesForTargets(paths)
+	if len(opts.PackageFilters) > 0 {
+		filteredFiles, filterErrors := filterTestFilesByPackage(files, opts.PackageFilters)
+		files = filteredFiles
+		pathErrors = append(pathErrors, filterErrors...)
+	}
+	for _, err := range pathErrors {
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	}
+	if len(files) == 0 {
+		fmt.Fprintln(os.Stderr, "No test files discovered")
 		os.Exit(1)
 	}
-	if info.IsDir() {
-		var files []string
-		walkErr := filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if d.IsDir() {
-				return nil
-			}
-			if strings.HasSuffix(p, "_test.bak") {
-				files = append(files, p)
-			}
-			return nil
-		})
-		if walkErr != nil {
-			fmt.Fprintf(os.Stderr, "Error walking directory %s: %s\n", path, walkErr)
-			os.Exit(1)
+
+	executed := 0
+	skipped := 0
+	passed := 0
+	failed := 0
+	for _, f := range files {
+		result := runTestFile(f, permissions, opts.RunPattern)
+		if !result.Executed {
+			skipped++
+			continue
 		}
-		if len(files) == 0 {
-			walkErr = filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
-				if walkErr != nil {
-					return walkErr
-				}
-				if d.IsDir() {
-					return nil
-				}
-				if strings.HasSuffix(p, ".bak") {
-					files = append(files, p)
-				}
-				return nil
-			})
-			if walkErr != nil {
-				fmt.Fprintf(os.Stderr, "Error walking directory %s: %s\n", path, walkErr)
-				os.Exit(1)
-			}
+		executed++
+		if result.Passed {
+			passed++
+		} else {
+			failed++
 		}
-		sort.Strings(files)
-		if len(files) == 0 {
-			fmt.Fprintf(os.Stderr, "No .bak files found in %s\n", path)
-			os.Exit(1)
-		}
-		var failed int = 0
-		for _, f := range files {
-			if !runTestFile(f, permissions) {
-				failed = failed + 1
-			}
-		}
-		if failed != 0 {
-			os.Exit(1)
-		}
-		return
 	}
-	if !runTestFile(path, permissions) {
+
+	fmt.Printf("\nTest file summary: total=%d executed=%d skipped=%d passed=%d failed=%d\n", len(files), executed, skipped, passed, failed)
+	if len(pathErrors) > 0 {
+		fmt.Printf("Target resolution failures: %d\n", len(pathErrors))
+	}
+
+	if failed != 0 || len(pathErrors) != 0 {
 		os.Exit(1)
 	}
 }
 
+func collectTestFilesForTargets(paths []string) ([]string, []error) {
+	if len(paths) == 0 {
+		paths = []string{"."}
+	}
+
+	seen := make(map[string]struct{})
+	files := make([]string, 0)
+	pathErrors := make([]error, 0)
+
+	for _, path := range paths {
+		targetFiles, err := collectTestFiles(path)
+		if err != nil {
+			pathErrors = append(pathErrors, fmt.Errorf("%s: %w", path, err))
+			continue
+		}
+		if len(targetFiles) == 0 {
+			pathErrors = append(pathErrors, fmt.Errorf("%s: no .bak files found", path))
+			continue
+		}
+		for _, file := range targetFiles {
+			clean := filepath.Clean(file)
+			if _, ok := seen[clean]; ok {
+				continue
+			}
+			seen[clean] = struct{}{}
+			files = append(files, clean)
+		}
+	}
+
+	sort.Strings(files)
+	return files, pathErrors
+}
+
+func collectTestFiles(path string) ([]string, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return []string{path}, nil
+	}
+
+	var testFiles []string
+	var bakFiles []string
+	walkErr := filepath.WalkDir(path, func(p string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(p, ".bak") {
+			bakFiles = append(bakFiles, p)
+		}
+		if strings.HasSuffix(p, "_test.bak") {
+			testFiles = append(testFiles, p)
+		}
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	if len(testFiles) > 0 {
+		sort.Strings(testFiles)
+		return testFiles, nil
+	}
+
+	sort.Strings(bakFiles)
+	return bakFiles, nil
+}
+
+func filterTestFilesByPackage(files []string, packageFilters map[string]struct{}) ([]string, []error) {
+	if len(packageFilters) == 0 {
+		return files, nil
+	}
+
+	filtered := make([]string, 0, len(files))
+	errs := make([]error, 0)
+	for _, file := range files {
+		pkgName, err := packageNameFromFile(file)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", file, err))
+			continue
+		}
+		if _, ok := packageFilters[pkgName]; ok {
+			filtered = append(filtered, file)
+		}
+	}
+
+	return filtered, errs
+}
+
+func packageNameFromFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+
+	l := lexer.New(string(data))
+	p := parser.New(l)
+	p.SetFilename(path)
+	program := p.ParseProgram()
+	for _, stmt := range program.Statements {
+		if pkgStmt, ok := stmt.(*ast.PackageStatement); ok && pkgStmt.Name != nil {
+			return pkgStmt.Name.Value, nil
+		}
+	}
+	if len(p.Errors()) > 0 {
+		return "", fmt.Errorf("unable to resolve package name (%s)", p.Errors()[0])
+	}
+	return "", fmt.Errorf("missing package declaration")
+}
+
 // runTestFile compiles a single .bak file and, if it contains a
 // `run_all_tests` function, sets that as the entrypoint and executes it.
-func runTestFile(filename string, permissions runtimecap.Permissions) bool {
+func runTestFile(filename string, permissions runtimecap.Permissions, runPattern string) testFileRunResult {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	src := string(data)
@@ -642,25 +1353,26 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 		for _, msg := range p.Errors() {
 			fmt.Fprintf(os.Stderr, "  %s\n", msg)
 		}
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
-	type testInfo struct {
-		name  string
-		arity int
-	}
-	var tests []testInfo
+	var tests []testFunctionInfo
 	for _, stmt := range origProgram.Statements {
 		if fn, ok := stmt.(*ast.FunctionDecl); ok {
 			if strings.HasPrefix(fn.Name.Value, "test_") {
-				tests = append(tests, testInfo{name: fn.Name.Value, arity: len(fn.Parameters)})
+				tests = append(tests, testFunctionInfo{name: fn.Name.Value, arity: len(fn.Parameters)})
 			}
 		}
 	}
 
+	tests = filterTestsByNamePattern(tests, runPattern)
 	if len(tests) == 0 {
+		if runPattern != "" {
+			fmt.Printf("Skipping %s: no tests match --run=%q\n", filename, runPattern)
+			return testFileRunResult{Executed: false, Passed: true}
+		}
 		fmt.Fprintf(os.Stderr, "No test functions found in %s\n", filename)
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	// Build a wrapper appended to the source that runs discovered tests.
@@ -708,7 +1420,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 		for _, msg := range p.Errors() {
 			fmt.Fprintf(os.Stderr, "  %s\n", msg)
 		}
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	// Type check combined program
@@ -720,7 +1432,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 		for _, msg := range typeErrors {
 			fmt.Fprintf(os.Stderr, "  %s\n", msg)
 		}
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	// Compile to bytecode for VM execution
@@ -728,7 +1440,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 	module, err := c.Compile(program)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Compilation error in %s: %s\n", filename, err)
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	// Find and set run_all_tests as entry point
@@ -742,7 +1454,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 
 	if runIndex < 0 {
 		fmt.Fprintf(os.Stderr, "Error: run_all_tests not found in %s\n", filename)
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
 	// If we have an init function, create a wrapper entry to run init then tests.
@@ -788,10 +1500,23 @@ func runTestFile(filename string, permissions runtimecap.Permissions) bool {
 	_, err = v.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Test failure in %s: %s\n", filename, err)
-		return false
+		return testFileRunResult{Executed: true, Passed: false}
 	}
 
-	return true
+	return testFileRunResult{Executed: true, Passed: true}
+}
+
+func filterTestsByNamePattern(tests []testFunctionInfo, runPattern string) []testFunctionInfo {
+	if runPattern == "" {
+		return tests
+	}
+	filtered := make([]testFunctionInfo, 0, len(tests))
+	for _, t := range tests {
+		if strings.Contains(t.name, runPattern) {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
 }
 
 func splitBytecodeArgs(args []string) (string, []string, bool, bool, error) {
@@ -1387,6 +2112,52 @@ func parsePackageCommandOptions(args []string) (packageCommandOptions, []string,
 	return opts, rest, nil
 }
 
+func parseTestCommandOptions(args []string) (testCommandOptions, []string, error) {
+	opts := testCommandOptions{PackageFilters: make(map[string]struct{})}
+	rest := make([]string, 0)
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--run" || arg == "-run":
+			if i+1 >= len(args) {
+				return testCommandOptions{}, nil, fmt.Errorf("%s requires a value", arg)
+			}
+			opts.RunPattern = args[i+1]
+			i++
+		case strings.HasPrefix(arg, "--run="):
+			opts.RunPattern = strings.TrimPrefix(arg, "--run=")
+		case arg == "--package" || arg == "--pkg":
+			if i+1 >= len(args) {
+				return testCommandOptions{}, nil, fmt.Errorf("%s requires a value", arg)
+			}
+			addPackageFilters(opts.PackageFilters, args[i+1])
+			i++
+		case strings.HasPrefix(arg, "--package="):
+			addPackageFilters(opts.PackageFilters, strings.TrimPrefix(arg, "--package="))
+		case strings.HasPrefix(arg, "--pkg="):
+			addPackageFilters(opts.PackageFilters, strings.TrimPrefix(arg, "--pkg="))
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return testCommandOptions{}, nil, fmt.Errorf("unknown test flag: %s", arg)
+			}
+			rest = append(rest, arg)
+		}
+	}
+
+	return opts, rest, nil
+}
+
+func addPackageFilters(filters map[string]struct{}, raw string) {
+	for _, item := range strings.Split(raw, ",") {
+		name := strings.TrimSpace(item)
+		if name == "" {
+			continue
+		}
+		filters[name] = struct{}{}
+	}
+}
+
 // getPackage fetches and installs a package from a Git repository.
 func getPackage(pkgArg string, opts packageCommandOptions) {
 	if opts.FrozenLockfile {
@@ -1613,11 +2384,11 @@ func validateFrozenLockfile(dir string, lock *manifest.Lockfile) error {
 func frozenLockfileVersionMatches(expected, actual string) bool {
 	expected = strings.TrimSpace(expected)
 	actual = strings.TrimSpace(actual)
-	
+
 	if expected == "" || actual == "" {
 		return expected == actual
 	}
-	
+
 	if expected == actual {
 		return true
 	}
@@ -1625,7 +2396,7 @@ func frozenLockfileVersionMatches(expected, actual string) bool {
 	if expected == "latest" || actual == "latest" {
 		return expected == actual
 	}
-	
+
 	return strings.TrimPrefix(expected, "v") == strings.TrimPrefix(actual, "v")
 }
 
