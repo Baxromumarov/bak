@@ -168,12 +168,7 @@ func isStdlibSourcePath(path string) bool {
 }
 
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
-	tc.addErrorWithHelp(
-		pos.Line,
-		pos.Column,
-		"Option<T> is not supported; use Result<T, string>",
-		"replace Option/Some/None flows with Result using Ok(...) and Err(...)",
-	)
+	tc.addErrorWithHelp(pos.Line, pos.Column, "Option<T> is not supported; use Result<T, string>", "replace Option/Some/None flows with Result using Ok(...) and Err(...)")
 }
 
 func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {

@@ -23,9 +23,9 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		if enumDef, ok := tc.lookupQualifiedEnum(st.Name); ok {
 			if variant, ok := enumDef.Variants[fa2.Field.Value]; ok {
 				if variant.HasPayload && len(ce.Arguments) == 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, "variant '%s.%s' requires arguments", st.Name, fa2.Field.Value)
+					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf("variant '%s.%s' requires arguments", st.Name, fa2.Field.Value))
 				} else if !variant.HasPayload && len(ce.Arguments) > 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, "variant '%s.%s' does not accept arguments", st.Name, fa2.Field.Value)
+					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf("variant '%s.%s' does not accept arguments", st.Name, fa2.Field.Value))
 				}
 				for _, arg := range ce.Arguments {
 					tc.inferType(arg)
@@ -99,9 +99,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 			if id, ok := fa2.Object.(*ast.Identifier); ok {
 				name = fmt.Sprintf("variable '%s'", id.Value)
 			}
-			tc.addError(ce.Token.Line, ce.Token.Column,
-				"cannot call mutable method '%s' on immutable %s",
-				fa2.Field.Value, name)
+			tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf("cannot call mutable method '%s' on immutable %s", fa2.Field.Value, name))
 		}
 	}
 
@@ -168,9 +166,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				// Validate payload count
 				if variant.HasPayload {
 					if len(ce.Arguments) != len(variant.Fields) {
-						tc.addError(ce.Token.Line, ce.Token.Column,
-							"enum variant '%s' expects %d argument(s), got %d",
-							funcName, len(variant.Fields), len(ce.Arguments))
+						tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf(msgEnumVariantArgCount, funcName, len(variant.Fields), len(ce.Arguments)))
 					} else {
 						// Type-check arguments
 						for i, arg := range ce.Arguments {
@@ -184,8 +180,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						}
 					}
 				} else if len(ce.Arguments) > 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column,
-						"enum variant '%s' takes no arguments", funcName)
+					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf(msgEnumVariantNoArgs, funcName))
 				}
 				tc.clearBorrows(ce.Arguments)
 				return &ast.SimpleType{Name: enumName}
@@ -194,9 +189,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			// Check if it's a type definition constructor (e.g., UserId(42))
 			if underlyingType, ok := tc.env.LookupTypeDef(funcName); ok {
 				if len(ce.Arguments) != 1 {
-					tc.addError(ce.Token.Line, ce.Token.Column,
-						"type constructor '%s' expects exactly 1 argument, got %d",
-						funcName, len(ce.Arguments))
+					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf("type constructor '%s' expects exactly 1 argument, got %d", funcName, len(ce.Arguments)))
 				} else {
 					argType := tc.inferType(ce.Arguments[0])
 					if !tc.typesMatch(underlyingType, argType) {
@@ -239,9 +232,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							arg := ce.Arguments[i+1]
 							argType := tc.inferType(arg)
 							if !tc.callArgumentFitsInType(paramType, argType, arg) {
-								tc.addError(ce.Token.Line, ce.Token.Column,
-									"type mismatch in spawn argument %d: expected %s, got %s",
-									i+1, typeToString(paramType), typeToString(argType))
+								tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf("type mismatch in spawn argument %d: expected %s, got %s", i+1, typeToString(paramType), typeToString(argType)))
 							}
 							// Enforce move semantics for spawn arguments
 							if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
@@ -319,9 +310,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			}
 			if variant.HasPayload {
 				if len(ce.Arguments) != len(fieldTypes) {
-					tc.addError(ce.Token.Line, ce.Token.Column,
-						"enum variant '%s' expects %d argument(s), got %d",
-						fa.Field.Value, len(fieldTypes), len(ce.Arguments))
+					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf(msgEnumVariantArgCount, fa.Field.Value, len(fieldTypes), len(ce.Arguments)))
 				} else {
 					for i, arg := range ce.Arguments {
 						argType := tc.inferType(arg)
@@ -334,8 +323,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 					}
 				}
 			} else if len(ce.Arguments) > 0 {
-				tc.addError(ce.Token.Line, ce.Token.Column,
-					"enum variant '%s' takes no arguments", fa.Field.Value)
+				tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf(msgEnumVariantNoArgs, fa.Field.Value))
 			}
 			tc.clearBorrows(ce.Arguments)
 			if pkgAlias != "" {
@@ -458,8 +446,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 func (tc *TypeChecker) resolveBuiltinSig(funcName string, ce *ast.CallExpression, sig *FunctionSig) (*FunctionSig, ast.TypeExpression, bool) {
 	if funcName == "cfg" && len(ce.Arguments) == 1 {
 		if _, ok := ce.Arguments[0].(*ast.StringLiteral); !ok {
-			tc.addError(ce.Token.Line, ce.Token.Column,
-				"cfg() requires a string literal feature name")
+			tc.addError(ce.Token.Line, ce.Token.Column, "cfg() requires a string literal feature name")
 		}
 	}
 

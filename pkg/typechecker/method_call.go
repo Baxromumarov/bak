@@ -30,9 +30,7 @@ func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpressio
 				arg := mc.Arguments[i+1]
 				argType := tc.inferType(arg)
 				if !tc.callArgumentFitsInType(paramType, argType, arg) {
-					tc.addError(mc.Token.Line, mc.Token.Column,
-						"type mismatch in spawn argument %d: expected %s, got %s",
-						i+1, typeToString(paramType), typeToString(argType))
+					tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("type mismatch in spawn argument %d: expected %s, got %s", i+1, typeToString(paramType), typeToString(argType)))
 				}
 				// Enforce move semantics for spawn arguments
 				if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
@@ -120,9 +118,7 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	}
 
 	if len(mc.Arguments) != len(sig.Parameters) {
-		tc.addError(mc.Token.Line, mc.Token.Column,
-			"function '%s.%s' expects %d argument(s), but got %d",
-			ident.Value, mc.Method.Value, len(sig.Parameters), len(mc.Arguments))
+		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("function '%s.%s' expects %d argument(s), but got %d", ident.Value, mc.Method.Value, len(sig.Parameters), len(mc.Arguments)))
 		return sig.ReturnType, true
 	}
 
@@ -165,9 +161,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 
 	if variant.HasPayload {
 		if len(mc.Arguments) != len(fieldTypes) {
-			tc.addError(mc.Token.Line, mc.Token.Column,
-				"enum variant '%s' expects %d argument(s), got %d",
-				mc.Method.Value, len(fieldTypes), len(mc.Arguments))
+			tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf(msgEnumVariantArgCount, mc.Method.Value, len(fieldTypes), len(mc.Arguments)))
 		} else {
 			for i, arg := range mc.Arguments {
 				argType := tc.inferType(arg)
@@ -180,8 +174,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 			}
 		}
 	} else if len(mc.Arguments) > 0 {
-		tc.addError(mc.Token.Line, mc.Token.Column,
-			"enum variant '%s' takes no arguments", mc.Method.Value)
+		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf(msgEnumVariantNoArgs, mc.Method.Value))
 	}
 
 	tc.clearBorrows(mc.Arguments)
@@ -375,9 +368,7 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 	}
 
 	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column,
-			"method '%s' of struct '%s' is private",
-			mc.Method.Value, ident.Value)
+		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("method '%s' of struct '%s' is private", mc.Method.Value, ident.Value))
 	}
 	for i, arg := range mc.Arguments {
 		if i < len(methodSig.Parameters) {
@@ -451,9 +442,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 	}
 
 	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column,
-			"method '%s' of struct '%s' is private",
-			mc.Method.Value, structName)
+		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("method '%s' of struct '%s' is private", mc.Method.Value, structName))
 	}
 
 	if len(mc.Arguments) != len(methodSig.Parameters) {
@@ -478,9 +467,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 			if id, ok := mc.Object.(*ast.Identifier); ok {
 				name = fmt.Sprintf("variable '%s'", id.Value)
 			}
-			tc.addError(mc.Token.Line, mc.Token.Column,
-				"cannot call mutable method '%s' on immutable %s",
-				mc.Method.Value, name)
+			tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("cannot call mutable method '%s' on immutable %s", mc.Method.Value, name))
 		}
 	}
 

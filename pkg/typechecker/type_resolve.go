@@ -1,6 +1,10 @@
 package typechecker
 
-import "github.com/baxromumarov/bak/pkg/ast"
+import (
+	"fmt"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+)
 
 // resolveType resolves aliases to their underlying types (aliases are interchangeable).
 // Note: type definitions (via `type X = T`) are NOT resolved - they remain distinct types.
@@ -69,9 +73,7 @@ func (tc *TypeChecker) unifyTypes(paramType, argType ast.TypeExpression, generic
 				inferred[pt.Name] = argType
 			} else {
 				if !tc.typesMatch(existing, argType) {
-					tc.addError(0, 0,
-						"conflicting types for generic parameter '%s': inferred as both '%s' and '%s'",
-						pt.Name, typeToString(existing), typeToString(argType))
+					tc.addError(0, 0, fmt.Sprintf("conflicting types for generic parameter '%s': inferred as both '%s' and '%s'", pt.Name, typeToString(existing), typeToString(argType)))
 				}
 			}
 		}

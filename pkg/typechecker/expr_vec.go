@@ -28,22 +28,19 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 	case "new":
 		// Vec.new() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addErrorAt(pos,
-				"Vec.new() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
+			tc.addErrorAt(pos, fmt.Sprintf("Vec.new() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize))
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Vec.new() requires mut for the variable to be useful
 		if !mutable {
-			tc.addErrorAt(pos,
-				"Vec.new() should be assigned to a mutable variable (use 'mut var' or ensure field is in mutable struct)")
+			tc.addErrorAt(pos, "Vec.new() should be assigned to a mutable variable (use 'mut var' or ensure field is in mutable struct)")
 		}
 		return vecType
 
 	case "from":
 		// Vec.from() is allowed for both static and dynamic Vec
 		if len(mc.Arguments) != 1 {
-			tc.addErrorAt(pos,
-				"Vec.from() requires exactly one argument (an array literal)")
+			tc.addErrorAt(pos, "Vec.from() requires exactly one argument (an array literal)")
 			return &ast.ErrorType{Message: "invalid Vec.from() arguments"}
 		}
 
@@ -59,9 +56,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 			if isStatic {
 				literalSize := int64(len(vecLit.Elements))
 				if literalSize != staticSize {
-					tc.addErrorAt(pos,
-						"Vec<%s,%d> expects %d elements, but %d were provided",
-						typeToString(vecType.TypeParams[0]), staticSize, staticSize, literalSize)
+					tc.addErrorAt(pos, fmt.Sprintf("Vec<%s,%d> expects %d elements, but %d were provided", typeToString(vecType.TypeParams[0]), staticSize, staticSize, literalSize))
 				}
 			}
 
@@ -96,14 +91,12 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 	case "withCap":
 		// Vec.withCap() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addErrorAt(pos,
-				"Vec.withCap() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize)
+			tc.addErrorAt(pos, fmt.Sprintf("Vec.withCap() cannot be used with static Vec<T,%d>; use Vec.from() instead", staticSize))
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Requires mut
 		if !mutable {
-			tc.addErrorAt(pos,
-				"Vec.withCap() should be assigned to a mutable variable (use 'mut var')")
+			tc.addErrorAt(pos, "Vec.withCap() should be assigned to a mutable variable (use 'mut var')")
 		}
 		return vecType
 	default:
@@ -111,8 +104,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 		if structDef, ok := tc.env.LookupStruct("Vec"); ok {
 			if methodSig, ok := structDef.Methods[method]; ok {
 				if len(mc.Arguments) != len(methodSig.Parameters) {
-					tc.addErrorAt(pos, "method %s expects %d arguments, but %d were provided",
-						method, len(methodSig.Parameters), len(mc.Arguments))
+					tc.addErrorAt(pos, fmt.Sprintf("method %s expects %d arguments, but %d were provided", method, len(methodSig.Parameters), len(mc.Arguments)))
 					return &ast.ErrorType{Message: "arg count mismatch"}
 				}
 				for i, paramType := range methodSig.Parameters {
@@ -201,8 +193,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 
 	if dynamicOnlyMethods[method] && isFixedSize {
 		vecLabel := formatVecTypeForDiagnostic(vecType)
-		tc.addErrorAt(callPos,
-			"cannot call %s on fixed-size %s", method, vecLabel)
+		tc.addErrorAt(callPos, fmt.Sprintf("cannot call %s on fixed-size %s", method, vecLabel))
 		return nil
 	}
 
@@ -274,7 +265,7 @@ func formatVecTypeForDiagnostic(vecType *ast.GenericType) string {
 
 func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 1 {
-		tc.addErrorAt(callPos, "push requires exactly 1 argument, got %d", len(mc.Arguments))
+		tc.addErrorAt(callPos, fmt.Sprintf("push requires exactly 1 argument, got %d", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	if elemType == nil {
@@ -294,7 +285,7 @@ func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.T
 
 func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 1 {
-		tc.addErrorAt(callPos, "append requires exactly 1 argument, got %d", len(mc.Arguments))
+		tc.addErrorAt(callPos, fmt.Sprintf("append requires exactly 1 argument, got %d", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	if elemType == nil {
@@ -319,12 +310,12 @@ func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast
 
 func (tc *TypeChecker) checkVecSet(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 2 {
-		tc.addErrorAt(callPos, "set requires exactly 2 arguments (index, value), got %d", len(mc.Arguments))
+		tc.addErrorAt(callPos, fmt.Sprintf("set requires exactly 2 arguments (index, value), got %d", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	idxType := tc.inferType(mc.Arguments[0])
 	if idxType != nil && !tc.isIntegerType(idxType) {
-		tc.addErrorAt(callPos, "set: first argument must be integer, got %s", typeToString(idxType))
+		tc.addErrorAt(callPos, fmt.Sprintf("set: first argument must be integer, got %s", typeToString(idxType)))
 	}
 	if elemType != nil {
 		if !tc.fitsInType(elemType, mc.Arguments[1]) {

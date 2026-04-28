@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -30,9 +31,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 			importPath,
 			visited,
 		); err != nil {
-			tc.addErrorWithHelp(is.Token.Line, is.Token.Column,
-				"check for a circular dependency chain or simplify the module graph",
-				"%s", err.Error())
+			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check for a circular dependency chain or simplify the module graph", err.Error())
 			return
 		}
 	}
@@ -66,12 +65,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Recursive loading: If package not found, load and check it
 		modProg, err := packages.ParseProgram(importPath)
 		if err != nil {
-			tc.addErrorWithHelp(
-				is.Token.Line,
-				is.Token.Column,
-				"check the import path exists and is accessible",
-				"cannot read import file: %s", err,
-			)
+			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check the import path exists and is accessible", fmt.Sprintf("cannot read import file: %s", err))
 			return
 		}
 
@@ -93,14 +87,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
 			for _, modErr := range modErrors {
-				tc.addErrorWithHelp(
-					is.Token.Line,
-					is.Token.Column,
-					"fix errors in the imported module before running this program",
-					"error in module %s: %s",
-					importPath,
-					modErr,
-				)
+				tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "fix errors in the imported module before running this program", fmt.Sprintf("error in module %s: %s", importPath, modErr))
 			}
 			return
 		}

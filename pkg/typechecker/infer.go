@@ -3,6 +3,8 @@
 package typechecker
 
 import (
+	"fmt"
+
 	"github.com/baxromumarov/bak/pkg/ast"
 )
 
@@ -105,8 +107,7 @@ func (tc *TypeChecker) inferUnwrapType(e *ast.UnwrapExpression) ast.TypeExpressi
 	tc.addError(
 		e.Token.Line,
 		e.Token.Column,
-		"cannot use '?' operator on non-Result type '%s'",
-		typeToString(inner),
+		fmt.Sprintf("cannot use '?' operator on non-Result type '%s'", typeToString(inner)),
 	)
 
 	inferred := &ast.ErrorType{Message: "invalid ? operator"}
@@ -245,8 +246,7 @@ func (tc *TypeChecker) inferRangeType(e *ast.RangeExpression) ast.TypeExpression
 		tc.addError(
 			e.Token.Line,
 			e.Token.Column,
-			"range start must be integer, got %s",
-			typeToString(startType),
+			fmt.Sprintf("range start must be integer, got %s", typeToString(startType)),
 		)
 		return &ast.ErrorType{}
 	}
@@ -255,8 +255,7 @@ func (tc *TypeChecker) inferRangeType(e *ast.RangeExpression) ast.TypeExpression
 		tc.addError(
 			e.Token.Line,
 			e.Token.Column,
-			"range end must be integer, got %s",
-			typeToString(endType),
+			fmt.Sprintf("range end must be integer, got %s", typeToString(endType)),
 		)
 		return &ast.ErrorType{}
 	}
@@ -283,8 +282,7 @@ func (tc *TypeChecker) inferEnumVariantType(e *ast.EnumVariantExpression) ast.Ty
 			tc.addError(
 				e.Token.Line,
 				e.Token.Column,
-				"Ok() requires exactly 1 argument, got %d",
-				len(e.Values),
+				fmt.Sprintf("Ok() requires exactly 1 argument, got %d", len(e.Values)),
 			)
 			return nil
 		}
@@ -306,8 +304,7 @@ func (tc *TypeChecker) inferEnumVariantType(e *ast.EnumVariantExpression) ast.Ty
 			tc.addError(
 				e.Token.Line,
 				e.Token.Column,
-				"Err() requires exactly 1 argument, got %d",
-				len(e.Values),
+				fmt.Sprintf("Err() requires exactly 1 argument, got %d", len(e.Values)),
 			)
 			return nil
 		}
@@ -530,24 +527,14 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 	}
 
 	if tc.env.IsCapture(ident.Value) {
-		tc.addError(
-			ident.Token.Line,
-			ident.Token.Column,
-			"anonymous function cannot capture variable '%s'",
-			ident.Value,
-		)
+		tc.addError(ident.Token.Line, ident.Token.Column, fmt.Sprintf("anonymous function cannot capture variable '%s'", ident.Value))
 
 		return &ast.ErrorType{Message: "capture violation"}
 	}
 
 	if enumName, _, variant := tc.findEnumByVariant(ident.Value); enumName != "" {
 		if variant.HasPayload {
-			tc.addError(
-				ident.Token.Line,
-				ident.Token.Column,
-				"enum variant '%s' requires arguments",
-				ident.Value,
-			)
+			tc.addError(ident.Token.Line, ident.Token.Column, fmt.Sprintf("enum variant '%s' requires arguments", ident.Value))
 
 			inferred := &ast.ErrorType{
 				Message: "enum variant requires arguments",
@@ -602,12 +589,7 @@ func (tc *TypeChecker) inferMutableIdentifierType(ident *ast.MutableIdentifier) 
 	}
 
 	if tc.env.IsCapture(ident.Value) {
-		tc.addError(
-			ident.Token.Line,
-			ident.Token.Column,
-			"anonymous function cannot capture variable '%s'",
-			ident.Value,
-		)
+		tc.addError(ident.Token.Line, ident.Token.Column, fmt.Sprintf("anonymous function cannot capture variable '%s'", ident.Value))
 
 		inferred := &ast.ErrorType{Message: "capture violation"}
 

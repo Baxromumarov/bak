@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"github.com/baxromumarov/bak/pkg/ast"
 )
 
@@ -55,8 +56,7 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 	case *ast.PanicStatement:
 		msgType := tc.inferType(s.Message)
 		if msgType != nil && !tc.isStringType(msgType) {
-			tc.addError(s.Token.Line, s.Token.Column,
-				"panic expects string, got %s", typeToString(msgType))
+			tc.addError(s.Token.Line, s.Token.Column, fmt.Sprintf("panic expects string, got %s", typeToString(msgType)))
 		}
 	case *ast.UnsafeBlock:
 		tc.checkUnsafeBlock(s)

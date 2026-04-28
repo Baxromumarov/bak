@@ -7,7 +7,7 @@ func (tc *TypeChecker) inferInfixType(ie *ast.InfixExpression) ast.TypeExpressio
 	rightType := tc.inferType(ie.Right)
 
 	err := func(msg string) ast.TypeExpression {
-		tc.addError(ie.Token.Line, ie.Token.Column, "%s", msg)
+		tc.addError(ie.Token.Line, ie.Token.Column, msg)
 		return &ast.ErrorType{}
 	}
 
@@ -123,7 +123,7 @@ func (tc *TypeChecker) inferPrefixType(pe *ast.PrefixExpression) ast.TypeExpress
 	}
 
 	err := func(msg string) ast.TypeExpression {
-		tc.addError(pe.Token.Line, pe.Token.Column, "%s", msg)
+		tc.addError(pe.Token.Line, pe.Token.Column, msg)
 		return &ast.ErrorType{}
 	}
 

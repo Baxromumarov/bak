@@ -1,6 +1,10 @@
 package typechecker
 
-import "github.com/baxromumarov/bak/pkg/ast"
+import (
+	"fmt"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+)
 
 func (tc *TypeChecker) fitsInIntegerType(val int64, t ast.TypeExpression) bool {
 	t = tc.resolveType(t)
@@ -45,7 +49,7 @@ func (tc *TypeChecker) fitsInType(expected ast.TypeExpression, expr ast.Expressi
 				return true
 			}
 		}
-		tc.addError(sl.Token.Line, sl.Token.Column, "struct literal cannot be inferred from type %s", typeToString(expected))
+		tc.addError(sl.Token.Line, sl.Token.Column, fmt.Sprintf("struct literal cannot be inferred from type %s", typeToString(expected)))
 		return false
 	}
 	actual := tc.inferType(expr)

@@ -56,9 +56,7 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 		if expectedName == "void" {
 			help = "remove the return value or change the function return type"
 		}
-		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help,
-			"cannot return %s from function expecting %s",
-			typeToString(returnType), expectedName)
+		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, fmt.Sprintf("cannot return %s from function expecting %s", typeToString(returnType), expectedName))
 	}
 
 	// Track ownership transfer for returned values
@@ -100,13 +98,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	}
 
 	if !varInfo.Mutable {
-		tc.addErrorWithHelp(
-			as.Token.Line,
-			as.Token.Column,
-			"declare the variable as 'mut var'",
-			"cannot assign to immutable variable '%s' (declare with 'mut var' to allow reassignment)",
-			varName,
-		)
+		tc.addErrorWithHelp(as.Token.Line, as.Token.Column, "declare the variable as 'mut var'", fmt.Sprintf("cannot assign to immutable variable '%s' (declare with 'mut var' to allow reassignment)", varName))
 		return
 	}
 

@@ -26,24 +26,32 @@ func describeNodeToken(node ast.Node) string {
 		if tok.Literal != "" {
 			return fmt.Sprintf("%s (%q)", tok.Type, tok.Literal)
 		}
+
 		return string(tok.Type)
 	}
+
 	return node.TokenLiteral()
 }
+
+type tokenExtractor interface{ GetToken() token.Token }
 
 func extractTokenFromNode(node ast.Node) (token.Token, bool) {
 	if node == nil {
 		return token.Token{}, false
 	}
 	// Fast path: statements and expressions implement GetToken().
-	if n, ok := node.(interface{ GetToken() token.Token }); ok {
+	if n, ok := node.(tokenExtractor); ok {
 		return n.GetToken(), true
 	}
 	// Fallback for type expressions and other nodes via reflection.
 	v := reflect.Indirect(reflect.ValueOf(node))
 	field := v.FieldByName("Token")
-	if !field.IsValid() || field.Type() != reflect.TypeFor[token.Token]() {
+
+	if !field.IsValid() ||
+		field.Type() != reflect.TypeFor[token.Token]() {
+
 		return token.Token{}, false
 	}
+
 	return field.Interface().(token.Token), true
 }

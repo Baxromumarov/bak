@@ -85,15 +85,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 	if vs.Type != nil && valueType != nil {
 		if !tc.fitsInType(vs.Type, vs.Value) {
-			tc.addErrorWithHelp(
-				vs.Token.Line,
-				vs.Token.Column,
-				tc.suggestTypeFix(typeToString(vs.Type), typeToString(valueType)),
-				"cannot assign %s to variable '%s' of type %s",
-				typeToString(valueType),
-				vs.Name.Value,
-				typeToString(vs.Type),
-			)
+			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vs.Type), typeToString(valueType)), fmt.Sprintf("cannot assign %s to variable '%s' of type %s", typeToString(valueType), vs.Name.Value, typeToString(vs.Type)))
 		}
 	}
 
@@ -123,13 +115,7 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 	if tt, ok := valueType.(*ast.TupleType); ok {
 		if len(mvs.Names) != len(tt.Elements) {
 
-			tc.addError(
-				mvs.Token.Line,
-				mvs.Token.Column,
-				"wrong number of variables in destructuring: expected %d, got %d",
-				len(tt.Elements),
-				len(mvs.Names),
-			)
+			tc.addError(mvs.Token.Line, mvs.Token.Column, fmt.Sprintf("wrong number of variables in destructuring: expected %d, got %d", len(tt.Elements), len(mvs.Names)))
 			return
 		}
 		// Define each variable with its corresponding type from the tuple
@@ -172,11 +158,7 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 
 	// Check for forbidden direct array literal assignment
 	if _, ok := vs.Value.(*ast.VecLiteral); ok {
-		tc.addError(
-			vs.Token.Line,
-			vs.Token.Column,
-			"cannot assign array literal directly to Vec; use Vec.from([...]) instead",
-		)
+		tc.addError(vs.Token.Line, vs.Token.Column, "cannot assign array literal directly to Vec; use Vec.from([...]) instead")
 		return
 	}
 
@@ -198,14 +180,7 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 	valType := tc.inferType(vs.Value)
 	if valType != nil && !tc.isErrorType(valType) {
 		if !tc.typesMatch(vs.Type, valType) {
-			tc.addErrorWithHelp(
-				vs.Token.Line,
-				vs.Token.Column,
-				tc.suggestTypeFix(typeToString(vecType), typeToString(valType)),
-				"cannot assign type '%s' to variable of type '%s'",
-				typeToString(valType),
-				typeToString(vs.Type),
-			)
+			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vecType), typeToString(valType)), fmt.Sprintf("cannot assign type '%s' to variable of type '%s'", typeToString(valType), typeToString(vs.Type)))
 		}
 	}
 }

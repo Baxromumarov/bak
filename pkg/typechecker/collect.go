@@ -3,6 +3,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -152,13 +153,7 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 		}
 		tc.reportUserGenericDeclIfDisabled(len(method.TypeParams), tokenPos(method.Name.Token), method.Name.Token.Filename, "generic method declarations")
 		if _, exists := structDef.Methods[method.Name.Value]; exists {
-			tc.addError(
-				method.Name.Token.Line,
-				method.Name.Token.Column,
-				"duplicate method '%s' for type '%s'",
-				method.Name.Value,
-				s.TypeName.Value,
-			)
+			tc.addError(method.Name.Token.Line, method.Name.Token.Column, fmt.Sprintf("duplicate method '%s' for type '%s'", method.Name.Value, s.TypeName.Value))
 			continue
 		}
 		structDef.Methods[method.Name.Value] = &FunctionSig{

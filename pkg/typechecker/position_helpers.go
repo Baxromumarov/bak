@@ -19,12 +19,12 @@ func lineColPos(line, col int) ast.Position {
 	}
 }
 
-func (tc *TypeChecker) addErrorAt(pos ast.Position, format string, args ...any) {
-	tc.addError(pos.Line, pos.Column, format, args...)
+func (tc *TypeChecker) addErrorAt(pos ast.Position, message string) {
+	tc.addError(pos.Line, pos.Column, message)
 }
 
-func (tc *TypeChecker) addErrorWithHelpAt(pos ast.Position, help, format string, args ...any) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, help, format, args...)
+func (tc *TypeChecker) addErrorWithHelpAt(pos ast.Position, help, message string) {
+	tc.addErrorWithHelp(pos.Line, pos.Column, help, message)
 }
 
 func (tc *TypeChecker) errorTypeMismatchAt(pos ast.Position, expected, got, context string, node ast.Node) {

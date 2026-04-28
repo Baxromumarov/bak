@@ -7,6 +7,12 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
+// Common diagnostic messages used 3+ times across the typechecker.
+const (
+	msgEnumVariantArgCount = "enum variant '%s' expects %d argument(s), got %d"
+	msgEnumVariantNoArgs   = "enum variant '%s' takes no arguments"
+)
+
 func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 	if note == "" {
 		return nil
@@ -79,16 +85,13 @@ func (tc *TypeChecker) emitSuggestedDiagnostic(
 func (tc *TypeChecker) addError(
 	line,
 	col int,
-	format string,
-	args ...any,
+	message string,
 ) {
-	msg := fmt.Sprintf(format, args...)
-
 	tc.emitError(tc.baseDiagnostic(
 		diagnostics.ErrGeneric,
 		line,
 		col,
-		msg,
+		message,
 	))
 }
 
@@ -97,16 +100,13 @@ func (tc *TypeChecker) addErrorWithHelp(
 	line,
 	col int,
 	help,
-	format string,
-	args ...any) {
-
-	msg := fmt.Sprintf(format, args...)
-	
+	message string,
+) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrGeneric,
 		line,
 		col,
-		msg,
+		message,
 	)
 
 	diag.Help = help

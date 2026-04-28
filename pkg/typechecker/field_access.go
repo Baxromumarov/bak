@@ -3,6 +3,7 @@
 package typechecker
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -97,23 +98,13 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		if tt, ok := objType.(*ast.TupleType); ok {
 			idx, err := strconv.Atoi(fa.Field.Value)
 			if err != nil {
-				tc.addError(
-					fa.Token.Line,
-					fa.Token.Column,
-					"tuple field access must be an integer index (e.g. .0, .1)",
-				)
+				tc.addError(fa.Token.Line, fa.Token.Column, "tuple field access must be an integer index (e.g. .0, .1)")
 
 				return nil
 			}
 
 			if idx < 0 || idx >= len(tt.Elements) {
-				tc.addError(
-					fa.Token.Line,
-					fa.Token.Column,
-					"tuple index %d out of bounds (len: %d)",
-					idx,
-					len(tt.Elements),
-				)
+				tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("tuple index %d out of bounds (len: %d)", idx, len(tt.Elements)))
 				return nil
 			}
 
@@ -128,13 +119,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			// Check visibility
 			if fieldDef.Visibility != ast.Public &&
 				structDef.Package != tc.currentPkgName {
-				tc.addError(
-					fa.Token.Line,
-					fa.Token.Column,
-					"field '%s' of struct '%s' is private",
-					fa.Field.Value,
-					structName,
-				)
+				tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("field '%s' of struct '%s' is private", fa.Field.Value, structName))
 			}
 
 			// If the struct is from an imported package, we MUST qualify its field's type
@@ -176,7 +161,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			}
 			return objType
 		}
-		tc.addError(fa.Token.Line, fa.Token.Column, "enum '%s' has no variant '%s'", structName, fa.Field.Value)
+		tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("enum '%s' has no variant '%s'", structName, fa.Field.Value))
 		return nil
 	}
 
