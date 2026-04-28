@@ -4,13 +4,14 @@ import "std/math"
 
 func main() -> (void) {
     var num: float64 = 12.34
+    var mp: HashMap<int,string> = HashMap.new()
 
     println(math.ceil(num))
 
-    var out = math.log2(16.0)
+    var out = math.log2(16.12)
 
     println(
-        "OUT: ",
+        "OUT:",
         out,
     )
 

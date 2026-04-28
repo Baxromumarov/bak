@@ -1,4 +1,4 @@
-package main
+package cliapp
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"github.com/baxromumarov/bak/internal/config"
 )
 
-func buildCLIContext(rawArgs []string) (*cli.Context, []string, error) {
+func buildContext(rawArgs []string) (*cli.Context, []string, error) {
 	commandArgs, scriptArgs := splitScriptArgs(rawArgs)
 
 	permissions, commandArgs, err := config.ParseRuntimePermissions(commandArgs)

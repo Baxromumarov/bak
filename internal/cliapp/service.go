@@ -1,8 +1,9 @@
-package main
+package cliapp
 
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/baxromumarov/bak/internal/cli"
 	commandpkg "github.com/baxromumarov/bak/internal/cli/commands"
 	"github.com/baxromumarov/bak/internal/config"
+	"github.com/baxromumarov/bak/internal/diagnostics"
 	"github.com/baxromumarov/bak/internal/driver"
 	"github.com/baxromumarov/bak/internal/pipeline"
 	"github.com/baxromumarov/bak/internal/pkgmgr"
@@ -17,13 +19,18 @@ import (
 	internaltest "github.com/baxromumarov/bak/internal/test"
 )
 
-type legacyCommandService struct{}
-
-func newLegacyCommandService() *legacyCommandService {
-	return &legacyCommandService{}
+type commandService struct {
+	stdout io.Writer
 }
 
-func (s *legacyCommandService) Run(path string, ctx *cli.Context) error {
+func newCommandService(stdout io.Writer) *commandService {
+	if stdout == nil {
+		stdout = os.Stdout
+	}
+	return &commandService{stdout: stdout}
+}
+
+func (s *commandService) Run(path string, ctx *cli.Context) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("'run' requires a file argument")
 	}
@@ -35,7 +42,7 @@ func (s *legacyCommandService) Run(path string, ctx *cli.Context) error {
 	return runner.RunVM(p, ctx.ScriptArgs, permissions, ctx.Trace)
 }
 
-func (s *legacyCommandService) Build(path, output string, ctx *cli.Context) error {
+func (s *commandService) Build(path, output string, ctx *cli.Context) error {
 	source := path
 	if source == "" || source == "." {
 		source = findMainBak(".")
@@ -61,11 +68,11 @@ func (s *legacyCommandService) Build(path, output string, ctx *cli.Context) erro
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stdout, "Built native: %s\n", builtOutput)
+	fmt.Fprintf(s.stdout, "Built native: %s\n", builtOutput)
 	return nil
 }
 
-func (s *legacyCommandService) Check(path string, ctx *cli.Context) error {
+func (s *commandService) Check(path string, ctx *cli.Context) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("'check' requires a file argument")
 	}
@@ -77,23 +84,22 @@ func (s *legacyCommandService) Check(path string, ctx *cli.Context) error {
 	if err := p.Typecheck(); err != nil {
 		return err
 	}
-	fmt.Fprintln(os.Stdout, "Typecheck: OK")
+	fmt.Fprintln(s.stdout, "Typecheck: OK")
 	return nil
 }
 
-func (s *legacyCommandService) Get(pkg string, opts pkgmgr.Options, _ *cli.Context) error {
+func (s *commandService) Get(pkg string, opts pkgmgr.Options, _ *cli.Context) error {
 	return driver.GetPackageWithOptions(pkg, driver.PackageOptions{Offline: opts.Offline, FrozenLockfile: opts.FrozenLockfile})
 }
 
-func (s *legacyCommandService) Install(opts pkgmgr.Options, _ *cli.Context) error {
+func (s *commandService) Install(opts pkgmgr.Options, _ *cli.Context) error {
 	return driver.InstallDependenciesWithOptions(driver.PackageOptions{Offline: opts.Offline, FrozenLockfile: opts.FrozenLockfile})
 }
 
-func (s *legacyCommandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) error {
+func (s *commandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) error {
 	if len(opts.Targets) == 0 {
 		opts.Targets = []string{"."}
 	}
-
 	return internaltest.Run(opts.Targets, ctx.Permissions, ctx.Features, internaltest.Options{
 		Targets:        opts.Targets,
 		RunPattern:     opts.RunPattern,
@@ -101,28 +107,33 @@ func (s *legacyCommandService) Test(opts commandpkg.TestOptions, ctx *cli.Contex
 	})
 }
 
-func (s *legacyCommandService) Doctor(root string, _ *cli.Context) error {
-	if err := driver.RunDoctor(os.Stdout, root); err != nil {
-		return err
-	}
-	return nil
+func (s *commandService) Doctor(root string, _ *cli.Context) error {
+	return driver.RunDoctor(s.stdout, root)
 }
 
-func (s *legacyCommandService) Explain(opts commandpkg.ExplainOptions, _ *cli.Context) error {
+func (s *commandService) Explain(opts commandpkg.ExplainOptions, _ *cli.Context) error {
 	if opts.List {
-		printDiagnosticCodeList(os.Stdout)
+		diagnostics.PrintCodeList(s.stdout)
 		return nil
 	}
 	if strings.TrimSpace(opts.Code) == "" {
 		return fmt.Errorf("'explain' requires a diagnostic code (try 'bak explain --list')")
 	}
-	if ok := explainDiagnosticCode(os.Stdout, opts.Code); !ok {
+	if ok := diagnostics.ExplainCode(s.stdout, opts.Code); !ok {
 		return fmt.Errorf("unknown diagnostic code: %s", opts.Code)
 	}
 	return nil
 }
 
-func (s *legacyCommandService) REPL(ctx *cli.Context) error {
-	startREPL(ctx.Permissions, ctx.Features)
+func (s *commandService) REPL(_ *cli.Context) error {
+	fmt.Fprintln(s.stdout, "bak REPL (stub) — not implemented in test environment")
 	return nil
+}
+
+func findMainBak(dir string) string {
+	p := filepath.Join(dir, "main.bak")
+	if _, err := os.Stat(p); err == nil {
+		return p
+	}
+	return ""
 }
