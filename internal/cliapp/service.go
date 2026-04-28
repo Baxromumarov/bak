@@ -39,6 +39,7 @@ func (s *commandService) Run(path string, ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	p.DebugEscapes = ctx.DebugEscapes
 	return runner.RunVM(p, ctx.ScriptArgs, permissions, ctx.Trace)
 }
 
@@ -56,6 +57,7 @@ func (s *commandService) Build(path, output string, ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	p.DebugEscapes = ctx.DebugEscapes
 
 	if output == "" {
 		output = "a.out"

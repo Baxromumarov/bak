@@ -39,9 +39,10 @@ type StructDef struct {
 
 // FieldDef represents a field in a struct.
 type FieldDef struct {
-	Name     string
-	Type     string // type name for documentation
-	TypeExpr ast.TypeExpression
+	Name       string
+	Type       string // type name for documentation
+	TypeExpr   ast.TypeExpression
+	HeapBacked bool // implicit indirection for recursive/self-referential fields
 }
 
 // EnumDef represents an enum type definition.

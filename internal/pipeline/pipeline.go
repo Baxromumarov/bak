@@ -24,6 +24,8 @@ type Pipeline struct {
 	AST      *ast.Program
 	Module   *compiler.BytecodeModule
 	Warnings []string
+
+	DebugEscapes bool
 }
 
 // New creates a pipeline for an in-memory source string.
@@ -96,6 +98,9 @@ func (p *Pipeline) Compile() error {
 	module, err := compilerBackend.Compile(p.AST)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
+	}
+	if p.DebugEscapes {
+		fmt.Fprintln(os.Stderr, compiler.FormatEscapeReports(compilerBackend.EscapeReports()))
 	}
 
 	p.Module = module

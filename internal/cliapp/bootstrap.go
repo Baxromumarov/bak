@@ -21,17 +21,19 @@ func buildContext(rawArgs []string) (*cli.Context, []string, error) {
 	}
 
 	commandArgs, traceEnabled := config.StripTraceFlag(commandArgs)
+	commandArgs, debugEscapes := config.StripDebugEscapesFlag(commandArgs)
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ctx := &cli.Context{
-		Permissions: permissions,
-		Features:    experimentalFeatures,
-		Trace:       traceEnabled,
-		WorkingDir:  workingDir,
-		ScriptArgs:  scriptArgs,
+		Permissions:  permissions,
+		Features:     experimentalFeatures,
+		Trace:        traceEnabled,
+		DebugEscapes: debugEscapes,
+		WorkingDir:   workingDir,
+		ScriptArgs:   scriptArgs,
 	}
 	return ctx, commandArgs, nil
 }

@@ -205,6 +205,16 @@ func TestStripTraceFlag(t *testing.T) {
 	}
 }
 
+func TestStripDebugEscapesFlag(t *testing.T) {
+	args, enabled := stripDebugEscapesFlag([]string{"run", "--debug-escapes", "main.bak"})
+	if !enabled {
+		t.Fatalf("expected debug-escapes flag to be enabled")
+	}
+	if len(args) != 2 || args[0] != "run" || args[1] != "main.bak" {
+		t.Fatalf("unexpected remaining args: %#v", args)
+	}
+}
+
 func TestParseExperimentalFeatures(t *testing.T) {
 	features, rest, err := parseExperimentalFeatures([]string{
 		"--experimental=unsafe,user-generics",

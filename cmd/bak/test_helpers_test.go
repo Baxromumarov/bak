@@ -50,6 +50,10 @@ func stripTraceFlag(args []string) ([]string, bool) {
 	return config.StripTraceFlag(args)
 }
 
+func stripDebugEscapesFlag(args []string) ([]string, bool) {
+	return config.StripDebugEscapesFlag(args)
+}
+
 func parsePackageCommandOptions(args []string) (packageCommandOptions, []string, error) {
 	opts, rest, err := pkgmgr.ParseOptions(args)
 	if err != nil {

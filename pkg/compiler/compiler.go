@@ -43,13 +43,20 @@ type Compiler struct {
 
 	aliases    map[string]ast.TypeExpression // alias name -> underlying type
 	sourcePath string
+
+	escapeByFunction map[string]*FunctionEscapeSummary
+	currentEscape    *FunctionEscapeSummary
 }
 
 // Local represents a local variable in the current scope.
 type Local struct {
-	Name  string
-	Depth int
-	Slot  int
+	Name          string
+	Depth         int
+	Slot          int
+	Escapes       bool
+	BorrowLike    bool
+	HeapCell      bool
+	EscapeReasons []EscapeReason
 }
 
 // New creates a new Compiler.
@@ -64,7 +71,17 @@ func New() *Compiler {
 		loadedModules:    make(map[string]*BytecodeModule),
 		importInitFns:    make(map[string]int),
 		aliases:          make(map[string]ast.TypeExpression),
+		escapeByFunction: make(map[string]*FunctionEscapeSummary),
 	}
+}
+
+// EscapeReports returns escape-analysis summaries collected during compilation.
+func (c *Compiler) EscapeReports() map[string]*FunctionEscapeSummary {
+	out := make(map[string]*FunctionEscapeSummary, len(c.escapeByFunction))
+	for name, summary := range c.escapeByFunction {
+		out[name] = summary
+	}
+	return out
 }
 
 // Compile compiles a program AST to a BytecodeModule.
@@ -412,12 +429,57 @@ func (c *Compiler) compileStructDef(sd *ast.StructDecl) {
 	fields := make([]FieldDef, len(sd.Fields))
 	for i, f := range sd.Fields {
 		fields[i] = FieldDef{
-			Name:     f.Name.Value,
-			Type:     f.Type.String(),
-			TypeExpr: f.Type,
+			Name:       f.Name.Value,
+			Type:       f.Type.String(),
+			TypeExpr:   f.Type,
+			HeapBacked: typeRefersToStructName(f.Type, sd.Name.Value),
 		}
 	}
 	c.module.AddStruct(sd.Name.Value, fields)
+}
+
+func typeRefersToStructName(t ast.TypeExpression, structName string) bool {
+	switch tt := t.(type) {
+	case *ast.SimpleType:
+		return tt.Name == structName
+	case *ast.GenericType:
+		for _, p := range tt.TypeParams {
+			if typeRefersToStructName(p, structName) {
+				return true
+			}
+		}
+	case *ast.BorrowType:
+		return typeRefersToStructName(tt.Inner, structName)
+	case *ast.ArrayType:
+		return typeRefersToStructName(tt.ElemType, structName)
+	case *ast.TupleType:
+		for _, e := range tt.Elements {
+			if typeRefersToStructName(e, structName) {
+				return true
+			}
+		}
+	case *ast.FunctionType:
+		for _, p := range tt.Params {
+			if typeRefersToStructName(p, structName) {
+				return true
+			}
+		}
+		return typeRefersToStructName(tt.ReturnType, structName)
+	case *ast.NamedType:
+		return typeRefersToStructName(tt.Type, structName)
+	}
+	return false
+}
+
+func isBorrowLikeType(t ast.TypeExpression) bool {
+	switch tt := t.(type) {
+	case *ast.BorrowType:
+		return true
+	case *ast.NamedType:
+		return isBorrowLikeType(tt.Type)
+	default:
+		return false
+	}
 }
 
 func (c *Compiler) compileEnumDef(ed *ast.EnumDecl) {
@@ -448,12 +510,17 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 	fn.SourceMap = make(map[int]SourcePos)
 
 	c.currentFn = fn
+	c.currentEscape = AnalyzeFunctionDeclEscapes(fd)
+	c.escapeByFunction[fd.Name.Value] = c.currentEscape
 	c.locals = []Local{}
 	c.scopeDepth = 0
 
 	// Add parameters as locals
 	for _, param := range fd.Parameters {
-		c.addLocal(param.Name.Value)
+		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+	}
+	for i := 0; i < len(fd.Parameters); i++ {
+		c.materializeEscapingLocalSlot(i)
 	}
 
 	// Compile function body
@@ -467,6 +534,7 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 	}
 
 	c.currentFn = nil
+	c.currentEscape = nil
 	return nil
 }
 
@@ -490,10 +558,16 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	oldLoopStart := c.loopStart
 	oldLoopBreaks := c.loopBreaks
 	oldLoopDepths := c.loopDepths
-	defer c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+	oldEscape := c.currentEscape
+	defer func() {
+		c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+		c.currentEscape = oldEscape
+	}()
 
 	// Reset for new function
 	c.currentFn = fn
+	c.currentEscape = AnalyzeFunctionLiteralEscapes(name, fl)
+	c.escapeByFunction[name] = c.currentEscape
 	c.locals = []Local{}
 	c.scopeDepth = 0
 	c.loopStart = -1
@@ -502,7 +576,10 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 
 	// Add parameters as locals
 	for _, param := range fl.Parameters {
-		c.addLocal(param.Name.Value)
+		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+	}
+	for i := 0; i < len(fl.Parameters); i++ {
+		c.materializeEscapingLocalSlot(i)
 	}
 
 	// Compile function body
@@ -519,6 +596,7 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	fnIdx := c.module.AddFunction(fn)
 
 	c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+	c.currentEscape = oldEscape
 
 	// Emit OP_GET_FUNC to load the function reference
 	c.emit(OP_GET_FUNC)
@@ -558,7 +636,11 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 	oldLoopStart := c.loopStart
 	oldLoopBreaks := c.loopBreaks
 	oldLoopDepths := c.loopDepths
-	defer c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+	oldEscape := c.currentEscape
+	defer func() {
+		c.restoreCompilerState(oldFn, oldLocals, oldScopeDepth, oldLoopStart, oldLoopBreaks, oldLoopDepths)
+		c.currentEscape = oldEscape
+	}()
 
 	if receiverName != "" {
 		fn.Arity = len(method.Parameters) + 1 // +1 for receiver
@@ -570,6 +652,8 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 	fn.SourceMap = make(map[int]SourcePos)
 
 	c.currentFn = fn
+	c.currentEscape = AnalyzeMethodDeclEscapes(typeName, receiverName, method)
+	c.escapeByFunction[fnName] = c.currentEscape
 	c.locals = []Local{}
 	c.scopeDepth = 0
 	c.loopStart = -1
@@ -583,7 +667,14 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 
 	// Add parameters as locals
 	for _, param := range method.Parameters {
-		c.addLocal(param.Name.Value)
+		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+	}
+	paramCount := len(method.Parameters)
+	if receiverName != "" {
+		paramCount++
+	}
+	for i := 0; i < paramCount; i++ {
+		c.materializeEscapingLocalSlot(i)
 	}
 
 	// Compile method body
@@ -599,6 +690,7 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 	}
 
 	c.module.AddMethod(typeName, method.Name.Value, fnIdx)
+	c.currentEscape = oldEscape
 	return nil
 }
 
@@ -732,7 +824,12 @@ func (c *Compiler) compileVarStatement(vs *ast.VarStatement) error {
 
 	if c.scopeDepth > 0 {
 		// Local variable
-		c.addLocal(vs.Name.Value)
+		borrowLike := isBorrowLikeType(vs.Type)
+		if !borrowLike {
+			_, borrowLike = vs.Value.(*ast.BorrowExpression)
+		}
+		c.addLocalWithBorrowLike(vs.Name.Value, borrowLike)
+		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	} else {
 		// Global variable
 		c.emitGlobal(OP_SET_GLOBAL, vs.Name.Value)
@@ -748,8 +845,13 @@ func (c *Compiler) compileMultiVarStatement(mvs *ast.MultiVarStatement) error {
 	c.emitByte(byte(len(mvs.Names)))
 
 	if c.scopeDepth > 0 {
-		for _, name := range mvs.Names {
-			c.addLocal(name.Value)
+		for i, name := range mvs.Names {
+			borrowLike := false
+			if i < len(mvs.Types) {
+				borrowLike = isBorrowLikeType(mvs.Types[i])
+			}
+			c.addLocalWithBorrowLike(name.Value, borrowLike)
+			c.materializeEscapingLocalSlot(len(c.locals) - 1)
 		}
 		return nil
 	}
@@ -1027,7 +1129,8 @@ func (c *Compiler) compileConstStatement(cs *ast.ConstStatement) error {
 	}
 
 	if c.scopeDepth > 0 {
-		c.addLocal(cs.Name.Value)
+		c.addLocalWithBorrowLike(cs.Name.Value, isBorrowLikeType(cs.Type))
+		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	} else {
 		c.emitGlobal(OP_SET_GLOBAL, cs.Name.Value)
 	}
@@ -1040,6 +1143,27 @@ func (c *Compiler) compileReturnStatement(rs *ast.ReturnStatement) error {
 		if _, ok := rs.ReturnValue.(*ast.VoidLiteral); ok {
 			c.emit(OP_RETURN_VOID)
 			return nil
+		}
+		// Returning a borrow of a local would otherwise point to a stack slot
+		// that dies at function return. Re-lower it to a heap-backed borrow.
+		if be, ok := rs.ReturnValue.(*ast.BorrowExpression); ok {
+			if id, ok := be.Value.(*ast.Identifier); ok {
+				if slot, local, ok := c.resolveLocalMeta(id.Value); ok {
+					if local.HeapCell {
+						c.emitGetLocalRaw(slot)
+					} else {
+						c.emitGetLocalRaw(slot)
+						c.emit(OP_BORROW_STACK)
+						if be.Mutable {
+							c.emitByte(1)
+						} else {
+							c.emitByte(0)
+						}
+					}
+					c.emit(OP_RETURN)
+					return nil
+				}
+			}
 		}
 		if err := c.compileExpression(rs.ReturnValue); err != nil {
 			return err
@@ -1151,6 +1275,9 @@ func (c *Compiler) compileForStatement(fs *ast.ForStatement) error {
 		return err
 	}
 	c.emit(OP_VEC_LEN)
+	c.materializeEscapingLocalSlot(iterSlot)
+	c.materializeEscapingLocalSlot(idxSlot)
+	c.materializeEscapingLocalSlot(lenSlot)
 
 	// Loop start
 	loopStart := len(c.currentFn.Code)
@@ -1165,10 +1292,8 @@ func (c *Compiler) compileForStatement(fs *ast.ForStatement) error {
 	c.loopBreaks = []int{}
 
 	// Condition: index < length
-	c.emit(OP_GET_LOCAL)
-	c.emitByte(byte(idxSlot))
-	c.emit(OP_GET_LOCAL)
-	c.emitByte(byte(lenSlot))
+	c.emitGetLocalValue(idxSlot)
+	c.emitGetLocalValue(lenSlot)
 	c.emit(OP_LT)
 
 	// Exit if condition is false
@@ -1178,11 +1303,9 @@ func (c *Compiler) compileForStatement(fs *ast.ForStatement) error {
 	if err := c.compileExpression(fs.Iterable); err != nil {
 		return err
 	}
-	c.emit(OP_GET_LOCAL)
-	c.emitByte(byte(idxSlot))
+	c.emitGetLocalValue(idxSlot)
 	c.emit(OP_VEC_GET)
-	c.emit(OP_SET_LOCAL)
-	c.emitByte(byte(iterSlot))
+	c.emitSetLocalValue(iterSlot)
 	// c.emit(OP_POP) // Don't pop - SET_LOCAL consumes value
 
 	// Compile body
@@ -1197,12 +1320,10 @@ func (c *Compiler) compileForStatement(fs *ast.ForStatement) error {
 		c.patchJump(jump)
 	}
 
-	c.emit(OP_GET_LOCAL)
-	c.emitByte(byte(idxSlot))
+	c.emitGetLocalValue(idxSlot)
 	c.emitConstant(NewInt(1))
 	c.emit(OP_ADD)
-	c.emit(OP_SET_LOCAL)
-	c.emitByte(byte(idxSlot))
+	c.emitSetLocalValue(idxSlot)
 	// c.emit(OP_POP) // Don't pop - SET_LOCAL consumes value
 
 	// Jump back to condition
@@ -1233,6 +1354,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 	c.beginScope()
 	c.addLocal("$switch")
 	switchSlot := c.resolveLocal("$switch")
+	c.materializeEscapingLocalSlot(switchSlot)
 
 	// For each case, we:
 	// 1. Duplicate the switch value
@@ -1275,8 +1397,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 			}
 
 			// Regular case value comparison
-			c.emit(OP_GET_LOCAL)
-			c.emitByte(byte(switchSlot))
+			c.emitGetLocalValue(switchSlot)
 			if err := c.compileExpression(caseValue); err != nil {
 				return err
 			}
@@ -1371,8 +1492,7 @@ func resultPatternBinding(expr ast.Expression) (BuiltinID, string, bool) {
 }
 
 func (c *Compiler) emitSwitchBuiltinPatternJump(switchSlot int, builtinID BuiltinID) int {
-	c.emit(OP_GET_LOCAL)
-	c.emitByte(byte(switchSlot))
+	c.emitGetLocalValue(switchSlot)
 	c.emit(OP_BUILTIN)
 	c.emitByte(byte(builtinID))
 	c.emitByte(1)
@@ -1415,8 +1535,7 @@ func (c *Compiler) matchUserEnumCasePattern(caseValue ast.Expression, switchSlot
 		}
 
 		// Pattern matched: check variant tag.
-		c.emit(OP_GET_LOCAL)
-		c.emitByte(byte(switchSlot))
+		c.emitGetLocalValue(switchSlot)
 		c.emitConstant(NewInt(int64(enumDef.EnumID)))
 		c.emitConstant(NewInt(int64(variantIdx)))
 		c.emit(OP_IS_VARIANT)
@@ -1439,25 +1558,25 @@ func (c *Compiler) beginSwitchCaseScope(switchSlot int, state switchCasePatternS
 
 	switch {
 	case state.isOkPattern:
-		c.emit(OP_GET_LOCAL)
-		c.emitByte(byte(switchSlot))
+		c.emitGetLocalValue(switchSlot)
 		c.emit(OP_BUILTIN)
 		c.emitByte(byte(BUILTIN_UNWRAP))
 		c.emitByte(1)
 		c.addLocal(state.boundVar)
+		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	case state.isErrPattern:
-		c.emit(OP_GET_LOCAL)
-		c.emitByte(byte(switchSlot))
+		c.emitGetLocalValue(switchSlot)
 		c.emit(OP_BUILTIN)
 		c.emitByte(byte(BUILTIN_UNWRAP_ERR))
 		c.emitByte(1)
 		c.addLocal(state.boundVar)
+		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	case state.isUserEnumPattern:
-		c.emit(OP_GET_LOCAL)
-		c.emitByte(byte(switchSlot))
+		c.emitGetLocalValue(switchSlot)
 		c.emitConstant(NewInt(0)) // payload index 0
 		c.emit(OP_GET_PAYLOAD)
 		c.addLocal(state.boundVar)
+		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	}
 }
 
@@ -1482,9 +1601,8 @@ func (c *Compiler) compileAssignment(as *ast.AssignmentStatement) error {
 	switch target := as.Left.(type) {
 	case *ast.Identifier:
 		// Check if it's a local
-		if slot := c.resolveLocal(target.Value); slot != -1 {
-			c.emit(OP_SET_LOCAL)
-			c.emitByte(byte(slot))
+		if slot, _, ok := c.resolveLocalMeta(target.Value); ok {
+			c.emitSetLocalValue(slot)
 		} else if idx, ok := c.module.LookupGlobal(target.Value); ok {
 			c.emit(OP_SET_GLOBAL)
 			c.emitByte(byte(idx >> 8))
@@ -1515,8 +1633,16 @@ func (c *Compiler) compileAssignment(as *ast.AssignmentStatement) error {
 		c.emit(OP_VEC_SET)
 	case *ast.DerefExpression:
 		// Stack: value
-		if err := c.compileExpression(target.Value); err != nil {
-			return err
+		if id, ok := target.Value.(*ast.Identifier); ok {
+			if slot, local, found := c.resolveLocalMeta(id.Value); found && local.HeapCell {
+				c.emitGetLocalRaw(slot)
+			} else if err := c.compileExpression(target.Value); err != nil {
+				return err
+			}
+		} else {
+			if err := c.compileExpression(target.Value); err != nil {
+				return err
+			}
 		}
 		c.emit(OP_STORE_DEREF)
 	default:
@@ -1669,9 +1795,8 @@ func (c *Compiler) compileExpression(expr ast.Expression) (err error) {
 
 func (c *Compiler) compileIdentifier(id *ast.Identifier) error {
 	// Check for local
-	if slot := c.resolveLocal(id.Value); slot != -1 {
-		c.emit(OP_GET_LOCAL)
-		c.emitByte(byte(slot))
+	if slot, _, ok := c.resolveLocalMeta(id.Value); ok {
+		c.emitGetLocalValue(slot)
 		return nil
 	}
 
@@ -2676,7 +2801,12 @@ func (c *Compiler) compileTupleExpression(te *ast.TupleExpression) error {
 func (c *Compiler) compileBorrowExpression(be *ast.BorrowExpression) error {
 	switch target := be.Value.(type) {
 	case *ast.Identifier:
-		if slot := c.resolveLocal(target.Value); slot != -1 {
+		if slot, local, ok := c.resolveLocalMeta(target.Value); ok {
+			if local.HeapCell {
+				// Escaping locals are already represented as hidden borrow cells.
+				c.emitGetLocalRaw(slot)
+				return nil
+			}
 			c.emit(OP_BORROW_LOCAL)
 			c.emitByte(byte(slot))
 			if be.Mutable {
@@ -2871,10 +3001,24 @@ func (c *Compiler) endScope() {
 }
 
 func (c *Compiler) addLocal(name string) {
+	c.addLocalWithBorrowLike(name, false)
+}
+
+func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
+	var escapeReasons []EscapeReason
+	escapes := false
+	if c.currentEscape != nil {
+		escapeReasons = c.currentEscape.ReasonsFor(name)
+		escapes = len(escapeReasons) > 0
+	}
 	local := Local{
-		Name:  name,
-		Depth: c.scopeDepth,
-		Slot:  len(c.locals),
+		Name:          name,
+		Depth:         c.scopeDepth,
+		Slot:          len(c.locals),
+		Escapes:       escapes,
+		BorrowLike:    borrowLike,
+		HeapCell:      false,
+		EscapeReasons: escapeReasons,
 	}
 	c.locals = append(c.locals, local)
 	if len(c.locals) > c.currentFn.NumLocals {
@@ -2889,6 +3033,82 @@ func (c *Compiler) resolveLocal(name string) int {
 		}
 	}
 	return -1
+}
+
+func (c *Compiler) resolveLocalMeta(name string) (int, *Local, bool) {
+	for i := len(c.locals) - 1; i >= 0; i-- {
+		if c.locals[i].Name == name {
+			return c.locals[i].Slot, &c.locals[i], true
+		}
+	}
+	return -1, nil, false
+}
+
+func (c *Compiler) localBySlot(slot int) *Local {
+	for i := len(c.locals) - 1; i >= 0; i-- {
+		if c.locals[i].Slot == slot {
+			return &c.locals[i]
+		}
+	}
+	return nil
+}
+
+func (c *Compiler) localEscapesBySlot(slot int) bool {
+	if local := c.localBySlot(slot); local != nil {
+		return local.Escapes
+	}
+	return false
+}
+
+func (c *Compiler) localHasHeapCell(slot int) bool {
+	if local := c.localBySlot(slot); local != nil {
+		return local.HeapCell
+	}
+	return false
+}
+
+// emitGetLocalValue loads a local value and auto-dereferences compiler-managed
+// heap-backed locals introduced by escape analysis.
+func (c *Compiler) emitGetLocalValue(slot int) {
+	c.emit(OP_GET_LOCAL)
+	c.emitByte(byte(slot))
+	if c.localHasHeapCell(slot) {
+		c.emit(OP_DEREF)
+	}
+}
+
+// emitGetLocalRaw loads the raw local slot content without auto-deref.
+func (c *Compiler) emitGetLocalRaw(slot int) {
+	c.emit(OP_GET_LOCAL)
+	c.emitByte(byte(slot))
+}
+
+// emitSetLocalValue stores a value into a local slot; escaping locals are
+// written through their hidden borrow cell.
+func (c *Compiler) emitSetLocalValue(slot int) {
+	if c.localHasHeapCell(slot) {
+		c.emitGetLocalRaw(slot)
+		c.emit(OP_STORE_DEREF)
+		return
+	}
+	c.emit(OP_SET_LOCAL)
+	c.emitByte(byte(slot))
+}
+
+func (c *Compiler) materializeEscapingLocalSlot(slot int) {
+	local := c.localBySlot(slot)
+	if local == nil || !local.Escapes || local.BorrowLike {
+		return
+	}
+	if local.HeapCell {
+		return
+	}
+	c.emitGetLocalRaw(slot)
+	c.emit(OP_BORROW_STACK)
+	c.emitByte(1) // internal cell is mutable to support subsequent assignments
+	c.emit(OP_SET_LOCAL)
+	c.emitByte(byte(slot))
+	local.HeapCell = true
 }
 
 func (c *Compiler) compileTypeConversion(tc *ast.TypeConversion) error {

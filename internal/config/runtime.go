@@ -25,6 +25,19 @@ func StripTraceFlag(args []string) ([]string, bool) {
 	return filtered, traceEnabled
 }
 
+func StripDebugEscapesFlag(args []string) ([]string, bool) {
+	filtered := make([]string, 0, len(args))
+	debugEscapes := false
+	for _, arg := range args {
+		if arg == "--debug-escapes" {
+			debugEscapes = true
+			continue
+		}
+		filtered = append(filtered, arg)
+	}
+	return filtered, debugEscapes
+}
+
 func ParseRuntimePermissions(args []string) (runtimecap.Permissions, []string, error) {
 	var permissions runtimecap.Permissions
 	var rest []string
