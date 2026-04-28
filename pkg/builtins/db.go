@@ -21,8 +21,6 @@ var (
 	nextDBID = 1
 )
 
-
-
 // pgConnect opens a PostgreSQL connection.
 // __builtin_pg_connect(connStr: string) -> Result<int, string>
 func pgConnect(args ...object.Object) object.Object {

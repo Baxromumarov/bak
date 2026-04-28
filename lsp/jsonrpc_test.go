@@ -32,4 +32,3 @@ func TestDecodeMessageRejectsOversizedContentLength(t *testing.T) {
 		t.Fatalf("expected oversized content-length error")
 	}
 }
-

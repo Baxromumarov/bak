@@ -412,7 +412,7 @@ func bestSuggestion(name string, candidates []string) string {
 	if bestDist <= suggestionThreshold(target) {
 		return best
 	}
-	
+
 	if strings.HasPrefix(bestLower, target) ||
 		strings.HasPrefix(target, bestLower) {
 		if absInt(len(bestLower)-len(target)) <= 4 {

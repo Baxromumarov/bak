@@ -78,7 +78,7 @@ func (v Visibility) String() string {
 	if v == Public {
 		return "pub "
 	}
-	
+
 	return ""
 }
 

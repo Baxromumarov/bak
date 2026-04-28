@@ -88,11 +88,11 @@ func fsReadFileBytes(args ...object.Object) object.Object {
 	}
 
 	return resultOk(&object.Vec{
-			Elements: elements,
-			ElemType: "int",
-			Size:     -1,
-			Mutable:  false,
-		})
+		Elements: elements,
+		ElemType: "int",
+		Size:     -1,
+		Mutable:  false,
+	})
 }
 
 // fsWriteFileBytes writes raw bytes (Vec<int, _>) to a file
@@ -156,11 +156,11 @@ func fsReadLines(args ...object.Object) object.Object {
 	}
 
 	return resultOk(&object.Vec{
-			Elements: elements,
-			ElemType: "string",
-			Size:     -1,
-			Mutable:  false,
-		})
+		Elements: elements,
+		ElemType: "string",
+		Size:     -1,
+		Mutable:  false,
+	})
 }
 
 // fsExists checks if a file or directory exists
@@ -241,11 +241,11 @@ func fsReadDir(args ...object.Object) object.Object {
 	}
 
 	return resultOk(&object.Vec{
-			Elements: elements,
-			ElemType: "DirEntry",
-			Size:     -1,
-			Mutable:  false,
-		})
+		Elements: elements,
+		ElemType: "DirEntry",
+		Size:     -1,
+		Mutable:  false,
+	})
 }
 
 // fsStat returns file info, returns Result<FileInfo, string>
@@ -265,11 +265,11 @@ func fsStat(args ...object.Object) object.Object {
 	}
 
 	return resultOk(&object.FileInfo{
-			FileName: info.Name(),
-			FileSize: info.Size(),
-			ModTime:  info.ModTime().Unix(),
-			IsDir:    info.IsDir(),
-		})
+		FileName: info.Name(),
+		FileSize: info.Size(),
+		ModTime:  info.ModTime().Unix(),
+		IsDir:    info.IsDir(),
+	})
 }
 
 // fsJoin joins path elements

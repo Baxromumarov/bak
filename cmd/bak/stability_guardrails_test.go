@@ -42,6 +42,10 @@ func TestPublicDocsAndExamplesLabelExperimentalSurface(t *testing.T) {
 	for _, target := range targets {
 		info, err := os.Stat(target)
 		if err != nil {
+			if os.IsNotExist(err) {
+				// optional target (examples/example-projects) may be absent in some checkouts
+				continue
+			}
 			t.Fatalf("stat %s: %v", target, err)
 		}
 		if !info.IsDir() {

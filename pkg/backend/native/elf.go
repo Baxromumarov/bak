@@ -37,7 +37,7 @@ const (
 	x86BaseAddr   = 0x400000
 	x86ElfHdrSize = 64
 	x86PhdrSize   = 56
-	x86PhdrCount  = 1 // single PT_LOAD segment (RWX, covers entire file)
+	x86PhdrCount  = 1                                        // single PT_LOAD segment (RWX, covers entire file)
 	x86CodeOffset = x86ElfHdrSize + x86PhdrSize*x86PhdrCount // 64 + 56 = 120
 )
 
@@ -65,29 +65,29 @@ func BuildELF(code []byte, entryOffset int, textSize int) ([]byte, error) {
 	}
 	buf.Write(ident)
 
-	elfWriteU16(buf, elfTypeExec)      // e_type
-	elfWriteU16(buf, elfMachine)       // e_machine
-	elfWriteU32(buf, elfVersion)       // e_version
-	elfWriteU64(buf, entryAddr)        // e_entry
-	elfWriteU64(buf, x86ElfHdrSize)    // e_phoff
-	elfWriteU64(buf, 0)                // e_shoff (no sections)
-	elfWriteU32(buf, 0)                // e_flags
-	elfWriteU16(buf, x86ElfHdrSize)    // e_ehsize
-	elfWriteU16(buf, x86PhdrSize)      // e_phentsize
-	elfWriteU16(buf, x86PhdrCount)     // e_phnum
-	elfWriteU16(buf, 0)                // e_shentsize
-	elfWriteU16(buf, 0)                // e_shnum
-	elfWriteU16(buf, 0)                // e_shstrndx
+	elfWriteU16(buf, elfTypeExec)   // e_type
+	elfWriteU16(buf, elfMachine)    // e_machine
+	elfWriteU32(buf, elfVersion)    // e_version
+	elfWriteU64(buf, entryAddr)     // e_entry
+	elfWriteU64(buf, x86ElfHdrSize) // e_phoff
+	elfWriteU64(buf, 0)             // e_shoff (no sections)
+	elfWriteU32(buf, 0)             // e_flags
+	elfWriteU16(buf, x86ElfHdrSize) // e_ehsize
+	elfWriteU16(buf, x86PhdrSize)   // e_phentsize
+	elfWriteU16(buf, x86PhdrCount)  // e_phnum
+	elfWriteU16(buf, 0)             // e_shentsize
+	elfWriteU16(buf, 0)             // e_shnum
+	elfWriteU16(buf, 0)             // e_shstrndx
 
 	// ---- Single PT_LOAD segment (RWX, covers entire file) ----
-	elfWriteU32(buf, ptLoad)           // p_type
-	elfWriteU32(buf, pfR|pfW|pfX)      // p_flags
-	elfWriteU64(buf, 0)                // p_offset
-	elfWriteU64(buf, uint64(x86BaseAddr))   // p_vaddr
-	elfWriteU64(buf, uint64(x86BaseAddr))   // p_paddr
-	elfWriteU64(buf, uint64(fileSize)) // p_filesz
-	elfWriteU64(buf, uint64(fileSize)) // p_memsz
-	elfWriteU64(buf, x86PageAlign)     // p_align
+	elfWriteU32(buf, ptLoad)              // p_type
+	elfWriteU32(buf, pfR|pfW|pfX)         // p_flags
+	elfWriteU64(buf, 0)                   // p_offset
+	elfWriteU64(buf, uint64(x86BaseAddr)) // p_vaddr
+	elfWriteU64(buf, uint64(x86BaseAddr)) // p_paddr
+	elfWriteU64(buf, uint64(fileSize))    // p_filesz
+	elfWriteU64(buf, uint64(fileSize))    // p_memsz
+	elfWriteU64(buf, x86PageAlign)        // p_align
 
 	// ---- Code + Data ----
 	buf.Write(code)

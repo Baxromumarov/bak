@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/baxromumarov/bak/internal/pkgmgr"
 	"github.com/baxromumarov/bak/pkg/manifest"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
@@ -446,9 +447,9 @@ func TestRunDoctorCacheChecksumOK(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(cachePath, "README.md"), []byte("cached package"), 0o644); err != nil {
 		t.Fatalf("write cache file: %v", err)
 	}
-	checksum, err := directoryChecksum(cachePath)
+	checksum, err := pkgmgr.DirectoryChecksum(cachePath)
 	if err != nil {
-		t.Fatalf("directoryChecksum(cachePath): %v", err)
+		t.Fatalf("DirectoryChecksum(cachePath): %v", err)
 	}
 
 	files := map[string]string{
@@ -797,9 +798,9 @@ func TestCLIExplainList(t *testing.T) {
 }
 
 func TestPackageCachePathUsesSourceAndCommit(t *testing.T) {
-	p1 := packageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "aaaaaaaa")
-	p2 := packageCachePath(".bak-cache/pkg", "demo", "github.com/other/demo", "aaaaaaaa")
-	p3 := packageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "bbbbbbbb")
+	p1 := pkgmgr.PackageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "aaaaaaaa")
+	p2 := pkgmgr.PackageCachePath(".bak-cache/pkg", "demo", "github.com/other/demo", "aaaaaaaa")
+	p3 := pkgmgr.PackageCachePath(".bak-cache/pkg", "demo", "github.com/acme/demo", "bbbbbbbb")
 
 	if p1 == p2 {
 		t.Fatalf("expected different cache paths for different sources")
@@ -827,13 +828,13 @@ func TestDirectoryChecksumStableAndGitIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sum1, err := directoryChecksum(dir)
+	sum1, err := pkgmgr.DirectoryChecksum(dir)
 	if err != nil {
-		t.Fatalf("directoryChecksum returned error: %v", err)
+		t.Fatalf("DirectoryChecksum returned error: %v", err)
 	}
-	sum2, err := directoryChecksum(dir)
+	sum2, err := pkgmgr.DirectoryChecksum(dir)
 	if err != nil {
-		t.Fatalf("directoryChecksum returned error: %v", err)
+		t.Fatalf("DirectoryChecksum returned error: %v", err)
 	}
 	if sum1 != sum2 {
 		t.Fatalf("expected stable checksum, got %s and %s", sum1, sum2)
@@ -842,9 +843,9 @@ func TestDirectoryChecksumStableAndGitIgnored(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("different"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	sum3, err := directoryChecksum(dir)
+	sum3, err := pkgmgr.DirectoryChecksum(dir)
 	if err != nil {
-		t.Fatalf("directoryChecksum returned error: %v", err)
+		t.Fatalf("DirectoryChecksum returned error: %v", err)
 	}
 	if sum1 != sum3 {
 		t.Fatalf("expected .git contents to be ignored, got %s and %s", sum1, sum3)
@@ -853,9 +854,9 @@ func TestDirectoryChecksumStableAndGitIgnored(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "sub", "a.txt"), []byte("changed"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	sum4, err := directoryChecksum(dir)
+	sum4, err := pkgmgr.DirectoryChecksum(dir)
 	if err != nil {
-		t.Fatalf("directoryChecksum returned error: %v", err)
+		t.Fatalf("DirectoryChecksum returned error: %v", err)
 	}
 	if sum1 == sum4 {
 		t.Fatalf("expected checksum to change when tracked file contents change")
@@ -871,12 +872,12 @@ func TestValidateFrozenLockfileRequiresManifestDepsInLock(t *testing.T) {
 	}
 
 	lock := manifest.NewLockfile()
-	if err := validateFrozenLockfile(dir, lock); err == nil {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err == nil {
 		t.Fatalf("expected missing dependency error")
 	}
 
 	lock.AddPackage("demo_dep", manifest.LockedPackage{Name: "demo_dep", Source: "github.com/acme/demo_dep", Version: "1.0.0"})
-	if err := validateFrozenLockfile(dir, lock); err != nil {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err != nil {
 		t.Fatalf("unexpected validation error: %v", err)
 	}
 }
@@ -895,7 +896,7 @@ func TestValidateFrozenLockfileRejectsSourceOrVersionDrift(t *testing.T) {
 		Source:  "github.com/evil/demo_dep",
 		Version: "1.2.3",
 	})
-	if err := validateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "points to") {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "points to") {
 		t.Fatalf("expected source drift error, got %v", err)
 	}
 
@@ -904,7 +905,7 @@ func TestValidateFrozenLockfileRejectsSourceOrVersionDrift(t *testing.T) {
 		Source:  "github.com/acme/demo_dep",
 		Version: "1.2.4",
 	}
-	if err := validateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "is version") {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err == nil || !strings.Contains(err.Error(), "is version") {
 		t.Fatalf("expected version drift error, got %v", err)
 	}
 
@@ -913,7 +914,7 @@ func TestValidateFrozenLockfileRejectsSourceOrVersionDrift(t *testing.T) {
 		Source:  "github.com/acme/demo_dep",
 		Version: "v1.2.3",
 	}
-	if err := validateFrozenLockfile(dir, lock); err != nil {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err != nil {
 		t.Fatalf("expected normalized version to pass, got %v", err)
 	}
 }
@@ -927,7 +928,7 @@ func TestValidateFrozenLockfileIgnoresLocalPathDependencies(t *testing.T) {
 	}
 
 	lock := manifest.NewLockfile()
-	if err := validateFrozenLockfile(dir, lock); err != nil {
+	if err := pkgmgr.ValidateFrozenLockfile(dir, lock); err != nil {
 		t.Fatalf("expected local path dependency to be ignored, got %v", err)
 	}
 }
@@ -1005,7 +1006,7 @@ func TestValidateFrozenLockfileRejectsMalformedManifest(t *testing.T) {
 	}
 
 	lock := manifest.NewLockfile()
-	err := validateFrozenLockfile(dir, lock)
+	err := pkgmgr.ValidateFrozenLockfile(dir, lock)
 	if err == nil || !strings.Contains(err.Error(), "loading bak.toml for frozen lockfile validation") {
 		t.Fatalf("expected frozen lockfile validation to surface manifest load error, got %v", err)
 	}
@@ -1025,8 +1026,8 @@ func TestFrozenLockfileVersionMatches(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := frozenLockfileVersionMatches(tt.expected, tt.actual); got != tt.want {
-			t.Fatalf("frozenLockfileVersionMatches(%q, %q) = %v, want %v", tt.expected, tt.actual, got, tt.want)
+		if got := pkgmgr.FrozenLockfileVersionMatches(tt.expected, tt.actual); got != tt.want {
+			t.Fatalf("FrozenLockfileVersionMatches(%q, %q) = %v, want %v", tt.expected, tt.actual, got, tt.want)
 		}
 	}
 }

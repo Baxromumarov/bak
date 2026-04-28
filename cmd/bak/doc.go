@@ -96,13 +96,13 @@ func formatFunctionSignature(fn *ast.FunctionDecl) string {
 
 func formatStructSignature(s *ast.StructDecl) string {
 	var res strings.Builder
-	res.WriteString(fmt.Sprintf("pub struct %s {\n", s.Name.Value))
+	fmt.Fprintf(&res, "pub struct %s {\n", s.Name.Value)
 	for _, f := range s.Fields {
 		pub := ""
 		if f.Visibility == ast.Public {
 			pub = "pub "
 		}
-		res.WriteString(fmt.Sprintf("    %s%s: %s,\n", pub, f.Name.Value, f.Type.String()))
+		fmt.Fprintf(&res, "    %s%s: %s,\n", pub, f.Name.Value, f.Type.String())
 	}
 	res.WriteString("}")
 	return res.String()
@@ -110,9 +110,9 @@ func formatStructSignature(s *ast.StructDecl) string {
 
 func formatEnumSignature(e *ast.EnumDecl) string {
 	var res strings.Builder
-	res.WriteString(fmt.Sprintf("pub enum %s {\n", e.Name.Value))
+	fmt.Fprintf(&res, "pub enum %s {\n", e.Name.Value)
 	for _, v := range e.Variants {
-		res.WriteString(fmt.Sprintf("    %s,\n", v.Name.Value))
+		fmt.Fprintf(&res, "    %s,\n", v.Name.Value)
 	}
 	res.WriteString("}")
 	return res.String()
