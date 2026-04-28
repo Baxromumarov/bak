@@ -297,10 +297,6 @@ func (bb *Builder) String() string {
 	return bb.b.String()
 }
 
-// =============================================================================
-// Internal helpers
-// =============================================================================
-
 // writeAny appends v to b using the most efficient conversion available.
 func writeAny(b *strings.Builder, v any) {
 	switch x := v.(type) {

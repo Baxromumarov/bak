@@ -25,12 +25,20 @@ var (
 // __builtin_pg_connect(connStr: string) -> Result<int, string>
 func pgConnect(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return argCountError("__builtin_pg_connect", len(args), "1")
+		return argCountError(
+			"__builtin_pg_connect",
+			len(args),
+			"1",
+		)
 	}
 
 	connStr, ok := args[0].(*object.String)
 	if !ok {
-		return argTypeError("__builtin_pg_connect", args[0], "STRING")
+		return argTypeError(
+			"__builtin_pg_connect",
+			args[0],
+			"STRING",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -66,12 +74,20 @@ func pgQuery(args ...object.Object) object.Object {
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return firstArgTypeError("__builtin_pg_query", args[0], "INT (handle)")
+		return firstArgTypeError(
+			"__builtin_pg_query",
+			args[0],
+			"INT (handle)",
+		)
 	}
 
 	sqlStr, ok := args[1].(*object.String)
 	if !ok {
-		return secondArgTypeError("__builtin_pg_query", args[1], "STRING (sql)")
+		return secondArgTypeError(
+			"__builtin_pg_query",
+			args[1],
+			"STRING (sql)",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -113,7 +129,11 @@ func pgClose(args ...object.Object) object.Object {
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return argTypeError("__builtin_pg_close", args[0], "INT (handle)")
+		return argTypeError(
+			"__builtin_pg_close",
+			args[0],
+			"INT (handle)",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -142,12 +162,20 @@ func pgClose(args ...object.Object) object.Object {
 // __builtin_mysql_connect(connStr: string) -> Result<int, string>
 func mysqlConnect(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return argCountError("__builtin_mysql_connect", len(args), "1")
+		return argCountError(
+			"__builtin_mysql_connect",
+			len(args),
+			"1",
+		)
 	}
 
 	connStr, ok := args[0].(*object.String)
 	if !ok {
-		return argTypeError("__builtin_mysql_connect", args[0], "STRING")
+		return argTypeError(
+			"__builtin_mysql_connect",
+			args[0],
+			"STRING",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -178,17 +206,29 @@ func mysqlConnect(args ...object.Object) object.Object {
 // __builtin_mysql_query(handle: int, sql: string, params?: Vec<string, _>) -> Result<QueryResult, string>
 func mysqlQuery(args ...object.Object) object.Object {
 	if len(args) < 2 || len(args) > 3 {
-		return argCountError("__builtin_mysql_query", len(args), "2 or 3")
+		return argCountError(
+			"__builtin_mysql_query",
+			len(args),
+			"2 or 3",
+		)
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return firstArgTypeError("__builtin_mysql_query", args[0], "INT (handle)")
+		return firstArgTypeError(
+			"__builtin_mysql_query",
+			args[0],
+			"INT (handle)",
+		)
 	}
 
 	sqlStr, ok := args[1].(*object.String)
 	if !ok {
-		return secondArgTypeError("__builtin_mysql_query", args[1], "STRING (sql)")
+		return secondArgTypeError(
+			"__builtin_mysql_query",
+			args[1],
+			"STRING (sql)",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -225,24 +265,48 @@ func mysqlQuery(args ...object.Object) object.Object {
 // __builtin_db_config(handle: int, max_open: int, max_idle: int, max_life_sec: int) -> Result<void, string>
 func dbConfig(args ...object.Object) object.Object {
 	if len(args) != 4 {
-		return argCountError("__builtin_db_config", len(args), "4")
+		return argCountError(
+			"__builtin_db_config",
+			len(args),
+			"4",
+		)
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return nthArgTypeError("__builtin_db_config", 1, args[0], "INT (handle)")
+		return nthArgTypeError(
+			"__builtin_db_config",
+			1,
+			args[0],
+			"INT (handle)",
+		)
 	}
 	maxOpenObj, ok := args[1].(*object.Integer)
 	if !ok {
-		return nthArgTypeError("__builtin_db_config", 2, args[1], "INT (max_open)")
+		return nthArgTypeError(
+			"__builtin_db_config",
+			2,
+			args[1],
+			"INT (max_open)",
+		)
 	}
 	maxIdleObj, ok := args[2].(*object.Integer)
 	if !ok {
-		return nthArgTypeError("__builtin_db_config", 3, args[2], "INT (max_idle)")
+		return nthArgTypeError(
+			"__builtin_db_config",
+			3,
+			args[2],
+			"INT (max_idle)",
+		)
 	}
 	maxLifeObj, ok := args[3].(*object.Integer)
 	if !ok {
-		return nthArgTypeError("__builtin_db_config", 4, args[3], "INT (max_life_sec)")
+		return nthArgTypeError(
+			"__builtin_db_config",
+			4,
+			args[3],
+			"INT (max_life_sec)",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -267,12 +331,20 @@ func dbConfig(args ...object.Object) object.Object {
 // __builtin_mysql_close(handle: int) -> Result<void, string>
 func mysqlClose(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return argCountError("__builtin_mysql_close", len(args), "1")
+		return argCountError(
+			"__builtin_mysql_close",
+			len(args),
+			"1",
+		)
 	}
 
 	handleObj, ok := args[0].(*object.Integer)
 	if !ok {
-		return argTypeError("__builtin_mysql_close", args[0], "INT (handle)")
+		return argTypeError(
+			"__builtin_mysql_close",
+			args[0],
+			"INT (handle)",
+		)
 	}
 
 	if !runtimecap.Current().AllowNet {
@@ -340,18 +412,18 @@ func rowsToResult(rows *sql.Rows) object.Object {
 			} else if b, ok := val.([]byte); ok {
 				strVal = string(b)
 			} else {
-				strVal = strfmt.Format("{val}", struct{ Val any }{val})
+				strVal = strfmt.Named("{val}", "val", val)
 			}
+
 			rowCells[i] = object.NewString(strVal)
 		}
 
-		rowVec := &object.Vec{
+		rowElements = append(rowElements, &object.Vec{
 			Elements: rowCells,
 			ElemType: "string",
 			Size:     -1,
 			Mutable:  false,
-		}
-		rowElements = append(rowElements, rowVec)
+		})
 	}
 
 	if err := rows.Err(); err != nil {
@@ -379,8 +451,7 @@ func dbQueryParams(fnName string, paramsArg object.Object) ([]any, *object.Error
 	vecObj, ok := paramsArg.(*object.Vec)
 	if !ok {
 		if s, ok := paramsArg.(*object.Struct); ok &&
-			(s.Name == "Vec" ||
-				strings.HasSuffix(s.Name, ".Vec")) {
+			(s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
 			if dataField, ok := s.Fields["data"]; ok {
 				if dataVec, ok := dataField.(*object.Vec); ok {
 					vecObj = dataVec
@@ -389,15 +460,25 @@ func dbQueryParams(fnName string, paramsArg object.Object) ([]any, *object.Error
 		}
 	}
 	if vecObj == nil {
-		return nil, newError("%s: third argument must be VEC (params), got %s", fnName, paramsArg.Type())
+		return nil, newError(
+			"%s: third argument must be VEC (params), got %s",
+			fnName,
+			paramsArg.Type(),
+		)
 	}
 
 	queryArgs := make([]any, 0, len(vecObj.Elements))
 	for i, elem := range vecObj.Elements {
 		strElem, ok := elem.(*object.String)
 		if !ok {
-			return nil, newError("%s: param at index %d must be STRING, got %s", fnName, i, elem.Type())
+			return nil, newError(
+				"%s: param at index %d must be STRING, got %s",
+				fnName,
+				i,
+				elem.Type(),
+			)
 		}
+
 		queryArgs = append(queryArgs, strElem.Value)
 	}
 	return queryArgs, nil

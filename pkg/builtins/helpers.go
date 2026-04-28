@@ -55,22 +55,82 @@ func resultOkInt(n int64) *object.Result {
 	}
 }
 
-func argCountError(fn string, got int, want string) object.Object {
-	return newError("%s: wrong number of arguments. got=%d, want=%s", fn, got, want)
+func argCountError(
+	fn string,
+	got int,
+	want string,
+) object.Object {
+	return newError(
+		"%s: wrong number of arguments. got=%d, want=%s",
+		fn,
+		got,
+		want,
+	)
 }
 
 func argTypeError(fn string, got object.Object, wantType string) object.Object {
-	return newError("%s: argument must be %s, got %s", fn, wantType, got.Type())
+	return newError(
+		"%s: argument must be %s, got %s",
+		fn,
+		wantType,
+		got.Type(),
+	)
 }
 
-func firstArgTypeError(fn string, got object.Object, wantType string) object.Object {
-	return newError("%s: first argument must be %s, got %s", fn, wantType, got.Type())
+func firstArgTypeError(
+	fn string,
+	got object.Object,
+	wantType string,
+) object.Object {
+	return newError(
+		"%s: first argument must be %s, got %s",
+		fn,
+		wantType,
+		got.Type(),
+	)
 }
 
-func secondArgTypeError(fn string, got object.Object, wantType string) object.Object {
-	return newError("%s: second argument must be %s, got %s", fn, wantType, got.Type())
+func secondArgTypeError(
+	fn string,
+	got object.Object,
+	wantType string,
+) object.Object {
+	return newError(
+		"%s: second argument must be %s, got %s",
+		fn,
+		wantType,
+		got.Type(),
+	)
 }
 
-func nthArgTypeError(fn string, n int, got object.Object, wantType string) object.Object {
-	return newError("%s: argument %d must be %s, got %s", fn, n, wantType, got.Type())
+func nthArgTypeError(
+	fn string,
+	n int,
+	got object.Object,
+	wantType string,
+) object.Object {
+	return newError(
+		"%s: argument %d must be %s, got %s",
+		fn,
+		n,
+		wantType,
+		got.Type(),
+	)
+}
+
+func expect[T object.Object](
+	obj object.Object,
+	idx int,
+	fn,
+	hint string,
+) (
+	T,
+	object.Object,
+) {
+	var zero T
+	v, ok := obj.(T)
+	if !ok {
+		return zero, nthArgTypeError(fn, idx, obj, hint)
+	}
+	return v, nil
 }

@@ -17,11 +17,17 @@ import (
 )
 
 var (
-	connMu         sync.Mutex
+	connMu         sync.RWMutex
 	activeConns    = make(map[int]net.Conn)
 	listeners      = make(map[int]net.Listener)
 	nextConnID     = 1
 	nextListenerID = 1000000
+
+	byteSlicePool = sync.Pool{
+		New: func() any {
+			return make([]byte, 0, 1024)
+		},
+	}
 
 	mutexMu     sync.Mutex
 	mutexes     = make(map[int]*sync.Mutex)
@@ -121,6 +127,7 @@ func builtinCfg(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("cfg", len(args), "1")
 	}
+
 	featureName, ok := args[0].(*object.String)
 	if !ok {
 		return argTypeError("cfg", args[0], "string")
@@ -133,14 +140,17 @@ func builtinFromChars(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("fromChars", len(args), "1")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return argTypeError("fromChars", args[0], "Vec<char, _>")
 	}
+
 	// Check element type
 	if vec.ElemType != "char" {
 		return newError("fromChars: Vec element type must be char, got %s", vec.ElemType)
 	}
+
 	runes := make([]rune, len(vec.Elements))
 	for i, el := range vec.Elements {
 		ch, ok := el.(*object.Char)
@@ -149,6 +159,7 @@ func builtinFromChars(args ...object.Object) object.Object {
 		}
 		runes[i] = ch.Value
 	}
+
 	return object.NewString(string(runes))
 }
 
@@ -171,25 +182,35 @@ func builtinStringFromBytes(args ...object.Object) object.Object {
 			}
 		}
 	}
+
 	if vec == nil {
 		return newError("argument to __builtin_string_from_bytes must be Vec (or Vec struct), got %s", args[0].Type())
 	}
+
 	start, ok := args[1].(*object.Integer)
 	if !ok {
 		return argTypeError("", args[1], "start argument must be int")
 	}
+
 	end, ok := args[2].(*object.Integer)
 	if !ok {
 		return argTypeError("", args[2], "end argument must be int")
 	}
+
 	s := start.Value
 	e := end.Value
-	if s < 0 || e < 0 || s > e || e > int64(len(vec.Elements)) {
+
+	if s < 0 ||
+		e < 0 ||
+		s > e ||
+		e > int64(len(vec.Elements)) {
 		return newError("invalid bounds for string_from_bytes: start=%d, end=%d, len=%d", s, e, len(vec.Elements))
 	}
+
 	// Extract bytes
 	var builder strings.Builder
 	builder.Grow(int(e - s))
+
 	for i := s; i < e; i++ {
 		b, ok := vec.Elements[i].(*object.Integer)
 		if !ok {
@@ -197,6 +218,7 @@ func builtinStringFromBytes(args ...object.Object) object.Object {
 		}
 		builder.WriteByte(byte(b.Value))
 	}
+
 	return object.NewString(builder.String())
 }
 
@@ -205,6 +227,7 @@ func builtinStringPtr(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("", len(args), "1")
 	}
+
 	return object.NewInteger(0)
 }
 
@@ -239,6 +262,7 @@ func builtinPrintln(args ...object.Object) object.Object {
 			fmt.Print(arg.Inspect())
 		}
 	}
+
 	fmt.Println()
 	return object.NewVoid()
 }
@@ -256,6 +280,7 @@ func builtinEprint(args ...object.Object) object.Object {
 		default:
 			fmt.Fprint(os.Stderr, arg.Inspect())
 		}
+
 	}
 	return object.NewVoid()
 }
@@ -371,6 +396,7 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 	if !ok {
 		return nthArgTypeError("__builtin_socket_connect", 0, args[0], "string")
 	}
+
 	portObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__builtin_socket_connect", 1, args[1], "int")
@@ -407,21 +433,22 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	if !ok {
 		return nthArgTypeError("__builtin_socket_read", 0, args[0], "int (fd)")
 	}
+
 	nObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__builtin_socket_read", 1, args[1], "int (n)")
 	}
 
-	connMu.Lock()
+	if !runtimecap.Current().AllowNet {
+		return resultErrString(runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet))
+	}
+
+	connMu.RLock()
 	conn, ok := activeConns[int(fdObj.Value)]
-	connMu.Unlock()
+	connMu.RUnlock()
 
 	if !ok {
 		return resultErrString("invalid socket fd")
-	}
-
-	if !runtimecap.Current().AllowNet {
-		return resultErrString(runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet))
 	}
 
 	if nObj.Value < 0 {
@@ -440,6 +467,7 @@ func builtinSocketRead(args ...object.Object) object.Object {
 				ElemType: "byte",
 			})
 		}
+
 		if n == 0 {
 			return resultErr(err)
 		}
@@ -453,14 +481,13 @@ func builtinSocketRead(args ...object.Object) object.Object {
 	for i := range n {
 		elements[i] = object.NewInteger(int64(buf[i]))
 	}
-	vec := &object.Vec{
+
+	return resultOk(&object.Vec{
 		Elements: elements,
 		Size:     -1,
 		Mutable:  true,
 		ElemType: "byte",
-	}
-
-	return resultOk(vec)
+	})
 }
 
 func builtinSocketWrite(args ...object.Object) object.Object {
@@ -478,29 +505,37 @@ func builtinSocketWrite(args ...object.Object) object.Object {
 		return nthArgTypeError("__builtin_socket_write", 1, args[1], "Vec<byte, _>")
 	}
 
-	connMu.Lock()
-	conn, ok := activeConns[int(fdObj.Value)]
-	connMu.Unlock()
-
-	if !ok {
-		return resultErrString("invalid socket fd")
-	}
-
 	if !runtimecap.Current().AllowNet {
 		return resultErrString(runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet))
 	}
 
-	// Convert Vec<int, _> to []byte
-	bytes := make([]byte, len(dataObj.Elements))
+	connMu.RLock()
+	conn, ok := activeConns[int(fdObj.Value)]
+	connMu.RUnlock()
+	if !ok {
+		return resultErrString("invalid socket fd")
+	}
+
+	// Convert Vec<int, _> to []byte using a pool to reduce GC pressure.
+	n := len(dataObj.Elements)
+	bytes := byteSlicePool.Get().([]byte)
+	if cap(bytes) < n {
+		bytes = make([]byte, n)
+	} else {
+		bytes = bytes[:n]
+	}
+
 	for i, el := range dataObj.Elements {
 		if intVal, ok := el.(*object.Integer); ok {
 			bytes[i] = byte(intVal.Value)
 		} else {
+			byteSlicePool.Put(bytes[:0])
 			return resultErrString("invalid data type in buffer")
 		}
 	}
 
 	_, err := conn.Write(bytes)
+	byteSlicePool.Put(bytes[:0])
 	if err != nil {
 		return resultErr(err)
 	}
@@ -522,8 +557,7 @@ func builtinSocketClose(args ...object.Object) object.Object {
 		return resultErrString(runtimecap.PermissionError(
 			"socket.close",
 			runtimecap.FlagAllowNet,
-		),
-		)
+		))
 	}
 
 	connMu.Lock()
@@ -532,6 +566,7 @@ func builtinSocketClose(args ...object.Object) object.Object {
 	if connOK {
 		delete(activeConns, id)
 	}
+
 	var listener net.Listener
 	var listenerOK bool
 	if !connOK {
@@ -583,8 +618,7 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 		return resultErrString(runtimecap.PermissionError(
 			"socket.connectTls",
 			runtimecap.FlagAllowNet,
-		),
-		)
+		))
 	}
 
 	addr := strfmt.S(hostObj.Value, ":", portObj.Value)
@@ -618,23 +652,23 @@ func builtinSocketSetTimeout(args ...object.Object) object.Object {
 		return nthArgTypeError("__builtin_socket_set_timeout", 1, args[1], "int (milliseconds)")
 	}
 
-	connMu.Lock()
+	if !runtimecap.Current().AllowNet {
+		return resultErrString(runtimecap.PermissionError(
+			"socket.setTimeout",
+			runtimecap.FlagAllowNet,
+		))
+	}
+
+	connMu.RLock()
 	conn, ok := activeConns[int(fdObj.Value)]
-	connMu.Unlock()
+	connMu.RUnlock()
 
 	if !ok {
 		return resultErrString("invalid socket fd")
 	}
 
-	if !runtimecap.Current().AllowNet {
-		return resultErrString(runtimecap.PermissionError(
-			"socket.setTimeout",
-			runtimecap.FlagAllowNet,
-		),
-		)
-	}
-
 	duration := time.Duration(msObj.Value) * time.Millisecond
+
 	var err error
 	if msObj.Value <= 0 {
 		err = conn.SetDeadline(time.Time{}) // Clear timeout
@@ -668,11 +702,11 @@ func builtinSocketBind(args ...object.Object) object.Object {
 		return resultErrString(runtimecap.PermissionError(
 			"socket.bind",
 			runtimecap.FlagAllowNet,
-		),
-		)
+		))
 	}
 
 	addr := strfmt.S(hostObj.Value, ":", portObj.Value)
+
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return resultErr(err)
@@ -731,6 +765,7 @@ func builtinSleep(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__builtin_sleep", len(args), "1")
 	}
+
 	ms, ok := args[0].(*object.Integer)
 	if !ok {
 		return argTypeError("__builtin_sleep", args[0], "int (ms)")
@@ -749,6 +784,7 @@ func builtinTimeParts(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__builtin_time_parts", len(args), "1")
 	}
+
 	nanosObj, ok := args[0].(*object.Integer)
 	if !ok {
 		return argTypeError("__builtin_time_parts", args[0], "int (nanos)")
@@ -792,9 +828,11 @@ func builtinThreadID(args ...object.Object) object.Object {
 func builtinMutexNew(args ...object.Object) object.Object {
 	mutexMu.Lock()
 	defer mutexMu.Unlock()
+
 	id := nextMutexID
 	nextMutexID++
 	mutexes[id] = &sync.Mutex{}
+
 	return object.NewInteger(int64(id))
 }
 
@@ -802,18 +840,20 @@ func builtinAllocArray(args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return argCountError("__alloc_array", len(args), "2")
 	}
+
 	capObj, ok := args[0].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__alloc_array", 0, args[0], "int (capacity)")
 	}
+
 	capacity := int(capObj.Value)
 	if capacity < 0 {
 		return newError("__alloc_array: negative capacity")
 	}
 
 	dummy := args[1]
-
 	elements := make([]object.Object, capacity)
+
 	for i := range capacity {
 		elements[i] = dummy
 	}
@@ -832,10 +872,12 @@ func builtinVecAlloc(args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return argCountError("__vec_alloc", len(args), "2")
 	}
+
 	capObj, ok := args[0].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_alloc", 0, args[0], "int (capacity)")
 	}
+
 	capacity := int(capObj.Value)
 	if capacity < 0 {
 		return newError("__vec_alloc: negative capacity")
@@ -861,10 +903,12 @@ func builtinVecLen(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__vec_len", len(args), "1")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return argTypeError("__vec_len", args[0], "Vec")
 	}
+
 	return object.NewInteger(int64(len(vec.Elements)))
 }
 
@@ -873,10 +917,12 @@ func builtinVecCap(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__vec_cap", len(args), "1")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return argTypeError("__vec_cap", args[0], "Vec")
 	}
+
 	return object.NewInteger(int64(cap(vec.Elements)))
 }
 
@@ -885,18 +931,22 @@ func builtinVecGet(args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return argCountError("__vec_get", len(args), "2")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return nthArgTypeError("__vec_get", 0, args[0], "Vec")
 	}
+	
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_get", 1, args[1], "int")
 	}
+	
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
 		return &object.Null{}
 	}
+	
 	return vec.Elements[idx]
 }
 
@@ -905,19 +955,24 @@ func builtinVecSet(args ...object.Object) object.Object {
 	if len(args) != 3 {
 		return argCountError("__vec_set", len(args), "3")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return nthArgTypeError("__vec_set", 0, args[0], "Vec")
 	}
+	
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_set", 1, args[1], "int")
 	}
+	
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
 		return newError("__vec_set: index out of range")
 	}
+	
 	vec.Elements[idx] = args[2]
+	
 	return object.NewVoid()
 }
 
@@ -926,24 +981,29 @@ func builtinVecGrow(args ...object.Object) object.Object {
 	if len(args) != 2 {
 		return argCountError("__vec_grow", len(args), "2")
 	}
+
 	vec, ok := args[0].(*object.Vec)
 	if !ok {
 		return nthArgTypeError("__vec_grow", 0, args[0], "Vec")
 	}
+	
 	capObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_grow", 1, args[1], "int")
 	}
+	
 	newCap := int(capObj.Value)
 	if newCap <= len(vec.Elements) {
 		return vec
 	}
+	
 	newElements := make([]object.Object, newCap)
 	copy(newElements, vec.Elements)
 	// fill rest with nil (Null)
 	for i := len(vec.Elements); i < newCap; i++ {
 		newElements[i] = &object.Null{}
 	}
+	
 	return &object.Vec{
 		Elements: newElements,
 		Size:     newCap,
@@ -956,17 +1016,21 @@ func builtinMutexLock(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__builtin_mutex_lock", len(args), "1")
 	}
+
 	idObj, ok := args[0].(*object.Integer)
 	if !ok {
 		return argTypeError("__builtin_mutex_lock", args[0], "int (id)")
 	}
+	
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]
 	mutexMu.Unlock()
 	if !ok {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
+	
 	mu.Lock()
+	
 	return object.NewVoid()
 }
 
@@ -974,16 +1038,20 @@ func builtinMutexUnlock(args ...object.Object) object.Object {
 	if len(args) != 1 {
 		return argCountError("__builtin_mutex_unlock", len(args), "1")
 	}
+
 	idObj, ok := args[0].(*object.Integer)
 	if !ok {
 		return argTypeError("__builtin_mutex_unlock", args[0], "int (id)")
 	}
+	
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]
 	mutexMu.Unlock()
 	if !ok {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
+	
 	mu.Unlock()
+	
 	return object.NewVoid()
 }

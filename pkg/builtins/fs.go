@@ -44,18 +44,27 @@ func requireFSMutatePermission(op string) *object.Result {
 	if runtimecap.Current().AllowFSMutate {
 		return nil
 	}
+
 	return resultErrString(runtimecap.PermissionError(op, runtimecap.FlagAllowFSMutate))
 }
 
 // fsReadFile reads a file and returns Result<string, string>
 func fsReadFile(args ...object.Object) object.Object {
 	if len(args) != 1 {
-		return argCountError("fs.readFile", len(args), "1")
+		return argCountError(
+			"fs.readFile",
+			len(args),
+			"1",
+		)
 	}
 
 	path, ok := args[0].(*object.String)
 	if !ok {
-		return argTypeError("fs.readFile", args[0], "STRING")
+		return argTypeError(
+			"fs.readFile",
+			args[0],
+			"STRING",
+		)
 	}
 
 	content, err := os.ReadFile(path.Value)

@@ -64,7 +64,12 @@ type Integer struct {
 }
 
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
-func (i *Integer) Inspect() string  { return strfmt.Format("{Value}", struct{ Value any }{i.Value}) }
+func (i *Integer) Inspect() string {
+	return strfmt.Named(
+		"{Value}",
+		"Value", i.Value,
+	)
+}
 
 // Float represents a floating-point value
 type Float struct {
@@ -73,7 +78,10 @@ type Float struct {
 
 func (f *Float) Type() ObjectType { return FLOAT_OBJ }
 func (f *Float) Inspect() string {
-	return strfmt.Format("{Value}", struct{ Value any }{strconv.FormatFloat(float64(f.Value), 'g', -1, 64)})
+	return strfmt.Named(
+		"{Value}",
+		"Value", strconv.FormatFloat(float64(f.Value), 'g', -1, 64),
+	)
 }
 
 // Boolean represents a boolean value
@@ -82,7 +90,12 @@ type Boolean struct {
 }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
-func (b *Boolean) Inspect() string  { return strfmt.Format("{Value}", struct{ Value any }{b.Value}) }
+func (b *Boolean) Inspect() string {
+	return strfmt.Named(
+		"{Value}",
+		"Value", b.Value,
+	)
+}
 
 type Panic struct {
 	Message string
@@ -124,7 +137,10 @@ type Char struct {
 
 func (c *Char) Type() ObjectType { return CHAR_OBJ }
 func (c *Char) Inspect() string {
-	return strfmt.Format("'{Value}'", struct{ Value any }{string(rune(c.Value))})
+	return strfmt.Named(
+		"'{Value}'",
+		"Value", string(rune(c.Value)),
+	)
 }
 
 // Void represents the VOID value
@@ -157,9 +173,18 @@ type Error struct {
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
 func (e *Error) Inspect() string {
 	if e.Line > 0 {
-		return strfmt.Format("Error at line {Line}:{Column}: {Message}", e)
+		return strfmt.Named(
+			"Error at line {Line}:{Column}: {Message}",
+			"Line", e.Line,
+			"Column", e.Column,
+			"Message", e.Message,
+		)
 	}
-	return strfmt.Format("Error: {Message}", struct{ Message any }{e.Message})
+
+	return strfmt.Named(
+		"Error: {Message}",
+		"Message", e.Message,
+	)
 }
 
 // Function represents a function value
@@ -174,7 +199,9 @@ type Function struct {
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
 func (f *Function) Inspect() string {
 	var out bytes.Buffer
+
 	out.WriteString("func")
+
 	if len(f.TypeParams) > 0 {
 		out.WriteString("<")
 		typeParams := []string{}
@@ -184,15 +211,19 @@ func (f *Function) Inspect() string {
 		out.WriteString(strings.Join(typeParams, ", "))
 		out.WriteString(">")
 	}
+
 	out.WriteString("(")
 	params := []string{}
+
 	for _, p := range f.Parameters {
 		params = append(params, p.String())
 	}
+
 	out.WriteString(strings.Join(params, ", "))
 	out.WriteString(") -> (")
 	out.WriteString(f.ReturnType.String())
 	out.WriteString(") {...}")
+
 	return out.String()
 }
 
@@ -237,12 +268,15 @@ func (t *Tuple) Type() ObjectType { return TUPLE_OBJ }
 func (t *Tuple) Inspect() string {
 	var out bytes.Buffer
 	elements := []string{}
+
 	for _, e := range t.Elements {
 		elements = append(elements, e.Inspect())
 	}
+
 	out.WriteString("(")
 	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString(")")
+
 	return out.String()
 }
 
@@ -251,9 +285,11 @@ func (v *Vec) Push(obj Object) error {
 	if v.Size >= 0 {
 		return fmt.Errorf("cannot push to fixed-size Vec")
 	}
+
 	if !v.Mutable {
 		return fmt.Errorf("cannot push to immutable Vec")
 	}
+
 	v.Elements = append(v.Elements, obj)
 	return nil
 }
@@ -263,14 +299,18 @@ func (v *Vec) Pop() (Object, error) {
 	if v.Size >= 0 {
 		return nil, fmt.Errorf("cannot pop from fixed-size Vec")
 	}
+
 	if !v.Mutable {
 		return nil, fmt.Errorf("cannot pop from immutable Vec")
 	}
+
 	if len(v.Elements) == 0 {
 		return nil, fmt.Errorf("cannot pop from empty Vec")
 	}
+
 	elem := v.Elements[len(v.Elements)-1]
 	v.Elements = v.Elements[:len(v.Elements)-1]
+
 	return elem, nil
 }
 
@@ -374,13 +414,16 @@ func (s *Struct) Inspect() string {
 
 	fields := []string{}
 	for _, k := range keys {
-		fields = append(fields, strfmt.Format("{k}: {inspect}", struct {
-			K       any
-			Inspect any
-		}{k, s.Fields[k].Inspect()}))
+		fields = append(fields, strfmt.Named(
+			"{k}: {inspect}",
+			"key", k,
+			"inspect", s.Fields[k].Inspect()),
+		)
 	}
+
 	out.WriteString(strings.Join(fields, ", "))
 	out.WriteString("}")
+
 	return out.String()
 }
 
@@ -398,11 +441,13 @@ func (s *StructDef) Inspect() string {
 		for _, p := range s.TypeParams {
 			params = append(params, p.String())
 		}
-		return strfmt.Format("struct {Name}<{params}>", struct {
-			Name   any
-			Params any
-		}{s.Name, strings.Join(params, ", ")})
+		return strfmt.Named(
+			"struct {Name}<{params}>",
+			"Name", s.Name,
+			"params", strings.Join(params, ", "),
+		)
 	}
+
 	return "struct " + s.Name
 }
 
@@ -469,12 +514,15 @@ func (e *EnumValue) Inspect() string {
 	if len(e.Values) > 0 {
 		out.WriteString("(")
 		values := []string{}
+
 		for _, v := range e.Values {
 			values = append(values, v.Inspect())
 		}
+
 		out.WriteString(strings.Join(values, ", "))
 		out.WriteString(")")
 	}
+
 	return out.String()
 }
 
@@ -486,10 +534,17 @@ type Result struct {
 
 func (r *Result) Type() ObjectType { return RESULT_OBJ }
 func (r *Result) Inspect() string {
-	if r.IsOk {
-		return strfmt.Format("Ok({inspect})", struct{ Inspect any }{r.Value.Inspect()})
+	out := bytes.Buffer{}
+	prefix := "Ok("
+	if !r.IsOk {
+		prefix = "Err("
 	}
-	return strfmt.Format("Err({inspect})", struct{ Inspect any }{r.Value.Inspect()})
+
+	out.WriteString(prefix)
+	out.WriteString(r.Value.Inspect())
+	out.WriteString(")")
+
+	return out.String()
 }
 
 // Option represents an Option<T> value
@@ -500,9 +555,14 @@ type Option struct {
 
 func (o *Option) Type() ObjectType { return OPTION_OBJ }
 func (o *Option) Inspect() string {
+
 	if o.IsSome {
-		return strfmt.Format("Some({inspect})", struct{ Inspect any }{o.Value.Inspect()})
+		return strfmt.Named(
+			"Some({inspect})",
+			"inspect", o.Value.Inspect(),
+		)
 	}
+
 	return "None"
 }
 
@@ -514,10 +574,12 @@ type Borrow struct {
 
 func (b *Borrow) Type() ObjectType { return BORROW_OBJ }
 func (b *Borrow) Inspect() string {
+	prefix := "&"
 	if b.Mutable {
-		return "&mut " + b.Value.Inspect()
+		prefix = "&mut "
 	}
-	return "&" + b.Value.Inspect()
+
+	return prefix + b.Value.Inspect()
 }
 
 // Range represents a range value
@@ -534,16 +596,19 @@ func (r *Range) Inspect() string {
 	if r.StartInclusive {
 		startBracket = "["
 	}
+
 	endBracket := ")"
 	if r.EndInclusive {
 		endBracket = "]"
 	}
-	return strfmt.Format("{startBracket}{Start}, {End}{endBracket}", struct {
-		StartBracket any
-		Start        any
-		End          any
-		EndBracket   any
-	}{startBracket, r.Start, r.End, endBracket})
+
+	return strfmt.Named(
+		"{startBracket}{Start}, {End}{endBracket}",
+		"startBracket", startBracket,
+		"Start", r.Start,
+		"End", r.End,
+		"endBracket", endBracket,
+	)
 }
 
 // Iterator returns an iterator for the range
@@ -562,6 +627,7 @@ func (r *Range) Iterator() []int64 {
 	for i := start; i <= end; i++ {
 		result = append(result, i)
 	}
+
 	return result
 }
 
@@ -608,7 +674,10 @@ type Module struct {
 
 func (m *Module) Type() ObjectType { return MODULE_OBJ }
 func (m *Module) Inspect() string {
-	return strfmt.Format("<module {Name}>", struct{ Name any }{m.Name})
+	return strfmt.Named(
+		"<module {Name}>",
+		"Name", m.Name,
+	)
 }
 
 // DirEntry represents a directory entry (file or subdirectory)
@@ -620,11 +689,12 @@ type DirEntry struct {
 
 func (d *DirEntry) Type() ObjectType { return DIR_ENTRY_OBJ }
 func (d *DirEntry) Inspect() string {
-	return strfmt.Format("DirEntry{{name: {FileName}, isDir: {IsDir}, path: {FullPath}}}", struct {
-		FileName any
-		IsDir    any
-		FullPath any
-	}{strconv.Quote(d.FileName), d.IsDir, strconv.Quote(d.FullPath)})
+	return strfmt.Named(
+		"DirEntry{{name: {FileName}, isDir: {IsDir}, path: {FullPath}}}",
+		"FileName", strconv.Quote(d.FileName),
+		"IsDir", d.IsDir,
+		"FullPath", strconv.Quote(d.FullPath),
+	)
 }
 
 // FileInfo represents file metadata
@@ -637,12 +707,13 @@ type FileInfo struct {
 
 func (f *FileInfo) Type() ObjectType { return FILE_INFO_OBJ }
 func (f *FileInfo) Inspect() string {
-	return strfmt.Format("FileInfo{{name: {FileName}, size: {FileSize}, modTime: {ModTime}, isDir: {IsDir}}}", struct {
-		FileName any
-		FileSize any
-		ModTime  any
-		IsDir    any
-	}{strconv.Quote(f.FileName), f.FileSize, f.ModTime, f.IsDir})
+	return strfmt.Named(
+		"FileInfo{{name: {FileName}, size: {FileSize}, modTime: {ModTime}, isDir: {IsDir}}}",
+		"FileName", strconv.Quote(f.FileName),
+		"FileSize", f.FileSize,
+		"ModTime", f.ModTime,
+		"IsDir", f.IsDir,
+	)
 }
 
 // TypeConstructor represents a type that can have static methods (e.g., Vec.new())
@@ -653,7 +724,10 @@ type TypeConstructor struct {
 
 func (tc *TypeConstructor) Type() ObjectType { return TYPE_CONSTRUCTOR_OBJ }
 func (tc *TypeConstructor) Inspect() string {
-	return strfmt.Format("<type {Name}>", struct{ Name any }{tc.Name})
+	return strfmt.Named(
+		"<type {Name}>",
+		"Name", tc.Name,
+	)
 }
 
 // Thread represents a reference to a background thread
@@ -662,7 +736,12 @@ type Thread struct {
 }
 
 func (t *Thread) Type() ObjectType { return THREAD_OBJ }
-func (t *Thread) Inspect() string  { return strfmt.Format("Thread({ID})", struct{ ID any }{t.ID}) }
+func (t *Thread) Inspect() string {
+	return strfmt.Named(
+		"Thread({ID})",
+		"ID", t.ID,
+	)
+}
 
 // Constructors
 
@@ -695,23 +774,40 @@ func NewNull() *Null {
 }
 
 func NewResult(isOk bool, value Object) *Result {
-	return &Result{IsOk: isOk, Value: value}
+	return &Result{
+		IsOk:  isOk,
+		Value: value,
+	}
 }
 
 func NewResultOk(value Object) *Result {
-	return &Result{IsOk: true, Value: value}
+	return &Result{
+		IsOk:  true,
+		Value: value,
+	}
 }
 
 func NewResultErr(msg string) *Result {
-	return &Result{IsOk: false, Value: &String{Value: msg}}
+	return &Result{
+		IsOk:  false,
+		Value: &String{Value: msg},
+	}
 }
 
 func NewOption(isSome bool, value Object) *Option {
-	return &Option{IsSome: isSome, Value: value}
+	return &Option{
+		IsSome: isSome,
+		Value:  value,
+	}
 }
 
 func NewVec(elements []Object, elemType string) *Vec {
-	return &Vec{Elements: elements, ElemType: elemType, Size: -1, Mutable: true}
+	return &Vec{
+		Elements: elements,
+		ElemType: elemType,
+		Size:     -1,
+		Mutable:  true,
+	}
 }
 
 func NewReturnValue(value Object) *ReturnValue {

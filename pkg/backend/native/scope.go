@@ -49,12 +49,10 @@ func (s *EmitState) declareLocal(name string, size int) int {
 	offset := -8 * s.LocalSlots
 	if len(s.Scopes) > 0 {
 		scope := &s.Scopes[len(s.Scopes)-1]
-		scope.Locals = append(
-			scope.Locals,
-			Local{
-				Name:   name,
-				Offset: offset,
-			},
+		scope.Locals = append(scope.Locals, Local{
+			Name:   name,
+			Offset: offset,
+		},
 		)
 	}
 	return offset
@@ -86,12 +84,9 @@ func (s *EmitState) resolveConst(name string) (int, bool) {
 
 // pushLoop pushes a new loop context for break/continue tracking.
 func (s *EmitState) pushLoop(continueTarget int) {
-	s.LoopStack = append(
-		s.LoopStack,
-		LoopContext{
-			ContinueTarget: continueTarget,
-		},
-	)
+	s.LoopStack = append(s.LoopStack, LoopContext{
+		ContinueTarget: continueTarget,
+	})
 }
 
 // popLoop pops the current loop context and returns it.

@@ -28,7 +28,10 @@ func (s *EmitState) addDataItem(data []byte, align int) int {
 		align = 1
 	}
 	idx := len(s.DataItems)
-	s.DataItems = append(s.DataItems, DataItem{Bytes: data, Align: align})
+	s.DataItems = append(s.DataItems, DataItem{
+		Bytes: data,
+		Align: align,
+	})
 	return idx
 }
 

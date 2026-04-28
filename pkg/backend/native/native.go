@@ -76,12 +76,10 @@ func BuildExecutableWithOptions(
 		if pkg.Program != nil {
 			// Extract path-derived name from package path
 			pathName := extractPathName(pkg.Path)
-			allPrograms = append(
-				allPrograms,
-				ProgramWithPath{
-					Program:  pkg.Program,
-					PathName: pathName,
-				},
+			allPrograms = append(allPrograms, ProgramWithPath{
+				Program:  pkg.Program,
+				PathName: pathName,
+			},
 			)
 		}
 	}

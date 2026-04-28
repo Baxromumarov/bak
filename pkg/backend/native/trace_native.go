@@ -7,7 +7,9 @@ func (s *EmitState) traceFunctionName(fd *ast.FunctionDecl) string {
 		return s.CurrentFunc
 	}
 	name := fd.Name.Value
-	if s.CurrentModule != "" && s.CurrentModule != "main" && !stringsContainsDot(name) {
+	if s.CurrentModule != "" &&
+		s.CurrentModule != "main" &&
+		!stringsContainsDot(name) {
 		return s.CurrentModule + "." + name
 	}
 	return name
