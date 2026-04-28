@@ -14,7 +14,6 @@ import (
 	"github.com/baxromumarov/bak/internal/diagnostics"
 	"github.com/baxromumarov/bak/internal/driver"
 	"github.com/baxromumarov/bak/internal/pipeline"
-	"github.com/baxromumarov/bak/internal/pkgmgr"
 	"github.com/baxromumarov/bak/internal/runner"
 	internaltest "github.com/baxromumarov/bak/internal/test"
 )
@@ -88,14 +87,6 @@ func (s *commandService) Check(path string, ctx *cli.Context) error {
 	}
 	fmt.Fprintln(s.stdout, "Typecheck: OK")
 	return nil
-}
-
-func (s *commandService) Get(pkg string, opts pkgmgr.Options, _ *cli.Context) error {
-	return driver.GetPackageWithOptions(pkg, driver.PackageOptions{Offline: opts.Offline, FrozenLockfile: opts.FrozenLockfile})
-}
-
-func (s *commandService) Install(opts pkgmgr.Options, _ *cli.Context) error {
-	return driver.InstallDependenciesWithOptions(driver.PackageOptions{Offline: opts.Offline, FrozenLockfile: opts.FrozenLockfile})
 }
 
 func (s *commandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) error {

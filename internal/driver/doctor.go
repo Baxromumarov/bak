@@ -1,17 +1,22 @@
 package driver
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
-	"github.com/baxromumarov/bak/internal/pkgmgr"
-	"github.com/baxromumarov/bak/pkg/manifest"
+	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/typechecker"
 )
+
+const VERSION = "dev"
 
 // RunDoctor runs doctor checks and returns an error when checks fail.
 func RunDoctor(w io.Writer, root string) error {
@@ -39,10 +44,10 @@ func RunDoctor(w io.Writer, root string) error {
 	}
 
 	for _, tool := range []string{"bak", "bakfmt", "baklint", "bakcheck", "bak-lsp"} {
-		if toolPath, source, err := pkgmgr.ResolveDoctorToolPath(root, tool); err != nil {
+		if toolPath, source, err := resolveDoctorToolPath(root, tool); err != nil {
 			check("warn", "tool "+tool, "not found in PATH or ./bin")
 		} else {
-			version := pkgmgr.DoctorToolVersion(toolPath)
+			version := doctorToolVersion(toolPath)
 			check("ok", "tool "+tool, source+": "+toolPath+" ("+version+")")
 		}
 	}
@@ -51,28 +56,6 @@ func RunDoctor(w io.Writer, root string) error {
 		check("ok", "go toolchain", goPath)
 	} else {
 		check("warn", "go toolchain", "not found in PATH; building from source will fail")
-	}
-
-	var loadedManifest *manifest.Manifest
-	hasManifest := false
-	manifestPath := filepath.Join(root, "bak.toml")
-	if _, err := os.Stat(manifestPath); err == nil {
-		m, err := manifest.Load(manifestPath)
-		if err != nil {
-			check("fail", "bak.toml", err.Error())
-		} else {
-			loadedManifest = m
-			hasManifest = true
-			mode := m.LanguageMode
-			if mode == "" {
-				mode = manifest.LanguageModeFrozen
-			}
-			check("ok", "bak.toml", "language_mode="+mode)
-		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		check("warn", "bak.toml", "not found; commands default to frozen language mode")
-	} else {
-		check("fail", "bak.toml", err.Error())
 	}
 
 	requiredStdlib := []string{
@@ -94,48 +77,82 @@ func RunDoctor(w io.Writer, root string) error {
 		check("warn", "examples/hello.bak", "missing; example smoke checks may fail")
 	} else {
 		check("ok", "examples/hello.bak", "")
-		if err := pkgmgr.DoctorSmokeCheckBakFile(filepath.Join(root, "examples", "hello.bak")); err != nil {
+		if err := doctorSmokeCheckBakFile(filepath.Join(root, "examples", "hello.bak")); err != nil {
 			check("warn", "examples/hello.bak smoke", err.Error())
 		} else {
 			check("ok", "examples/hello.bak smoke", "parse/typecheck passed")
 		}
 	}
 
-	if _, err := os.Stat(filepath.Join(root, "bak.lock")); err == nil {
-		lock, err := manifest.LoadLockfileFromDir(root)
-		if err != nil {
-			check("fail", "bak.lock", err.Error())
-		} else {
-			check("ok", "bak.lock", fmt.Sprintf("%d locked package(s)", len(lock.Packages)))
-			if hasManifest {
-				if err := manifest.ValidateLockfileIntegrity(lock, loadedManifest); err != nil {
-					check("fail", "bak.lock integrity", err.Error())
-				} else {
-					check("ok", "bak.lock integrity", "manifest-aligned dependency set")
-				}
-				if err := pkgmgr.ValidateFrozenLockfile(root, lock); err != nil {
-					check("fail", "manifest/lock coherence", err.Error())
-				} else {
-					check("ok", "manifest/lock coherence", "bak.lock matches bak.toml dependency constraints")
-				}
-			}
-			cacheChecks := pkgmgr.DoctorLockCacheChecks(root, lock)
-			for _, c := range cacheChecks {
-				check(c.Status, c.Name, c.Detail)
-			}
-		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		if hasManifest && len(loadedManifest.Dependencies) > 0 {
-			check("warn", "bak.lock", "missing with declared dependencies; run 'bak install' or 'bak get <pkg>'")
-		} else {
-			check("warn", "bak.lock", "not found; dependency installs are not pinned")
-		}
-	} else {
-		check("fail", "bak.lock", err.Error())
-	}
-
 	if !ok {
 		return fmt.Errorf("doctor checks failed")
 	}
 	return nil
+}
+
+func resolveDoctorToolPath(root, tool string) (string, string, error) {
+	if toolPath, err := exec.LookPath(tool); err == nil {
+		return toolPath, "PATH", nil
+	}
+	localPath := filepath.Join(root, "bin", tool)
+	if info, err := os.Stat(localPath); err == nil && !info.IsDir() {
+		return localPath, "local", nil
+	}
+	return "", "", fmt.Errorf("tool %s not found", tool)
+}
+
+func doctorToolVersion(path string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, path, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "version unknown"
+	}
+	trimmed := strings.TrimSpace(string(output))
+	if trimmed == "" {
+		return "version unknown"
+	}
+	if idx := strings.IndexByte(trimmed, '\n'); idx >= 0 {
+		trimmed = strings.TrimSpace(trimmed[:idx])
+	}
+	if trimmed == "" {
+		return "version unknown"
+	}
+	return trimmed
+}
+
+func doctorSmokeCheckBakFile(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read failed: %w", err)
+	}
+
+	l := lexer.New(string(data))
+	p := parser.New(l)
+	p.SetFilename(path)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		return fmt.Errorf("parse failed (%s)", p.Errors()[0])
+	}
+
+	tc := typechecker.NewWithPath(path)
+	tc.SetSuppressUnused(true)
+	typeErrors := tc.Check(program)
+	if len(typeErrors) > 0 && hasFatalTypeErrorsLocal(tc) {
+		return fmt.Errorf("typecheck failed (%s)", typeErrors[0])
+	}
+	return nil
+}
+
+func hasFatalTypeErrorsLocal(tc *typechecker.TypeChecker) bool {
+	if tc == nil {
+		return false
+	}
+	for _, typeErr := range tc.GetErrors() {
+		if typeErr.Tier == typechecker.TierFatal {
+			return true
+		}
+	}
+	return false
 }

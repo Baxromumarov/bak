@@ -177,7 +177,7 @@ func main() -> (void) {
 	if !strings.Contains(joined, "E0800") {
 		t.Fatalf("expected experimental feature diagnostic code, got %v", typeErrs)
 	}
-	if !strings.Contains(joined, "--experimental=unsafe") || !strings.Contains(joined, runtimecap.ExperimentalFeatureUnsafe) {
+	if !strings.Contains(joined, "--experimental=unsafe") {
 		t.Fatalf("expected experimental feature enable hint, got %v", typeErrs)
 	}
 }

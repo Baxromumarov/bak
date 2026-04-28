@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/baxromumarov/bak/pkg/manifest"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
@@ -140,85 +139,19 @@ func ParseExperimentalFeatures(args []string) ([]string, []string, error) {
 	return mergeFeatureLists(nil, features), rest, nil
 }
 
-func ResolveProjectFeatureState(cliFeatures []string) (*manifest.Manifest, []string, error) {
-	m, err := manifest.LoadFromDir(".")
-	if err != nil {
-		if os.IsNotExist(err) {
-			features, resolveErr := ResolveProjectFeaturesByLanguageMode(manifest.LanguageModeFrozen, nil, cliFeatures)
-			if resolveErr != nil {
-				return nil, nil, resolveErr
-			}
-			return nil, features, nil
-		}
-		return nil, nil, err
-	}
-
-	features, err := ResolveProjectFeaturesByLanguageMode(m.LanguageMode, m.Features, cliFeatures)
-	if err != nil {
-		return nil, nil, err
-	}
-	return m, features, nil
+func ResolveProjectFeatureState(cliFeatures []string) ([]string, error) {
+	return mergeFeatureLists(nil, cliFeatures), nil
 }
 
 func LoadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []string) runtimecap.Permissions {
-	m, features, err := ResolveProjectFeatureState(cliFeatures)
+	features, err := ResolveProjectFeatureState(cliFeatures)
 	if err != nil {
 		runtimecap.SetCurrentFeatures(nil)
-		fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error resolving runtime feature flags: %v\n", err)
 		os.Exit(1)
 	}
 	runtimecap.SetCurrentFeatures(features)
-	if m == nil || m.Permissions == nil {
-		return base
-	}
-
-	permissions := runtimecap.Permissions{
-		AllowExec:     m.Permissions.AllowExec,
-		AllowNet:      m.Permissions.AllowNet,
-		AllowFSMutate: m.Permissions.AllowFSMutate,
-		ExecMaxOutput: m.Permissions.ExecMaxOutput,
-	}
-	if m.Permissions.ExecTimeout != "" {
-		dur, err := time.ParseDuration(m.Permissions.ExecTimeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading runtime permissions from bak.toml: %v\n", fmt.Errorf("invalid permissions.exec_timeout %q: %w", m.Permissions.ExecTimeout, err))
-			os.Exit(1)
-		}
-		permissions.ExecTimeout = dur
-	}
-	return mergeRuntimePermissions(base, permissions)
-}
-
-func ResolveProjectFeaturesByLanguageMode(languageMode string, manifestFeatures []string, cliFeatures []string) ([]string, error) {
-	mode := manifest.NormalizeLanguageMode(languageMode)
-	merged := mergeFeatureLists(manifestFeatures, cliFeatures)
-
-	switch mode {
-	case manifest.LanguageModeExperimental:
-		return merged, nil
-	case manifest.LanguageModeFrozen:
-		manifestExperimental := pickExperimentalFeatures(manifestFeatures)
-		if len(manifestExperimental) > 0 {
-			return nil, fmt.Errorf(
-				"bak.toml has language_mode=%q but enables experimental features: %s\n\nTo opt in, add this to bak.toml:\n%s",
-				mode,
-				strings.Join(manifestExperimental, ", "),
-				languageModeOptInSnippet(),
-			)
-		}
-		cliExperimental := pickExperimentalFeatures(cliFeatures)
-		if len(cliExperimental) > 0 {
-			return nil, fmt.Errorf(
-				"language_mode=%q blocks CLI experimental features (%s)\n\nTo opt in, add this to bak.toml:\n%s",
-				mode,
-				strings.Join(cliExperimental, ", "),
-				languageModeOptInSnippet(),
-			)
-		}
-		return merged, nil
-	default:
-		return nil, fmt.Errorf("unknown language_mode %q", mode)
-	}
+	return base
 }
 
 func mergeFeatureLists(base []string, extra []string) []string {
@@ -237,33 +170,6 @@ func mergeFeatureLists(base []string, extra []string) []string {
 	}
 	sort.Strings(merged)
 	return merged
-}
-
-func pickExperimentalFeatures(features []string) []string {
-	experimental := make([]string, 0, len(features))
-	for _, feature := range features {
-		if runtimecap.IsKnownExperimentalFeature(feature) {
-			experimental = append(experimental, feature)
-		}
-	}
-	return experimental
-}
-
-func languageModeOptInSnippet() string {
-	return "language_mode = \"experimental\""
-}
-
-func mergeRuntimePermissions(base, extra runtimecap.Permissions) runtimecap.Permissions {
-	base.AllowExec = base.AllowExec || extra.AllowExec
-	base.AllowNet = base.AllowNet || extra.AllowNet
-	base.AllowFSMutate = base.AllowFSMutate || extra.AllowFSMutate
-	if base.ExecTimeout <= 0 {
-		base.ExecTimeout = extra.ExecTimeout
-	}
-	if base.ExecMaxOutput <= 0 {
-		base.ExecMaxOutput = extra.ExecMaxOutput
-	}
-	return base
 }
 
 func parseExperimentalFeatureList(value string) ([]string, error) {

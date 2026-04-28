@@ -19,8 +19,6 @@ func Execute(rawArgs []string, stdout io.Writer) error {
 	registry.Register(commandpkg.NewRunCommand(service))
 	registry.Register(commandpkg.NewBuildCommand(service))
 	registry.Register(commandpkg.NewCheckCommand(service))
-	registry.Register(commandpkg.NewGetCommand(service))
-	registry.Register(commandpkg.NewInstallCommand(service))
 	registry.Register(commandpkg.NewTestCommand(service))
 	registry.Register(commandpkg.NewDoctorCommand(service))
 	registry.Register(commandpkg.NewExplainCommand(service))

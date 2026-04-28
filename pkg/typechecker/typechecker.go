@@ -156,7 +156,7 @@ func stableFrozenGenericTypeName(name string) bool {
 
 func experimentalFeatureHelp(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return fmt.Sprintf("enable it with features = [\"%s\"] in bak.toml or pass --experimental=%s", feature, short)
+	return fmt.Sprintf("enable it by passing --experimental=%s", short)
 }
 
 func isStdlibSourcePath(path string) bool {

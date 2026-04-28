@@ -7,21 +7,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/baxromumarov/bak/internal/config"
 	"github.com/baxromumarov/bak/internal/diagnostics"
 	"github.com/baxromumarov/bak/internal/driver"
-	"github.com/baxromumarov/bak/internal/pkgmgr"
 	testpkg "github.com/baxromumarov/bak/internal/test"
-	"github.com/baxromumarov/bak/pkg/manifest"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
-
-type packageCommandOptions struct {
-	Offline        bool
-	FrozenLockfile bool
-}
 
 type testCommandOptions struct {
 	RunPattern     string
@@ -52,14 +44,6 @@ func stripTraceFlag(args []string) ([]string, bool) {
 
 func stripDebugEscapesFlag(args []string) ([]string, bool) {
 	return config.StripDebugEscapesFlag(args)
-}
-
-func parsePackageCommandOptions(args []string) (packageCommandOptions, []string, error) {
-	opts, rest, err := pkgmgr.ParseOptions(args)
-	if err != nil {
-		return packageCommandOptions{}, nil, err
-	}
-	return packageCommandOptions{Offline: opts.Offline, FrozenLockfile: opts.FrozenLockfile}, rest, nil
 }
 
 func parseTestCommandOptions(args []string) (testCommandOptions, []string, error) {
@@ -101,11 +85,7 @@ func parseTestCommandOptions(args []string) (testCommandOptions, []string, error
 	return out, rest, nil
 }
 
-func resolveProjectFeaturesByLanguageMode(languageMode string, manifestFeatures []string, cliFeatures []string) ([]string, error) {
-	return config.ResolveProjectFeaturesByLanguageMode(languageMode, manifestFeatures, cliFeatures)
-}
-
-func resolveProjectFeatureState(cliFeatures []string) (*manifest.Manifest, []string, error) {
+func resolveProjectFeatureState(cliFeatures []string) ([]string, error) {
 	return config.ResolveProjectFeatureState(cliFeatures)
 }
 
@@ -258,61 +238,4 @@ func runDoctor(w io.Writer, root string) bool {
 		return false
 	}
 	return true
-}
-
-func initProject(name string) error {
-	if err := os.MkdirAll(name, 0o755); err != nil {
-		return err
-	}
-	m := manifest.DefaultManifest(name)
-	base := filepath.Base(name)
-	m.Package.Name = strings.ReplaceAll(base, "-", "_")
-	m.LanguageMode = manifest.LanguageModeFrozen
-	if err := m.SaveToDir(name); err != nil {
-		return err
-	}
-	readme := "# demo project\n\nUse `bak new` to scaffold new projects.\nThis project uses language_mode = \"frozen\" by default.\n"
-	_ = os.WriteFile(filepath.Join(name, "README.md"), []byte(readme), 0o644)
-	gitignore := ".bak-cache/\n# build outputs\na.out\n"
-	_ = os.WriteFile(filepath.Join(name, ".gitignore"), []byte(gitignore), 0o644)
-	return nil
-}
-
-func loadRuntimePermissionsFromManifest(dir string) (runtimecap.Permissions, error) {
-	m, err := manifest.LoadFromDir(dir)
-	if err != nil {
-		return runtimecap.Permissions{}, err
-	}
-	if m == nil || m.Permissions == nil {
-		return runtimecap.Permissions{}, nil
-	}
-	p := runtimecap.Permissions{
-		AllowExec:     m.Permissions.AllowExec,
-		AllowNet:      m.Permissions.AllowNet,
-		AllowFSMutate: m.Permissions.AllowFSMutate,
-		ExecMaxOutput: m.Permissions.ExecMaxOutput,
-	}
-	if m.Permissions.ExecTimeout != "" {
-		d, err := time.ParseDuration(m.Permissions.ExecTimeout)
-		if err != nil {
-			return runtimecap.Permissions{}, fmt.Errorf("invalid permissions.exec_timeout %q: %w", m.Permissions.ExecTimeout, err)
-		}
-		p.ExecTimeout = d
-	}
-	return p, nil
-}
-
-func mergeRuntimePermissions(base, extra runtimecap.Permissions) runtimecap.Permissions {
-	base.AllowExec = base.AllowExec || extra.AllowExec
-	base.AllowNet = base.AllowNet || extra.AllowNet
-	base.AllowFSMutate = base.AllowFSMutate || extra.AllowFSMutate
-	if base.ExecTimeout <= 0 {
-		base.ExecTimeout = extra.ExecTimeout
-	}
-
-	if base.ExecMaxOutput <= 0 {
-		base.ExecMaxOutput = extra.ExecMaxOutput
-	}
-
-	return base
 }

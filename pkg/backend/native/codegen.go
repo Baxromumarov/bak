@@ -183,7 +183,7 @@ func (s *EmitState) requirePermission(allowed bool, action string, flag string) 
 	if s.CurrentModule != "" && s.CurrentModule != "main" {
 		return nil
 	}
-	return fmt.Errorf("native: %s requires %s or a matching [permissions] entry in bak.toml", action, flag)
+	return fmt.Errorf("native: %s requires %s", action, flag)
 }
 
 func nativePermissionAllowed(perms runtimecap.Permissions, flag string) bool {
