@@ -22,6 +22,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/linter"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/prelude"
 	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
@@ -739,7 +740,7 @@ func (s *Server) handleHover(req Request) *Hover {
 						}
 					}
 
-					stdLibPath := getStdLibPath()
+					stdLibPath := prelude.GetStdLibPath()
 					preludeFiles := []string{
 						filepath.Join(stdLibPath, "collections", "vec.bak"),
 						filepath.Join(stdLibPath, "collections", "hashmap.bak"),
@@ -933,7 +934,7 @@ func (s *Server) handleDefinition(req Request) []Location {
 				t = resolveAliasTypeString(result, t)
 				baseType := mapBuiltinType(baseTypeName(t))
 				key := baseType + "." + mce.Method.Value
-				stdLibPath := getStdLibPath()
+				stdLibPath := prelude.GetStdLibPath()
 				preludeFiles := []string{
 					filepath.Join(stdLibPath, "builtins.bak"),
 					filepath.Join(stdLibPath, "collections", "vec.bak"),
@@ -1024,7 +1025,7 @@ func (s *Server) handleDefinition(req Request) []Location {
 											}
 										}
 									}
-									stdLibPath := getStdLibPath()
+									stdLibPath := prelude.GetStdLibPath()
 									preludeFiles := []string{
 										filepath.Join(stdLibPath, "builtins.bak"),
 										filepath.Join(stdLibPath, "collections", "vec.bak"),
@@ -1116,7 +1117,7 @@ func (s *Server) handleDefinition(req Request) []Location {
 				}
 
 				// Key fallback: Check Standard Library Prelude (Vec, HashMap, etc.)
-				stdLibPath := getStdLibPath()
+				stdLibPath := prelude.GetStdLibPath()
 				preludeFiles := []string{
 					filepath.Join(stdLibPath, "collections", "vec.bak"),
 					filepath.Join(stdLibPath, "collections", "hashmap.bak"),

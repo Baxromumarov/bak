@@ -32,83 +32,18 @@ func describeNodeToken(node ast.Node) string {
 }
 
 func extractTokenFromNode(node ast.Node) (token.Token, bool) {
-	v := reflect.ValueOf(node)
-	if !v.IsValid() {
+	if node == nil {
 		return token.Token{}, false
 	}
-	if v.Kind() == reflect.Pointer && v.IsNil() {
-		return token.Token{}, false
+	// Fast path: statements and expressions implement GetToken().
+	if n, ok := node.(interface{ GetToken() token.Token }); ok {
+		return n.GetToken(), true
 	}
-	if v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	if !v.IsValid() {
-		return token.Token{}, false
-	}
+	// Fallback for type expressions and other nodes via reflection.
+	v := reflect.Indirect(reflect.ValueOf(node))
 	field := v.FieldByName("Token")
-	if !field.IsValid() {
+	if !field.IsValid() || field.Type() != reflect.TypeFor[token.Token]() {
 		return token.Token{}, false
 	}
-	if field.Type() != reflect.TypeFor[token.Token]() {
-		return token.Token{}, false
-	}
-	tok := field.Interface().(token.Token)
-	return tok, true
-}
-
-func getStmtToken(s ast.Statement) token.Token {
-	switch stmt := s.(type) {
-	case *ast.VarStatement:
-		return stmt.Token
-	case *ast.ConstStatement:
-		return stmt.Token
-	case *ast.FunctionDecl:
-		return stmt.Token
-	case *ast.PackageStatement:
-		return stmt.Token
-	case *ast.ImportStatement:
-		return stmt.Token
-	case *ast.ImportBlock:
-		return stmt.Token
-	case *ast.StructDecl:
-		return stmt.Token
-	case *ast.EnumDecl:
-		return stmt.Token
-	case *ast.TypeDecl:
-		return stmt.Token
-	case *ast.AliasDecl:
-		return stmt.Token
-	case *ast.ImplDecl:
-		return stmt.Token
-	case *ast.ReturnStatement:
-		return stmt.Token
-	case *ast.IfStatement:
-		return stmt.Token
-	case *ast.WhileStatement:
-		return stmt.Token
-	case *ast.ForStatement:
-		return stmt.Token
-	case *ast.SwitchStatement:
-		return stmt.Token
-	case *ast.DeferStatement:
-		return stmt.Token
-	case *ast.UnsafeBlock:
-		return stmt.Token
-	case *ast.BreakStatement:
-		return stmt.Token
-	case *ast.ContinueStatement:
-		return stmt.Token
-	case *ast.ExpressionStatement:
-		return stmt.Token
-	case *ast.AssignmentStatement:
-		return stmt.Token
-	case *ast.VarBlock:
-		return stmt.Token
-	case *ast.ConstBlock:
-		return stmt.Token
-	case *ast.MultiVarStatement:
-		return stmt.Token
-	default:
-		return token.Token{}
-	}
+	return field.Interface().(token.Token), true
 }

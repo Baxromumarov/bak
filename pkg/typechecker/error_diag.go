@@ -62,12 +62,16 @@ func (tc *TypeChecker) emitSuggestedDiagnostic(
 		diag.File = file
 	}
 	diag.Help = help
-	diag.Fixes = append(diag.Fixes, suggestionFixes(
-		fromText,
-		suggestions,
-		line,
-		col,
-	)...)
+	diag.Fixes = append(
+		diag.Fixes,
+		suggestionFixes(
+			fromText,
+			suggestions,
+			line,
+			col,
+		)...,
+	)
+
 	tc.emitError(diag)
 }
 
@@ -97,6 +101,7 @@ func (tc *TypeChecker) addErrorWithHelp(
 	args ...any) {
 
 	msg := fmt.Sprintf(format, args...)
+	
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrGeneric,
 		line,

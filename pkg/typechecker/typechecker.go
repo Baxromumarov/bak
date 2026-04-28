@@ -387,7 +387,7 @@ func (tc *TypeChecker) ensurePackageDeclaration(program *ast.Program) bool {
 	}
 
 	// Report error at the first statement.
-	tok := getStmtToken(firstStmt)
+	tok := firstStmt.GetToken()
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrMissingPackage,
 		Level:   diagnostics.LevelError,

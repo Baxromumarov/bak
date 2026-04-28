@@ -23,16 +23,16 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 	}
 
 	if strings.HasPrefix(expectedStr, "Result<") && strings.HasPrefix(actualStr, "Result<") {
-		 eg, ok1 := expected.(*ast.GenericType)
-		 ag, ok2 := actual.(*ast.GenericType)
-		 if ok1 && ok2 && len(eg.TypeParams) == len(ag.TypeParams) {
-			 for i := range eg.TypeParams {
-				 if !tc.typesMatch(eg.TypeParams[i], ag.TypeParams[i]) {
-					 return false
-				 }
-			 }
-			 return true
-		 }
+		eg, ok1 := expected.(*ast.GenericType)
+		ag, ok2 := actual.(*ast.GenericType)
+		if ok1 && ok2 && len(eg.TypeParams) == len(ag.TypeParams) {
+			for i := range eg.TypeParams {
+				if !tc.typesMatch(eg.TypeParams[i], ag.TypeParams[i]) {
+					return false
+				}
+			}
+			return true
+		}
 	}
 
 	switch exp := expected.(type) {

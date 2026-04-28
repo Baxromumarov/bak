@@ -9,6 +9,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/prelude"
 )
 
 // StdlibSymbol maps an exported symbol to its import path and alias.
@@ -34,7 +35,7 @@ func getStdlibIndex() map[string][]StdlibSymbol {
 
 func buildStdlibIndex() map[string][]StdlibSymbol {
 	index := make(map[string][]StdlibSymbol)
-	stdPath := getStdLibPath()
+	stdPath := prelude.GetStdLibPath()
 
 	// Map of module directory -> alias name
 	modules := map[string]string{

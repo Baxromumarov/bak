@@ -1,4 +1,4 @@
-package pipeline
+package prelude
 
 import (
 	"fmt"
@@ -10,7 +10,9 @@ import (
 	"github.com/baxromumarov/bak/pkg/parser"
 )
 
-func getStdLibPath() string {
+// GetStdLibPath locates the repository's src/std directory using the same
+// heuristic used elsewhere in the project.
+func GetStdLibPath() string {
 	if home := os.Getenv("BAK_HOME"); home != "" {
 		return filepath.Join(home, "src", "std")
 	}
@@ -31,8 +33,10 @@ func getStdLibPath() string {
 	return filepath.Join(cwd, "src", "std")
 }
 
-func injectPrelude(program *ast.Program) []string {
-	stdLibPath := getStdLibPath()
+// InjectPrelude injects standard library prelude components into the given
+// program. Returns non-fatal warnings (parse errors in prelude files).
+func InjectPrelude(program *ast.Program) []string {
+	stdLibPath := GetStdLibPath()
 	var warnings []string
 
 	preludes := []struct {
@@ -41,17 +45,17 @@ func injectPrelude(program *ast.Program) []string {
 		name   string
 	}{
 		{
-			injectStructPrelude,
+			InjectStructPrelude,
 			filepath.Join(stdLibPath, "collections", "hashmap.bak"),
 			"HashMap",
 		},
 		{
-			injectStructPrelude,
+			InjectStructPrelude,
 			filepath.Join(stdLibPath, "collections", "vec.bak"),
 			"Vec",
 		},
 		{
-			injectImplPrelude,
+			InjectImplPrelude,
 			filepath.Join(stdLibPath, "result.bak"),
 			"Result",
 		},
@@ -66,16 +70,21 @@ func injectPrelude(program *ast.Program) []string {
 	return warnings
 }
 
-func injectStructPrelude(program *ast.Program, path string, structName string) string {
+// InjectStructPrelude injects a struct declaration from a prelude file.
+// Returns a warning string if the file exists but cannot be parsed, or ""
+// on success/missing file.
+func InjectStructPrelude(program *ast.Program, path string, structName string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return "" // missing file is OK
 	}
+	src := string(data)
+	l := lexer.New(src)
+	p := parser.New(l)
+	p.SetFilename(path)
+	prog := p.ParseProgram()
 
-	preludeParser := parser.New(lexer.New(string(data)))
-	preludeParser.SetFilename(path)
-	prog := preludeParser.ParseProgram()
-	if len(preludeParser.Errors()) != 0 {
+	if len(p.Errors()) != 0 {
 		return fmt.Sprintf("prelude parse errors in %s", path)
 	}
 
@@ -93,10 +102,16 @@ func injectStructPrelude(program *ast.Program, path string, structName string) s
 		}
 	}
 
+	alreadyDefined := false
 	for _, stmt := range program.Statements {
 		if s, ok := stmt.(*ast.StructDecl); ok && s.Name.Value == structName {
-			return ""
+			alreadyDefined = true
+			break
 		}
+	}
+
+	if alreadyDefined {
+		return ""
 	}
 
 	var newStmts []ast.Statement
@@ -109,16 +124,21 @@ func injectStructPrelude(program *ast.Program, path string, structName string) s
 	return ""
 }
 
-func injectImplPrelude(program *ast.Program, path string, typeName string) string {
+// InjectImplPrelude injects an impl block from a prelude file.
+// Returns a warning string if the file exists but cannot be parsed, or ""
+// on success/missing file.
+func InjectImplPrelude(program *ast.Program, path string, typeName string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return "" // missing file is OK
 	}
+	src := string(data)
+	l := lexer.New(src)
+	p := parser.New(l)
+	p.SetFilename(path)
+	prog := p.ParseProgram()
 
-	preludeParser := parser.New(lexer.New(string(data)))
-	preludeParser.SetFilename(path)
-	prog := preludeParser.ParseProgram()
-	if len(preludeParser.Errors()) != 0 {
+	if len(p.Errors()) != 0 {
 		return fmt.Sprintf("prelude parse errors in %s", path)
 	}
 
@@ -136,12 +156,18 @@ func injectImplPrelude(program *ast.Program, path string, typeName string) strin
 		}
 	}
 
+	alreadyDefined := false
 	for _, stmt := range program.Statements {
 		if impl, ok := stmt.(*ast.ImplDecl); ok &&
 			impl.TypeName != nil &&
 			impl.TypeName.Value == typeName {
-			return ""
+			alreadyDefined = true
+			break
 		}
+	}
+
+	if alreadyDefined {
+		return ""
 	}
 
 	var newStmts []ast.Statement

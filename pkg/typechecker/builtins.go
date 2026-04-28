@@ -37,14 +37,14 @@ func builtinResultVoidError(err string) *ast.GenericType {
 
 func builtinResultValueError(val ast.TypeExpression, err string) *ast.GenericType {
 	return &ast.GenericType{
-		Name: "Result",
+		Name:       "Result",
 		TypeParams: []ast.TypeExpression{val, ast.NewSimpleType(err)},
 	}
 }
 
 func builtinVecDynamic(elem ast.TypeExpression) *ast.GenericType {
 	return &ast.GenericType{
-		Name: "Vec",
+		Name:       "Vec",
 		TypeParams: []ast.TypeExpression{elem, &ast.SizeExpression{IsDynamic: true}},
 	}
 }

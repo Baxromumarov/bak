@@ -2,19 +2,33 @@ package typechecker
 
 import "github.com/baxromumarov/bak/pkg/ast"
 
-func isIntegerName(name string) bool {
-	switch name {
-	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64":
-		return true
-	}
-	return false
+var integerTypes = map[string]struct{}{
+	"int":    {},
+	"int8":   {},
+	"int16":  {},
+	"int32":  {},
+	"int64":  {},
+	"uint":   {},
+	"uint8":  {},
+	"uint16": {},
+	"uint32": {},
+	"uint64": {},
 }
 
-func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
+func isIntegerName(name string) bool {
+	_, ok := integerTypes[name]
+	return ok
+}
+
+func (tc *TypeChecker) checkPrimitiveMethodCall(
+	typeName string,
+	mc *ast.MethodCallExpression,
+) ast.TypeExpression {
+
 	method := mc.Method.Value
 	callPos := tokenPos(mc.Token)
 	argTypes := make([]ast.TypeExpression, len(mc.Arguments))
+
 	for i, arg := range mc.Arguments {
 		argTypes[i] = tc.inferType(arg)
 	}
@@ -40,9 +54,20 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 	var ret ast.TypeExpression
 	switch {
 	case isIntegerName(typeName):
-		ret = tc.checkIntegerMethodCall(typeName, method, requireArgs, callPos)
+		ret = tc.checkIntegerMethodCall(
+			typeName,
+			method,
+			requireArgs,
+		)
 	case typeName == "float32" || typeName == "float64":
-		ret = tc.checkFloatMethodCall(typeName, method, requireArgs, callPos, argTypes, mc)
+		ret = tc.checkFloatMethodCall(
+			typeName,
+			method,
+			requireArgs,
+			callPos,
+			argTypes,
+			mc,
+		)
 	case typeName == "char":
 		ret = tc.checkCharMethodCall(method, requireArgs)
 	}
@@ -51,12 +76,21 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		return ret
 	}
 
-	tc.errorUndefinedMethodAt(typeName, method, callPos, primitiveMethodCandidates)
+	tc.errorUndefinedMethodAt(
+		typeName,
+		method,
+		callPos,
+		primitiveMethodCandidates,
+	)
 
 	return nil
 }
 
-func (tc *TypeChecker) checkIntegerMethodCall(typeName string, method string, requireArgs func(int), callPos ast.Position) ast.TypeExpression {
+func (tc *TypeChecker) checkIntegerMethodCall(
+	typeName string,
+	method string,
+	requireArgs func(int),
+) ast.TypeExpression {
 	switch method {
 	case "toFloat":
 		requireArgs(0)
@@ -68,31 +102,50 @@ func (tc *TypeChecker) checkIntegerMethodCall(typeName string, method string, re
 	return nil
 }
 
-func (tc *TypeChecker) checkFloatMethodCall(typeName string, method string, requireArgs func(int), callPos ast.Position, argTypes []ast.TypeExpression, mc *ast.MethodCallExpression) ast.TypeExpression {
+func (tc *TypeChecker) checkFloatMethodCall(
+	typeName string,
+	method string,
+	requireArgs func(int),
+	callPos ast.Position,
+	argTypes []ast.TypeExpression,
+	mc *ast.MethodCallExpression,
+) ast.TypeExpression {
+
 	switch method {
 	case "toInt":
 		requireArgs(0)
 		return &ast.SimpleType{Name: "int"}
 	case "toFixed":
+
 		requireArgs(1)
-		if len(argTypes) == 1 && !tc.isIntegerType(argTypes[0]) {
+
+		if len(argTypes) > 0 && !tc.isIntegerType(argTypes[0]) {
 			tc.errorTypeMismatchAt(
 				callPos,
 				"int",
 				typeToString(argTypes[0]),
-				"toFixed precision argument",
+				"toFixed precision",
 				mc.Arguments[0],
 			)
 		}
+
 		return &ast.SimpleType{Name: "string"}
-	case "abs", "floor", "ceil", "round":
+	case "abs",
+		"floor",
+		"ceil",
+		"round":
 		requireArgs(0)
 		return &ast.SimpleType{Name: typeName}
+	default:
+		return nil
 	}
-	return nil
 }
 
-func (tc *TypeChecker) checkCharMethodCall(method string, requireArgs func(int)) ast.TypeExpression {
+func (tc *TypeChecker) checkCharMethodCall(
+	method string,
+	requireArgs func(int),
+) ast.TypeExpression {
+
 	switch method {
 	case "isDigit",
 		"isLetter",
@@ -112,11 +165,16 @@ func (tc *TypeChecker) checkCharMethodCall(method string, requireArgs func(int))
 	case "toUpper", "toLower":
 		requireArgs(0)
 		return &ast.SimpleType{Name: "char"}
+	default:
+		return nil
+
 	}
-	return nil
 }
 
-func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodCallExpression) ast.TypeExpression {
+func (tc *TypeChecker) checkTypeParamMethodCall(
+	typeName string,
+	mc *ast.MethodCallExpression,
+) ast.TypeExpression {
 	method := mc.Method.Value
 	callPos := tokenPos(mc.Token)
 	for _, arg := range mc.Arguments {
@@ -135,6 +193,13 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 		}
 		return &ast.SimpleType{Name: "string"}
 	}
-	tc.errorUndefinedMethodAt(typeName, method, callPos, primitiveMethodCandidates)
+
+	tc.errorUndefinedMethodAt(
+		typeName,
+		method,
+		callPos,
+		primitiveMethodCandidates,
+	)
+
 	return nil
 }

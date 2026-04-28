@@ -8,35 +8,14 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/prelude"
 )
 
-func getStdLibPath() string {
-	if home := os.Getenv("BAK_HOME"); home != "" {
-		return filepath.Join(home, "src", "std")
-	}
-
-	// Try to find src/std by climbing up from CWD
-	cwd, _ := os.Getwd()
-	dir := cwd
-	for {
-		stdPath := filepath.Join(dir, "src", "std")
-		if _, err := os.Stat(stdPath); err == nil {
-			return stdPath
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	// Fallback to CWD-relative if all else fails
-	return filepath.Join(cwd, "src", "std")
-}
+// use prelude.GetStdLibPath
 
 func loadPreludeModules() map[string][]ast.Statement {
 	preludeModules := make(map[string][]ast.Statement)
-	stdLibPath := getStdLibPath()
+	stdLibPath := prelude.GetStdLibPath()
 	modules := map[string]string{
 		"Result":   filepath.Join(stdLibPath, "result.bak"),
 		"Builtins": filepath.Join(stdLibPath, "builtins.bak"),

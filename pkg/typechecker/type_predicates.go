@@ -1,8 +1,6 @@
 package typechecker
 
 import (
-	"slices"
-
 	"github.com/baxromumarov/bak/pkg/ast"
 )
 
@@ -95,6 +93,17 @@ var builtinTypeNames = []string{
 	"Thread", "thread.Thread",
 }
 
+var builtinTypeSet = map[string]struct{}{
+	"int": {}, "int8": {}, "int16": {}, "int32": {}, "int64": {},
+	"uint": {}, "uint8": {}, "uint16": {}, "uint32": {}, "uint64": {},
+	"float32": {}, "float64": {},
+	"bool": {}, "string": {}, "char": {}, "byte": {},
+	"void": {}, "any": {},
+	"Vec": {}, "HashMap": {}, "Range": {},
+	"Thread": {}, "thread.Thread": {},
+}
+
 func isBuiltinTypeName(name string) bool {
-	return slices.Contains(builtinTypeNames, name)
+	_, ok := builtinTypeSet[name]
+	return ok
 }

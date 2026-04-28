@@ -10,6 +10,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/prelude"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/trace"
 	"github.com/baxromumarov/bak/pkg/typechecker"
@@ -58,7 +59,7 @@ func (p *Pipeline) Parse() error {
 		)
 	}
 
-	p.Warnings = append(p.Warnings, injectPrelude(program)...)
+	p.Warnings = append(p.Warnings, prelude.InjectPrelude(program)...)
 	program.SourcePath = p.Filename
 	p.AST = program
 	return nil
