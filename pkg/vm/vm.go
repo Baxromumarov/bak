@@ -1311,7 +1311,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				if val.Type == compiler.VAL_STRING {
 					result.WriteString(val.AsString)
 				} else {
-					result.WriteString(val.String())
+					result.WriteString(vm.formatValue(val))
 				}
 			}
 

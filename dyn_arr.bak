@@ -1,19 +1,30 @@
 package main
 
-import "std/math"
+func sum(a: int, b: int) -> (int) {
+    return a + b
+}
 
 func main() -> (void) {
-    var num: float64 = 12.34
-    var mp: HashMap<int,string> = HashMap.new()
+    mut var mp: HashMap<string, int> = HashMap.new()
 
-    println(math.ceil(num))
-
-    var out = math.log2(16.12)
-
-    println(
-        "OUT:",
-        out,
+    mp.insert(
+        "a",
+        1,
     )
+
+    mp.insert(
+        "b",
+        2,
+    )
+
+    println(mp)
+    
+    println(sum(
+        mp.get("a").unwrap(),
+        mp.get("b").unwrap(),
+    ))
+
+    mp.clear()
 
     return void
 }

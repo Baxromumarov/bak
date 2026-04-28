@@ -2360,12 +2360,12 @@ func (c *Compiler) compileMethodCall(mc *ast.MethodCallExpression) error {
 				if len(mc.Arguments) != 1 {
 					return fmt.Errorf("HashMap.withCap expects exactly 1 argument")
 				}
-				if err := c.compileExpression(mc.Arguments[0]); err != nil {
-					return err
-				}
 				funcIdent := &ast.Identifier{Value: "withCapHashMap"}
 				if err := c.compileIdentifier(funcIdent); err != nil {
 					return fmt.Errorf("HashMap.withCap(): %w", err)
+				}
+				if err := c.compileExpression(mc.Arguments[0]); err != nil {
+					return err
 				}
 				c.emit(OP_CALL)
 				c.emitByte(1) // 1 argument (capacity)

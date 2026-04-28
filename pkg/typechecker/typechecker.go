@@ -878,8 +878,12 @@ func (tc *TypeChecker) detectResultGuardCondition(expr ast.Expression) (string, 
 }
 
 func stableFrozenGenericTypeName(name string) bool {
-	switch name {
-	case "Vec", "Result":
+	base := name
+	if dot := strings.LastIndex(base, "."); dot >= 0 && dot+1 < len(base) {
+		base = base[dot+1:]
+	}
+	switch base {
+	case "Vec", "Result", "HashMap":
 		return true
 	default:
 		return false
@@ -3229,7 +3233,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 					for i, paramType := range ft.Params {
 						arg := mc.Arguments[i+1]
 						argType := tc.inferType(arg)
-						if !tc.fitsInTypeWithActual(paramType, argType, arg) {
+						if !tc.callArgumentFitsInType(paramType, argType, arg) {
 							tc.addError(mc.Token.Line, mc.Token.Column,
 								"type mismatch in spawn argument %d: expected %s, got %s",
 								i+1, typeToString(paramType), typeToString(argType))
@@ -3327,7 +3331,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 					// Arg type check
 					for i, arg := range mc.Arguments {
 						argType := argTypes[i]
-						if !tc.fitsInTypeWithActual(sig.Parameters[i], argType, arg) {
+						if !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
 							tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
 								typeToString(sig.Parameters[i]), typeToString(argType),
 								fmt.Sprintf("argument %d to '%s.%s'", i+1, ident.Value, mc.Method.Value),
@@ -3589,11 +3593,22 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			for i, arg := range mc.Arguments {
 				if i < len(methodSig.Parameters) {
 					argType := tc.inferType(arg)
-					if argType != nil && !tc.fitsInTypeWithActual(methodSig.Parameters[i], argType, arg) {
-						tc.addError(mc.Token.Line, mc.Token.Column,
-							"argument %d to %s.%s: expected %s, got %s",
-							i+1, structName, mc.Method.Value,
-							typeToString(methodSig.Parameters[i]), typeToString(argType))
+					if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
+						receiverName := typeToString(baseType)
+						if receiverName == "" {
+							receiverName = structName
+						}
+						tc.errorMethodArgumentTypeMismatch(
+							mc.Token.Line,
+							mc.Token.Column,
+							i+1,
+							receiverName,
+							mc.Method.Value,
+							methodSig.Parameters[i],
+							argType,
+							arg,
+							methodSig,
+						)
 					}
 				}
 			}
@@ -3673,11 +3688,18 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 	for i, arg := range mc.Arguments {
 		if i < len(methodSig.Parameters) {
 			argType := tc.inferType(arg)
-			if argType != nil && !tc.fitsInTypeWithActual(methodSig.Parameters[i], argType, arg) {
-				tc.addError(mc.Token.Line, mc.Token.Column,
-					"argument %d to %s.%s: expected %s, got %s",
-					i+1, ident.Value, mc.Method.Value,
-					typeToString(methodSig.Parameters[i]), typeToString(argType))
+			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
+				tc.errorMethodArgumentTypeMismatch(
+					mc.Token.Line,
+					mc.Token.Column,
+					i+1,
+					ident.Value,
+					mc.Method.Value,
+					methodSig.Parameters[i],
+					argType,
+					arg,
+					methodSig,
+				)
 			}
 		}
 	}
@@ -3867,7 +3889,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						for i, paramType := range ft.Params {
 							arg := ce.Arguments[i+1]
 							argType := tc.inferType(arg)
-							if !tc.fitsInTypeWithActual(paramType, argType, arg) {
+							if !tc.callArgumentFitsInType(paramType, argType, arg) {
 								tc.addError(ce.Token.Line, ce.Token.Column,
 									"type mismatch in spawn argument %d: expected %s, got %s",
 									i+1, typeToString(paramType), typeToString(argType))
@@ -4049,11 +4071,44 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				return tc.checkVecMethodCall(mc, gt)
 			}
 
-			// Handle struct methods: lookup on the object's concrete simple type
-			if st, ok := objType.(*ast.SimpleType); ok {
-				structName := st.Name
+			// Handle struct methods in call-form fallback, including generic receivers
+			structName := ""
+			var receiverGeneric *ast.GenericType
+			switch t := objType.(type) {
+			case *ast.SimpleType:
+				structName = t.Name
+			case *ast.GenericType:
+				structName = t.Name
+				receiverGeneric = t
+			}
+			if structName != "" {
 				if structDef, ok := tc.lookupQualifiedStruct(structName); ok {
-					if methodSig, ok := structDef.Methods[fa2.Field.Value]; ok {
+					if methodSigRaw, ok := structDef.Methods[fa2.Field.Value]; ok {
+						methodSig := methodSigRaw
+						if receiverGeneric != nil && len(structDef.TypeParams) > 0 {
+							specializedParams := make([]ast.TypeExpression, len(methodSigRaw.Parameters))
+							for i, p := range methodSigRaw.Parameters {
+								specializedParams[i] = tc.substituteTypeParams(p, structDef.TypeParams, receiverGeneric.TypeParams)
+							}
+							specializedRet := tc.substituteTypeParams(methodSigRaw.ReturnType, structDef.TypeParams, receiverGeneric.TypeParams)
+							sigCopy := *methodSigRaw
+							sigCopy.Parameters = specializedParams
+							sigCopy.ReturnType = specializedRet
+							methodSig = &sigCopy
+						}
+
+						if methodSig.Mutable {
+							if !tc.checkMutableReceiver(fa2.Object) {
+								name := "expression"
+								if id, ok := fa2.Object.(*ast.Identifier); ok {
+									name = fmt.Sprintf("variable '%s'", id.Value)
+								}
+								tc.addError(ce.Token.Line, ce.Token.Column,
+									"cannot call mutable method '%s' on immutable %s",
+									fa2.Field.Value, name)
+							}
+						}
+
 						if len(ce.Arguments) != len(methodSig.Parameters) {
 							tc.errorMethodArgumentCountMismatch(
 								structName,
@@ -4070,18 +4125,30 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							tc.clearBorrows(ce.Arguments)
 							return methodSig.ReturnType
 						}
-						// Validate arguments
+
+						receiverName := typeToString(objType)
+						if receiverName == "" {
+							receiverName = structName
+						}
 						for i, arg := range ce.Arguments {
 							if i < len(methodSig.Parameters) {
 								argType := tc.inferType(arg)
-								if argType != nil && !tc.fitsInTypeWithActual(methodSig.Parameters[i], argType, arg) {
-									tc.addError(ce.Token.Line, ce.Token.Column,
-										"argument %d to %s.%s: expected %s, got %s",
-										i+1, structName, fa2.Field.Value,
-										typeToString(methodSig.Parameters[i]), typeToString(argType))
+								if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
+									tc.errorMethodArgumentTypeMismatch(
+										ce.Token.Line,
+										ce.Token.Column,
+										i+1,
+										receiverName,
+										fa2.Field.Value,
+										methodSig.Parameters[i],
+										argType,
+										arg,
+										methodSig,
+									)
 								}
 							}
 						}
+						tc.clearBorrows(ce.Arguments)
 						return methodSig.ReturnType
 					}
 					methods := make([]string, 0, len(structDef.Methods))
@@ -4090,17 +4157,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 					}
 					tc.errorUndefinedMethod(structName, fa2.Field.Value, ce.Token.Line, ce.Token.Column, methods)
 				}
-				// Clear temporary mutable borrows created by &mut arguments
-				for _, arg := range ce.Arguments {
-					if be, ok := arg.(*ast.BorrowExpression); ok && be.Mutable {
-						switch v := be.Value.(type) {
-						case *ast.Identifier:
-							tc.env.ClearBorrowedMut(v.Value)
-						case *ast.MutableIdentifier:
-							tc.env.ClearBorrowedMut(v.Value)
-						}
-					}
-				}
+				tc.clearBorrows(ce.Arguments)
 			}
 			// Fallback: infer args to mark usage
 		}
@@ -4240,7 +4297,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 		for i, arg := range ce.Arguments {
 			if i < len(sig.Parameters) {
 				argType := argTypes[i]
-				if sig.Parameters[i] != nil && !tc.fitsInTypeWithActual(sig.Parameters[i], argType, arg) {
+				if sig.Parameters[i] != nil && !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
 					tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 						typeToString(sig.Parameters[i]), typeToString(argType),
 						fmt.Sprintf("argument %d to '%s'", i+1, funcName),

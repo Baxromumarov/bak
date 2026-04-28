@@ -91,8 +91,12 @@ type Parser struct {
 }
 
 func stableGenericTypeName(name string) bool {
-	switch name {
-	case "Vec", "Result":
+	base := name
+	if dot := strings.LastIndex(base, "."); dot >= 0 && dot+1 < len(base) {
+		base = base[dot+1:]
+	}
+	switch base {
+	case "Vec", "Result", "HashMap":
 		return true
 	default:
 		return false

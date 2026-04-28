@@ -490,6 +490,54 @@ func (tc *TypeChecker) fitsInTypeWithActual(expected, actual ast.TypeExpression,
 	return false
 }
 
+// callArgumentFitsInType allows ergonomic implicit borrows for immutable
+// reference parameters in call sites (e.g. get("k") for get(key: &string)).
+// Mutable borrows remain explicit to preserve borrow-safety checks.
+func (tc *TypeChecker) callArgumentFitsInType(expected, actual ast.TypeExpression, expr ast.Expression) bool {
+	if tc.fitsInTypeWithActual(expected, actual, expr) {
+		return true
+	}
+
+	expBorrow, ok := tc.resolveType(expected).(*ast.BorrowType)
+	if !ok || expBorrow.Mutable {
+		return false
+	}
+	if actual == nil || !tc.typesMatch(expBorrow.Inner, actual) {
+		return false
+	}
+
+	// Preserve conflict checks for implicit immutable borrows of identifiers
+	// that are currently mutably borrowed.
+	switch v := expr.(type) {
+	case *ast.Identifier:
+		if tc.env.IsBorrowedMut(v.Value) {
+			tc.errorBorrowConflict(
+				v.Value,
+				v.Token.Line,
+				v.Token.Column,
+				"borrow as immutable",
+				"mutably borrowed",
+				tc.env.GetBorrowedMutInfo(v.Value),
+			)
+			return false
+		}
+	case *ast.MutableIdentifier:
+		if tc.env.IsBorrowedMut(v.Value) {
+			tc.errorBorrowConflict(
+				v.Value,
+				v.Token.Line,
+				v.Token.Column,
+				"borrow as immutable",
+				"mutably borrowed",
+				tc.env.GetBorrowedMutInfo(v.Value),
+			)
+			return false
+		}
+	}
+
+	return true
+}
+
 func isGenericTypeParam(typeName string) bool {
 	if len(typeName) == 1 && typeName[0] >= 'A' && typeName[0] <= 'Z' {
 		return true

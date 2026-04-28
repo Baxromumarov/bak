@@ -56,6 +56,7 @@ func (p *Pipeline) Parse() error {
 		)
 	}
 
+	p.Warnings = append(p.Warnings, injectPrelude(program)...)
 	program.SourcePath = p.Filename
 	p.AST = program
 	return nil

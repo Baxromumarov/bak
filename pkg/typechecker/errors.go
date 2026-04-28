@@ -422,6 +422,48 @@ func (tc *TypeChecker) errorTypeMismatch(
 	tc.emitError(diag)
 }
 
+func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
+	line,
+	col,
+	argIndex int,
+	receiverType,
+	methodName string,
+	expectedType,
+	gotType ast.TypeExpression,
+	argNode ast.Expression,
+	sig *FunctionSig,
+) {
+	expected := typeToString(expectedType)
+	got := typeToString(gotType)
+	msg := fmt.Sprintf(
+		"argument %d to %s.%s: expected %s, got %s",
+		argIndex,
+		receiverType,
+		methodName,
+		expected,
+		got,
+	)
+
+	help := tc.suggestTypeFix(expected, got)
+	if help == "" {
+		help = fmt.Sprintf("convert argument %d to %s, or adjust %s.%s parameter type", argIndex, expected, receiverType, methodName)
+	}
+	if !strings.HasPrefix(help, "how to fix: ") {
+		help = "how to fix: " + help
+	}
+
+	diag := tc.baseDiagnostic(diagnostics.ErrArgumentType, line, col, msg)
+	diag.Help = help
+	diag.Fixes = tc.typeMismatchFixes(expected, got, argNode, line, col)
+	if sig != nil {
+		diag.Notes = append(diag.Notes, tc.signatureDeclNote(
+			sig,
+			fmt.Sprintf("where expected: method '%s.%s' parameter %d has type %s", receiverType, methodName, argIndex, expected),
+		)...)
+	}
+	tc.emitError(diag)
+}
+
 func extractIdentifierName(node ast.Node) (string, bool) {
 	switch n := node.(type) {
 	case *ast.Identifier:

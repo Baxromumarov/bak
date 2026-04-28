@@ -40,6 +40,7 @@ func loadPreludeModules() map[string][]ast.Statement {
 	modules := map[string]string{
 		"Result":   filepath.Join(stdLibPath, "result.bak"),
 		"Builtins": filepath.Join(stdLibPath, "builtins.bak"),
+		"HashMap":  filepath.Join(stdLibPath, "collections", "hashmap.bak"),
 	}
 
 	for name, path := range modules {
@@ -213,6 +214,10 @@ func withPreludeForTypecheck(program *ast.Program, filePath string, fn func()) {
 	if filepath.Base(filePath) == "result.bak" {
 		isResultFile = true
 	}
+	isHashMapFile := false
+	if filepath.Base(filePath) == "hashmap.bak" {
+		isHashMapFile = true
+	}
 
 	var toInject []ast.Statement
 
@@ -224,6 +229,9 @@ func withPreludeForTypecheck(program *ast.Program, filePath string, fn func()) {
 			continue
 		}
 		if name == "Result" && isResultFile {
+			continue
+		}
+		if name == "HashMap" && isHashMapFile {
 			continue
 		}
 		toInject = append(toInject, stmts...)

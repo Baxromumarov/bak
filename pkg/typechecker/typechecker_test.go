@@ -152,6 +152,34 @@ func main() -> (void) {
 `)
 }
 
+func TestCheck_ValidImplicitBorrowForImmutableRefArgs(t *testing.T) {
+	expectNoErrors(t, `
+package main
+func takeRef(x: &int) -> (int) {
+	return *x
+}
+func main() -> (void) {
+	var a: int = 10
+	println(takeRef(a))
+	println(takeRef(20))
+}
+`)
+}
+
+func TestCheck_RequiresExplicitMutBorrowForMutableRefArgs(t *testing.T) {
+	expectError(t, `
+package main
+func takeMutRef(x: &mut int) -> (void) {
+	*x = *x + 1
+	return void
+}
+func main() -> (void) {
+	mut var a: int = 10
+	takeMutRef(a)
+}
+`, "expected &mut int, got int")
+}
+
 func TestCheck_ValidIfElse(t *testing.T) {
 	expectNoErrors(t, `
 package main

@@ -26,7 +26,7 @@ func (vm *VM) registerBuiltins() {
 			if i > 0 {
 				fmt.Print(" ")
 			}
-			fmt.Print(arg.String())
+			fmt.Print(vm.formatValue(arg))
 		}
 		fmt.Println()
 		return compiler.NewNil()
@@ -37,7 +37,7 @@ func (vm *VM) registerBuiltins() {
 			if i > 0 {
 				fmt.Print(" ")
 			}
-			fmt.Print(arg.String())
+			fmt.Print(vm.formatValue(arg))
 		}
 		return compiler.NewNil()
 	}
@@ -323,7 +323,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			if i > 0 {
 				fmt.Print(" ")
 			}
-			fmt.Print(arg.String())
+			fmt.Print(vm.formatValue(arg))
 		}
 		return compiler.NewNil(), nil
 
@@ -332,7 +332,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			if i > 0 {
 				fmt.Print(" ")
 			}
-			fmt.Print(arg.String())
+			fmt.Print(vm.formatValue(arg))
 		}
 		fmt.Println()
 		return compiler.NewNil(), nil
@@ -889,7 +889,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			if i > 0 {
 				fmt.Fprint(os.Stderr, " ")
 			}
-			fmt.Fprint(os.Stderr, arg.String())
+			fmt.Fprint(os.Stderr, vm.formatValue(arg))
 		}
 		return compiler.NewNil(), nil
 
@@ -981,7 +981,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			if i > 0 {
 				fmt.Fprint(os.Stderr, " ")
 			}
-			fmt.Fprint(os.Stderr, arg.String())
+			fmt.Fprint(os.Stderr, vm.formatValue(arg))
 		}
 		fmt.Fprintln(os.Stderr)
 		return compiler.NewNil(), nil
