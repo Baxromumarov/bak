@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
 )
 
@@ -519,4 +520,48 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 	// Clear temporary mutable borrows created by &mut arguments
 	tc.clearBorrows(mc.Arguments)
 	return retType
+}
+
+func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resType *ast.GenericType) ast.TypeExpression {
+	method := mc.Method.Value
+	if len(resType.TypeParams) < 2 {
+		return nil
+	}
+	okType := resType.TypeParams[0]
+	errType := resType.TypeParams[1]
+	guardVar, hasGuardVar := tc.resultGuardVariableFromExpr(mc.Object)
+	guardState := resultGuardUnknown
+	if hasGuardVar {
+		guardState = tc.resultGuardStateFor(guardVar)
+	}
+
+	switch method {
+	case "isOk", "isErr":
+		return &ast.SimpleType{Name: "bool"}
+	case "unwrap":
+		if guardState == resultGuardIsErr {
+			tc.emitWarningAt(
+				diagnostics.DiagnosticCode("W0901"),
+				tokenPos(mc.Token),
+				fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.isErr()'", guardVar, guardVar),
+				"use unwrapErr() here, or move unwrap() into an isOk() branch (or switch on Ok/Err)",
+			)
+		}
+		return okType
+	case "unwrapErr":
+		if guardState == resultGuardIsOk {
+			tc.emitWarningAt(
+				diagnostics.DiagnosticCode("W0902"),
+				tokenPos(mc.Token),
+				fmt.Sprintf("'%s.unwrapErr()' is guaranteed to panic in this branch after '%s.isOk()'", guardVar, guardVar),
+				"use unwrap() here, or move unwrapErr() into an isErr() branch (or switch on Ok/Err)",
+			)
+		}
+		return errType
+	case "toString":
+		return &ast.SimpleType{Name: "string"}
+	default:
+		tc.errorUndefinedMethod("Result", method, mc.Token.Line, mc.Token.Column, resultMethodCandidates)
+		return nil
+	}
 }

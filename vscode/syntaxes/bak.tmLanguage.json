@@ -209,7 +209,7 @@
         },
         {
           "name": "support.class",
-          "match": "\\b(Vec|Result|Option|Box)\\b"
+          "match": "\\b(Vec|Result|Option)\\b"
         },
         {
           "name": "entity.name.type",

@@ -54,6 +54,77 @@ func enumVariantFromSymbols(symbols map[string]*packages.Symbol, variantName str
 	return "", EnumVariantDef{}, false
 }
 
+func enumVariantFromSymbol(sym *packages.Symbol, variantName string) (EnumVariantDef, bool) {
+	if sym == nil || sym.Kind != packages.SymbolEnum {
+		return EnumVariantDef{}, false
+	}
+	decl, ok := sym.Node.(*ast.EnumDecl)
+	if !ok {
+		return EnumVariantDef{}, false
+	}
+	for _, v := range decl.Variants {
+		if v.Name != nil && v.Name.Value == variantName {
+			return EnumVariantDef{
+				HasPayload: len(v.Fields) > 0,
+				Fields:     v.Fields,
+			}, true
+		}
+	}
+	return EnumVariantDef{}, false
+}
+
+func (tc *TypeChecker) importedAliasExportsEnum(pkgAlias, enumName string) bool {
+	symbols, ok := tc.importedSymbols[pkgAlias]
+	if !ok {
+		return false
+	}
+	sym, ok := symbols[enumName]
+	return ok && sym.Kind == packages.SymbolEnum
+}
+
+func (tc *TypeChecker) resolveImportedEnumVariant(pkgAlias, enumName, variantName string) (string, *EnumDef, EnumVariantDef, bool) {
+	symbols, haveSymbols := tc.importedSymbols[pkgAlias]
+
+	// Strategy 1: resolve from imported symbol metadata (fast path).
+	if haveSymbols {
+		if enumName == "" {
+			if foundEnum, variant, ok := enumVariantFromSymbols(symbols, variantName); ok {
+				return foundEnum, nil, variant, true
+			}
+		} else if variant, ok := enumVariantFromSymbol(symbols[enumName], variantName); ok {
+			return enumName, nil, variant, true
+		}
+	}
+
+	// Strategy 2: resolve from loaded package checker and validate export visibility.
+	pkgPath, ok := tc.importedPkgPaths[pkgAlias]
+	if !ok {
+		return "", nil, EnumVariantDef{}, false
+	}
+	modTC, ok := loadedPackageCheckers[pkgPath]
+	if !ok {
+		return "", nil, EnumVariantDef{}, false
+	}
+
+	if enumName == "" {
+		foundEnum, enumDef, variant := modTC.findEnumByVariant(variantName)
+		if enumDef == nil || !tc.importedAliasExportsEnum(pkgAlias, foundEnum) {
+			return "", nil, EnumVariantDef{}, false
+		}
+		return foundEnum, enumDef, variant, true
+	}
+
+	enumDef, ok := modTC.env.LookupEnum(enumName)
+	if !ok {
+		return "", nil, EnumVariantDef{}, false
+	}
+	variant, ok := enumDef.Variants[variantName]
+	if !ok || !tc.importedAliasExportsEnum(pkgAlias, enumName) {
+		return "", nil, EnumVariantDef{}, false
+	}
+	return enumName, enumDef, variant, true
+}
+
 func (tc *TypeChecker) resolveEnumVariantFromFieldAccess(fa *ast.FieldAccessExpression) (string, *EnumDef, EnumVariantDef, string, bool) {
 	parts, ok := fieldAccessParts(fa)
 	if !ok || len(parts) < 2 {
@@ -76,62 +147,18 @@ func (tc *TypeChecker) resolveTwoPartEnumVariant(enumName, variantName string) (
 			return enumName, enumDef, variant, "", true
 		}
 	}
-
-	pkgPath, ok := tc.importedPkgPaths[enumName]
-	if !ok {
-		return "", nil, EnumVariantDef{}, "", false
-	}
-
-	if symbols, ok := tc.importedSymbols[enumName]; ok {
-		if foundEnum, variant, ok := enumVariantFromSymbols(symbols, variantName); ok {
-			return foundEnum, nil, variant, enumName, true
-		}
-	}
-
-	modTC, ok := loadedPackageCheckers[pkgPath]
-	if !ok {
-		return "", nil, EnumVariantDef{}, "", false
-	}
-
-	foundEnum, enumDef, variant := modTC.findEnumByVariant(variantName)
-	if enumDef == nil {
-		return "", nil, EnumVariantDef{}, "", false
-	}
-
-	if symbols, ok := tc.importedSymbols[enumName]; ok {
-		if sym, ok := symbols[foundEnum]; ok && sym.Kind == packages.SymbolEnum {
-			return foundEnum, enumDef, variant, enumName, true
-		}
+	foundEnum, enumDef, variant, ok := tc.resolveImportedEnumVariant(enumName, "", variantName)
+	if ok {
+		return foundEnum, enumDef, variant, enumName, true
 	}
 	return "", nil, EnumVariantDef{}, "", false
 }
 
 func (tc *TypeChecker) resolveThreePartEnumVariant(pkgAlias, enumName, variantName string) (string, *EnumDef, EnumVariantDef, string, bool) {
-	if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-		if sym, ok := symbols[enumName]; ok && sym.Kind == packages.SymbolEnum {
-			if decl, ok := sym.Node.(*ast.EnumDecl); ok {
-				for _, v := range decl.Variants {
-					if v.Name != nil && v.Name.Value == variantName {
-						return enumName, nil, EnumVariantDef{
-							HasPayload: len(v.Fields) > 0,
-							Fields:     v.Fields,
-						}, pkgAlias, true
-					}
-				}
-			}
-		}
+	foundEnum, enumDef, variant, ok := tc.resolveImportedEnumVariant(pkgAlias, enumName, variantName)
+	if ok {
+		return foundEnum, enumDef, variant, pkgAlias, true
 	}
-
-	if enumDef, ok := tc.lookupQualifiedEnum(pkgAlias + "." + enumName); ok {
-		if variant, found := enumDef.Variants[variantName]; found {
-			if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-				if sym, ok := symbols[enumName]; ok && sym.Kind == packages.SymbolEnum {
-					return enumName, enumDef, variant, pkgAlias, true
-				}
-			}
-		}
-	}
-
 	return "", nil, EnumVariantDef{}, "", false
 }
 

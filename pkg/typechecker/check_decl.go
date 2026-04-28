@@ -17,131 +17,40 @@ func (tc *TypeChecker) checkUnusedElements() {
 		return
 	}
 
-	// Helper to check if symbol is from prelude (internal library code)
-	isPreludeSymbol := func(name string) bool {
-		// HashMap prelude symbols
-		if strings.HasPrefix(name, "HASH_") ||
-			strings.HasPrefix(name, "hash_") ||
-			strings.HasPrefix(name, "Hash") ||
-			name == "h1" || name == "h2" ||
-			name == "newHashMap" || name == "withCapHashMap" {
-			return true
-		}
-		return false
-	}
-
 	// Check unused variables (globals)
 	for name, info := range tc.env.symbols {
-		if name == "main" {
-			continue
-		}
-		// Skip prelude symbols - don't warn about internal library code
-		if isPreludeSymbol(name) {
-			continue
-		}
-		// Only warn for unused private variables (not pub)
-		if !tc.env.used[name] &&
-			!strings.HasPrefix(name, "_") &&
-			info.Visibility == ast.Private {
-
-			tc.emitWarning(
-				diagnostics.ErrUnusedVariable,
-				info.Line,
-				info.Column,
-				fmt.Sprintf("unused variable: '%s'", name),
-				"prefix with _ to ignore",
-			)
-		}
+		tc.warnIfUnused(name, info.Line, info.Column, info.Visibility,
+			diagnostics.ErrUnusedVariable, fmt.Sprintf("unused variable: '%s'", name), "prefix with _ to ignore",
+			skipMain, skipTest)
 	}
 	// Check unused type definitions
 	for name, def := range tc.env.typedefs {
-		if isPreludeSymbol(name) {
-			continue
-		}
-		if !tc.env.used[name] &&
-			!strings.HasPrefix(name, "_") &&
-			def.Visibility == ast.Private {
-
-			tc.emitWarning(
-				diagnostics.DiagnosticCode("UnusedTypeDef"),
-				def.Line,
-				def.Column,
-				fmt.Sprintf("unused type: '%s'", name),
-				"remove if not used",
-			)
-		}
+		tc.warnIfUnused(name, def.Line, def.Column, def.Visibility,
+			diagnostics.DiagnosticCode("UnusedTypeDef"), fmt.Sprintf("unused type: '%s'", name), "remove if not used")
 	}
-
 	// Check unused aliases
 	for name, def := range tc.env.aliases {
-		if isPreludeSymbol(name) {
-			continue
-		}
-		if !tc.env.used[name] &&
-			!strings.HasPrefix(name, "_") &&
-			def.Visibility == ast.Private {
-
-			tc.emitWarning(
-				diagnostics.DiagnosticCode("UnusedAlias"),
-				def.Line,
-				def.Column,
-				fmt.Sprintf("unused alias: '%s'", name),
-				"remove if not used",
-			)
-		}
+		tc.warnIfUnused(name, def.Line, def.Column, def.Visibility,
+			diagnostics.DiagnosticCode("UnusedAlias"), fmt.Sprintf("unused alias: '%s'", name), "remove if not used")
 	}
-
 	// Check unused functions
 	for name, sig := range tc.env.functions {
-		if name == "main" {
-			continue
-		}
-		if isPreludeSymbol(name) {
-			continue
-		}
-		// Skip test functions (test_*) — they are invoked by the test runner, not called directly
-		if strings.HasPrefix(name, "test_") {
-			continue
-		}
 		vis := ast.Private
 		if sig != nil {
 			vis = sig.Visibility
 		}
-		if !tc.env.used[name] &&
-			!strings.HasPrefix(name, "_") &&
-			vis == ast.Private {
-
-			tc.emitWarning(
-				diagnostics.DiagnosticCode("UnusedFunc"),
-				sig.Line,
-				sig.Column,
-				fmt.Sprintf("unused function: '%s'", name),
-				"remove if not used",
-			)
-		}
+		tc.warnIfUnused(name, sig.Line, sig.Column, vis,
+			diagnostics.DiagnosticCode("UnusedFunc"), fmt.Sprintf("unused function: '%s'", name), "remove if not used",
+			skipMain, skipTest)
 	}
-
 	// Check unused structs
 	for name, def := range tc.env.structs {
-		if isPreludeSymbol(name) {
-			continue
-		}
 		vis := ast.Private
 		if def != nil {
 			vis = def.Visibility
 		}
-		if !tc.env.used[name] &&
-			!strings.HasPrefix(name, "_") &&
-			vis == ast.Private {
-
-			tc.emitWarning(
-				diagnostics.DiagnosticCode("UnusedType"),
-				def.Line,
-				def.Column,
-				fmt.Sprintf("unused struct: '%s'", name),
-				"remove if not used",
-			)
-		}
+		tc.warnIfUnused(name, def.Line, def.Column, vis,
+			diagnostics.DiagnosticCode("UnusedType"), fmt.Sprintf("unused struct: '%s'", name), "remove if not used")
 		// NOTE: We intentionally do NOT warn about unused struct fields.
 		// Field assignment is part of constructing a value, not dead code.
 		// The struct value may be passed to functions, serialized, etc.
@@ -313,4 +222,46 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		tc.env = oldEnv
 		restoreTypeParams()
 	}
+}
+
+func isPreludeSymbol(name string) bool {
+	if strings.HasPrefix(name, "HASH_") ||
+		strings.HasPrefix(name, "hash_") ||
+		strings.HasPrefix(name, "Hash") ||
+		name == "h1" || name == "h2" ||
+		name == "newHashMap" || name == "withCapHashMap" {
+		return true
+	}
+	return false
+}
+
+func skipMain(name string) bool  { return name == "main" }
+func skipTest(name string) bool  { return strings.HasPrefix(name, "test_") }
+
+func (tc *TypeChecker) warnIfUnused(
+	name string,
+	line, col int,
+	vis ast.Visibility,
+	code diagnostics.DiagnosticCode,
+	msg, help string,
+	extraSkip ...func(string) bool,
+) {
+	if name == "" || strings.HasPrefix(name, "_") {
+		return
+	}
+	for _, skip := range extraSkip {
+		if skip(name) {
+			return
+		}
+	}
+	if isPreludeSymbol(name) {
+		return
+	}
+	if vis != ast.Private {
+		return
+	}
+	if tc.env.used[name] {
+		return
+	}
+	tc.emitWarning(code, line, col, msg, help)
 }
