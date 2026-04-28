@@ -93,12 +93,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 		!tc.env.IsPoisoned(varName) {
 
 		moveInfo := tc.env.GetMoveInfo(varName)
-		tc.errorUseAfterMove(
-			varName,
-			as.Token.Line,
-			as.Token.Column,
-			moveInfo,
-		)
+		tc.errorUseAfterMoveAt(varName, tokenPos(as.Token), moveInfo)
 		tc.env.MarkPoisoned(varName)
 
 		return

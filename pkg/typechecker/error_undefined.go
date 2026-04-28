@@ -5,15 +5,16 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
-func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
+func (tc *TypeChecker) errorUndefinedIdentifierAt(name string, pos ast.Position) {
 	suggestions := tc.suggestIdentifiers(name, 3)
 	help := suggestionsHelp(suggestions, "check for a typo or missing import")
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrUndefinedVariable,
-		line, col,
+		pos.Line, pos.Column,
 		tc.currentPkgPath,
 		fmt.Sprintf("undefined: %s", name),
 		help,
@@ -22,7 +23,7 @@ func (tc *TypeChecker) errorUndefinedIdentifier(name string, line, col int) {
 	)
 }
 
-func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file string) {
+func (tc *TypeChecker) errorUndefinedTypeInFileAt(name string, pos ast.Position, file string) {
 	suggestions := tc.suggestTypeNames(name, 3)
 	help := suggestionsHelp(suggestions, "")
 	if file == "" {
@@ -30,7 +31,7 @@ func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file
 	}
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrUnknownType,
-		line, col,
+		pos.Line, pos.Column,
 		file,
 		fmt.Sprintf("undefined type: %s", name),
 		help,
@@ -39,11 +40,11 @@ func (tc *TypeChecker) errorUndefinedTypeInFile(name string, line, col int, file
 	)
 }
 
-func (tc *TypeChecker) errorUndefinedMethod(typeName, method string, line, col int, candidates []string) {
-	tc.errorUndefinedMethodWithHelp(typeName, method, line, col, candidates, "")
+func (tc *TypeChecker) errorUndefinedMethodAt(typeName, method string, pos ast.Position, candidates []string) {
+	tc.errorUndefinedMethodWithHelpAt(typeName, method, pos, candidates, "")
 }
 
-func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, line, col int, candidates []string, extraHelp string) {
+func (tc *TypeChecker) errorUndefinedMethodWithHelpAt(typeName, method string, pos ast.Position, candidates []string, extraHelp string) {
 	suggestions := bestSuggestions(method, candidates, 3)
 	help := ""
 	if len(suggestions) > 0 {
@@ -61,7 +62,7 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, lin
 	}
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrUndefinedMethod,
-		line, col,
+		pos.Line, pos.Column,
 		tc.currentPkgPath,
 		fmt.Sprintf("undefined method '%s' for %s", method, typeName),
 		help,
@@ -70,12 +71,12 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelp(typeName, method string, lin
 	)
 }
 
-func (tc *TypeChecker) errorUndefinedFunction(name string, line, col int) {
+func (tc *TypeChecker) errorUndefinedFunctionAt(name string, pos ast.Position) {
 	suggestions := tc.suggestFunctionNames(name, 3)
 	help := suggestionsHelp(suggestions, "check for a typo or define the function before calling it")
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrUndefinedFunction,
-		line, col,
+		pos.Line, pos.Column,
 		tc.currentPkgPath,
 		fmt.Sprintf("undefined function '%s'", name),
 		help,
@@ -84,12 +85,12 @@ func (tc *TypeChecker) errorUndefinedFunction(name string, line, col int) {
 	)
 }
 
-func (tc *TypeChecker) errorStructHasNoField(structName, field string, line, col int, candidates []string) {
+func (tc *TypeChecker) errorStructHasNoFieldAt(structName, field string, pos ast.Position, candidates []string) {
 	suggestions := tc.suggestFields(field, candidates, 3)
 	help := suggestionsHelp(suggestions, "")
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrGeneric,
-		line, col,
+		pos.Line, pos.Column,
 		tc.currentPkgPath,
 		fmt.Sprintf("struct '%s' has no field '%s'", structName, field),
 		help,
@@ -98,12 +99,12 @@ func (tc *TypeChecker) errorStructHasNoField(structName, field string, line, col
 	)
 }
 
-func (tc *TypeChecker) errorTypeHasNoField(typeName, field string, line, col int, candidates []string) {
+func (tc *TypeChecker) errorTypeHasNoFieldAt(typeName, field string, pos ast.Position, candidates []string) {
 	suggestions := tc.suggestFields(field, candidates, 3)
 	help := suggestionsHelp(suggestions, "")
 	tc.emitSuggestedDiagnostic(
 		diagnostics.ErrGeneric,
-		line, col,
+		pos.Line, pos.Column,
 		tc.currentPkgPath,
 		fmt.Sprintf("type '%s' has no field '%s'", typeName, field),
 		help,

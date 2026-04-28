@@ -21,13 +21,12 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 
 	requireArgs := func(want int) {
 		if len(mc.Arguments) != want {
-			tc.errorMethodArgumentCountMismatch(
+			tc.errorMethodArgumentCountMismatchAt(
 				typeName,
 				method,
 				want,
 				len(mc.Arguments),
-				callPos.Line,
-				callPos.Column,
+				callPos,
 				nil,
 			)
 		}
@@ -52,9 +51,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(typeName string, mc *ast.MethodC
 		return ret
 	}
 
-	tc.errorUndefinedMethod(
-		typeName, method, callPos.Line, callPos.Column, primitiveMethodCandidates,
-	)
+	tc.errorUndefinedMethodAt(typeName, method, callPos, primitiveMethodCandidates)
 
 	return nil
 }
@@ -127,13 +124,12 @@ func (tc *TypeChecker) checkTypeParamMethodCall(typeName string, mc *ast.MethodC
 	}
 	if method == "toString" {
 		if len(mc.Arguments) != 0 {
-			tc.errorMethodArgumentCountMismatch(
+			tc.errorMethodArgumentCountMismatchAt(
 				typeName,
 				method,
 				0,
 				len(mc.Arguments),
-				callPos.Line,
-				callPos.Column,
+				callPos,
 				nil,
 			)
 		}

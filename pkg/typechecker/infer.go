@@ -175,13 +175,12 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 		for _, p := range e.Parameters {
 			if p != nil {
 				paramTypes = append(paramTypes, p.Type)
-				tc.env.DefineSymbol(
+				tc.env.DefineSymbolAt(
 					p.Name.Value,
 					p.Type,
 					p.Mutable,
 					ast.Private,
-					p.Name.Token.Line,
-					p.Name.Token.Column,
+					tokenPos(p.Name.Token),
 				)
 				// validate parameter types too
 				tc.validateTypeUsage(p.Type, tokenPos(p.Name.Token))
@@ -196,7 +195,7 @@ func (tc *TypeChecker) inferType(expr ast.Expression) ast.TypeExpression {
 		// Check if the function actually returns a value when required
 		if e.ReturnType != nil && !tc.isVoidType(e.ReturnType) && !tc.isErrorType(e.ReturnType) {
 			if !tc.blockTerminates(e.Body) {
-				tc.errorMissingReturn(e.Token.Line, e.Token.Column, e.ReturnType)
+				tc.errorMissingReturnAt(tokenPos(e.Token), e.ReturnType)
 			}
 		}
 
@@ -362,9 +361,10 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 	}
 
 	// Check if the variable has been moved
+	borrowPos := lineColPos(line, column)
 	if tc.env.IsMoved(varName) {
 		moveInfo := tc.env.GetMoveInfo(varName)
-		tc.errorUseAfterMove(varName, line, column, moveInfo)
+		tc.errorUseAfterMoveAt(varName, borrowPos, moveInfo)
 		tc.env.MarkPoisoned(varName)
 		return nil
 	}
@@ -377,10 +377,9 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 		if be.Mutable {
 			return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
 		}
-		tc.errorBorrowConflict(
+		tc.errorBorrowConflictAt(
 			varName,
-			line,
-			column,
+			borrowPos,
 			"borrow as immutable",
 			"mutably borrowed",
 			tc.env.GetBorrowedMutInfo(varName),
@@ -391,10 +390,9 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 	// If taking a mutable borrow, ensure there are no existing immutable borrows
 	if be.Mutable {
 		if tc.env.IsBorrowedIm(varName) {
-			tc.errorBorrowConflict(
+			tc.errorBorrowConflictAt(
 				varName,
-				line,
-				column,
+				borrowPos,
 				"borrow as mutable",
 				"immutably borrowed",
 				tc.env.GetBorrowedImInfo(varName),
@@ -403,35 +401,32 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 		}
 		// Check that the variable is mutable
 		if !info.Mutable {
-			tc.errorMutabilityRequired(
+			tc.errorMutabilityRequiredAt(
 				varName,
-				line,
-				column,
+				borrowPos,
 				"borrow as mutable",
 			)
 			return nil
 		}
-		tc.env.MarkBorrowedMutAt(varName, ast.Position{Line: line, Column: column})
+		tc.env.MarkBorrowedMutAt(varName, borrowPos)
 	} else {
 		// Immutable borrow: mark an immutable borrow (allows multiple immutable borrows)
-		tc.env.MarkBorrowedImAt(varName, ast.Position{Line: line, Column: column})
+		tc.env.MarkBorrowedImAt(varName, borrowPos)
 	}
 
 	return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
 }
 
-
-
 // checkVariableUse reports use-after-move errors for a symbol that has already
 // been looked up. It returns false if the variable is poisoned (caller should
 // return the type immediately without recording nodeTypes).
-func (tc *TypeChecker) checkVariableUse(name string, line, col int) bool {
+func (tc *TypeChecker) checkVariableUse(name string, pos ast.Position) bool {
 	if tc.env.IsPoisoned(name) {
 		return false
 	}
 	if tc.env.IsMoved(name) {
 		moveInfo := tc.env.GetMoveInfo(name)
-		tc.errorUseAfterMove(name, line, col, moveInfo)
+		tc.errorUseAfterMoveAt(name, pos, moveInfo)
 		tc.env.MarkPoisoned(name)
 	}
 	return true
@@ -451,7 +446,7 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 	}
 	if info, ok := tc.env.LookupSymbol(ident.Value); ok {
 		tc.env.MarkUsed(ident.Value)
-		if !tc.checkVariableUse(ident.Value, ident.Token.Line, ident.Token.Column) {
+		if !tc.checkVariableUse(ident.Value, tokenPos(ident.Token)) {
 			return info.Type
 		}
 		tc.nodeTypes[ident] = typeToString(info.Type)
@@ -507,7 +502,7 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 		tc.nodeTypes[ident] = typeToString(inferred)
 		return inferred
 	}
-	tc.errorUndefinedIdentifier(ident.Value, ident.Token.Line, ident.Token.Column)
+	tc.errorUndefinedIdentifierAt(ident.Value, tokenPos(ident.Token))
 	inferred := &ast.ErrorType{Message: "undefined identifier"}
 	tc.nodeTypes[ident] = typeToString(inferred)
 	return inferred
@@ -517,7 +512,7 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 func (tc *TypeChecker) inferMutableIdentifierType(ident *ast.MutableIdentifier) ast.TypeExpression {
 	if info, ok := tc.env.LookupSymbol(ident.Value); ok {
 		tc.env.MarkUsed(ident.Value)
-		if !tc.checkVariableUse(ident.Value, ident.Token.Line, ident.Token.Column) {
+		if !tc.checkVariableUse(ident.Value, tokenPos(ident.Token)) {
 			return info.Type
 		}
 		tc.nodeTypes[ident] = typeToString(info.Type)
@@ -534,7 +529,7 @@ func (tc *TypeChecker) inferMutableIdentifierType(ident *ast.MutableIdentifier) 
 		tc.nodeTypes[ident] = typeToString(inferred)
 		return inferred
 	}
-	tc.errorUndefinedIdentifier(ident.Value, ident.Token.Line, ident.Token.Column)
+	tc.errorUndefinedIdentifierAt(ident.Value, tokenPos(ident.Token))
 	inferred := &ast.ErrorType{Message: "undefined identifier"}
 	tc.nodeTypes[ident] = typeToString(inferred)
 	return inferred

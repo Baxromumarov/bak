@@ -18,6 +18,15 @@ func (e *TypeEnv) DefineAlias(
 	}
 }
 
+func (e *TypeEnv) DefineAliasAt(
+	name string,
+	typeExpr ast.TypeExpression,
+	vis ast.Visibility,
+	pos ast.Position,
+) {
+	e.DefineAlias(name, typeExpr, vis, pos.Line, pos.Column)
+}
+
 // LookupAlias looks up a type alias
 func (e *TypeEnv) LookupAlias(name string) (ast.TypeExpression, bool) {
 	if def, ok := e.aliases[name]; ok {
@@ -47,6 +56,15 @@ func (e *TypeEnv) DefineTypeDef(
 		Line:       line,
 		Column:     col,
 	}
+}
+
+func (e *TypeEnv) DefineTypeDefAt(
+	name string,
+	typeExpr ast.TypeExpression,
+	vis ast.Visibility,
+	pos ast.Position,
+) {
+	e.DefineTypeDef(name, typeExpr, vis, pos.Line, pos.Column)
 }
 
 // LookupTypeDef looks up a type definition

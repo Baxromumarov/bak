@@ -77,9 +77,7 @@ func New() *Compiler {
 // EscapeReports returns escape-analysis summaries collected during compilation.
 func (c *Compiler) EscapeReports() map[string]*FunctionEscapeSummary {
 	out := make(map[string]*FunctionEscapeSummary, len(c.escapeByFunction))
-	for name, summary := range c.escapeByFunction {
-		out[name] = summary
-	}
+	maps.Copy(out, c.escapeByFunction)
 	return out
 }
 
@@ -165,13 +163,16 @@ func (c *Compiler) ensureInitFn() {
 
 func (c *Compiler) compileGlobalInits(program *ast.Program) error {
 	var hasInits bool
-	for _, stmt := range program.Statements {
-		switch stmt.(type) {
-		case *ast.VarStatement, *ast.ConstStatement, *ast.VarBlock, *ast.ConstBlock, *ast.MultiVarStatement, *ast.ImportStatement, *ast.ImportBlock:
+	_ = walkTopLevelStatements(program, func(stmt ast.Statement) error {
+		if isGlobalInitStatement(stmt) {
 			hasInits = true
 		}
-	}
+		return nil
+	})
 	if !hasInits {
+		return nil
+	}
+	if c.hasInit {
 		return nil
 	}
 	c.ensureInitFn()
@@ -191,76 +192,35 @@ func (c *Compiler) compileGlobalInits(program *ast.Program) error {
 	c.loopBreaks = nil
 	c.loopDepths = nil
 
-	for _, stmt := range program.Statements {
-		switch s := stmt.(type) {
-		case *ast.VarStatement:
-			if err := c.compileGlobalVarInit(s); err != nil {
-				c.currentFn = oldFn
-				c.locals = oldLocals
-				c.scopeDepth = oldDepth
-				c.loopStart = oldLoopStart
-				c.loopBreaks = oldLoopBreaks
-				return err
-			}
-		case *ast.VarBlock:
-			for _, v := range s.Variables {
-				if err := c.compileGlobalVarInit(v); err != nil {
-					c.currentFn = oldFn
-					c.locals = oldLocals
-					c.scopeDepth = oldDepth
-					c.loopStart = oldLoopStart
-					c.loopBreaks = oldLoopBreaks
-					return err
-				}
-			}
-		case *ast.MultiVarStatement:
-			if err := c.compileGlobalMultiVarInit(s); err != nil {
-				c.currentFn = oldFn
-				c.locals = oldLocals
-				c.scopeDepth = oldDepth
-				c.loopStart = oldLoopStart
-				c.loopBreaks = oldLoopBreaks
-				return err
-			}
-		case *ast.ConstStatement:
-			if err := c.compileGlobalConstInit(s); err != nil {
-				c.currentFn = oldFn
-				c.locals = oldLocals
-				c.scopeDepth = oldDepth
-				c.loopStart = oldLoopStart
-				c.loopBreaks = oldLoopBreaks
-				return err
-			}
-		case *ast.ConstBlock:
-			for _, cst := range s.Constants {
-				if err := c.compileGlobalConstInit(cst); err != nil {
-					c.currentFn = oldFn
-					c.locals = oldLocals
-					c.scopeDepth = oldDepth
-					c.loopStart = oldLoopStart
-					c.loopBreaks = oldLoopBreaks
-					return err
-				}
-			}
-		case *ast.ImportStatement:
-			if err := c.compileImportStatement(s); err != nil {
-				c.currentFn = oldFn
-				c.locals = oldLocals
-				c.scopeDepth = oldDepth
-				c.loopStart = oldLoopStart
-				c.loopBreaks = oldLoopBreaks
-				return err
-			}
-		case *ast.ImportBlock:
-			for _, imp := range s.Imports {
-				if err := c.compileImportStatement(imp); err != nil {
-					return err
-				}
-			}
-		}
+	if err := walkTopLevelStatements(program, c.compileGlobalInitStatement); err != nil {
+		return err
 	}
 	c.hasInit = true
 	return nil
+}
+
+func isGlobalInitStatement(stmt ast.Statement) bool {
+	switch stmt.(type) {
+	case *ast.VarStatement, *ast.ConstStatement, *ast.MultiVarStatement, *ast.ImportStatement:
+		return true
+	default:
+		return false
+	}
+}
+
+func (c *Compiler) compileGlobalInitStatement(stmt ast.Statement) error {
+	switch s := stmt.(type) {
+	case *ast.VarStatement:
+		return c.compileGlobalVarInit(s)
+	case *ast.MultiVarStatement:
+		return c.compileGlobalMultiVarInit(s)
+	case *ast.ConstStatement:
+		return c.compileGlobalConstInit(s)
+	case *ast.ImportStatement:
+		return c.compileImportStatement(s)
+	default:
+		return nil
+	}
 }
 
 func (c *Compiler) compileGlobalVarInit(vs *ast.VarStatement) error {

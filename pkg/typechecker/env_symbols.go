@@ -24,6 +24,16 @@ func (e *TypeEnv) DefineSymbol(
 	delete(e.poisoned, name)
 }
 
+func (e *TypeEnv) DefineSymbolAt(
+	name string,
+	typeExpr ast.TypeExpression,
+	mutable bool,
+	vis ast.Visibility,
+	pos ast.Position,
+) {
+	e.DefineSymbol(name, typeExpr, mutable, vis, pos.Line, pos.Column)
+}
+
 // LookupSymbol looks up a symbol in the environment chain
 func (e *TypeEnv) LookupSymbol(name string) (*TypeInfo, bool) {
 	if info, ok := e.symbols[name]; ok {

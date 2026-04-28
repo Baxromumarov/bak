@@ -55,13 +55,12 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		}
 
 		vs.Type = inferredType // Update AST with inferred type
-		tc.env.DefineSymbol(
+		tc.env.DefineSymbolAt(
 			vs.Name.Value,
 			inferredType,
 			vs.Mutable,
 			ast.Private,
-			vs.Name.Token.Line,
-			vs.Name.Token.Column,
+			tokenPos(vs.Name.Token),
 		)
 		tc.nodeTypes[vs.Name] = typeToString(inferredType)
 		return
@@ -71,13 +70,12 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	// Special handling for Vec types
 	if gt, ok := vs.Type.(*ast.GenericType); ok && gt.Name == "Vec" {
 		tc.checkVecDeclaration(vs, gt)
-		tc.env.DefineSymbol(
+		tc.env.DefineSymbolAt(
 			vs.Name.Value,
 			vs.Type,
 			vs.Mutable,
 			ast.Private,
-			vs.Name.Token.Line,
-			vs.Name.Token.Column,
+			tokenPos(vs.Name.Token),
 		)
 		tc.nodeTypes[vs.Name] = typeToString(vs.Type)
 		return
@@ -105,13 +103,12 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		tokenPos(vs.Name.Token),
 	)
 
-	tc.env.DefineSymbol(
+	tc.env.DefineSymbolAt(
 		vs.Name.Value,
 		vs.Type,
 		vs.Mutable,
 		ast.Private,
-		vs.Name.Token.Line,
-		vs.Name.Token.Column,
+		tokenPos(vs.Name.Token),
 	)
 	tc.nodeTypes[vs.Name] = typeToString(vs.Type)
 }
@@ -137,26 +134,24 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 		}
 		// Define each variable with its corresponding type from the tuple
 		for i, name := range mvs.Names {
-			tc.env.DefineSymbol(
+			tc.env.DefineSymbolAt(
 				name.Value,
 				tt.Elements[i],
 				mvs.Mutable,
 				ast.Private,
-				name.Token.Line,
-				name.Token.Column,
+				tokenPos(name.Token),
 			)
 		}
 	} else if valueType != nil {
 		// For non-tuple types, just define all variables with unknown type
 		// The error was already reported if the function call was invalid
 		for _, name := range mvs.Names {
-			tc.env.DefineSymbol(
+			tc.env.DefineSymbolAt(
 				name.Value,
 				nil,
 				mvs.Mutable,
 				ast.Private,
-				name.Token.Line,
-				name.Token.Column,
+				tokenPos(name.Token),
 			)
 		}
 	}

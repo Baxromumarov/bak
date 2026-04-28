@@ -101,7 +101,7 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 	loopEnv := NewEnclosedTypeEnv(tc.env)
 	oldEnv := tc.env
 	tc.env = loopEnv
-	tc.env.DefineSymbol(fs.Variable.Value, elemType, false, ast.Private, fs.Variable.Token.Line, fs.Variable.Token.Column)
+	tc.env.DefineSymbolAt(fs.Variable.Value, elemType, false, ast.Private, tokenPos(fs.Variable.Token))
 	if fs.Variable != nil {
 		tc.nodeTypes[fs.Variable] = typeToString(elemType)
 	}

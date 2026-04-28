@@ -3,81 +3,76 @@ package compiler
 import "github.com/baxromumarov/bak/pkg/ast"
 
 func (c *Compiler) registerTopLevelDeclarations(program *ast.Program) error {
-	if err := walkTopLevelStatements(program, func(stmt ast.Statement) error {
-		switch s := stmt.(type) {
-		case *ast.ImportStatement:
-			return c.processImport(s)
-		case *ast.StructDecl:
-			c.compileStructDef(s)
-		case *ast.EnumDecl:
-			c.compileEnumDef(s)
-		case *ast.FunctionDecl:
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.VarStatement:
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.MultiVarStatement:
-			for _, name := range s.Names {
-				c.module.AddGlobal(name.Value)
+	return walkTopLevelStatements(
+		program,
+		func(stmt ast.Statement) error {
+			switch s := stmt.(type) {
+			case *ast.ImportStatement:
+				return c.processImport(s)
+			case *ast.StructDecl:
+				c.compileStructDef(s)
+			case *ast.EnumDecl:
+				c.compileEnumDef(s)
+			case *ast.FunctionDecl:
+				c.registerTopLevelGlobal(s.Name.Value)
+			case *ast.VarStatement:
+				c.registerTopLevelGlobal(s.Name.Value)
+			case *ast.MultiVarStatement:
+				for _, name := range s.Names {
+					c.registerTopLevelGlobal(name.Value)
+				}
+			case *ast.ConstStatement:
+				c.registerTopLevelGlobal(s.Name.Value)
+			case *ast.AliasDecl:
+				c.aliases[s.Name.Value] = s.Underlying
+			case *ast.ImplDecl:
+				// Methods are compiled in a later pass.
 			}
-		case *ast.ConstStatement:
-			c.module.AddGlobal(s.Name.Value)
-		case *ast.AliasDecl:
-			c.aliases[s.Name.Value] = s.Underlying
-		case *ast.ImplDecl:
-			// Methods are compiled in a later pass.
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+			return nil
+		},
+	)
 }
 
 func (c *Compiler) registerFunctionStubs(program *ast.Program) {
+	if program == nil {
+		return
+	}
 	for _, stmt := range program.Statements {
 		switch s := stmt.(type) {
 		case *ast.FunctionDecl:
-			stub := &FunctionObj{Name: s.Name.Value}
-			idx := c.module.AddFunction(stub)
-			c.module.FunctionIndices[s.Name.Value] = idx
+			c.registerFunctionStub(s.Name.Value)
 		case *ast.ImplDecl:
 			for _, method := range s.Methods {
-				methodName := s.TypeName.Value + "." + method.Name.Value
-				stub := &FunctionObj{Name: methodName}
-				idx := c.module.AddFunction(stub)
-				c.module.FunctionIndices[methodName] = idx
+				c.registerFunctionStub(s.TypeName.Value + "." + method.Name.Value)
 			}
 		}
 	}
 }
 
 func (c *Compiler) compileTopLevelStatements(program *ast.Program) error {
-	if err := walkTopLevelStatements(program, func(stmt ast.Statement) error {
+	return walkTopLevelStatements(program, func(stmt ast.Statement) error {
 		switch s := stmt.(type) {
 		case *ast.FunctionDecl:
 			return c.compileFunction(s)
 		case *ast.ImplDecl:
 			return c.compileImpl(s)
 		case *ast.VarStatement:
-			c.module.AddGlobal(s.Name.Value)
+			c.registerTopLevelGlobal(s.Name.Value)
 		case *ast.MultiVarStatement:
 			for _, name := range s.Names {
-				c.module.AddGlobal(name.Value)
+				c.registerTopLevelGlobal(name.Value)
 			}
 		case *ast.ConstStatement:
-			c.module.AddGlobal(s.Name.Value)
+			c.registerTopLevelGlobal(s.Name.Value)
 		}
 		return nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
-func walkTopLevelStatements(
-	program *ast.Program,
-	visit func(ast.Statement) error,
-) error {
+func walkTopLevelStatements(program *ast.Program, visit func(ast.Statement) error) error {
+	if program == nil {
+		return nil
+	}
 	for _, stmt := range program.Statements {
 		if stmt == nil {
 			continue
@@ -108,6 +103,22 @@ func walkTopLevelStatements(
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) registerTopLevelGlobal(name string) {
+	if name == "" {
+		return
+	}
+	c.module.AddGlobal(name)
+}
+
+func (c *Compiler) registerFunctionStub(name string) {
+	if name == "" {
+		return
+	}
+	stub := &FunctionObj{Name: name}
+	idx := c.module.AddFunction(stub)
+	c.module.FunctionIndices[name] = idx
 }
 
 func (c *Compiler) findMainFunction() int {

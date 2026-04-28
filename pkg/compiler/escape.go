@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"slices"
 	"sort"
 	"strings"
 
@@ -50,7 +51,7 @@ func (le *LocalEscape) SortedReasons() []EscapeReason {
 	for reason := range le.Reasons {
 		out = append(out, reason)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	return out
 }
 

@@ -3,10 +3,11 @@ package typechecker
 import (
 	"fmt"
 
+	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
-func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo *MoveInfo) {
+func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, moveInfo *MoveInfo) {
 	help := fmt.Sprintf("how to fix: consider borrowing instead: &%s", varName)
 	if moveInfo != nil {
 		switch moveInfo.Reason {
@@ -25,8 +26,8 @@ func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo
 	err := TypeError{
 		Code:    diagnostics.ErrUseAfterMove,
 		Tier:    TierFatal,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Message: fmt.Sprintf("use of moved value '%s'", varName),
 		Help:    help,
 	}
@@ -40,12 +41,12 @@ func (tc *TypeChecker) errorUseAfterMove(varName string, line, col int, moveInfo
 	tc.addFatalError(err)
 }
 
-func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason string, borrowInfo *BorrowInfo) {
+func (tc *TypeChecker) errorCannotMoveAt(varName string, pos ast.Position, reason string, borrowInfo *BorrowInfo) {
 	diag := TypeError{
 		Code:    diagnostics.ErrMoveWhileBorrowed,
 		Tier:    TierFatal,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Message: fmt.Sprintf("cannot move '%s' because it is %s", varName, reason),
 		Help:    fmt.Sprintf("how to fix: finish active borrows of '%s' before moving it, or clone '%s' first", varName, varName),
 	}
@@ -62,10 +63,9 @@ func (tc *TypeChecker) errorCannotMove(varName string, line, col int, reason str
 	tc.addFatalError(diag)
 }
 
-func (tc *TypeChecker) errorBorrowConflict(
+func (tc *TypeChecker) errorBorrowConflictAt(
 	varName string,
-	line,
-	col int,
+	pos ast.Position,
 	attemptedBorrow,
 	existingState string,
 	borrowInfo *BorrowInfo,
@@ -81,8 +81,8 @@ func (tc *TypeChecker) errorBorrowConflict(
 	diag := TypeError{
 		Code:   diagnostics.ErrBorrowConflict,
 		Tier:   TierFatal,
-		Line:   line,
-		Column: col,
+		Line:   pos.Line,
+		Column: pos.Column,
 		Message: fmt.Sprintf("cannot borrow '%s' as %s because it is already %s",
 			varName,
 			attemptedBorrow,
@@ -101,10 +101,9 @@ func (tc *TypeChecker) errorBorrowConflict(
 	tc.addFatalError(diag)
 }
 
-func (tc *TypeChecker) errorMutabilityRequired(
+func (tc *TypeChecker) errorMutabilityRequiredAt(
 	varName string,
-	line,
-	col int,
+	pos ast.Position,
 	operation string,
 ) {
 	helpMsg := "declare the variable as 'mut var'"
@@ -115,8 +114,8 @@ func (tc *TypeChecker) errorMutabilityRequired(
 	tc.addFatalError(TypeError{
 		Code:    diagnostics.ErrMutabilityRequired,
 		Tier:    TierFatal,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Message: fmt.Sprintf("cannot %s on immutable variable '%s'", operation, varName),
 		Help:    helpMsg,
 	})

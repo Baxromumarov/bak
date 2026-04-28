@@ -154,11 +154,10 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		}
 
 		// Field not found in struct - provide structured suggestions.
-		tc.errorStructHasNoField(
+		tc.errorStructHasNoFieldAt(
 			structName,
 			fa.Field.Value,
-			fa.Token.Line,
-			fa.Token.Column,
+			tokenPos(fa.Token),
 			tc.getStructFieldNames(structName),
 		)
 
@@ -187,11 +186,10 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 	}
 
 	// Not a struct or struct not found
-	tc.errorTypeHasNoField(
+	tc.errorTypeHasNoFieldAt(
 		typeToString(objType),
 		fa.Field.Value,
-		fa.Token.Line,
-		fa.Token.Column,
+		tokenPos(fa.Token),
 		nil,
 	)
 	return nil
@@ -248,7 +246,7 @@ func (tc *TypeChecker) tryResolveImportedStructField(fa *ast.FieldAccessExpressi
 					fieldNames = append(fieldNames, f.Name.Value)
 				}
 			}
-			tc.errorStructHasNoField(structName, fa.Field.Value, fa.Token.Line, fa.Token.Column, fieldNames)
+			tc.errorStructHasNoFieldAt(structName, fa.Field.Value, tokenPos(fa.Token), fieldNames)
 			return nil, true
 		}
 	}

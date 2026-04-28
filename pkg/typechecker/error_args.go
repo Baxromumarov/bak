@@ -7,17 +7,16 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
-func (tc *TypeChecker) errorArgumentCountMismatch(
+func (tc *TypeChecker) errorArgumentCountMismatchAt(
 	name string,
 	expected,
 	got int,
-	line,
-	col int,
+	pos ast.Position,
 	sig *FunctionSig,
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		line, col,
+		pos.Line, pos.Column,
 		fmt.Sprintf("function '%s' expects %d argument(s), but got %d", name, expected, got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
@@ -25,13 +24,12 @@ func (tc *TypeChecker) errorArgumentCountMismatch(
 	tc.emitError(diag)
 }
 
-func (tc *TypeChecker) errorArgumentCountRangeMismatch(
+func (tc *TypeChecker) errorArgumentCountRangeMismatchAt(
 	name string,
 	minExpected,
 	maxExpected,
 	got int,
-	line,
-	col int,
+	pos ast.Position,
 ) {
 	help := ""
 	switch {
@@ -48,25 +46,24 @@ func (tc *TypeChecker) errorArgumentCountRangeMismatch(
 
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		line, col,
+		pos.Line, pos.Column,
 		fmt.Sprintf("function '%s' expects %s argument(s), but got %d", name, rangeHint, got),
 	)
 	diag.Help = help
 	tc.emitError(diag)
 }
 
-func (tc *TypeChecker) errorMethodArgumentCountMismatch(
+func (tc *TypeChecker) errorMethodArgumentCountMismatchAt(
 	typeName,
 	method string,
 	expected,
 	got int,
-	line,
-	col int,
+	pos ast.Position,
 	sig *FunctionSig,
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		line, col,
+		pos.Line, pos.Column,
 		fmt.Sprintf("method '%s.%s' expects %d argument(s), but got %d", typeName, method, expected, got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
@@ -74,7 +71,7 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatch(
 	tc.emitError(diag)
 }
 
-func (tc *TypeChecker) errorMissingReturn(line, col int, expected ast.TypeExpression) {
+func (tc *TypeChecker) errorMissingReturnAt(pos ast.Position, expected ast.TypeExpression) {
 	expectedName := typeToString(expected)
 	help := "add a return statement"
 	if expectedName != "" && expectedName != "void" {
@@ -82,7 +79,7 @@ func (tc *TypeChecker) errorMissingReturn(line, col int, expected ast.TypeExpres
 	}
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrMissingReturn,
-		line, col,
+		pos.Line, pos.Column,
 		fmt.Sprintf("missing return of type %s", expectedName),
 	)
 	diag.Help = help

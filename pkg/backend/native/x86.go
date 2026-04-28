@@ -39,16 +39,26 @@ const (
 // --- Helpers ---
 
 func rexByte(w, r, x, b int) byte {
-	return byte(0x40 | (w << 3) | (r << 2) | (x << 1) | b)
+	return byte(
+		0x40 |
+			(w << 3) |
+			(r << 2) |
+			(x << 1) |
+			b)
 }
 
 func modRM(mod, reg, rm int) byte {
-	return byte(((mod & 3) << 6) | ((reg & 7) << 3) | (rm & 7))
+	return byte(
+		((mod & 3) << 6) |
+			((reg & 7) << 3) |
+			(rm & 7))
 }
 
 // sib constructs a SIB byte: scale (0-3), index reg, base reg
 func sib(scale, index, base int) byte {
-	return byte(((scale & 3) << 6) | ((index & 7) << 3) | (base & 7))
+	return byte(((scale & 3) << 6) |
+		((index & 7) << 3) |
+		(base & 7))
 }
 
 func regHi(reg int) int {
@@ -59,7 +69,12 @@ func regHi(reg int) int {
 }
 
 func appendU32LE(buf *[]byte, v uint32) {
-	*buf = append(*buf, byte(v), byte(v>>8), byte(v>>16), byte(v>>24))
+	*buf = append(*buf,
+		byte(v),
+		byte(v>>8),
+		byte(v>>16),
+		byte(v>>24),
+	)
 }
 
 func appendI32LE(buf *[]byte, v int32) {
@@ -67,8 +82,16 @@ func appendI32LE(buf *[]byte, v int32) {
 }
 
 func appendU64LE(buf *[]byte, v uint64) {
-	*buf = append(*buf, byte(v), byte(v>>8), byte(v>>16), byte(v>>24),
-		byte(v>>32), byte(v>>40), byte(v>>48), byte(v>>56))
+	*buf = append(*buf,
+		byte(v),
+		byte(v>>8),
+		byte(v>>16),
+		byte(v>>24),
+		byte(v>>32),
+		byte(v>>40),
+		byte(v>>48),
+		byte(v>>56),
+	)
 }
 
 func patchU32(buf []byte, offset int, v uint32) {

@@ -165,7 +165,7 @@ func (tc *TypeChecker) validateTypeName(name string, pos ast.Position, filename 
 			}
 		}
 	}
-	tc.errorUndefinedTypeInFile(name, pos.Line, pos.Column, filename)
+	tc.errorUndefinedTypeInFileAt(name, pos, filename)
 	return false
 }
 

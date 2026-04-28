@@ -390,7 +390,7 @@ func (tc *TypeChecker) checkEnumPayloadBindings(
 
 	for i, arg := range args {
 		if name, mutable, ok := bindingFromPattern(arg); ok {
-			tc.env.DefineSymbol(name, fields[i], mutable, ast.Private, pos.Line, pos.Column)
+			tc.env.DefineSymbolAt(name, fields[i], mutable, ast.Private, pos)
 		} else {
 			tc.inferType(arg)
 		}
@@ -425,4 +425,3 @@ func (tc *TypeChecker) checkNonEnumCase(caseValue ast.Expression, switchType ast
 		}
 	}
 }
-

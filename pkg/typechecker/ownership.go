@@ -98,7 +98,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 			!tc.env.IsPoisoned(e.Value) {
 
 			moveInfo := tc.env.GetMoveInfo(e.Value)
-			tc.errorUseAfterMove(e.Value, pos.Line, pos.Column, moveInfo)
+			tc.errorUseAfterMoveAt(e.Value, pos, moveInfo)
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -107,7 +107,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, pos.Line, pos.Column, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
+			tc.errorCannotMoveAt(e.Value, pos, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -131,7 +131,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 			!tc.env.IsPoisoned(e.Value) {
 
 			moveInfo := tc.env.GetMoveInfo(e.Value)
-			tc.errorUseAfterMove(e.Value, pos.Line, pos.Column, moveInfo)
+			tc.errorUseAfterMoveAt(e.Value, pos, moveInfo)
 			tc.env.MarkPoisoned(e.Value)
 
 			return
@@ -140,7 +140,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 		if tc.env.IsBorrowedMut(e.Value) &&
 			!tc.env.IsPoisoned(e.Value) {
 
-			tc.errorCannotMove(e.Value, pos.Line, pos.Column, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
+			tc.errorCannotMoveAt(e.Value, pos, "mutably borrowed", tc.env.GetBorrowedMutInfo(e.Value))
 			tc.env.MarkPoisoned(e.Value)
 
 			return

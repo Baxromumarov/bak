@@ -8,53 +8,11 @@ import (
 
 func (c *Compiler) compileFieldAccess(fa *ast.FieldAccessExpression) error {
 	if ident, ok := fa.Object.(*ast.Identifier); ok {
-		if _, isModule := c.importAliases[ident.Value]; isModule && c.resolveLocal(ident.Value) == -1 && !c.isGlobalOrFunction(ident.Value) {
-			qualifiedName := ident.Value + "." + fa.Field.Value
-			if fnIdx, ok := c.module.FunctionIndices[qualifiedName]; ok {
-				c.emit(OP_GET_FUNC)
-				c.emitByte(byte(fnIdx >> 8))
-				c.emitByte(byte(fnIdx))
-				return nil
-			}
-			if idx, ok := c.module.LookupGlobal(qualifiedName); ok {
-				c.emit(OP_GET_GLOBAL)
-				c.emitByte(byte(idx >> 8))
-				c.emitByte(byte(idx))
-				return nil
-			}
-			// Check for imported enum types
-			if _, ok := c.module.EnumDefs[qualifiedName]; ok {
-				c.emitConstant(NewString("__enum__:" + qualifiedName))
-				return nil
-			}
-			// Check for imported struct types (for static method calls like HashMap.new())
-			if _, ok := c.module.StructDefs[qualifiedName]; ok {
-				c.emitConstant(NewString("__struct__:" + qualifiedName))
-				return nil
-			}
-			return fmt.Errorf("undefined field: %s", qualifiedName)
+		if handled, err := c.compileImportedModuleFieldAccess(ident, fa.Field.Value); handled {
+			return err
 		}
-
-		// Local enum variant access (e.g., MyEnum.Variant)
-		if enumDef, ok := c.module.EnumDefs[ident.Value]; ok {
-			if variantIdx, ok := enumDef.VariantIndex[fa.Field.Value]; ok {
-				variant := enumDef.Variants[variantIdx]
-
-				if variant.PayloadCount != 0 {
-					return fmt.Errorf(
-						"enum variant %s.%s expects %d arguments",
-						ident.Value,
-						fa.Field.Value,
-						variant.PayloadCount,
-					)
-				}
-
-				c.emitConstant(NewInt(int64(enumDef.EnumID)))
-				c.emitConstant(NewInt(int64(variantIdx)))
-				c.emitConstant(NewInt(0))
-				c.emit(OP_NEW_ENUM)
-				return nil
-			}
+		if handled, err := c.compileLocalEnumVariantFieldAccess(ident.Value, fa.Field.Value); handled {
+			return err
 		}
 	}
 
@@ -66,4 +24,63 @@ func (c *Compiler) compileFieldAccess(fa *ast.FieldAccessExpression) error {
 	c.emitByte(byte(fieldIdx >> 8))
 	c.emitByte(byte(fieldIdx))
 	return nil
+}
+
+func (c *Compiler) compileImportedModuleFieldAccess(ident *ast.Identifier, fieldName string) (bool, error) {
+	if _, isModule := c.importAliases[ident.Value]; !isModule {
+		return false, nil
+	}
+	if c.resolveLocal(ident.Value) != -1 || c.isGlobalOrFunction(ident.Value) {
+		return false, nil
+	}
+
+	qualifiedName := ident.Value + "." + fieldName
+	if fnIdx, ok := c.module.FunctionIndices[qualifiedName]; ok {
+		c.emit(OP_GET_FUNC)
+		c.emitByte(byte(fnIdx >> 8))
+		c.emitByte(byte(fnIdx))
+		return true, nil
+	}
+	if idx, ok := c.module.LookupGlobal(qualifiedName); ok {
+		c.emit(OP_GET_GLOBAL)
+		c.emitByte(byte(idx >> 8))
+		c.emitByte(byte(idx))
+		return true, nil
+	}
+	if _, ok := c.module.EnumDefs[qualifiedName]; ok {
+		c.emitConstant(NewString("__enum__:" + qualifiedName))
+		return true, nil
+	}
+	if _, ok := c.module.StructDefs[qualifiedName]; ok {
+		c.emitConstant(NewString("__struct__:" + qualifiedName))
+		return true, nil
+	}
+	return true, fmt.Errorf("undefined field: %s", qualifiedName)
+}
+
+func (c *Compiler) compileLocalEnumVariantFieldAccess(enumName, variantName string) (bool, error) {
+	enumDef, ok := c.module.EnumDefs[enumName]
+	if !ok {
+		return false, nil
+	}
+	variantIdx, ok := enumDef.VariantIndex[variantName]
+	if !ok {
+		return false, nil
+	}
+
+	variant := enumDef.Variants[variantIdx]
+	if variant.PayloadCount != 0 {
+		return true, fmt.Errorf(
+			"enum variant %s.%s expects %d arguments",
+			enumName,
+			variantName,
+			variant.PayloadCount,
+		)
+	}
+
+	c.emitConstant(NewInt(int64(enumDef.EnumID)))
+	c.emitConstant(NewInt(int64(variantIdx)))
+	c.emitConstant(NewInt(0))
+	c.emit(OP_NEW_ENUM)
+	return true, nil
 }

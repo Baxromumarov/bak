@@ -34,12 +34,12 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			tc.env.DefineTypeDef(s.Name.Value, s.Underlying, s.Visibility, s.Name.Token.Line, s.Name.Token.Column)
+			tc.env.DefineTypeDefAt(s.Name.Value, s.Underlying, s.Visibility, tokenPos(s.Name.Token))
 		case *ast.AliasDecl:
 			if s.Name == nil {
 				continue
 			}
-			tc.env.DefineAlias(s.Name.Value, s.Underlying, s.Visibility, s.Name.Token.Line, s.Name.Token.Column)
+			tc.env.DefineAliasAt(s.Name.Value, s.Underlying, s.Visibility, tokenPos(s.Name.Token))
 		}
 	}
 

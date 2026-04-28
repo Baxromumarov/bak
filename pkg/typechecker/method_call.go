@@ -430,7 +430,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 		if typeName == "" {
 			typeName = "type"
 		}
-		tc.errorUndefinedMethod(typeName, mc.Method.Value, mc.Token.Line, mc.Token.Column, methods)
+		tc.errorUndefinedMethodAt(typeName, mc.Method.Value, tokenPos(mc.Token), methods)
 		return nil
 	}
 
@@ -457,13 +457,12 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 	}
 
 	if len(mc.Arguments) != len(methodSig.Parameters) {
-		tc.errorMethodArgumentCountMismatch(
+		tc.errorMethodArgumentCountMismatchAt(
 			structName,
 			mc.Method.Value,
 			len(methodSig.Parameters),
 			len(mc.Arguments),
-			mc.Token.Line,
-			mc.Token.Column,
+			tokenPos(mc.Token),
 			methodSig,
 		)
 		for _, arg := range mc.Arguments {
@@ -561,7 +560,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 	case "toString":
 		return &ast.SimpleType{Name: "string"}
 	default:
-		tc.errorUndefinedMethod("Result", method, mc.Token.Line, mc.Token.Column, resultMethodCandidates)
+		tc.errorUndefinedMethodAt("Result", method, tokenPos(mc.Token), resultMethodCandidates)
 		return nil
 	}
 }

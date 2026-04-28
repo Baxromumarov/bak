@@ -11,14 +11,21 @@ func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 	if note == "" {
 		return nil
 	}
+
 	noteDiag := diagnostics.Note{
 		Message: note,
 		File:    tc.currentPkgPath,
 	}
+
 	if noteLoc != "" {
 		var line int
 		var col int
-		if _, err := fmt.Sscanf(noteLoc, "line %d:%d", &line, &col); err == nil && line > 0 {
+		if _, err := fmt.Sscanf(
+			noteLoc,
+			"line %d:%d",
+			&line,
+			&col,
+		); err == nil && line > 0 {
 			noteDiag.Line = line
 			noteDiag.Column = col
 		}
@@ -65,15 +72,38 @@ func (tc *TypeChecker) emitSuggestedDiagnostic(
 }
 
 // addError adds a type error (legacy support, treated as fatal)
-func (tc *TypeChecker) addError(line, col int, format string, args ...any) {
+func (tc *TypeChecker) addError(
+	line,
+	col int,
+	format string,
+	args ...any,
+) {
 	msg := fmt.Sprintf(format, args...)
-	tc.emitError(tc.baseDiagnostic(diagnostics.ErrGeneric, line, col, msg))
+
+	tc.emitError(tc.baseDiagnostic(
+		diagnostics.ErrGeneric,
+		line,
+		col,
+		msg,
+	))
 }
 
 // addErrorWithHelp adds a type error with a help suggestion
-func (tc *TypeChecker) addErrorWithHelp(line, col int, help, format string, args ...any) {
+func (tc *TypeChecker) addErrorWithHelp(
+	line,
+	col int,
+	help,
+	format string,
+	args ...any) {
+
 	msg := fmt.Sprintf(format, args...)
-	diag := tc.baseDiagnostic(diagnostics.ErrGeneric, line, col, msg)
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrGeneric,
+		line,
+		col,
+		msg,
+	)
+
 	diag.Help = help
 	tc.emitError(diag)
 }
@@ -129,7 +159,13 @@ func (tc *TypeChecker) emitWarningAt(
 	message,
 	help string,
 ) {
-	tc.emitWarning(code, pos.Line, pos.Column, message, help)
+	tc.emitWarning(
+		code,
+		pos.Line,
+		pos.Column,
+		message,
+		help,
+	)
 }
 
 func (tc *TypeChecker) addFatalErrorAt(
@@ -148,12 +184,32 @@ func (tc *TypeChecker) addFatalErrorAt(
 	})
 }
 
-func (tc *TypeChecker) errorMissingTypeAt(pos ast.Position, message, help string) {
-	tc.addFatalErrorAt(diagnostics.ErrMissingType, pos, message, help)
+func (tc *TypeChecker) errorMissingTypeAt(
+	pos ast.Position,
+	message,
+	help string,
+) {
+	tc.addFatalErrorAt(
+		diagnostics.ErrMissingType,
+		pos,
+		message,
+		help,
+	)
 }
 
-func (tc *TypeChecker) emitMissingTypeErrorAt(pos ast.Position, message, help string) {
-	diag := tc.baseDiagnostic(diagnostics.ErrMissingType, pos.Line, pos.Column, message)
+func (tc *TypeChecker) emitMissingTypeErrorAt(
+	pos ast.Position,
+	message,
+	help string,
+) {
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrMissingType,
+		pos.Line,
+		pos.Column,
+		message,
+	)
+
 	diag.Help = help
+
 	tc.emitError(diag)
 }

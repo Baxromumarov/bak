@@ -138,10 +138,9 @@ func (tc *TypeChecker) callArgumentFitsInType(expected, actual ast.TypeExpressio
 	switch v := expr.(type) {
 	case *ast.Identifier:
 		if tc.env.IsBorrowedMut(v.Value) {
-			tc.errorBorrowConflict(
+			tc.errorBorrowConflictAt(
 				v.Value,
-				v.Token.Line,
-				v.Token.Column,
+				tokenPos(v.Token),
 				"borrow as immutable",
 				"mutably borrowed",
 				tc.env.GetBorrowedMutInfo(v.Value),
@@ -150,10 +149,9 @@ func (tc *TypeChecker) callArgumentFitsInType(expected, actual ast.TypeExpressio
 		}
 	case *ast.MutableIdentifier:
 		if tc.env.IsBorrowedMut(v.Value) {
-			tc.errorBorrowConflict(
+			tc.errorBorrowConflictAt(
 				v.Value,
-				v.Token.Line,
-				v.Token.Column,
+				tokenPos(v.Token),
 				"borrow as immutable",
 				"mutably borrowed",
 				tc.env.GetBorrowedMutInfo(v.Value),

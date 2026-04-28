@@ -76,9 +76,9 @@ func parseTestCommandOptions(args []string) (testCommandOptions, []string, error
 			i++
 			continue
 		}
-		if strings.HasPrefix(a, "--package=") {
-			val := strings.TrimPrefix(a, "--package=")
-			for _, p := range strings.Split(val, ",") {
+		if after, ok := strings.CutPrefix(a, "--package="); ok {
+			val := after
+			for p := range strings.SplitSeq(val, ",") {
 				out.PackageFilters[p] = struct{}{}
 			}
 			continue
@@ -87,7 +87,7 @@ func parseTestCommandOptions(args []string) (testCommandOptions, []string, error
 			if i+1 >= len(args) {
 				return testCommandOptions{}, nil, fmt.Errorf("--package requires a comma-separated list of packages")
 			}
-			for _, p := range strings.Split(args[i+1], ",") {
+			for p := range strings.SplitSeq(args[i+1], ",") {
 				out.PackageFilters[p] = struct{}{}
 			}
 			i++
@@ -224,7 +224,7 @@ func packageNameFromFile(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "package ") {
 			parts := strings.Fields(line)

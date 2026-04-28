@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"bytes"
+	"slices"
 	"strings"
 	"testing"
 
@@ -96,13 +97,7 @@ func demo() -> (void) {
 	summary := AnalyzeFunctionDeclEscapes(fd)
 
 	reasons := summary.ReasonsFor("x")
-	found := false
-	for _, r := range reasons {
-		if r == EscapeCapturedByClosure {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(reasons, EscapeCapturedByClosure)
 	if !found {
 		t.Fatalf("expected closure capture reason for x, got %v", reasons)
 	}

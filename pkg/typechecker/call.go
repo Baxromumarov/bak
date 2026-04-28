@@ -75,7 +75,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		for name := range structDef.Methods {
 			methods = append(methods, name)
 		}
-		tc.errorUndefinedMethod(structName, fa2.Field.Value, ce.Token.Line, ce.Token.Column, methods)
+		tc.errorUndefinedMethodAt(structName, fa2.Field.Value, tokenPos(ce.Token), methods)
 		tc.clearBorrows(ce.Arguments)
 		return nil, false
 	}
@@ -106,13 +106,12 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 	}
 
 	if len(ce.Arguments) != len(methodSig.Parameters) {
-		tc.errorMethodArgumentCountMismatch(
+		tc.errorMethodArgumentCountMismatchAt(
 			structName,
 			fa2.Field.Value,
 			len(methodSig.Parameters),
 			len(ce.Arguments),
-			ce.Token.Line,
-			ce.Token.Column,
+			tokenPos(ce.Token),
 			methodSig,
 		)
 		for _, arg := range ce.Arguments {
@@ -352,7 +351,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	if sig == nil {
 		if unresolvedDirectFunction != "" {
 			if suggestions := tc.suggestFunctionNames(unresolvedDirectFunction, 1); len(suggestions) > 0 {
-				tc.errorUndefinedFunction(unresolvedDirectFunction, ce.Token.Line, ce.Token.Column)
+				tc.errorUndefinedFunctionAt(unresolvedDirectFunction, tokenPos(ce.Token))
 				for _, arg := range ce.Arguments {
 					tc.inferType(arg)
 				}
@@ -398,12 +397,11 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 		}
 		// Check argument count matches parameter count
 		if len(ce.Arguments) != len(sig.Parameters) {
-			tc.errorArgumentCountMismatch(
+			tc.errorArgumentCountMismatchAt(
 				funcName,
 				len(sig.Parameters),
 				len(ce.Arguments),
-				ce.Token.Line,
-				ce.Token.Column,
+				tokenPos(ce.Token),
 				sig,
 			)
 			// Clear temporary mutable borrows created by &mut arguments
@@ -475,22 +473,20 @@ func (tc *TypeChecker) resolveBuiltinSig(funcName string, ce *ast.CallExpression
 
 	if !builtinSpec.acceptsArgCount(len(ce.Arguments)) {
 		if builtinSpec.MinArgs == builtinSpec.MaxArgs {
-			tc.errorArgumentCountMismatch(
+			tc.errorArgumentCountMismatchAt(
 				funcName,
 				builtinSpec.MinArgs,
 				len(ce.Arguments),
-				ce.Token.Line,
-				ce.Token.Column,
+				tokenPos(ce.Token),
 				nil,
 			)
 		} else {
-			tc.errorArgumentCountRangeMismatch(
+			tc.errorArgumentCountRangeMismatchAt(
 				funcName,
 				builtinSpec.MinArgs,
 				builtinSpec.MaxArgs,
 				len(ce.Arguments),
-				ce.Token.Line,
-				ce.Token.Column,
+				tokenPos(ce.Token),
 			)
 		}
 		for _, arg := range ce.Arguments {
@@ -584,10 +580,9 @@ func (tc *TypeChecker) checkCallArgMove(arg ast.Expression, paramType ast.TypeEx
 		return
 	}
 	if tc.env.IsBorrowedMut(name) {
-		tc.errorCannotMove(
+		tc.errorCannotMoveAt(
 			name,
-			pos.Line,
-			pos.Column,
+			pos,
 			"mutably borrowed",
 			tc.env.GetBorrowedMutInfo(name),
 		)

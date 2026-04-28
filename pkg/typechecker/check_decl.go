@@ -8,6 +8,41 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 )
 
+var (
+	// Check unused variables (globals)
+	unusedVarSpec = unusedWarningSpec{
+		code:      diagnostics.ErrUnusedVariable,
+		label:     "variable",
+		help:      "prefix with _ to ignore",
+		extraSkip: []func(string) bool{skipMain, skipTest},
+	}
+
+	unusedTypeDefSpec = unusedWarningSpec{
+		code:  diagnostics.DiagnosticCode("UnusedTypeDef"),
+		label: "type",
+		help:  "remove if not used",
+	}
+
+	unusedAliasSpec = unusedWarningSpec{
+		code:  diagnostics.DiagnosticCode("UnusedAlias"),
+		label: "alias",
+		help:  "remove if not used",
+	}
+
+	unusedFuncSpec = unusedWarningSpec{
+		code:      diagnostics.DiagnosticCode("UnusedFunc"),
+		label:     "function",
+		help:      "remove if not used",
+		extraSkip: []func(string) bool{skipMain, skipTest},
+	}
+
+	unusedStructSpec = unusedWarningSpec{
+		code:  diagnostics.DiagnosticCode("UnusedType"),
+		label: "struct",
+		help:  "remove if not used",
+	}
+)
+
 func (tc *TypeChecker) checkUnusedElements() {
 	if tc.isTestFile() {
 		return
@@ -17,40 +52,65 @@ func (tc *TypeChecker) checkUnusedElements() {
 		return
 	}
 
-	// Check unused variables (globals)
 	for name, info := range tc.env.symbols {
-		tc.warnIfUnused(name, info.Line, info.Column, info.Visibility,
-			diagnostics.ErrUnusedVariable, fmt.Sprintf("unused variable: '%s'", name), "prefix with _ to ignore",
-			skipMain, skipTest)
+		tc.warnIfUnused(
+			name,
+			lineColPos(info.Line, info.Column),
+			info.Visibility,
+			unusedVarSpec,
+		)
 	}
+
 	// Check unused type definitions
 	for name, def := range tc.env.typedefs {
-		tc.warnIfUnused(name, def.Line, def.Column, def.Visibility,
-			diagnostics.DiagnosticCode("UnusedTypeDef"), fmt.Sprintf("unused type: '%s'", name), "remove if not used")
+		tc.warnIfUnused(
+			name,
+			lineColPos(def.Line, def.Column),
+			def.Visibility,
+			unusedTypeDefSpec,
+		)
 	}
 	// Check unused aliases
 	for name, def := range tc.env.aliases {
-		tc.warnIfUnused(name, def.Line, def.Column, def.Visibility,
-			diagnostics.DiagnosticCode("UnusedAlias"), fmt.Sprintf("unused alias: '%s'", name), "remove if not used")
+		tc.warnIfUnused(
+			name,
+			lineColPos(def.Line, def.Column),
+			def.Visibility,
+			unusedAliasSpec,
+		)
 	}
+
 	// Check unused functions
 	for name, sig := range tc.env.functions {
 		vis := ast.Private
+		pos := ast.Position{}
 		if sig != nil {
 			vis = sig.Visibility
+			pos = lineColPos(sig.Line, sig.Column)
 		}
-		tc.warnIfUnused(name, sig.Line, sig.Column, vis,
-			diagnostics.DiagnosticCode("UnusedFunc"), fmt.Sprintf("unused function: '%s'", name), "remove if not used",
-			skipMain, skipTest)
+
+		tc.warnIfUnused(
+			name,
+			pos,
+			vis,
+			unusedFuncSpec,
+		)
 	}
 	// Check unused structs
 	for name, def := range tc.env.structs {
 		vis := ast.Private
+		pos := ast.Position{}
 		if def != nil {
 			vis = def.Visibility
+			pos = lineColPos(def.Line, def.Column)
 		}
-		tc.warnIfUnused(name, def.Line, def.Column, vis,
-			diagnostics.DiagnosticCode("UnusedType"), fmt.Sprintf("unused struct: '%s'", name), "remove if not used")
+
+		tc.warnIfUnused(
+			name,
+			pos,
+			vis,
+			unusedStructSpec,
+		)
 		// NOTE: We intentionally do NOT warn about unused struct fields.
 		// Field assignment is part of constructing a value, not dead code.
 		// The struct value may be passed to functions, serialized, etc.
@@ -62,10 +122,18 @@ func (tc *TypeChecker) checkUnusedElements() {
 		if alias == "" || strings.HasPrefix(alias, "_") {
 			continue
 		}
+
 		if tc.usedImports[alias] {
 			continue
 		}
-		tc.emitter.Emit(diagnostics.UnusedImport(info.Path, ast.Position{Line: info.Line, Column: info.Column}))
+
+		tc.emitter.Emit(diagnostics.UnusedImport(
+			info.Path,
+			ast.Position{
+				Line:   info.Line,
+				Column: info.Column,
+			},
+		))
 	}
 }
 
@@ -79,24 +147,39 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 
 	paramNames := make([]string, 0, len(fd.Parameters))
 	paramInfo := make(map[string]*ast.Parameter)
+
 	for _, param := range fd.Parameters {
-		tc.env.DefineSymbol(param.Name.Value, param.Type, param.Mutable, ast.Private, param.Name.Token.Line, param.Name.Token.Column)
+
+		tc.env.DefineSymbolAt(
+			param.Name.Value,
+			param.Type,
+			param.Mutable,
+			ast.Private,
+			tokenPos(param.Name.Token),
+		)
+
 		tc.nodeTypes[param.Name] = typeToString(param.Type)
+
 		// Validate parameter type usage (catch deprecated/ambiguous types like 'float')
 		tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
 		paramNames = append(paramNames, param.Name.Value)
+
 		paramInfo[param.Name.Value] = param
 	}
 
 	// Validate function return type annotations (catch uses like 'float')
 	tc.validateTypeUsage(fd.ReturnType, tokenPos(fd.Name.Token))
+
 	oldRet := tc.currentFuncRet
 	tc.currentFuncRet = fd.ReturnType
 
 	tc.checkBlockStatement(fd.Body)
-	if fd.ReturnType != nil && !tc.isVoidType(fd.ReturnType) && !tc.isErrorType(fd.ReturnType) {
+	if fd.ReturnType != nil &&
+		!tc.isVoidType(fd.ReturnType) &&
+		!tc.isErrorType(fd.ReturnType) {
 		if !tc.blockTerminates(fd.Body) {
-			tc.errorMissingReturn(fd.Name.Token.Line, fd.Name.Token.Column, fd.ReturnType)
+
+			tc.errorMissingReturnAt(tokenPos(fd.Name.Token), fd.ReturnType)
 		}
 	}
 
@@ -116,7 +199,9 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 			if fd.Body != nil && tc.identifierOccursInNode(fd.Body, name) {
 				continue
 			}
+
 			info := paramInfo[name]
+
 			tc.emitWarning(
 				diagnostics.ErrUnusedVariable,
 				info.Name.Token.Line,
@@ -164,7 +249,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	if !isBuiltinType {
 		structDef, ok = tc.env.LookupStruct(typeName)
 		if !ok {
-			tc.errorUndefinedTypeInFile(typeName, id.Token.Line, id.Token.Column, id.Token.Filename)
+			tc.errorUndefinedTypeInFileAt(typeName, tokenPos(id.Token), id.Token.Filename)
 			return
 		}
 	}
@@ -187,19 +272,19 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		if id.Receiver != nil {
 			receiverName := id.Receiver.Value
 			receiverType := &ast.SimpleType{Name: typeName}
-			tc.env.DefineSymbol(receiverName, receiverType, method.Mutable, ast.Private, id.Receiver.Token.Line, id.Receiver.Token.Column)
+			tc.env.DefineSymbolAt(receiverName, receiverType, method.Mutable, ast.Private, tokenPos(id.Receiver.Token))
 
 			// Only define struct fields for non-builtin types
 			if !isBuiltinType && structDef != nil {
 				for fieldName, fieldDef := range structDef.Fields {
-					tc.env.DefineSymbol(receiverName+"."+fieldName, fieldDef.Type, method.Mutable, ast.Private, id.Receiver.Token.Line, id.Receiver.Token.Column)
+					tc.env.DefineSymbolAt(receiverName+"."+fieldName, fieldDef.Type, method.Mutable, ast.Private, tokenPos(id.Receiver.Token))
 				}
 			}
 		}
 
 		for _, param := range method.Parameters {
 			tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
-			tc.env.DefineSymbol(param.Name.Value, param.Type, param.Mutable, ast.Private, param.Name.Token.Line, param.Name.Token.Column)
+			tc.env.DefineSymbolAt(param.Name.Value, param.Type, param.Mutable, ast.Private, tokenPos(param.Name.Token))
 		}
 
 		oldRet := tc.currentFuncRet
@@ -213,7 +298,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		tc.checkBlockStatement(method.Body)
 		if method.ReturnType != nil && !tc.isVoidType(method.ReturnType) && !tc.isErrorType(method.ReturnType) {
 			if !tc.blockTerminates(method.Body) {
-				tc.errorMissingReturn(method.Name.Token.Line, method.Name.Token.Column, method.ReturnType)
+				tc.errorMissingReturnAt(tokenPos(method.Name.Token), method.ReturnType)
 			}
 		}
 
@@ -225,31 +310,36 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 }
 
 func isPreludeSymbol(name string) bool {
-	if strings.HasPrefix(name, "HASH_") ||
+	return strings.HasPrefix(name, "HASH_") ||
 		strings.HasPrefix(name, "hash_") ||
 		strings.HasPrefix(name, "Hash") ||
-		name == "h1" || name == "h2" ||
-		name == "newHashMap" || name == "withCapHashMap" {
-		return true
-	}
-	return false
+		name == "h1" ||
+		name == "h2" ||
+		name == "newHashMap" ||
+		name == "withCapHashMap"
+
 }
 
-func skipMain(name string) bool  { return name == "main" }
-func skipTest(name string) bool  { return strings.HasPrefix(name, "test_") }
+func skipMain(name string) bool { return name == "main" }
+func skipTest(name string) bool { return strings.HasPrefix(name, "test_") }
+
+type unusedWarningSpec struct {
+	code      diagnostics.DiagnosticCode
+	label     string
+	help      string
+	extraSkip []func(string) bool
+}
 
 func (tc *TypeChecker) warnIfUnused(
 	name string,
-	line, col int,
+	pos ast.Position,
 	vis ast.Visibility,
-	code diagnostics.DiagnosticCode,
-	msg, help string,
-	extraSkip ...func(string) bool,
+	spec unusedWarningSpec,
 ) {
 	if name == "" || strings.HasPrefix(name, "_") {
 		return
 	}
-	for _, skip := range extraSkip {
+	for _, skip := range spec.extraSkip {
 		if skip(name) {
 			return
 		}
@@ -263,5 +353,10 @@ func (tc *TypeChecker) warnIfUnused(
 	if tc.env.used[name] {
 		return
 	}
-	tc.emitWarning(code, line, col, msg, help)
+	tc.emitWarningAt(
+		spec.code,
+		pos,
+		fmt.Sprintf("unused %s: '%s'", spec.label, name),
+		spec.help,
+	)
 }
