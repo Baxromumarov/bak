@@ -9,6 +9,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // callBuiltinDB bridges VM database builtin calls to the Go implementations.
@@ -169,7 +170,7 @@ func dbQuery(vm *VM, handle int, sqlStr string, queryArgs []any) (compiler.Value
 			} else if b, ok := val.([]byte); ok {
 				strVal = string(b)
 			} else {
-				strVal = fmt.Sprintf("%v", val)
+				strVal = strfmt.Format("{val}", struct{ Val any }{val})
 			}
 			rowCells[i] = compiler.NewString(strVal)
 		}

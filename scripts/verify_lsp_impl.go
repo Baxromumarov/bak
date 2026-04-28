@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func main() {
@@ -115,7 +117,7 @@ func sendRequest(w io.Writer, id int, method string, params any) {
 		"params":  params,
 	}
 	data, _ := json.Marshal(req)
-	fmt.Fprintf(w, "Content-Length: %d\r\n\r\n%s", len(data), data)
+	_, _ = strfmt.Fprint(w, "Content-Length: ", len(data), "\r\n\r\n", data)
 }
 
 func sendNotification(w io.Writer, method string, params any) {
@@ -125,7 +127,7 @@ func sendNotification(w io.Writer, method string, params any) {
 		"params":  params,
 	}
 	data, _ := json.Marshal(req)
-	fmt.Fprintf(w, "Content-Length: %d\r\n\r\n%s", len(data), data)
+	_, _ = strfmt.Fprint(w, "Content-Length: ", len(data), "\r\n\r\n", data)
 }
 
 func readResponse(r io.Reader, targetId int) {

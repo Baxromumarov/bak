@@ -1,12 +1,13 @@
 package runtimecap
 
 import (
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 const (
@@ -60,7 +61,10 @@ func AllPermissions() Permissions {
 }
 
 func PermissionError(op string, flag string) string {
-	return fmt.Sprintf("permission denied: %s requires %s", op, flag)
+	return strfmt.Format("permission denied: {op} requires {flag}", struct {
+		Op   any
+		Flag any
+	}{op, flag})
 }
 
 func (p Permissions) EffectiveExecTimeout() time.Duration {

@@ -1,10 +1,11 @@
 package diagnostics
 
 import (
-	"fmt"
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 var diagnosticCatalog = map[string]string{
@@ -19,24 +20,24 @@ var diagnosticCatalog = map[string]string{
 func ExplainCode(w io.Writer, code string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(code))
 	if title, ok := diagnosticCatalog[normalized]; ok {
-		fmt.Fprintf(w, "%s: %s\n\n", normalized, title)
-		fmt.Fprintf(w, "Description: %s\n", title)
+		_, _ = strfmt.Fprintln(w, normalized, ": ", title, "\n")
+		_, _ = strfmt.Fprintln(w, "Description: ", title)
 		return true
 	}
-	fmt.Fprintf(w, "Unknown diagnostic code: %s\n\n", normalized)
-	fmt.Fprintln(w, "Try: bak explain --list for available codes")
+	_, _ = strfmt.Fprintln(w, "Unknown diagnostic code: ", normalized, "\n")
+	_, _ = strfmt.Fprintln(w, "Try: bak explain --list for available codes")
 	return false
 }
 
 // PrintCodeList writes all known diagnostic codes in stable order.
 func PrintCodeList(w io.Writer) {
-	fmt.Fprintln(w, "Known diagnostic codes")
+	_, _ = strfmt.Fprintln(w, "Known diagnostic codes")
 	keys := make([]string, 0, len(diagnosticCatalog))
 	for k := range diagnosticCatalog {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		fmt.Fprintf(w, "%s - %s\n", k, diagnosticCatalog[k])
+		_, _ = strfmt.Fprintln(w, k, " - ", diagnosticCatalog[k])
 	}
 }

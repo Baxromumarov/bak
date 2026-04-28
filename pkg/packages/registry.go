@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // Symbol represents a symbol exported from a package
@@ -370,14 +371,20 @@ func formatSymbolList(symbols map[string]*Symbol, limit int) string {
 		if sym == nil || sym.Visibility != ast.Public {
 			continue
 		}
-		entries = append(entries, fmt.Sprintf("%s (%s)", name, sym.Kind))
+		entries = append(entries, strfmt.Format("{name} ({Kind})", struct {
+			Name any
+			Kind any
+		}{name, sym.Kind}))
 	}
 	sort.Strings(entries)
 	if len(entries) == 0 {
 		return ""
 	}
 	if limit > 0 && len(entries) > limit {
-		return fmt.Sprintf("%s, and %d more", strings.Join(entries[:limit], ", "), len(entries)-limit)
+		return strfmt.Format("{value}, and {expr} more", struct {
+			Value any
+			Expr  any
+		}{strings.Join(entries[:limit], ", "), len(entries) - limit})
 	}
 	return strings.Join(entries, ", ")
 }

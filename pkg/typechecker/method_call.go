@@ -8,6 +8,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpression) (ast.TypeExpression, bool) {
@@ -30,7 +31,12 @@ func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpressio
 				arg := mc.Arguments[i+1]
 				argType := tc.inferType(arg)
 				if !tc.callArgumentFitsInType(paramType, argType, arg) {
-					tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("type mismatch in spawn argument %d: expected %s, got %s", i+1, typeToString(paramType), typeToString(argType)))
+					tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named(
+						"type mismatch in spawn argument {argIndex}: expected {expected}, got {got}",
+						"argIndex", i+1,
+						"expected", typeToString(paramType),
+						"got", typeToString(argType),
+					))
 				}
 				// Enforce move semantics for spawn arguments
 				if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
@@ -118,7 +124,13 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	}
 
 	if len(mc.Arguments) != len(sig.Parameters) {
-		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("function '%s.%s' expects %d argument(s), but got %d", ident.Value, mc.Method.Value, len(sig.Parameters), len(mc.Arguments)))
+		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named(
+			"function '{receiver}.{method}' expects {expected} argument(s), but got {got}",
+			"receiver", ident.Value,
+			"method", mc.Method.Value,
+			"expected", len(sig.Parameters),
+			"got", len(mc.Arguments),
+		))
 		return sig.ReturnType, true
 	}
 
@@ -127,7 +139,12 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 		if !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
 			tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
 				typeToString(sig.Parameters[i]), typeToString(argType),
-				fmt.Sprintf("argument %d to '%s.%s'", i+1, ident.Value, mc.Method.Value),
+				strfmt.Named(
+					"argument {argIndex} to '{receiver}.{method}'",
+					"argIndex", i+1,
+					"receiver", ident.Value,
+					"method", mc.Method.Value,
+				),
 				arg)
 		}
 	}
@@ -168,7 +185,10 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 				if !tc.typesMatch(fieldTypes[i], argType) {
 					tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
 						typeToString(fieldTypes[i]), typeToString(argType),
-						fmt.Sprintf("argument %d to enum variant '%s'", i+1, mc.Method.Value),
+						strfmt.Format("argument {expr} to enum variant '{Value}'", struct {
+							Expr  any
+							Value any
+						}{i + 1, mc.Method.Value}),
 						arg)
 				}
 			}
@@ -368,7 +388,11 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 	}
 
 	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("method '%s' of struct '%s' is private", mc.Method.Value, ident.Value))
+		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named(
+			"method '{method}' of struct '{structName}' is private",
+			"method", mc.Method.Value,
+			"structName", ident.Value,
+		))
 	}
 	for i, arg := range mc.Arguments {
 		if i < len(methodSig.Parameters) {
@@ -442,7 +466,10 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 	}
 
 	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("method '%s' of struct '%s' is private", mc.Method.Value, structName))
+		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Format("method '{Value}' of struct '{structName}' is private", struct {
+			Value      any
+			StructName any
+		}{mc.Method.Value, structName}))
 	}
 
 	if len(mc.Arguments) != len(methodSig.Parameters) {
@@ -465,9 +492,12 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 		if !tc.checkMutableReceiver(mc.Object) {
 			name := "expression"
 			if id, ok := mc.Object.(*ast.Identifier); ok {
-				name = fmt.Sprintf("variable '%s'", id.Value)
+				name = strfmt.Format("variable '{Value}'", struct{ Value any }{id.Value})
 			}
-			tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf("cannot call mutable method '%s' on immutable %s", mc.Method.Value, name))
+			tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Format("cannot call mutable method '{Value}' on immutable {name}", struct {
+				Value any
+				Name  any
+			}{mc.Method.Value, name}))
 		}
 	}
 
@@ -529,7 +559,10 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 			tc.emitWarningAt(
 				diagnostics.DiagnosticCode("W0901"),
 				tokenPos(mc.Token),
-				fmt.Sprintf("'%s.unwrap()' is guaranteed to panic in this branch after '%s.isErr()'", guardVar, guardVar),
+				strfmt.Named(
+					"'{guard}.unwrap()' is guaranteed to panic in this branch after '{guard}.isErr()'",
+					"guard", guardVar,
+				),
 				"use unwrapErr() here, or move unwrap() into an isOk() branch (or switch on Ok/Err)",
 			)
 		}
@@ -539,7 +572,10 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 			tc.emitWarningAt(
 				diagnostics.DiagnosticCode("W0902"),
 				tokenPos(mc.Token),
-				fmt.Sprintf("'%s.unwrapErr()' is guaranteed to panic in this branch after '%s.isOk()'", guardVar, guardVar),
+				strfmt.Named(
+					"'{guard}.unwrapErr()' is guaranteed to panic in this branch after '{guard}.isOk()'",
+					"guard", guardVar,
+				),
 				"use unwrap() here, or move unwrapErr() into an isErr() branch (or switch on Ok/Err)",
 			)
 		}

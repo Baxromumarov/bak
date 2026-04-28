@@ -1,9 +1,8 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // BuiltinContract describes a builtin's call/permission surface.
@@ -37,11 +36,11 @@ func (c BuiltinContract) AcceptsArity(got int) bool {
 func (c BuiltinContract) ArityDescription() string {
 	switch {
 	case c.MaxArgs < 0:
-		return fmt.Sprintf("at least %d", c.MinArgs)
+		return strfmt.Format("at least {MinArgs}", struct{ MinArgs any }{c.MinArgs})
 	case c.MinArgs == c.MaxArgs:
-		return fmt.Sprintf("%d", c.MinArgs)
+		return strfmt.Format("{MinArgs}", struct{ MinArgs any }{c.MinArgs})
 	default:
-		return fmt.Sprintf("between %d and %d", c.MinArgs, c.MaxArgs)
+		return strfmt.Format("between {MinArgs} and {MaxArgs}", c)
 	}
 }
 

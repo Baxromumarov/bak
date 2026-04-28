@@ -1,7 +1,6 @@
 package linter
 
 import (
-	"fmt"
 	"os"
 	"sort"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // Finding represents a lint finding at a specific location.
@@ -256,11 +256,14 @@ func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Fi
 		// Line length check
 		if len(line) > config.MaxLineLength {
 			findings = append(findings, Finding{
-				Rule:    "style/line-length",
-				Level:   "style",
-				Message: fmt.Sprintf("line exceeds %d characters (%d)", config.MaxLineLength, len(line)),
-				Line:    i + 1,
-				Column:  config.MaxLineLength + 1,
+				Rule:  "style/line-length",
+				Level: "style",
+				Message: strfmt.Format("line exceeds {MaxLineLength} characters ({lineCount})", struct {
+					MaxLineLength any
+					LineCount     any
+				}{config.MaxLineLength, len(line)}),
+				Line:   i + 1,
+				Column: config.MaxLineLength + 1,
 			})
 		}
 		// Trailing whitespace
@@ -391,8 +394,11 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 				findings = append(findings, Finding{
 					Rule:  "complexity/too-many-params",
 					Level: "warning",
-					Message: fmt.Sprintf("function '%s' has %d parameters (max %d)",
-						fd.Name.Value, len(fd.Parameters), config.MaxFuncParams),
+					Message: strfmt.Format("function '{Value}' has {ParametersCount} parameters (max {MaxFuncParams})", struct {
+						Value           any
+						ParametersCount any
+						MaxFuncParams   any
+					}{fd.Name.Value, len(fd.Parameters), config.MaxFuncParams}),
 					Line:   fd.Name.Token.Line,
 					Column: fd.Name.Token.Column,
 				})
@@ -404,8 +410,11 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 					findings = append(findings, Finding{
 						Rule:  "complexity/deep-nesting",
 						Level: "warning",
-						Message: fmt.Sprintf("function '%s' has nesting depth %d (max %d)",
-							fd.Name.Value, depth, config.MaxNestingDepth),
+						Message: strfmt.Format("function '{Value}' has nesting depth {depth} (max {MaxNestingDepth})", struct {
+							Value           any
+							Depth           any
+							MaxNestingDepth any
+						}{fd.Name.Value, depth, config.MaxNestingDepth}),
 						Line:   fd.Name.Token.Line,
 						Column: fd.Name.Token.Column,
 					})

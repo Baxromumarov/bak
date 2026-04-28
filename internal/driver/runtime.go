@@ -11,6 +11,7 @@ import (
 	testpkg "github.com/baxromumarov/bak/internal/test"
 	"github.com/baxromumarov/bak/pkg/bytecodejson"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // RunFile executes a Bak source file; traceEnabled chooses VM path when true.
@@ -51,7 +52,7 @@ func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Built native: %s\n", builtOutput)
+		strfmt.Println("Built native: ", builtOutput)
 		return nil
 	}
 
@@ -76,7 +77,7 @@ func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 		return fmt.Errorf("write failed: %w", err)
 	}
 
-	fmt.Printf("Built: %s\n", outputFile)
+	strfmt.Println("Built: ", outputFile)
 	return nil
 }
 

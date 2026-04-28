@@ -1,13 +1,13 @@
 package packages
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func TestGetSymbolSuggestsCloseMatch(t *testing.T) {
@@ -92,7 +92,15 @@ func TestCheckCyclicImportReportsFullChain(t *testing.T) {
 		t.Fatalf("expected a cyclic import error")
 	}
 
-	expectedChain := fmt.Sprintf("%s -> %s -> %s -> %s", normalizePath(pathA), normalizePath(pathB), normalizePath(pathC), normalizePath(pathA))
+	expectedChain := strfmt.S(
+		normalizePath(pathA),
+		" -> ",
+		normalizePath(pathB),
+		" -> ",
+		normalizePath(pathC),
+		" -> ",
+		normalizePath(pathA),
+	)
 	if !strings.Contains(err.Error(), expectedChain) {
 		t.Fatalf("expected cycle chain %q, got %q", expectedChain, err.Error())
 	}

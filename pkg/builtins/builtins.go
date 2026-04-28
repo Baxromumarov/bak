@@ -13,6 +13,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 var (
@@ -381,11 +382,7 @@ func builtinSocketConnect(args ...object.Object) object.Object {
 
 	conn, err := net.DialTimeout(
 		"tcp",
-		fmt.Sprintf(
-			"%s:%d",
-			hostObj.Value,
-			portObj.Value,
-		),
+		strfmt.S(hostObj.Value, ":", portObj.Value),
 		10*time.Second,
 	)
 	if err != nil {
@@ -590,7 +587,7 @@ func builtinSocketConnectTLS(args ...object.Object) object.Object {
 		)
 	}
 
-	addr := fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value)
+	addr := strfmt.S(hostObj.Value, ":", portObj.Value)
 
 	conn, err := tls.Dial("tcp", addr, nil)
 	if err != nil {
@@ -675,7 +672,7 @@ func builtinSocketBind(args ...object.Object) object.Object {
 		)
 	}
 
-	addr := fmt.Sprintf("%s:%d", hostObj.Value, portObj.Value)
+	addr := strfmt.S(hostObj.Value, ":", portObj.Value)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return resultErr(err)

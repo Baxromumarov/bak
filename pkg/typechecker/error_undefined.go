@@ -1,12 +1,12 @@
 package typechecker
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) errorUndefinedIdentifierAt(name string, pos ast.Position) {
@@ -16,7 +16,7 @@ func (tc *TypeChecker) errorUndefinedIdentifierAt(name string, pos ast.Position)
 		diagnostics.ErrUndefinedVariable,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		fmt.Sprintf("undefined: %s", name),
+		strfmt.Format("undefined: {name}", struct{ Name any }{name}),
 		help,
 		name,
 		suggestions,
@@ -33,7 +33,7 @@ func (tc *TypeChecker) errorUndefinedTypeInFileAt(name string, pos ast.Position,
 		diagnostics.ErrUnknownType,
 		pos.Line, pos.Column,
 		file,
-		fmt.Sprintf("undefined type: %s", name),
+		strfmt.Format("undefined type: {name}", struct{ Name any }{name}),
 		help,
 		name,
 		suggestions,
@@ -51,7 +51,7 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelpAt(typeName, method string, p
 		help = suggestionsHelp(suggestions, "")
 	} else if len(candidates) > 0 && len(candidates) <= 6 {
 		sort.Strings(candidates)
-		help = fmt.Sprintf("available methods: %s", strings.Join(candidates, ", "))
+		help = strfmt.Format("available methods: {candidates}", struct{ Candidates any }{strings.Join(candidates, ", ")})
 	}
 	if extraHelp != "" {
 		if help != "" {
@@ -64,7 +64,10 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelpAt(typeName, method string, p
 		diagnostics.ErrUndefinedMethod,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		fmt.Sprintf("undefined method '%s' for %s", method, typeName),
+		strfmt.Format("undefined method '{method}' for {typeName}", struct {
+			Method   any
+			TypeName any
+		}{method, typeName}),
 		help,
 		method,
 		suggestions,
@@ -78,7 +81,7 @@ func (tc *TypeChecker) errorUndefinedFunctionAt(name string, pos ast.Position) {
 		diagnostics.ErrUndefinedFunction,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		fmt.Sprintf("undefined function '%s'", name),
+		strfmt.Format("undefined function '{name}'", struct{ Name any }{name}),
 		help,
 		name,
 		suggestions,
@@ -92,7 +95,10 @@ func (tc *TypeChecker) errorStructHasNoFieldAt(structName, field string, pos ast
 		diagnostics.ErrGeneric,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		fmt.Sprintf("struct '%s' has no field '%s'", structName, field),
+		strfmt.Format("struct '{structName}' has no field '{field}'", struct {
+			StructName any
+			Field      any
+		}{structName, field}),
 		help,
 		field,
 		suggestions,
@@ -106,7 +112,10 @@ func (tc *TypeChecker) errorTypeHasNoFieldAt(typeName, field string, pos ast.Pos
 		diagnostics.ErrGeneric,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		fmt.Sprintf("type '%s' has no field '%s'", typeName, field),
+		strfmt.Format("type '{typeName}' has no field '{field}'", struct {
+			TypeName any
+			Field    any
+		}{typeName, field}),
 		help,
 		field,
 		suggestions,

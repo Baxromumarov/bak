@@ -10,6 +10,7 @@ import (
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -92,9 +93,9 @@ func collectCheckTargets(paths []string) ([]string, error) {
 }
 
 func printErrors(path, label string, errs []string) {
-	fmt.Fprintf(os.Stderr, "bakcheck: %s: %s:\n", path, label)
+	_, _ = strfmt.Fprintln(os.Stderr, "bakcheck: ", path, ": ", label, ":")
 	for _, msg := range errs {
-		fmt.Fprintf(os.Stderr, "  %s\n", msg)
+		_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
 	}
 }
 

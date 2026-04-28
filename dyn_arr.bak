@@ -11,20 +11,26 @@ func main() -> (void) {
         "a",
         1,
     )
-
     mp.insert(
         "b",
         2,
     )
+    println(mp)
+    println(
+        sum(
+            mp.get("a").unwrap(),
+            mp.get("b").unwrap(),
+        ),
+    )
+    mp.remove("a")
+    mp.insert(
+        "b",
+        3,
+    )
 
     println(mp)
     
-    println(sum(
-        mp.get("a").unwrap(),
-        mp.get("b").unwrap(),
-    ))
-
-    mp.clear()
-
+    println(mp.len())
+    
     return void
 }

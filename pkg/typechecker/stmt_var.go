@@ -1,9 +1,8 @@
 package typechecker
 
 import (
-	"fmt"
-
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
@@ -17,7 +16,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		if vs.Value == nil {
 			tc.errorMissingTypeAt(
 				varPos,
-				fmt.Sprintf("variable '%s' requires a type annotation or an initial value", vs.Name.Value),
+				strfmt.Format("variable '{Value}' requires a type annotation or an initial value", struct{ Value any }{vs.Name.Value}),
 				"add an explicit type or initialize the variable from a function or method call",
 			)
 			return
@@ -33,7 +32,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		if !canInfer {
 			tc.errorMissingTypeAt(
 				varPos,
-				fmt.Sprintf("missing type annotation for variable '%s'", vs.Name.Value),
+				strfmt.Format("missing type annotation for variable '{Value}'", struct{ Value any }{vs.Name.Value}),
 				"every variable type must be written explicitly unless getting value from function",
 			)
 		}
@@ -85,7 +84,12 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 	if vs.Type != nil && valueType != nil {
 		if !tc.fitsInType(vs.Type, vs.Value) {
-			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vs.Type), typeToString(valueType)), fmt.Sprintf("cannot assign %s to variable '%s' of type %s", typeToString(valueType), vs.Name.Value, typeToString(vs.Type)))
+			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vs.Type), typeToString(valueType)), strfmt.Named(
+				"cannot assign {valueType} to variable '{name}' of type {varType}",
+				"valueType", typeToString(valueType),
+				"name", vs.Name.Value,
+				"varType", typeToString(vs.Type),
+			))
 		}
 	}
 
@@ -115,7 +119,10 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 	if tt, ok := valueType.(*ast.TupleType); ok {
 		if len(mvs.Names) != len(tt.Elements) {
 
-			tc.addError(mvs.Token.Line, mvs.Token.Column, fmt.Sprintf("wrong number of variables in destructuring: expected %d, got %d", len(tt.Elements), len(mvs.Names)))
+			tc.addError(mvs.Token.Line, mvs.Token.Column, strfmt.Format("wrong number of variables in destructuring: expected {ElementsCount}, got {NamesCount}", struct {
+				ElementsCount any
+				NamesCount    any
+			}{len(tt.Elements), len(mvs.Names)}))
 			return
 		}
 		// Define each variable with its corresponding type from the tuple
@@ -180,7 +187,11 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 	valType := tc.inferType(vs.Value)
 	if valType != nil && !tc.isErrorType(valType) {
 		if !tc.typesMatch(vs.Type, valType) {
-			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vecType), typeToString(valType)), fmt.Sprintf("cannot assign type '%s' to variable of type '%s'", typeToString(valType), typeToString(vs.Type)))
+			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vecType), typeToString(valType)), strfmt.Named(
+				"cannot assign type '{valueType}' to variable of type '{varType}'",
+				"valueType", typeToString(valType),
+				"varType", typeToString(vs.Type),
+			))
 		}
 	}
 }

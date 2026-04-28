@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // Minimal structures to parse the JSON
@@ -123,7 +125,7 @@ func run(args []string) error {
 
 	for _, fn := range mod.Functions {
 		if fn.Name == targetFunc {
-			fmt.Printf("Displaying bytecode for %s (len: %d)\n", fn.Name, len(fn.Code))
+			strfmt.Println("Displaying bytecode for ", fn.Name, " (len: ", len(fn.Code), ")")
 			disassemble(fn.Code, mod)
 			return nil
 		}
@@ -137,7 +139,7 @@ func disassemble(code []int, mod Module) {
 		op := code[ip]
 		opName := OpcodeNames[op]
 		if opName == "" {
-			opName = fmt.Sprintf("UNKNOWN(%d)", op)
+			opName = strfmt.Format("UNKNOWN({op})", struct{ Op any }{op})
 		}
 
 		fmt.Printf("%04d: %s", ip, opName)
@@ -146,9 +148,12 @@ func disassemble(code []int, mod Module) {
 		// operand handling (simple heuristic based on opcode name)
 		if opName == "OP_CONST" {
 			idx := (code[ip] << 8) | code[ip+1]
-			fmt.Printf(" %d (Const: %v)", idx, getConst(mod, idx))
+			strfmt.Print(" ", idx, " (Const: ", getConst(mod, idx), ")")
 			ip += 2
-		} else if strings.Contains(opName, "JMP") || opName == "OP_GET_GLOBAL" || opName == "OP_SET_GLOBAL" || opName == "OP_GET_FUNC" {
+		} else if strings.Contains(opName, "JMP") ||
+			opName == "OP_GET_GLOBAL" ||
+			opName == "OP_SET_GLOBAL" ||
+			opName == "OP_GET_FUNC" {
 			// Short operands
 			hi := code[ip]
 			lo := code[ip+1]
@@ -164,13 +169,13 @@ func disassemble(code []int, mod Module) {
 					negHi := int(int8(hi))
 					val = (negHi << 8) | lo
 				}
-				fmt.Printf(" offset=%d (target=%d)", val, ip+val-3) // -3 because we advanced ip by 3 (1 op, 2 args)
+				strfmt.Print(" offset=", val, " (target=", ip+val-3, ")") // -3 because we advanced ip by 3 (1 op, 2 args)
 			} else {
-				fmt.Printf(" val=%d", val)
+				strfmt.Print(" val=", val)
 			}
 		} else if strings.Contains(opName, "CALL") || strings.Contains(opName, "BUILTIN") || strings.Contains(opName, "LOCAL") {
 			// Byte operands
-			fmt.Printf(" %d", code[ip])
+			strfmt.Print(" ", code[ip])
 			ip++
 			if strings.Contains(opName, "CALL_METHOD") {
 				// Method has 2 args (index short) + argc (byte)?
@@ -194,7 +199,7 @@ func getConst(mod Module, idx int) string {
 		if c.Type == 0 {
 			return strconv.FormatInt(c.AsInt, 10)
 		}
-		return fmt.Sprintf("%q", c.AsString)
+		return strfmt.Format("{AsString}", struct{ AsString any }{strconv.Quote(c.AsString)})
 	}
 	return "?"
 }

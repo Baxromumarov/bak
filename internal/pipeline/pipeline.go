@@ -12,6 +12,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/prelude"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/trace"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
@@ -77,7 +78,7 @@ func (p *Pipeline) Typecheck() error {
 	if len(typeErrors) > 0 {
 		fmt.Fprintln(os.Stderr, "Type errors:")
 		for _, msg := range typeErrors {
-			fmt.Fprintf(os.Stderr, "  %s\n", msg)
+			_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
 		}
 	}
 	if len(typeErrors) == 0 {

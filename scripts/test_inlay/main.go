@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // InlayHint structure
@@ -67,7 +69,7 @@ func sendMessage(w io.Writer, msg any) error {
 	if err != nil {
 		return err
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(content))
+	header := strfmt.Format("Content-Length: {contentCount}\r\n\r\n", struct{ ContentCount any }{len(content)})
 	_, err = w.Write([]byte(header + string(content)))
 	return err
 }

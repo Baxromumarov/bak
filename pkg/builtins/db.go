@@ -3,7 +3,6 @@ package builtins
 
 import (
 	"database/sql"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 var (
@@ -340,7 +340,7 @@ func rowsToResult(rows *sql.Rows) object.Object {
 			} else if b, ok := val.([]byte); ok {
 				strVal = string(b)
 			} else {
-				strVal = fmt.Sprintf("%v", val)
+				strVal = strfmt.Format("{val}", struct{ Val any }{val})
 			}
 			rowCells[i] = object.NewString(strVal)
 		}

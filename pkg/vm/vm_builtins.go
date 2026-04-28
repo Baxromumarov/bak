@@ -17,6 +17,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // registerBuiltins registers built-in functions
@@ -153,7 +154,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if !isOk {
 			// Ensure error values are strings for consistency
 			if val.Type != compiler.VAL_STRING {
-				result.Value = compiler.NewString(fmt.Sprintf("%v", val))
+				result.Value = compiler.NewString(strfmt.Format("{val}", struct{ Val any }{val}))
 			}
 		}
 		return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
@@ -561,7 +562,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if len(args) != 1 || args[0].Type != compiler.VAL_INT {
 			argType := "none"
 			if len(args) > 0 {
-				argType = fmt.Sprintf("%v", args[0].Type)
+				argType = strfmt.Format("{Type}", struct{ Type any }{args[0].Type})
 			}
 			return compiler.NewNil(), fmt.Errorf("__builtin_exit() requires an int argument, got length=%d type=%s", len(args), argType)
 		}
@@ -1001,7 +1002,10 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect() requires string host and int port")
 		}
 
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", args[0].AsString, portVal), 10*time.Second)
+		conn, err := net.DialTimeout("tcp", strfmt.Format("{AsString}:{portVal}", struct {
+			AsString any
+			PortVal  any
+		}{args[0].AsString, portVal}), 10*time.Second)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -1157,7 +1161,10 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires string host and int port")
 		}
 
-		conn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", args[0].AsString, portVal), nil)
+		conn, err := tls.Dial("tcp", strfmt.Format("{AsString}:{portVal}", struct {
+			AsString any
+			PortVal  any
+		}{args[0].AsString, portVal}), nil)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -1228,7 +1235,10 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_bind() requires string host and int port")
 		}
 
-		addr := fmt.Sprintf("%s:%d", args[0].AsString, portVal)
+		addr := strfmt.Format("{AsString}:{portVal}", struct {
+			AsString any
+			PortVal  any
+		}{args[0].AsString, portVal})
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
@@ -1322,7 +1332,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		go func() {
 			defer close(thread.Done)
 			if _, err := newVM.run(); err != nil {
-				fmt.Fprintf(os.Stderr, "Thread %d panic: %v\n", tid, err)
+				_, _ = strfmt.Fprintln(os.Stderr, "Thread ", tid, " panic: ", err)
 			}
 		}()
 
@@ -1502,14 +1512,13 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 	default:
 		// Print a helpful disassembly + context so we can trace the call site
-		fmt.Fprintf(os.Stderr, "unknown builtin: %d", id)
-		fmt.Fprintf(os.Stderr, " in module (entry=%d)\n", vm.module.EntryPoint)
+		_, _ = strfmt.Fprintln(os.Stderr, "unknown builtin: ", id, " in module (entry=", vm.module.EntryPoint, ")")
 
 		// Attempt to find the builtin name from the compiler mapping.
 		name := ""
 		// Dump mapping for debug
 		for n, bid := range compiler.BuiltinNames() {
-			fmt.Fprintf(os.Stderr, "BUILTIN MAP ENTRY: %s -> %d\n", n, int(bid))
+			_, _ = strfmt.Fprintln(os.Stderr, "BUILTIN MAP ENTRY: ", n, " -> ", int(bid))
 			if int(bid) == int(id) {
 				name = n
 			}
@@ -1517,14 +1526,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 		// Dump host-registered builtins
 		for k := range vm.builtins {
-			fmt.Fprintf(os.Stderr, "HOST BUILTIN: %s\n", k)
+			_, _ = strfmt.Fprintln(os.Stderr, "HOST BUILTIN: ", k)
 		}
 
 		if name != "" {
-			fmt.Fprintf(os.Stderr, "resolved builtin id %d -> name=%s\n", id, name)
+			_, _ = strfmt.Fprintln(os.Stderr, "resolved builtin id ", id, " -> name=", name)
 			// If the host has a registered builtin by that name, call it as a fallback.
 			if hostFn, ok := vm.builtins[name]; ok {
-				fmt.Fprintf(os.Stderr, "invoking host builtin fallback: %s\n", name)
+				_, _ = strfmt.Fprintln(os.Stderr, "invoking host builtin fallback: ", name)
 				return hostFn(args), nil
 			}
 		}
@@ -1553,10 +1562,10 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		for i, f := range vm.module.Functions {
 			for pc := 0; pc+2 < len(f.Code); pc++ {
 				if compiler.Opcode(f.Code[pc]) == compiler.OP_BUILTIN && compiler.BuiltinID(f.Code[pc+1]) == id {
-					fmt.Fprintf(os.Stderr, "  possible call site: function[%d]=%s at pc=%d\n", i, f.Name, pc)
+					_, _ = strfmt.Fprintln(os.Stderr, "  possible call site: function[", i, "]=", f.Name, " at pc=", pc)
 					start := max(pc-8, 0)
 					end := min(pc+8, len(f.Code))
-					fmt.Fprintf(os.Stderr, "  bytes[%d:%d]=%v\n", start, end, f.Code[start:end])
+					_, _ = strfmt.Fprintln(os.Stderr, "  bytes[", start, ":", end, "]=", f.Code[start:end])
 					break
 				}
 			}

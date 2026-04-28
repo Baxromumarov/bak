@@ -1,9 +1,8 @@
 package typechecker
 
 import (
-	"fmt"
-
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // checkFieldAssignment validates field access assignments (obj.field = value)
@@ -43,7 +42,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 	}
 
 	if !tc.checkMutableReceiver(fa.Object) {
-		tc.errorMutabilityRequiredAt(objName, pos, fmt.Sprintf("assign to field '%s'", fa.Field.Value))
+		tc.errorMutabilityRequiredAt(objName, pos, strfmt.Format("assign to field '{Value}'", struct{ Value any }{fa.Field.Value}))
 		return
 	}
 
@@ -58,7 +57,10 @@ func (tc *TypeChecker) checkFieldAssignment(
 			pos,
 			typeToString(fieldType),
 			typeToString(valueType),
-			fmt.Sprintf("field '%s.%s'", objName, fa.Field.Value),
+			strfmt.Format("field '{objName}.{Value}'", struct {
+				ObjName any
+				Value   any
+			}{objName, fa.Field.Value}),
 			value,
 		)
 	}

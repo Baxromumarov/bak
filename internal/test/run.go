@@ -11,6 +11,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
 
@@ -42,7 +43,7 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 		pathErrors = append(pathErrors, filterErrors...)
 	}
 	for _, err := range pathErrors {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		_, _ = strfmt.Fprintln(os.Stderr, "Error: ", err)
 	}
 	if len(files) == 0 {
 		fmt.Fprintln(os.Stderr, "No test files discovered")
@@ -67,9 +68,16 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 		}
 	}
 
-	fmt.Printf("\nTest file summary: total=%d executed=%d skipped=%d passed=%d failed=%d\n", len(files), executed, skipped, passed, failed)
+	_, _ = strfmt.Fprintln(os.Stdout, strfmt.Named(
+		"\nTest file summary: total={total} executed={executed} skipped={skipped} passed={passed} failed={failed}",
+		"total", len(files),
+		"executed", executed,
+		"skipped", skipped,
+		"passed", passed,
+		"failed", failed,
+	))
 	if len(pathErrors) > 0 {
-		fmt.Printf("Target resolution failures: %d\n", len(pathErrors))
+		_, _ = strfmt.Fprintln(os.Stdout, "Target resolution failures: ", len(pathErrors))
 	}
 
 	if failed != 0 || len(pathErrors) != 0 {
@@ -82,7 +90,7 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 func runTestFile(filename string, permissions runtimecap.Permissions, runPattern string) testFileRunResult {
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading file: %s\n", err)
+		_, _ = strfmt.Fprintln(os.Stderr, "Error reading file: ", err)
 		return testFileRunResult{Executed: true, Passed: false}
 	}
 
@@ -94,9 +102,9 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 	origProgram := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		fmt.Fprintf(os.Stderr, "Parse errors in %s:\n", filename)
+		_, _ = strfmt.Fprintln(os.Stderr, "Parse errors in ", filename, ":")
 		for _, msg := range p.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", msg)
+			_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
 		}
 		return testFileRunResult{Executed: true, Passed: false}
 	}
@@ -105,10 +113,10 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 	tests = filterTestsByNamePattern(tests, runPattern)
 	if len(tests) == 0 {
 		if runPattern != "" {
-			fmt.Printf("Skipping %s: no tests match --run=%q\n", filename, runPattern)
+			_, _ = strfmt.Fprintln(os.Stdout, "Skipping ", filename, ": no tests match --run=", fmt.Sprintf("%q", runPattern))
 			return testFileRunResult{Executed: false, Passed: true}
 		}
-		fmt.Fprintf(os.Stderr, "No test functions found in %s\n", filename)
+		_, _ = strfmt.Fprintln(os.Stderr, "No test functions found in ", filename)
 		return testFileRunResult{Executed: true, Passed: false}
 	}
 
@@ -121,8 +129,8 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 	pipe := pipeline.New(filename, src)
 	pipe.AST = combined
 	if err := pipe.Compile(); err != nil {
-		fmt.Fprintf(os.Stderr, "Compilation pipeline failed for %s:\n", filename)
-		fmt.Fprintf(os.Stderr, "  %s\n", err)
+		_, _ = strfmt.Fprintln(os.Stderr, "Compilation pipeline failed for ", filename, ":")
+		_, _ = strfmt.Fprintln(os.Stderr, "  ", err)
 		return testFileRunResult{Executed: true, Passed: false}
 	}
 	module := pipe.Module
@@ -135,7 +143,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 		}
 	}
 	if runIndex < 0 {
-		fmt.Fprintf(os.Stderr, "Error: run_all_tests not found in %s\n", filename)
+		_, _ = strfmt.Fprintln(os.Stderr, "Error: run_all_tests not found in ", filename)
 		return testFileRunResult{Executed: true, Passed: false}
 	}
 
@@ -178,7 +186,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 
 	v := vm.NewWithPermissions(module, permissions)
 	if _, err := v.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Test failure in %s: %s\n", filename, err)
+		_, _ = strfmt.Fprintln(os.Stderr, "Test failure in ", filename, ": ", err)
 		return testFileRunResult{Executed: true, Passed: false}
 	}
 

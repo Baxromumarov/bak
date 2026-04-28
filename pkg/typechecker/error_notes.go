@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) signatureDeclNote(sig *FunctionSig, message string) []diagnostics.Note {
@@ -37,8 +37,11 @@ func extractIdentifierName(node ast.Node) (string, bool) {
 
 func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnostics.Note {
 	note := diagnostics.Note{
-		Message: fmt.Sprintf("where expected: %s expects type %s", context, expected),
-		File:    tc.currentPkgPath,
+		Message: strfmt.Format("where expected: {context} expects type {expected}", struct {
+			Context  any
+			Expected any
+		}{context, expected}),
+		File: tc.currentPkgPath,
 	}
 	const assignmentPrefix = "assignment to variable '"
 	if after, ok := strings.CutPrefix(context, assignmentPrefix); ok {

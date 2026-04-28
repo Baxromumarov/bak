@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func TestDifferentialParitySeeds(t *testing.T) {
@@ -87,50 +88,50 @@ func buildDifferentialProgram(data []byte) string {
 		val := int(by%20) + 1
 		switch by % 8 {
 		case 0:
-			fmt.Fprintf(&b, "    v.push(%d)\n", val)
-			fmt.Fprintf(&b, "    println(\"op%d:push\")\n", i)
+			_, _ = strfmt.Fprintln(&b, "    v.push(", val, ")")
+			_, _ = strfmt.Fprintln(&b, "    println(\"op", i, ":push\")")
 			b.WriteString("    score = score + 1\n")
 		case 1:
-			fmt.Fprintf(&b, "    switch v.pop() {\n")
-			fmt.Fprintf(&b, "        case Ok(x) { println(\"op%d:pop:ok\"); score = score + x }\n", i)
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:pop:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch v.pop() {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(x) { println(\"op", i, ":pop:ok\"); score = score + x }")
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":pop:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		case 2:
-			fmt.Fprintf(&b, "    switch v.first() {\n")
-			fmt.Fprintf(&b, "        case Ok(x) { println(\"op%d:first:ok\"); score = score + x }\n", i)
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:first:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch v.first() {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(x) { println(\"op", i, ":first:ok\"); score = score + x }")
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":first:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		case 3:
-			fmt.Fprintf(&b, "    switch v.last() {\n")
-			fmt.Fprintf(&b, "        case Ok(x) { println(\"op%d:last:ok\"); score = score + x }\n", i)
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:last:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch v.last() {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(x) { println(\"op", i, ":last:ok\"); score = score + x }")
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":last:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		case 4:
-			fmt.Fprintf(&b, "    switch v.get(%d) {\n", idx)
-			fmt.Fprintf(&b, "        case Ok(x) { println(\"op%d:get:ok\"); score = score + x }\n", i)
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:get:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch v.get(", idx, ") {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(x) { println(\"op", i, ":get:ok\"); score = score + x }")
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":get:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		case 5:
-			fmt.Fprintf(&b, "    switch v.remove(%d) {\n", idx)
-			fmt.Fprintf(&b, "        case Ok(x) { println(\"op%d:remove:ok\"); score = score + x }\n", i)
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:remove:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch v.remove(", idx, ") {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(x) { println(\"op", i, ":remove:ok\"); score = score + x }")
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":remove:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		case 6:
-			fmt.Fprintf(&b, "    switch s.get(%d) {\n", idx)
-			fmt.Fprintf(&b, "        case Ok(ch) {\n")
-			fmt.Fprintf(&b, "            println(\"op%d:string:get:ok\")\n", i)
+			_, _ = strfmt.Fprintln(&b, "    switch s.get(", idx, ") {")
+			_, _ = strfmt.Fprintln(&b, "        case Ok(ch) {")
+			_, _ = strfmt.Fprintln(&b, "            println(\"op", i, ":string:get:ok\")")
 			b.WriteString("            if ch == char('a') { score = score + 1 } else { if ch == char('b') { score = score + 2 } else { score = score + 3 } }\n")
 			b.WriteString("        }\n")
-			fmt.Fprintf(&b, "        case Err(err) { println(\"op%d:string:get:err\"); score = score + err.len() }\n", i)
+			_, _ = strfmt.Fprintln(&b, "        case Err(err) { println(\"op", i, ":string:get:err\"); score = score + err.len() }")
 			b.WriteString("    }\n")
 		default:
-			fmt.Fprintf(&b, "    var r%d: Result<int, string> = v.get(%d)\n", i, idx)
-			fmt.Fprintf(&b, "    if r%d.isOk() {\n", i)
-			fmt.Fprintf(&b, "        println(\"op%d:result:isOk\")\n", i)
-			fmt.Fprintf(&b, "        score = score + r%d.unwrap()\n", i)
+			_, _ = strfmt.Fprintln(&b, "    var r", i, ": Result<int, string> = v.get(", idx, ")")
+			_, _ = strfmt.Fprintln(&b, "    if r", i, ".isOk() {")
+			_, _ = strfmt.Fprintln(&b, "        println(\"op", i, ":result:isOk\")")
+			_, _ = strfmt.Fprintln(&b, "        score = score + r", i, ".unwrap()")
 			b.WriteString("    } else {\n")
-			fmt.Fprintf(&b, "        println(\"op%d:result:isErr\")\n", i)
-			fmt.Fprintf(&b, "        score = score + r%d.unwrapErr().len()\n", i)
+			_, _ = strfmt.Fprintln(&b, "        println(\"op", i, ":result:isErr\")")
+			_, _ = strfmt.Fprintln(&b, "        score = score + r", i, ".unwrapErr().len()")
 			b.WriteString("    }\n")
 		}
 	}

@@ -1,10 +1,12 @@
 package typechecker
 
 import (
-	"fmt"
 	"reflect"
 
+	"strconv"
+
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typestr"
 )
@@ -24,7 +26,10 @@ func describeNodeToken(node ast.Node) string {
 	}
 	if tok, ok := extractTokenFromNode(node); ok {
 		if tok.Literal != "" {
-			return fmt.Sprintf("%s (%q)", tok.Type, tok.Literal)
+			return strfmt.Format("{Type} ({Literal})", struct {
+				Type    any
+				Literal any
+			}{tok.Type, strconv.Quote(tok.Literal)})
 		}
 
 		return string(tok.Type)

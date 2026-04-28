@@ -13,6 +13,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -22,19 +23,19 @@ const VERSION = "dev"
 func RunDoctor(w io.Writer, root string) error {
 	ok := true
 	check := func(status, name, detail string) {
-		fmt.Fprintf(w, "[%s] %s", status, name)
+		_, _ = strfmt.Fprint(w, "[", status, "] ", name)
 		if detail != "" {
-			fmt.Fprintf(w, " - %s", detail)
+			_, _ = strfmt.Fprint(w, " - ", detail)
 		}
-		fmt.Fprintln(w)
+		_, _ = strfmt.Fprintln(w)
 		if status == "fail" {
 			ok = false
 		}
 	}
 
-	fmt.Fprintf(w, "Bak doctor\n")
-	fmt.Fprintf(w, "version: %s\n", VERSION)
-	fmt.Fprintf(w, "host: %s/%s\n", runtime.GOOS, runtime.GOARCH)
+	_, _ = strfmt.Fprintln(w, "Bak doctor")
+	_, _ = strfmt.Fprintln(w, "version: ", VERSION)
+	_, _ = strfmt.Fprintln(w, "host: ", runtime.GOOS, "/", runtime.GOARCH)
 
 	absRoot, err := filepath.Abs(root)
 	if err != nil {

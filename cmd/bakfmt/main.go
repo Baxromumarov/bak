@@ -10,13 +10,14 @@ import (
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/pkg/formatter"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func main() {
 	write := flag.Bool("w", false, "write result to (source) file instead of stdout")
 	list := flag.Bool("l", false, "list files whose formatting differs from bakfmt's")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: bakfmt [flags] [path ...]\n\n")
+		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Usage: bakfmt [flags] [path ...]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -44,7 +45,7 @@ func main() {
 	for _, file := range files {
 		original, err := os.ReadFile(file)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "bakfmt: %s: %v\n", file, err)
+			_, _ = strfmt.Fprintln(os.Stderr, "bakfmt: ", file, ": ", err)
 			hadErrors = true
 			continue
 		}
@@ -59,7 +60,7 @@ func main() {
 		if *write {
 			if string(original) != formatted {
 				if err := writeFile(file, formatted); err != nil {
-					fmt.Fprintf(os.Stderr, "bakfmt: %s: %v\n", file, err)
+					_, _ = strfmt.Fprintln(os.Stderr, "bakfmt: ", file, ": ", err)
 					hadErrors = true
 				}
 			}
@@ -114,7 +115,7 @@ func writeFile(path, data string) error {
 }
 
 func printParseErrors(path string, errs []string) {
-	fmt.Fprintln(os.Stderr, formatParseErrors(path, errs))
+	_, _ = strfmt.Fprintln(os.Stderr, formatParseErrors(path, errs))
 }
 
 func formatParseErrors(path string, errs []string) string {

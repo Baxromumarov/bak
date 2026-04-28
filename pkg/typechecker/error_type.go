@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) errorTypeMismatch(
@@ -16,20 +16,32 @@ func (tc *TypeChecker) errorTypeMismatch(
 	context string,
 	node ast.Node,
 ) {
-	msg := fmt.Sprintf("type mismatch: expected %s, got %s", expected, got)
+	msg := strfmt.Format("type mismatch: expected {expected}, got {got}", struct {
+		Expected any
+		Got      any
+	}{expected, got})
 	if context != "" {
-		msg = fmt.Sprintf("%s in %s", msg, context)
+		msg = strfmt.Format("{msg} in {context}", struct {
+			Msg     any
+			Context any
+		}{msg, context})
 	}
 	if desc := describeNodeToken(node); desc != "" {
-		msg = fmt.Sprintf("%s (token: %s)", msg, desc)
+		msg = strfmt.Format("{msg} (token: {desc})", struct {
+			Msg  any
+			Desc any
+		}{msg, desc})
 	}
 
 	help := tc.suggestTypeFix(expected, got)
 	if help == "" {
 		if context != "" {
-			help = fmt.Sprintf("make %s have type %s, or change the expected type", context, expected)
+			help = strfmt.Format("make {context} have type {expected}, or change the expected type", struct {
+				Context  any
+				Expected any
+			}{context, expected})
 		} else {
-			help = fmt.Sprintf("convert the value to %s, or change the expected type", expected)
+			help = strfmt.Format("convert the value to {expected}, or change the expected type", struct{ Expected any }{expected})
 		}
 	}
 	if !strings.HasPrefix(help, "how to fix: ") {
@@ -51,16 +63,19 @@ func (tc *TypeChecker) errorTypeMismatch(
 	if ident, ok := extractIdentifierName(node); ok {
 		if info, found := tc.lookupSymbolWithoutMark(ident); found && info.Line > 0 {
 			diag.Notes = append(diag.Notes, diagnostics.Note{
-				Message: fmt.Sprintf("where inferred: '%s' has declared type %s", ident, typeToString(info.Type)),
-				Line:    info.Line,
-				Column:  info.Column,
-				File:    tc.currentPkgPath,
+				Message: strfmt.Format("where inferred: '{ident}' has declared type {typeToString}", struct {
+					Ident        any
+					TypeToString any
+				}{ident, typeToString(info.Type)}),
+				Line:   info.Line,
+				Column: info.Column,
+				File:   tc.currentPkgPath,
 			})
 		}
 	}
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
 		diag.Notes = append(diag.Notes, diagnostics.Note{
-			Message: fmt.Sprintf("where inferred: this expression has type %s", got),
+			Message: strfmt.Format("where inferred: this expression has type {got}", struct{ Got any }{got}),
 			Line:    tok.Line,
 			Column:  tok.Column,
 			File:    tc.currentPkgPath,
@@ -82,18 +97,22 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 ) {
 	expected := typeToString(expectedType)
 	got := typeToString(gotType)
-	msg := fmt.Sprintf(
-		"argument %d to %s.%s: expected %s, got %s",
-		argIndex,
-		receiverType,
-		methodName,
-		expected,
-		got,
-	)
+	msg := strfmt.Format("argument {argIndex} to {receiverType}.{methodName}: expected {expected}, got {got}", struct {
+		ArgIndex     any
+		ReceiverType any
+		MethodName   any
+		Expected     any
+		Got          any
+	}{argIndex, receiverType, methodName, expected, got})
 
 	help := tc.suggestTypeFix(expected, got)
 	if help == "" {
-		help = fmt.Sprintf("convert argument %d to %s, or adjust %s.%s parameter type", argIndex, expected, receiverType, methodName)
+		help = strfmt.Format("convert argument {argIndex} to {expected}, or adjust {receiverType}.{methodName} parameter type", struct {
+			ArgIndex     any
+			Expected     any
+			ReceiverType any
+			MethodName   any
+		}{argIndex, expected, receiverType, methodName})
 	}
 	if !strings.HasPrefix(help, "how to fix: ") {
 		help = "how to fix: " + help
@@ -105,13 +124,12 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 	if sig != nil {
 		diag.Notes = append(diag.Notes, tc.signatureDeclNote(
 			sig,
-			fmt.Sprintf(
-				"where expected: method '%s.%s' parameter %d has type %s",
-				receiverType,
-				methodName,
-				argIndex,
-				expected,
-			),
+			strfmt.Format("where expected: method '{receiverType}.{methodName}' parameter {argIndex} has type {expected}", struct {
+				ReceiverType any
+				MethodName   any
+				ArgIndex     any
+				Expected     any
+			}{receiverType, methodName, argIndex, expected}),
 		)...)
 	}
 	tc.emitError(diag)

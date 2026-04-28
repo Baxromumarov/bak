@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // inferStructLiteral validates a struct literal
@@ -50,7 +50,7 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 	}
 
 	if !ok {
-		tc.addError(sl.Token.Line, sl.Token.Column, fmt.Sprintf("undefined struct: %s", sl.Name.Value))
+		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Format("undefined struct: {Value}", struct{ Value any }{sl.Name.Value}))
 		return nil
 	}
 
@@ -74,7 +74,10 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			// We don't have the token for the field name key in the map,
 			// so we use the struct token or value token for the error location.
 			// Using the struct token is safer as valueExpr might be complex.
-			tc.addError(sl.Token.Line, sl.Token.Column, fmt.Sprintf("field '%s' of struct '%s' is private", fieldName, structName))
+			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Format("field '{fieldName}' of struct '{structName}' is private", struct {
+				FieldName  any
+				StructName any
+			}{fieldName, structName}))
 		}
 
 		// Mark field as used (propagate to root env)
@@ -88,7 +91,12 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			// without type assertion in some AST designs, but here Node has TokenLiteral.
 			// TypeChecker usually tracks line/col. inferType handles recursive checks.
 			// We use sl.Token for simplicity unless we want to reflect on valueExpr.
-			tc.addError(sl.Token.Line, sl.Token.Column, fmt.Sprintf("field '%s' expects type %s, got %s", fieldName, typeToString(fieldDef.Type), typeToString(valueType)))
+			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named(
+				"field '{fieldName}' expects type {expected}, got {got}",
+				"fieldName", fieldName,
+				"expected", typeToString(fieldDef.Type),
+				"got", typeToString(valueType),
+			))
 		}
 
 		// initializedFields[fieldName] = true

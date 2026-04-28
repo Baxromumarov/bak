@@ -4,7 +4,6 @@
 package parser
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 )
 
@@ -105,7 +105,7 @@ func stableGenericTypeName(name string) bool {
 
 func featureFlagHint(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return fmt.Sprintf("enable it by passing `--experimental=%s`", short)
+	return strfmt.Format("enable it by passing `--experimental={short}`", struct{ Short any }{short})
 }
 
 func (p *Parser) experimentalFeatureEnabled(feature string) bool {
@@ -124,7 +124,7 @@ func isStdlibSourcePath(path string) bool {
 }
 
 func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
-	core := fmt.Sprintf("%s is experimental and disabled by default", syntax)
+	core := strfmt.Format("{syntax} is experimental and disabled by default", struct{ Syntax any }{syntax})
 	p.errors = append(p.errors, p.formatMessage(tokenPos(tok), core, featureFlagHint(feature)))
 }
 
@@ -186,7 +186,7 @@ func (p *Parser) recentTokensSummary() string {
 	}
 	parts := make([]string, len(p.recentTokens))
 	for i, tok := range p.recentTokens {
-		parts[i] = fmt.Sprintf("%s(%s)", tok.Literal, tok.Type)
+		parts[i] = strfmt.Format("{Literal}({Type})", tok)
 	}
 	return "recent tokens: " + strings.Join(parts, " ")
 }
@@ -330,11 +330,10 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	core := fmt.Sprintf(
-		"expected next token to be %s, got %s instead",
-		t,
-		p.describeToken(p.peekToken),
-	)
+	core := strfmt.Format("expected next token to be {t}, got {describeToken} instead", struct {
+		T             any
+		DescribeToken any
+	}{t, p.describeToken(p.peekToken)})
 
 	msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 
@@ -345,11 +344,14 @@ func (p *Parser) describeToken(tok token.Token) string {
 	if tok.Literal == "" {
 		return string(tok.Type)
 	}
-	return fmt.Sprintf("%s (%q)", tok.Type, tok.Literal)
+	return strfmt.Format("{Type} ({Literal})", struct {
+		Type    any
+		Literal any
+	}{tok.Type, strconv.Quote(tok.Literal)})
 }
 
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
-	core := fmt.Sprintf("no prefix parse function for %s found", t)
+	core := strfmt.Format("no prefix parse function for {t} found", struct{ T any }{t})
 	msg := p.formatMessage(tokenPos(p.curToken), core, "")
 	p.errors = append(p.errors, msg)
 }
@@ -363,23 +365,42 @@ func (p *Parser) formatMessage(pos ast.Position, core string, help string) strin
 }
 
 func (p *Parser) formatMessageWithSummary(pos ast.Position, core string, includeSummary bool, help string) string {
-	msg := fmt.Sprintf("line %d:%d: %s", pos.Line, pos.Column, core)
+	msg := strfmt.Format("line {Line}:{Column}: {core}", struct {
+		Line   any
+		Column any
+		Core   any
+	}{pos.Line, pos.Column, core})
 	diagMsg := core
 
 	if ctx := p.currentContext(); ctx != "" {
-		msg = fmt.Sprintf("while %s: %s", ctx, msg)
-		diagMsg = fmt.Sprintf("%s (while %s)", diagMsg, ctx)
+		msg = strfmt.Format("while {ctx}: {msg}", struct {
+			Ctx any
+			Msg any
+		}{ctx, msg})
+		diagMsg = strfmt.Format("{diagMsg} (while {ctx})", struct {
+			DiagMsg any
+			Ctx     any
+		}{diagMsg, ctx})
 	}
 
 	if intent := p.currentIntent(); intent != "" {
-		msg = fmt.Sprintf("%s (hint: %s)", msg, intent)
-		diagMsg = fmt.Sprintf("%s (hint: %s)", diagMsg, intent)
+		msg = strfmt.Format("{msg} (hint: {intent})", struct {
+			Msg    any
+			Intent any
+		}{msg, intent})
+		diagMsg = strfmt.Format("{diagMsg} (hint: {intent})", struct {
+			DiagMsg any
+			Intent  any
+		}{diagMsg, intent})
 	}
 
 	var notes []diagnostics.Note
 	if includeSummary {
 		if summary := p.recentTokensSummary(); summary != "" {
-			msg = fmt.Sprintf("%s; %s", msg, summary)
+			msg = strfmt.Format("{msg}; {summary}", struct {
+				Msg     any
+				Summary any
+			}{msg, summary})
 			notes = append(notes, diagnostics.Note{Message: summary})
 		}
 	}
@@ -691,7 +712,7 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		}
 		decl, ok := stmt.(*ast.FunctionDecl)
 		if !ok {
-			msg := fmt.Sprintf("line %d: 'pub trace' can only be used before func declarations", pubToken.Line)
+			msg := strfmt.Format("line {Line}: 'pub trace' can only be used before func declarations", struct{ Line any }{pubToken.Line})
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -715,7 +736,7 @@ func (p *Parser) parsePubDecl() ast.Statement {
 	case token.ALIAS:
 		return p.applyPublicModifier(p.parseAliasDecl())
 	default:
-		msg := fmt.Sprintf("line %d: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", pubToken.Line)
+		msg := strfmt.Format("line {Line}: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", struct{ Line any }{pubToken.Line})
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -731,7 +752,7 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		return p.markFunctionTraced(p.parseFunctionDecl())
 	case token.PUB:
 		if !p.peekTokenIs(token.FUNC) {
-			msg := fmt.Sprintf("line %d: 'trace pub' can only be used before func declarations", traceToken.Line)
+			msg := strfmt.Format("line {Line}: 'trace pub' can only be used before func declarations", struct{ Line any }{traceToken.Line})
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -744,7 +765,7 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		decl.Visibility = ast.Public
 		return decl
 	default:
-		msg := fmt.Sprintf("line %d: 'trace' can only be used before func declarations", traceToken.Line)
+		msg := strfmt.Format("line {Line}: 'trace' can only be used before func declarations", struct{ Line any }{traceToken.Line})
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -1342,7 +1363,7 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 	// Check for generic parameters
 	if p.peekTokenIs(token.LT) {
 		if !stableGenericTypeName(name) && !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, fmt.Sprintf("generic type `%s<...>`", name), runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(p.peekToken, strfmt.Format("generic type `{name}<...>`", struct{ Name any }{name}), runtimecap.ExperimentalFeatureUserGenerics)
 		}
 		baseType = p.parseGenericType(tok, name)
 	} else {
@@ -1830,7 +1851,7 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 	}
 
 	if !p.peekTokenIs(token.LBRACE) {
-		core := fmt.Sprintf("expected '{' to start struct '%s' body", stmt.Name.Value)
+		core := strfmt.Format("expected '{{' to start struct '{Value}' body", struct{ Value any }{stmt.Name.Value})
 		msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 		p.errors = append(p.errors, msg)
 		for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
@@ -2274,7 +2295,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		core := fmt.Sprintf("could not parse %q as integer", p.curToken.Literal)
+		core := strfmt.Format("could not parse {Literal} as integer", struct{ Literal any }{strconv.Quote(p.curToken.Literal)})
 		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
@@ -2289,7 +2310,7 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		core := fmt.Sprintf("could not parse %q as float", p.curToken.Literal)
+		core := strfmt.Format("could not parse {Literal} as float", struct{ Literal any }{strconv.Quote(p.curToken.Literal)})
 		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
@@ -2774,7 +2795,7 @@ func (p *Parser) parseStructFieldValue(lit *ast.StructLiteral) {
 	fieldName := p.curToken.Literal
 
 	if !p.peekTokenIs(token.COLON) {
-		core := fmt.Sprintf("struct field %q requires a value; add ': <value>' or remove the field", fieldName)
+		core := strfmt.Format("struct field {fieldName} requires a value; add ': <value>' or remove the field", struct{ FieldName any }{strconv.Quote(fieldName)})
 		help := "add ': <value>' or remove the field"
 		msg := p.formatMessageWithSummary(tokenPos(p.peekToken), core, false, help)
 		p.errors = append(p.errors, msg)

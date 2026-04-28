@@ -1,11 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"slices"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
@@ -172,7 +173,10 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 		if hint.Position.Line >= 0 && hint.Position.Line < len(lines) {
 			lineText = strings.TrimSpace(lines[hint.Position.Line])
 		}
-		snapshot = append(snapshot, fmt.Sprintf("%s => %s", lineText, hint.Label))
+		snapshot = append(snapshot, strfmt.Format("{lineText} => {Label}", struct {
+			LineText any
+			Label    any
+		}{lineText, hint.Label}))
 	}
 	sort.Strings(snapshot)
 

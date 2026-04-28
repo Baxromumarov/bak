@@ -31,7 +31,14 @@ func (e *TypeEnv) DefineSymbolAt(
 	vis ast.Visibility,
 	pos ast.Position,
 ) {
-	e.DefineSymbol(name, typeExpr, mutable, vis, pos.Line, pos.Column)
+	e.DefineSymbol(
+		name,
+		typeExpr,
+		mutable,
+		vis,
+		pos.Line,
+		pos.Column,
+	)
 }
 
 // LookupSymbol looks up a symbol in the environment chain
@@ -40,6 +47,7 @@ func (e *TypeEnv) LookupSymbol(name string) (*TypeInfo, bool) {
 		e.MarkUsed(name)
 		return info, true
 	}
+
 	if e.parent != nil {
 		if e.nonCapturing {
 			// Jump straight to the root parent if we are in a non-capturing environment.

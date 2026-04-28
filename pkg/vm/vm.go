@@ -14,6 +14,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/trace"
 )
 
@@ -113,7 +114,11 @@ func (e *RuntimeError) Error() string {
 		return "runtime error"
 	}
 	if e.Line > 0 {
-		return fmt.Sprintf("runtime error at %d:%d: %s", e.Line, e.Column, e.Err.Error())
+		return strfmt.Format("runtime error at {Line}:{Column}: {error}", struct {
+			Line   any
+			Column any
+			Error  any
+		}{e.Line, e.Column, e.Err.Error()})
 	}
 	return e.Err.Error()
 }
@@ -191,7 +196,7 @@ func (vm *VM) PrintProfile() {
 		return
 	}
 
-	fmt.Fprintf(os.Stderr, "\n=== VM Profile ===\n")
+	_, _ = strfmt.Fprintln(os.Stderr, "\n=== VM Profile ===")
 
 	// Sort opcodes by count
 	type opcodeCount struct {
@@ -208,8 +213,8 @@ func (vm *VM) PrintProfile() {
 		return opcodes[i].count > opcodes[j].count
 	})
 
-	fmt.Fprintf(os.Stderr, "Total instructions: %d\n", totalOps)
-	fmt.Fprintf(os.Stderr, "\nTop 15 opcodes:\n")
+	_, _ = strfmt.Fprintln(os.Stderr, "Total instructions: ", totalOps)
+	_, _ = strfmt.Fprintln(os.Stderr, "\nTop 15 opcodes:")
 	limit := min(len(opcodes), 15)
 	for i := 0; i < limit; i++ {
 		pct := float64(opcodes[i].count) * 100 / float64(totalOps)
@@ -229,12 +234,12 @@ func (vm *VM) PrintProfile() {
 		return funcs[i].count > funcs[j].count
 	})
 
-	fmt.Fprintf(os.Stderr, "\nTop 15 functions:\n")
+	_, _ = strfmt.Fprintln(os.Stderr, "\nTop 15 functions:")
 	limit = min(len(funcs), 15)
 	for i := 0; i < limit; i++ {
 		fmt.Fprintf(os.Stderr, "  %-40s %10d\n", funcs[i].name, funcs[i].count)
 	}
-	fmt.Fprintf(os.Stderr, "==================\n")
+	_, _ = strfmt.Fprintln(os.Stderr, "==================")
 }
 
 // PrintTopSites prints the most frequently executed opcode sites (fn@ip:OP)
@@ -254,7 +259,7 @@ func (vm *VM) PrintTopSites(limit int) {
 	if limit <= 0 || limit > len(sites) {
 		limit = len(sites)
 	}
-	fmt.Fprintf(os.Stderr, "\nTop %d opcode sites:\n", limit)
+	_, _ = strfmt.Fprintln(os.Stderr, "\nTop ", limit, " opcode sites:")
 	for i := 0; i < limit; i++ {
 		fmt.Fprintf(os.Stderr, "  %-60s %10d\n", sites[i].site, sites[i].count)
 	}
@@ -1393,7 +1398,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 func (vm *VM) push(v compiler.Value) {
 	if vm.sp >= StackMax {
-		panic(fmt.Sprintf("stack overflow: exceeded maximum stack depth of %d", StackMax))
+		panic(strfmt.Format("stack overflow: exceeded maximum stack depth of {StackMax}", struct{ StackMax any }{StackMax}))
 	}
 	vm.stack[vm.sp] = v
 	vm.sp++
@@ -1409,7 +1414,7 @@ func (vm *VM) pop() compiler.Value {
 
 func (vm *VM) popN(count int) []compiler.Value {
 	if count < 0 {
-		panic(fmt.Sprintf("invalid pop count: %d", count))
+		panic(strfmt.Format("invalid pop count: {count}", struct{ Count any }{count}))
 	}
 	args := make([]compiler.Value, count)
 	for i := count - 1; i >= 0; i-- {
@@ -1451,7 +1456,7 @@ func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
 	if fn == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "DISASM for function %s around ip %d:\n", fn.Name, ip)
+	_, _ = strfmt.Fprintln(os.Stderr, "DISASM for function ", fn.Name, " around ip ", ip, ":")
 	pc := 0
 	for pc < len(fn.Code) {
 		op := compiler.Opcode(fn.Code[pc])
@@ -1522,7 +1527,7 @@ func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "CONSTANTS: len=%d\n", len(fn.Constants))
+	_, _ = strfmt.Fprintln(os.Stderr, "CONSTANTS: len=", len(fn.Constants))
 	for ci := 0; ci < len(fn.Constants) && ci < 40; ci++ {
 		fmt.Fprintf(os.Stderr, "  [%d] = %#v\n", ci, fn.Constants[ci])
 	}
@@ -1543,7 +1548,7 @@ func (vm *VM) derefAll(v compiler.Value) compiler.Value {
 func (vm *VM) peek(distance int) compiler.Value {
 	idx := vm.sp - 1 - distance
 	if idx < 0 {
-		panic(fmt.Sprintf("stack underflow on peek(%d)", distance))
+		panic(strfmt.Format("stack underflow on peek({distance})", struct{ Distance any }{distance}))
 	}
 	return vm.stack[idx]
 }

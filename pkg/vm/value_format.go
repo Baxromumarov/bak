@@ -1,10 +1,12 @@
 package vm
 
 import (
-	"fmt"
 	"strings"
 
+	"strconv"
+
 	"github.com/baxromumarov/bak/pkg/compiler"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (vm *VM) formatValue(v compiler.Value) string {
@@ -25,21 +27,21 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 		}
 		return "false"
 	case compiler.VAL_INT:
-		return fmt.Sprintf("%d", v.AsInt)
+		return strfmt.Format("{AsInt}", struct{ AsInt any }{v.AsInt})
 	case compiler.VAL_FLOAT:
-		return fmt.Sprintf("%g", v.AsFloat)
+		return strfmt.Format("{AsFloat}", struct{ AsFloat any }{strconv.FormatFloat(float64(v.AsFloat), 'g', -1, 64)})
 	case compiler.VAL_STRING:
 		return v.AsString
 	case compiler.VAL_CHAR:
 		return string(v.AsChar)
 	case compiler.VAL_FUNCTION:
 		if fn, ok := v.AsObject.(*compiler.FunctionObj); ok {
-			return fmt.Sprintf("<fn %s>", fn.Name)
+			return strfmt.Format("<fn {Name}>", struct{ Name any }{fn.Name})
 		}
 		return "<fn>"
 	case compiler.VAL_CLOSURE:
 		if cl, ok := v.AsObject.(*compiler.Closure); ok {
-			return fmt.Sprintf("<closure %s>", cl.Function.Name)
+			return strfmt.Format("<closure {Name}>", struct{ Name any }{cl.Function.Name})
 		}
 		return "<closure>"
 	case compiler.VAL_STRUCT:
@@ -47,12 +49,12 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 			if out, ok := vm.formatStructCollection(s, depth+1); ok {
 				return out
 			}
-			return fmt.Sprintf("<%s instance>", s.TypeName)
+			return strfmt.Format("<{TypeName} instance>", struct{ TypeName any }{s.TypeName})
 		}
 		return "<struct>"
 	case compiler.VAL_ENUM:
 		if e, ok := v.AsObject.(*compiler.EnumInstance); ok {
-			return fmt.Sprintf("%s.%s", e.EnumName, e.VariantName)
+			return strfmt.Format("{EnumName}.{VariantName}", e)
 		}
 		return "<enum>"
 	case compiler.VAL_ARRAY:
@@ -75,7 +77,12 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 			if r.EndInclusive {
 				endBracket = "]"
 			}
-			return fmt.Sprintf("%s%d, %d%s", startBracket, r.Start, r.End, endBracket)
+			return strfmt.Format("{startBracket}{Start}, {End}{endBracket}", struct {
+				StartBracket any
+				Start        any
+				End          any
+				EndBracket   any
+			}{startBracket, r.Start, r.End, endBracket})
 		}
 		return "<range>"
 	case compiler.VAL_BUILTIN:
@@ -83,7 +90,7 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 	case compiler.VAL_OPTION:
 		if o, ok := v.AsObject.(*compiler.OptionInstance); ok {
 			if o.IsSome {
-				return fmt.Sprintf("Some(%s)", vm.formatValueDepth(o.Value, depth+1))
+				return strfmt.Format("Some({formatValueDepth})", struct{ FormatValueDepth any }{vm.formatValueDepth(o.Value, depth+1)})
 			}
 			return "None"
 		}
@@ -94,7 +101,7 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 			for _, e := range t.Elements {
 				elements = append(elements, vm.formatValueDepth(e, depth+1))
 			}
-			return fmt.Sprintf("(%s)", strings.Join(elements, ", "))
+			return strfmt.Format("({elements})", struct{ Elements any }{strings.Join(elements, ", ")})
 		}
 		return "<tuple>"
 	case compiler.VAL_BORROW:
@@ -111,15 +118,15 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 		return "<borrow>"
 	case compiler.VAL_THREAD:
 		if t, ok := v.AsObject.(*compiler.ThreadInstance); ok {
-			return fmt.Sprintf("<thread %d>", t.ID)
+			return strfmt.Format("<thread {ID}>", struct{ ID any }{t.ID})
 		}
 		return "<thread>"
 	case compiler.VAL_RESULT:
 		if r, ok := v.AsObject.(*compiler.ResultInstance); ok {
 			if r.IsErr {
-				return fmt.Sprintf("Err(%s)", vm.formatValueDepth(r.Value, depth+1))
+				return strfmt.Format("Err({formatValueDepth})", struct{ FormatValueDepth any }{vm.formatValueDepth(r.Value, depth+1)})
 			}
-			return fmt.Sprintf("Ok(%s)", vm.formatValueDepth(r.Value, depth+1))
+			return strfmt.Format("Ok({formatValueDepth})", struct{ FormatValueDepth any }{vm.formatValueDepth(r.Value, depth+1)})
 		}
 		return "<result>"
 	default:

@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) checkBlockStatement(bs *ast.BlockStatement) {
@@ -35,7 +35,7 @@ func (tc *TypeChecker) checkBlockStatement(bs *ast.BlockStatement) {
 				diagnostics.ErrUnusedVariable,
 				info.Line,
 				info.Column,
-				fmt.Sprintf("unused variable: '%s'", name),
+				strfmt.Format("unused variable: '{name}'", struct{ Name any }{name}),
 				"prefix with _ to ignore",
 			)
 		}
@@ -52,11 +52,14 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 	if !tc.fitsInType(tc.currentFuncRet, rs.ReturnValue) {
 		returnType := tc.inferType(rs.ReturnValue)
 		expectedName := typeToString(tc.currentFuncRet)
-		help := fmt.Sprintf("return a value of type %s or change the function return type", expectedName)
+		help := strfmt.Format("return a value of type {expectedName} or change the function return type", struct{ ExpectedName any }{expectedName})
 		if expectedName == "void" {
 			help = "remove the return value or change the function return type"
 		}
-		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, fmt.Sprintf("cannot return %s from function expecting %s", typeToString(returnType), expectedName))
+		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, strfmt.Format("cannot return {typeToString} from function expecting {expectedName}", struct {
+			TypeToString any
+			ExpectedName any
+		}{typeToString(returnType), expectedName}))
 	}
 
 	// Track ownership transfer for returned values
@@ -98,7 +101,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	}
 
 	if !varInfo.Mutable {
-		tc.addErrorWithHelp(as.Token.Line, as.Token.Column, "declare the variable as 'mut var'", fmt.Sprintf("cannot assign to immutable variable '%s' (declare with 'mut var' to allow reassignment)", varName))
+		tc.addErrorWithHelp(as.Token.Line, as.Token.Column, "declare the variable as 'mut var'", strfmt.Format("cannot assign to immutable variable '{varName}' (declare with 'mut var' to allow reassignment)", struct{ VarName any }{varName}))
 		return
 	}
 
@@ -111,7 +114,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 			as.Token.Column,
 			typeToString(varInfo.Type),
 			typeToString(valueType),
-			fmt.Sprintf("assignment to variable '%s'", varName),
+			strfmt.Format("assignment to variable '{varName}'", struct{ VarName any }{varName}),
 			as.Value,
 		)
 	}

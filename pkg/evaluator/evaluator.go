@@ -14,6 +14,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/object"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 var (
@@ -1431,7 +1432,7 @@ func evalImplDecl(id *ast.ImplDecl, env *object.Environment) object.Object {
 	}
 
 	for _, method := range id.Methods {
-		methodName := fmt.Sprintf("%s.%s", id.TypeName.Value, method.Name.Value)
+		methodName := strfmt.S(id.TypeName.Value, ".", method.Name.Value)
 
 		// Create a Method object that includes receiver information
 		m := &object.Method{
@@ -2730,7 +2731,10 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 			return fn.Fn(args...)
 		}
 		// Fallback to global registry for custom static methods (e.g., Vec.my_new)
-		fullName := fmt.Sprintf("%s.%s", tc.Name, methodName)
+		fullName := strfmt.Format("{Name}.{methodName}", struct {
+			Name       any
+			MethodName any
+		}{tc.Name, methodName})
 		if method, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(method, left, args, env)
 		}
@@ -2754,7 +2758,10 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 
 	// Check for static method calls on struct types (e.g., TaskManager.new())
 	if structDef, ok := left.(*object.StructDef); ok {
-		fullName := fmt.Sprintf("%s.%s", structDef.Name, methodName)
+		fullName := strfmt.Format("{Name}.{methodName}", struct {
+			Name       any
+			MethodName any
+		}{structDef.Name, methodName})
 		if method, ok := lookupRegisteredMethod(fullName); ok {
 			// Static method - call without binding receiver (it won't use self)
 			extendedEnv := object.NewEnclosedEnvironment(method.Function.Env)
@@ -2772,11 +2779,17 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 
 	// Check for struct methods
 	if s, ok := left.(*object.Struct); ok {
-		fullName := fmt.Sprintf("%s.%s", s.Name, methodName)
+		fullName := strfmt.Format("{Name}.{methodName}", struct {
+			Name       any
+			MethodName any
+		}{s.Name, methodName})
 		shortName := fullName
 		if strings.Contains(s.Name, ".") {
 			baseName := s.Name[strings.LastIndex(s.Name, ".")+1:]
-			shortName = fmt.Sprintf("%s.%s", baseName, methodName)
+			shortName = strfmt.Format("{baseName}.{methodName}", struct {
+				BaseName   any
+				MethodName any
+			}{baseName, methodName})
 		}
 
 		var method *object.Method
@@ -2814,11 +2827,17 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 			if aliasInfo, ok := env.Get(s.Name); ok {
 				if aliasDef, ok := aliasInfo.Value.(*object.AliasDef); ok {
 					if def, resolvedName := resolveAliasToStruct(aliasDef, env); def != nil {
-						aliasFull := fmt.Sprintf("%s.%s", resolvedName, methodName)
+						aliasFull := strfmt.Format("{resolvedName}.{methodName}", struct {
+							ResolvedName any
+							MethodName   any
+						}{resolvedName, methodName})
 						aliasShort := aliasFull
 						if strings.Contains(resolvedName, ".") {
 							baseName := resolvedName[strings.LastIndex(resolvedName, ".")+1:]
-							aliasShort = fmt.Sprintf("%s.%s", baseName, methodName)
+							aliasShort = strfmt.Format("{baseName}.{methodName}", struct {
+								BaseName   any
+								MethodName any
+							}{baseName, methodName})
 						}
 						if info, ok := env.Get(aliasFull); ok {
 							if m, ok := info.Value.(*object.Method); ok {
@@ -3132,7 +3151,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		return NULL
 
 	default:
-		fullName := fmt.Sprintf("Vec.%s", method)
+		fullName := strfmt.Format("Vec.{method}", struct{ Method any }{method})
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, vec, args, nil) // env not needed here as applyCustomMethod handles it
 		}
@@ -3528,7 +3547,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 
 	switch method {
 	case "toString":
-		return object.NewString(fmt.Sprintf("%d", num.Value))
+		return object.NewString(strfmt.Format("{Value}", struct{ Value any }{num.Value}))
 	case "toFloat":
 		return object.NewFloat(float64(num.Value))
 	case "abs":
@@ -3544,7 +3563,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 func evalFloatMethod(num *object.Float, method string, args []object.Object) object.Object {
 	switch method {
 	case "toString":
-		return object.NewString(fmt.Sprintf("%g", num.Value))
+		return object.NewString(strfmt.Format("{Value}", struct{ Value any }{strconv.FormatFloat(float64(num.Value), 'g', -1, 64)}))
 	case "toInt":
 		return object.NewInteger(int64(num.Value))
 	case "toFixed":
@@ -3630,7 +3649,7 @@ func evalResultMethod(result *object.Result, method string, args []object.Object
 	case "toString":
 		return object.NewString(result.Inspect())
 	default:
-		fullName := fmt.Sprintf("Result.%s", method)
+		fullName := strfmt.Format("Result.{method}", struct{ Method any }{method})
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, result, args, nil)
 		}
@@ -3660,7 +3679,7 @@ func evalOptionMethod(option *object.Option, method string, args []object.Object
 	case "toString":
 		return object.NewString(option.Inspect())
 	default:
-		fullName := fmt.Sprintf("Option.%s", method)
+		fullName := strfmt.Format("Option.{method}", struct{ Method any }{method})
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, option, args, nil)
 		}
@@ -3992,14 +4011,14 @@ func checkTypeMatch(obj object.Object, typeExpr ast.TypeExpression) string {
 		if obj == nil || obj == NULL {
 			return ""
 		}
-		return fmt.Sprintf("expected void, got %s", obj.Type())
+		return strfmt.Format("expected void, got {type}", struct{ Type any }{obj.Type()})
 	case *ast.GenericType:
 		return checkGenericType(obj, te)
 	case *ast.BorrowType:
 		if _, ok := obj.(*object.Borrow); ok {
 			return ""
 		}
-		return fmt.Sprintf("expected borrow type, got %s", obj.Type())
+		return strfmt.Format("expected borrow type, got {type}", struct{ Type any }{obj.Type()})
 	default:
 		return "" // Unknown type expression, allow it
 	}
@@ -4010,7 +4029,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		return ""
 	}
 	if obj == nil {
-		return fmt.Sprintf("expected %s, got nil", typeName)
+		return strfmt.Format("expected {typeName}, got nil", struct{ TypeName any }{typeName})
 	}
 
 	switch typeName {
@@ -4018,32 +4037,41 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		if obj.Type() == object.INTEGER_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected %s, got %s", typeName, obj.Type())
+		return strfmt.Format("expected {typeName}, got {type}", struct {
+			TypeName any
+			Type     any
+		}{typeName, obj.Type()})
 	case "uint", "uint8", "uint16", "uint32", "uint64":
 		if obj.Type() == object.INTEGER_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected %s, got %s", typeName, obj.Type())
+		return strfmt.Format("expected {typeName}, got {type}", struct {
+			TypeName any
+			Type     any
+		}{typeName, obj.Type()})
 	case "float32", "float64":
 		if obj.Type() == object.FLOAT_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected %s, got %s", typeName, obj.Type())
+		return strfmt.Format("expected {typeName}, got {type}", struct {
+			TypeName any
+			Type     any
+		}{typeName, obj.Type()})
 	case "bool":
 		if obj.Type() == object.BOOLEAN_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected bool, got %s", obj.Type())
+		return strfmt.Format("expected bool, got {type}", struct{ Type any }{obj.Type()})
 	case "string":
 		if obj.Type() == object.STRING_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected string, got %s", obj.Type())
+		return strfmt.Format("expected string, got {type}", struct{ Type any }{obj.Type()})
 	case "char":
 		if obj.Type() == object.CHAR_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected char, got %s", obj.Type())
+		return strfmt.Format("expected char, got {type}", struct{ Type any }{obj.Type()})
 	case "void":
 		if _, ok := obj.(*object.Void); ok {
 			return ""
@@ -4051,7 +4079,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		if obj == NULL {
 			return ""
 		}
-		return fmt.Sprintf("expected void, got %s", obj.Type())
+		return strfmt.Format("expected void, got {type}", struct{ Type any }{obj.Type()})
 	default:
 		// Could be a struct name or other user-defined type
 		if s, ok := obj.(*object.Struct); ok {
@@ -4070,7 +4098,10 @@ func checkSimpleType(obj object.Object, typeName string) string {
 					return ""
 				}
 			}
-			return fmt.Sprintf("expected %s, got struct %s", typeName, s.Name)
+			return strfmt.Format("expected {typeName}, got struct {Name}", struct {
+				TypeName any
+				Name     any
+			}{typeName, s.Name})
 		}
 		// Check for TypedValue (from type declarations)
 		if tv, ok := obj.(*object.TypedValue); ok {
@@ -4081,7 +4112,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 			if strings.HasSuffix(typeName, "."+tv.TypeName) {
 				return ""
 			}
-			return fmt.Sprintf("expected %s, got %s", typeName, tv.TypeName)
+			return strfmt.Named("expected {expected}, got {got}", "expected", typeName, "got", tv.TypeName)
 		}
 		return "" // Allow unknown types for now
 	}
@@ -4104,17 +4135,17 @@ func checkGenericType(obj object.Object, te *ast.GenericType) string {
 		if s, ok := obj.(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
 			return ""
 		}
-		return fmt.Sprintf("expected Vec, got %s", obj.Type())
+		return strfmt.Format("expected Vec, got {type}", struct{ Type any }{obj.Type()})
 	case "Result":
 		if obj.Type() == object.RESULT_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected Result, got %s", obj.Type())
+		return strfmt.Format("expected Result, got {type}", struct{ Type any }{obj.Type()})
 	case "Option":
 		if obj.Type() == object.OPTION_OBJ {
 			return ""
 		}
-		return fmt.Sprintf("expected Option, got %s", obj.Type())
+		return strfmt.Format("expected Option, got {type}", struct{ Type any }{obj.Type()})
 	default:
 		return "" // Unknown generic, allow it
 	}

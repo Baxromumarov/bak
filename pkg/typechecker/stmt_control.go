@@ -1,16 +1,16 @@
 package typechecker
 
 import (
-	"fmt"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 	condType := tc.inferType(is.Condition)
 	if condType != nil && !tc.isBoolType(condType) {
-		tc.addError(is.Token.Line, is.Token.Column, fmt.Sprintf("if condition must be bool, got %s", typeToString(condType)))
+		tc.addError(is.Token.Line, is.Token.Column, strfmt.Format("if condition must be bool, got {typeToString}", struct{ TypeToString any }{typeToString(condType)}))
 	}
 
 	guardVar, guardState, hasGuard := tc.detectResultGuardCondition(is.Condition)
@@ -63,7 +63,7 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 func (tc *TypeChecker) checkWhileStatement(ws *ast.WhileStatement) {
 	condType := tc.inferType(ws.Condition)
 	if condType != nil && !tc.isBoolType(condType) {
-		tc.addError(ws.Token.Line, ws.Token.Column, fmt.Sprintf("while condition must be bool, got %s", typeToString(condType)))
+		tc.addError(ws.Token.Line, ws.Token.Column, strfmt.Format("while condition must be bool, got {typeToString}", struct{ TypeToString any }{typeToString(condType)}))
 	}
 
 	// Use an isolated environment for the while body.

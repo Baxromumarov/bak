@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func main() {
@@ -41,7 +43,7 @@ func main() {
 			msg["id"] = id
 		}
 		body, _ := json.Marshal(msg)
-		fmt.Fprintf(stdin, "Content-Length: %d\r\n\r\n%s", len(body), body)
+		_, _ = strfmt.Fprint(stdin, "Content-Length: ", len(body), "\r\n\r\n", body)
 	}
 
 	// 1. Initialize

@@ -4,12 +4,12 @@ package diagnostics
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // ANSI Color Codes
@@ -178,20 +178,23 @@ func (d *Diagnostic) Format() string {
 	// Header: ERROR [E0100]: message
 	levelColor := d.Level.Color()
 	levelStr := strings.ToUpper(d.Level.String())
-	fmt.Fprintf(
-		&sb,
-		"%s%s%s%s %s[%s]%s: %s%s%s\n",
+	sb.WriteString(strfmt.S(
 		ColorBold,
 		levelColor,
 		levelStr,
 		ColorReset,
+		" ",
 		ColorMagenta,
+		"[",
 		d.Code,
+		"]",
 		ColorReset,
+		": ",
 		ColorWhite,
 		d.Message,
 		ColorReset,
-	)
+		"\n",
+	))
 
 	// Location: --> file:line:col
 	file := d.File
@@ -199,88 +202,100 @@ func (d *Diagnostic) Format() string {
 		file = "<input>"
 	}
 
-	fmt.Fprintf(
-		&sb,
-		"  %s-->%s %s:%d:%d\n",
+	sb.WriteString(strfmt.S(
+		"  ",
 		ColorBlue,
+		"-->",
 		ColorReset,
+		" ",
 		file,
+		":",
 		d.Line,
+		":",
 		d.Column,
-	)
+		"\n",
+	))
 
 	// Code snippet
 	codeLine := readLine(file, d.Line)
 	if codeLine != "" {
 		// Padding for line number
-		lineNumStr := fmt.Sprintf("%d", d.Line)
+		lineNumStr := strfmt.Format("{Line}", struct{ Line any }{d.Line})
 		padding := strings.Repeat(" ", len(lineNumStr))
 
-		fmt.Fprintf(
-			&sb,
-			"  %s%s |%s\n",
+		sb.WriteString(strfmt.S(
+			"  ",
 			padding,
 			ColorBlue,
+			" |",
 			ColorReset,
-		)
+			"\n",
+		))
 
-		fmt.Fprintf(
-			&sb,
-			"  %s%s |%s %s\n",
+		sb.WriteString(strfmt.S(
+			"  ",
 			ColorBlue,
 			lineNumStr,
+			" |",
 			ColorReset,
+			" ",
 			codeLine,
-		)
+			"\n",
+		))
 
 		// Uncerline
 		underline := strings.Repeat(" ", d.Column-1) + "^"
 
-		fmt.Fprintf(
-			&sb,
-			"  %s%s |%s %s%s%s\n",
+		sb.WriteString(strfmt.S(
+			"  ",
 			padding,
 			ColorBlue,
+			" |",
 			ColorReset,
+			" ",
 			levelColor,
 			ColorBold,
 			underline,
-		)
+			"\n",
+		))
 
 		if d.Help != "" {
 			// Place help on the same line if space permits or next line
-			fmt.Fprintf(
-				&sb,
-				"  %s%s = help: %s%s\n",
+			sb.WriteString(strfmt.S(
+				"  ",
 				padding,
 				ColorBlue,
+				" = help: ",
 				ColorReset,
 				d.Help,
-			)
+				"\n",
+			))
 		} else {
-			fmt.Fprintf(&sb, "\n") // Just a newline
+			sb.WriteString("\n") // Just a newline
 		}
 
 	} else if d.Help != "" {
 		// Fallback if no code snippet
-		fmt.Fprintf(
-			&sb,
-			"  %s= help: %s%s\n",
+		sb.WriteString(strfmt.S(
+			"  ",
 			ColorBlue,
+			"= help: ",
 			ColorReset,
 			d.Help,
-		)
+			"\n",
+		))
 	}
 
 	// Notes
 	for _, note := range d.Notes {
-		fmt.Fprintf(
-			&sb,
-			"  %s= note: %s%s\n",
+		sb.WriteString(strfmt.S(
+			"  ",
 			ColorCyan,
+			"= note: ",
 			note.Message,
 			ColorReset,
-		)
+			"\n",
+		))
 
 		if note.Line > 0 {
 			noteFile := note.File
@@ -292,22 +307,25 @@ func (d *Diagnostic) Format() string {
 
 			noteCodeLine := readLine(noteFile, note.Line)
 			if noteCodeLine != "" {
-				fmt.Fprintf(
-					&sb,
-					"  %s--> %s:%d:%d%s\n",
+				sb.WriteString(strfmt.S(
+					"  ",
 					ColorBlue,
+					"--> ",
 					noteFile,
+					":",
 					note.Line,
+					":",
 					note.Column,
 					ColorReset,
-				)
+					"\n",
+				))
 
-				fmt.Fprintf(
-					&sb,
-					"      %s%s\n",
+				sb.WriteString(strfmt.S(
+					"      ",
 					ColorGray,
 					strings.TrimSpace(noteCodeLine),
-				)
+					"\n",
+				))
 			}
 		}
 	}
@@ -408,15 +426,15 @@ func UseAfterMove(
 	d := Diagnostic{
 		Code:    ErrUseAfterMove,
 		Level:   LevelError,
-		Message: fmt.Sprintf("use of moved value '%s'", varName),
+		Message: strfmt.Format("use of moved value '{varName}'", struct{ VarName any }{varName}),
 		Line:    line,
 		Column:  col,
-		Help:    fmt.Sprintf("consider borrowing instead: &%s", varName),
+		Help:    strfmt.Format("consider borrowing instead: &{varName}", struct{ VarName any }{varName}),
 	}
 
 	if moveLine > 0 {
 		d.Notes = append(d.Notes, Note{
-			Message: fmt.Sprintf("value was %s", moveReason),
+			Message: strfmt.Format("value was {moveReason}", struct{ MoveReason any }{moveReason}),
 			Line:    moveLine,
 			Column:  moveCol,
 		})
@@ -435,11 +453,10 @@ func CannotMove(
 	return Diagnostic{
 		Code:  ErrMoveWhileBorrowed,
 		Level: LevelError,
-		Message: fmt.Sprintf(
-			"cannot move '%s' because it is %s",
-			varName,
-			reason,
-		),
+		Message: strfmt.Format("cannot move '{varName}' because it is {reason}", struct {
+			VarName any
+			Reason  any
+		}{varName, reason}),
 		Line:   line,
 		Column: col,
 	}
@@ -456,12 +473,11 @@ func BorrowConflict(
 	return Diagnostic{
 		Code:  ErrBorrowConflict,
 		Level: LevelError,
-		Message: fmt.Sprintf(
-			"cannot borrow '%s' as %s because it is already %s",
-			varName,
-			attemptedBorrow,
-			existingState,
-		),
+		Message: strfmt.Format("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", struct {
+			VarName         any
+			AttemptedBorrow any
+			ExistingState   any
+		}{varName, attemptedBorrow, existingState}),
 		Line:   line,
 		Column: col,
 	}
@@ -477,11 +493,10 @@ func MutabilityRequired(
 	return Diagnostic{
 		Code:  ErrMutabilityRequired,
 		Level: LevelError,
-		Message: fmt.Sprintf(
-			"cannot %s on immutable variable '%s'",
-			operation,
-			varName,
-		),
+		Message: strfmt.Format("cannot {operation} on immutable variable '{varName}'", struct {
+			Operation any
+			VarName   any
+		}{operation, varName}),
 		Line:   line,
 		Column: col,
 		Help:   "declare the variable as 'mut var'",
@@ -497,9 +512,15 @@ func TypeMismatch(
 	context string,
 ) Diagnostic {
 
-	msg := fmt.Sprintf("type mismatch: expected %s, got %s", expected, got)
+	msg := strfmt.Format("type mismatch: expected {expected}, got {got}", struct {
+		Expected any
+		Got      any
+	}{expected, got})
 	if context != "" {
-		msg = fmt.Sprintf("%s in %s", msg, context)
+		msg = strfmt.Format("{msg} in {context}", struct {
+			Msg     any
+			Context any
+		}{msg, context})
 	}
 
 	return Diagnostic{
@@ -520,11 +541,10 @@ func VecMutatingMethodOnImmutable(
 	return Diagnostic{
 		Code:  ErrMutabilityRequired,
 		Level: LevelError,
-		Message: fmt.Sprintf(
-			"cannot call '%s' on immutable variable '%s'",
-			method,
-			varName,
-		),
+		Message: strfmt.Format("cannot call '{method}' on immutable variable '{varName}'", struct {
+			Method  any
+			VarName any
+		}{method, varName}),
 		Line:   pos.Line,
 		Column: pos.Column,
 		Help:   "declare the variable as 'mut var'",
@@ -536,11 +556,10 @@ func VecDynamicOnlyMethod(method, vecType string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:  ErrVecDynamicOnly,
 		Level: LevelError,
-		Message: fmt.Sprintf(
-			"cannot call '%s' on fixed-size %s",
-			method,
-			vecType,
-		),
+		Message: strfmt.Format("cannot call '{method}' on fixed-size {vecType}", struct {
+			Method  any
+			VecType any
+		}{method, vecType}),
 		Line:   pos.Line,
 		Column: pos.Column,
 		Help:   "use Vec<T, _> for dynamic arrays",
@@ -552,7 +571,7 @@ func UnusedImport(importPath string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedImport,
 		Level:   LevelWarning,
-		Message: fmt.Sprintf("unused import: '%s'", importPath),
+		Message: strfmt.Format("unused import: '{importPath}'", struct{ ImportPath any }{importPath}),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		Help:    "remove this import if it's not used",
@@ -564,7 +583,7 @@ func UnusedVariable(varName string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedVariable,
 		Level:   LevelWarning,
-		Message: fmt.Sprintf("unused variable: '%s'", varName),
+		Message: strfmt.Format("unused variable: '{varName}'", struct{ VarName any }{varName}),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		Help:    "prefix with _ to ignore: '_" + varName + "'",

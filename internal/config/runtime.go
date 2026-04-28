@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func StripTraceFlag(args []string) ([]string, bool) {
@@ -147,7 +148,7 @@ func LoadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []st
 	features, err := ResolveProjectFeatureState(cliFeatures)
 	if err != nil {
 		runtimecap.SetCurrentFeatures(nil)
-		fmt.Fprintf(os.Stderr, "Error resolving runtime feature flags: %v\n", err)
+		_, _ = strfmt.Fprintln(os.Stderr, "Error resolving runtime feature flags: ", err)
 		os.Exit(1)
 	}
 	runtimecap.SetCurrentFeatures(features)

@@ -8,7 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	"strconv"
+
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // ObjectType represents the type of an object
@@ -61,7 +64,7 @@ type Integer struct {
 }
 
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
-func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+func (i *Integer) Inspect() string  { return strfmt.Format("{Value}", struct{ Value any }{i.Value}) }
 
 // Float represents a floating-point value
 type Float struct {
@@ -69,7 +72,9 @@ type Float struct {
 }
 
 func (f *Float) Type() ObjectType { return FLOAT_OBJ }
-func (f *Float) Inspect() string  { return fmt.Sprintf("%g", f.Value) }
+func (f *Float) Inspect() string {
+	return strfmt.Format("{Value}", struct{ Value any }{strconv.FormatFloat(float64(f.Value), 'g', -1, 64)})
+}
 
 // Boolean represents a boolean value
 type Boolean struct {
@@ -77,7 +82,7 @@ type Boolean struct {
 }
 
 func (b *Boolean) Type() ObjectType { return BOOLEAN_OBJ }
-func (b *Boolean) Inspect() string  { return fmt.Sprintf("%t", b.Value) }
+func (b *Boolean) Inspect() string  { return strfmt.Format("{Value}", struct{ Value any }{b.Value}) }
 
 type Panic struct {
 	Message string
@@ -118,7 +123,9 @@ type Char struct {
 }
 
 func (c *Char) Type() ObjectType { return CHAR_OBJ }
-func (c *Char) Inspect() string  { return fmt.Sprintf("'%c'", c.Value) }
+func (c *Char) Inspect() string {
+	return strfmt.Format("'{Value}'", struct{ Value any }{string(rune(c.Value))})
+}
 
 // Void represents the VOID value
 type Void struct{}
@@ -150,9 +157,9 @@ type Error struct {
 func (e *Error) Type() ObjectType { return ERROR_OBJ }
 func (e *Error) Inspect() string {
 	if e.Line > 0 {
-		return fmt.Sprintf("Error at line %d:%d: %s", e.Line, e.Column, e.Message)
+		return strfmt.Format("Error at line {Line}:{Column}: {Message}", e)
 	}
-	return fmt.Sprintf("Error: %s", e.Message)
+	return strfmt.Format("Error: {Message}", struct{ Message any }{e.Message})
 }
 
 // Function represents a function value
@@ -367,7 +374,10 @@ func (s *Struct) Inspect() string {
 
 	fields := []string{}
 	for _, k := range keys {
-		fields = append(fields, fmt.Sprintf("%s: %s", k, s.Fields[k].Inspect()))
+		fields = append(fields, strfmt.Format("{k}: {inspect}", struct {
+			K       any
+			Inspect any
+		}{k, s.Fields[k].Inspect()}))
 	}
 	out.WriteString(strings.Join(fields, ", "))
 	out.WriteString("}")
@@ -388,7 +398,10 @@ func (s *StructDef) Inspect() string {
 		for _, p := range s.TypeParams {
 			params = append(params, p.String())
 		}
-		return fmt.Sprintf("struct %s<%s>", s.Name, strings.Join(params, ", "))
+		return strfmt.Format("struct {Name}<{params}>", struct {
+			Name   any
+			Params any
+		}{s.Name, strings.Join(params, ", ")})
 	}
 	return "struct " + s.Name
 }
@@ -474,9 +487,9 @@ type Result struct {
 func (r *Result) Type() ObjectType { return RESULT_OBJ }
 func (r *Result) Inspect() string {
 	if r.IsOk {
-		return fmt.Sprintf("Ok(%s)", r.Value.Inspect())
+		return strfmt.Format("Ok({inspect})", struct{ Inspect any }{r.Value.Inspect()})
 	}
-	return fmt.Sprintf("Err(%s)", r.Value.Inspect())
+	return strfmt.Format("Err({inspect})", struct{ Inspect any }{r.Value.Inspect()})
 }
 
 // Option represents an Option<T> value
@@ -488,7 +501,7 @@ type Option struct {
 func (o *Option) Type() ObjectType { return OPTION_OBJ }
 func (o *Option) Inspect() string {
 	if o.IsSome {
-		return fmt.Sprintf("Some(%s)", o.Value.Inspect())
+		return strfmt.Format("Some({inspect})", struct{ Inspect any }{o.Value.Inspect()})
 	}
 	return "None"
 }
@@ -525,7 +538,12 @@ func (r *Range) Inspect() string {
 	if r.EndInclusive {
 		endBracket = "]"
 	}
-	return fmt.Sprintf("%s%d, %d%s", startBracket, r.Start, r.End, endBracket)
+	return strfmt.Format("{startBracket}{Start}, {End}{endBracket}", struct {
+		StartBracket any
+		Start        any
+		End          any
+		EndBracket   any
+	}{startBracket, r.Start, r.End, endBracket})
 }
 
 // Iterator returns an iterator for the range
@@ -589,7 +607,9 @@ type Module struct {
 }
 
 func (m *Module) Type() ObjectType { return MODULE_OBJ }
-func (m *Module) Inspect() string  { return fmt.Sprintf("<module %s>", m.Name) }
+func (m *Module) Inspect() string {
+	return strfmt.Format("<module {Name}>", struct{ Name any }{m.Name})
+}
 
 // DirEntry represents a directory entry (file or subdirectory)
 type DirEntry struct {
@@ -600,7 +620,11 @@ type DirEntry struct {
 
 func (d *DirEntry) Type() ObjectType { return DIR_ENTRY_OBJ }
 func (d *DirEntry) Inspect() string {
-	return fmt.Sprintf("DirEntry{name: %q, isDir: %t, path: %q}", d.FileName, d.IsDir, d.FullPath)
+	return strfmt.Format("DirEntry{{name: {FileName}, isDir: {IsDir}, path: {FullPath}}}", struct {
+		FileName any
+		IsDir    any
+		FullPath any
+	}{strconv.Quote(d.FileName), d.IsDir, strconv.Quote(d.FullPath)})
 }
 
 // FileInfo represents file metadata
@@ -613,7 +637,12 @@ type FileInfo struct {
 
 func (f *FileInfo) Type() ObjectType { return FILE_INFO_OBJ }
 func (f *FileInfo) Inspect() string {
-	return fmt.Sprintf("FileInfo{name: %q, size: %d, modTime: %d, isDir: %t}", f.FileName, f.FileSize, f.ModTime, f.IsDir)
+	return strfmt.Format("FileInfo{{name: {FileName}, size: {FileSize}, modTime: {ModTime}, isDir: {IsDir}}}", struct {
+		FileName any
+		FileSize any
+		ModTime  any
+		IsDir    any
+	}{strconv.Quote(f.FileName), f.FileSize, f.ModTime, f.IsDir})
 }
 
 // TypeConstructor represents a type that can have static methods (e.g., Vec.new())
@@ -623,7 +652,9 @@ type TypeConstructor struct {
 }
 
 func (tc *TypeConstructor) Type() ObjectType { return TYPE_CONSTRUCTOR_OBJ }
-func (tc *TypeConstructor) Inspect() string  { return fmt.Sprintf("<type %s>", tc.Name) }
+func (tc *TypeConstructor) Inspect() string {
+	return strfmt.Format("<type {Name}>", struct{ Name any }{tc.Name})
+}
 
 // Thread represents a reference to a background thread
 type Thread struct {
@@ -631,7 +662,7 @@ type Thread struct {
 }
 
 func (t *Thread) Type() ObjectType { return THREAD_OBJ }
-func (t *Thread) Inspect() string  { return fmt.Sprintf("Thread(%d)", t.ID) }
+func (t *Thread) Inspect() string  { return strfmt.Format("Thread({ID})", struct{ ID any }{t.ID}) }
 
 // Constructors
 

@@ -3,13 +3,14 @@ package native
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"strconv"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
@@ -19,6 +20,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
@@ -149,18 +151,7 @@ func TestEvaluatorVMNativeOutputParityMatrix(t *testing.T) {
 func TestEvaluatorVMNativeExecPermissionContract(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
-	source := fmt.Sprintf(`package main
-
-import %q as os
-
-func main() -> (int) {
-    var result: Result<os.ExecResult, string> = os.exec("printf", ["bak"])
-    if result.isErr() {
-        return 7
-    }
-    return 1
-}
-`, osImport)
+	source := strfmt.Format("package main\n\nimport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n    if result.isErr() {{\n        return 7\n    }}\n    return 1\n}}\n", struct{ OsImport any }{strconv.Quote(osImport)})
 	sourcePath := writeTempParityProgram(t, "parity_exec_permission_denied.bak", source)
 	permissions := runtimecap.Permissions{}
 
@@ -218,18 +209,7 @@ func main() -> (int) {
 func TestEvaluatorVMNativeFsWriteFilePermissionContract(t *testing.T) {
 	root := findRepoRoot(t)
 	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
-	source := fmt.Sprintf(`package main
-
-import %q as fs
-
-func main() -> (int) {
-    var result: Result<void, string> = fs.writeFile("parity_permission_gate.tmp", "bak")
-    if result.isErr() {
-        return 19
-    }
-    return 1
-}
-`, fsImport)
+	source := strfmt.Format("package main\n\nimport {fsImport} as fs\n\nfunc main() -> (int) {{\n    var result: Result<void, string> = fs.writeFile(\"parity_permission_gate.tmp\", \"bak\")\n    if result.isErr() {{\n        return 19\n    }}\n    return 1\n}}\n", struct{ FsImport any }{strconv.Quote(fsImport)})
 	sourcePath := writeTempParityProgram(t, "parity_fs_write_permission_denied.bak", source)
 	permissions := runtimecap.Permissions{}
 

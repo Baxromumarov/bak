@@ -1,11 +1,13 @@
 package native
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
+	"reflect"
+
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // IRProgramSet is a minimal, typed intermediate representation scaffold.
@@ -79,8 +81,20 @@ func renderIRType(t ast.TypeExpression) string {
 		for _, param := range tt.TypeParams {
 			parts = append(parts, renderIRType(param))
 		}
-		return fmt.Sprintf("%s<%s>", tt.Name, strings.Join(parts, ","))
+		return strfmt.Format(
+			"{Name}<{Parts}>",
+			struct {
+				Name  any
+				Parts any
+			}{
+				tt.Name,
+				strings.Join(parts, ","),
+			},
+		)
 	default:
-		return fmt.Sprintf("%T", t)
+		return strfmt.Format(
+			"{t}",
+			struct{ T any }{reflect.TypeOf(t).String()},
+		)
 	}
 }

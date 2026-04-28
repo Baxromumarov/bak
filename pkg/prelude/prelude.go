@@ -1,13 +1,13 @@
 package prelude
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // GetStdLibPath locates the repository's src/std directory using the same
@@ -85,7 +85,7 @@ func InjectStructPrelude(program *ast.Program, path string, structName string) s
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return fmt.Sprintf("prelude parse errors in %s", path)
+		return strfmt.Format("prelude parse errors in {path}", struct{ Path any }{path})
 	}
 
 	startIdx := 0
@@ -139,7 +139,7 @@ func InjectImplPrelude(program *ast.Program, path string, typeName string) strin
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return fmt.Sprintf("prelude parse errors in %s", path)
+		return strfmt.Format("prelude parse errors in {path}", struct{ Path any }{path})
 	}
 
 	startIdx := 0

@@ -3,11 +3,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
@@ -88,7 +88,7 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position)
 				return
 			}
 			if !stableFrozenGenericTypeName(tt.Name) && !tc.userGenericsAllowedForTypeContext(tt.Token.Filename) {
-				tc.addExperimentalFeatureError(pos, fmt.Sprintf("generic type `%s<...>`", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
+				tc.addExperimentalFeatureError(pos, strfmt.Format("generic type `{Name}<...>`", struct{ Name any }{tt.Name}), runtimecap.ExperimentalFeatureUserGenerics)
 			}
 			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)
 			for _, p := range tt.TypeParams {

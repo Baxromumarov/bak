@@ -1,9 +1,8 @@
 package test
 
 import (
-	"fmt"
-
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 )
 
@@ -18,8 +17,8 @@ func buildTestRunner(filename string, tests []testFunctionInfo) *ast.FunctionDec
 		index := i + 1
 		label := filename + ":" + testFn.name
 		if testFn.arity == 0 {
-			lrName := fmt.Sprintf("lr%d", index)
-			rName := fmt.Sprintf("r%d", index)
+			lrName := strfmt.Format("lr{index}", struct{ Index any }{index})
+			rName := strfmt.Format("r{index}", struct{ Index any }{index})
 			statements = append(statements,
 				makeExpressionStatement(callExpression(identifier(testFn.name))),
 				makeVarStatement(lrName, false, methodCall(identifier("test"), "takeLastResult")),
@@ -41,8 +40,8 @@ func buildTestRunner(filename string, tests []testFunctionInfo) *ast.FunctionDec
 			continue
 		}
 
-		contextName := fmt.Sprintf("t%d", index)
-		resultName := fmt.Sprintf("r%d", index)
+		contextName := strfmt.Format("t{index}", struct{ Index any }{index})
+		resultName := strfmt.Format("r{index}", struct{ Index any }{index})
 		statements = append(statements,
 			makeVarStatement(contextName, true, methodCall(identifier("test"), "new", stringLiteral(label))),
 			makeExpressionStatement(callExpression(identifier(testFn.name), borrowExpression(true, identifier(contextName)))),

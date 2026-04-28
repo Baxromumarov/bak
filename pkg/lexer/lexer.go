@@ -3,10 +3,10 @@
 package lexer
 
 import (
-	"fmt"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 )
 
@@ -37,7 +37,11 @@ func (l *Lexer) Errors() []string {
 
 // addError records a lexer error with position information
 func (l *Lexer) addError(pos sourcePos, msg string) {
-	l.errors = append(l.errors, fmt.Sprintf("lexer error at %d:%d: %s", pos.Line, pos.Column, msg))
+	l.errors = append(l.errors, strfmt.Format("lexer error at {Line}:{Column}: {msg}", struct {
+		Line   any
+		Column any
+		Msg    any
+	}{pos.Line, pos.Column, msg}))
 }
 
 // New creates a new Lexer for the given input

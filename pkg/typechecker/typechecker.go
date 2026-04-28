@@ -3,7 +3,6 @@
 package typechecker
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // loadedPackageCheckers stores TypeChecker instances for imported modules
@@ -51,7 +51,7 @@ type TypeError struct {
 }
 
 func (e *TypeError) Error() string {
-	var sb strings.Builder
+	sb := strfmt.NewBuilder()
 
 	// Main error message
 	prefix := "error"
@@ -59,21 +59,21 @@ func (e *TypeError) Error() string {
 		prefix = "warning"
 	}
 
-	fmt.Fprintf(&sb, "%s: %s\n", prefix, e.Message)
-	fmt.Fprintf(&sb, "  --> line %d:%d\n", e.Line, e.Column)
+	sb.Write(prefix, ": ", e.Message, "\n")
+	sb.Write("  --> line ", e.Line, ":", e.Column, "\n")
 
 	// Note with location
 	if e.Note != "" {
-		fmt.Fprintf(&sb, "note: %s", e.Note)
+		sb.Write("note: ", e.Note)
 		if e.NoteLoc != "" {
-			fmt.Fprintf(&sb, "\n  --> %s", e.NoteLoc)
+			sb.Write("\n  --> ", e.NoteLoc)
 		}
-		fmt.Fprintf(&sb, "\n")
+		sb.Write("\n")
 	}
 
 	// Help suggestion
 	if e.Help != "" {
-		fmt.Fprintf(&sb, "help: %s\n", e.Help)
+		sb.Write("help: ", e.Help, "\n")
 	}
 
 	return sb.String()
@@ -156,7 +156,7 @@ func stableFrozenGenericTypeName(name string) bool {
 
 func experimentalFeatureHelp(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return fmt.Sprintf("enable it by passing --experimental=%s", short)
+	return strfmt.Format("enable it by passing --experimental={short}", struct{ Short any }{short})
 }
 
 func isStdlibSourcePath(path string) bool {
@@ -179,7 +179,7 @@ func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, fea
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrExperimentalFeature,
 		Level:   diagnostics.LevelError,
-		Message: fmt.Sprintf("%s is experimental and disabled by default", syntax),
+		Message: strfmt.Format("{syntax} is experimental and disabled by default", struct{ Syntax any }{syntax}),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		File:    tc.currentPkgPath,

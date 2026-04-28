@@ -7,6 +7,7 @@ import (
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/pkg/linter"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func main() {
@@ -16,8 +17,8 @@ func main() {
 	disable := flag.String("disable", "", "comma-separated list of rules to disable")
 	listRules := flag.Bool("list-rules", false, "list available lint rules and exit")
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: baklint [flags] [path ...]\n\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "Lint Bak source files for style and correctness issues.\n\n")
+		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Usage: baklint [flags] [path ...]\n\n")
+		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Lint Bak source files for style and correctness issues.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -51,14 +52,24 @@ func main() {
 	for _, file := range files {
 		findings := linter.LintFile(file, config)
 		for _, f := range findings {
-			fmt.Fprintf(os.Stderr, "%s:%d:%d: %s [%s]\n",
-				f.File, f.Line, f.Column, f.Message, f.Rule)
+			_, _ = strfmt.Fprintln(os.Stderr, strfmt.Named(
+				"{file}:{line}:{column}: {message} [{rule}]",
+				"file", f.File,
+				"line", f.Line,
+				"column", f.Column,
+				"message", f.Message,
+				"rule", f.Rule,
+			))
 			totalFindings++
 		}
 	}
 
 	if totalFindings > 0 {
-		fmt.Fprintf(os.Stderr, "\n%d finding(s) in %d file(s)\n", totalFindings, len(files))
+		_, _ = strfmt.Fprintln(os.Stderr, strfmt.Named(
+			"\n{findings} finding(s) in {files} file(s)",
+			"findings", totalFindings,
+			"files", len(files),
+		))
 		os.Exit(1)
 	}
 }

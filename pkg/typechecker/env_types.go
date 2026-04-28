@@ -2,29 +2,19 @@ package typechecker
 
 import "github.com/baxromumarov/bak/pkg/ast"
 
-// DefineAlias defines a type alias (interchangeable with underlying type)
-func (e *TypeEnv) DefineAlias(
-	name string,
-	typeExpr ast.TypeExpression,
-	vis ast.Visibility,
-	line,
-	col int,
-) {
-	e.aliases[name] = &AliasDef{
-		Type:       typeExpr,
-		Visibility: vis,
-		Line:       line,
-		Column:     col,
-	}
-}
-
+// DefineAliasAt defines a type alias (interchangeable with underlying type).
 func (e *TypeEnv) DefineAliasAt(
 	name string,
 	typeExpr ast.TypeExpression,
 	vis ast.Visibility,
 	pos ast.Position,
 ) {
-	e.DefineAlias(name, typeExpr, vis, pos.Line, pos.Column)
+	e.aliases[name] = &AliasDef{
+		Type:       typeExpr,
+		Visibility: vis,
+		Line:       pos.Line,
+		Column:     pos.Column,
+	}
 }
 
 // LookupAlias looks up a type alias
@@ -33,38 +23,30 @@ func (e *TypeEnv) LookupAlias(name string) (ast.TypeExpression, bool) {
 		e.MarkUsed(name)
 		return def.Type, true
 	}
+
 	if e.parent != nil {
 		if e.nonCapturing {
 			return e.root().LookupAlias(name)
 		}
 		return e.parent.LookupAlias(name)
 	}
+
 	return nil, false
 }
 
-// DefineTypeDef defines a type definition (distinct from underlying type)
-func (e *TypeEnv) DefineTypeDef(
-	name string,
-	typeExpr ast.TypeExpression,
-	vis ast.Visibility,
-	line,
-	col int,
-) {
-	e.typedefs[name] = &TypeDef{
-		Type:       typeExpr,
-		Visibility: vis,
-		Line:       line,
-		Column:     col,
-	}
-}
-
+// DefineTypeDefAt defines a type definition (distinct from underlying type).
 func (e *TypeEnv) DefineTypeDefAt(
 	name string,
 	typeExpr ast.TypeExpression,
 	vis ast.Visibility,
 	pos ast.Position,
 ) {
-	e.DefineTypeDef(name, typeExpr, vis, pos.Line, pos.Column)
+	e.typedefs[name] = &TypeDef{
+		Type:       typeExpr,
+		Visibility: vis,
+		Line:       pos.Line,
+		Column:     pos.Column,
+	}
 }
 
 // LookupTypeDef looks up a type definition
@@ -73,6 +55,7 @@ func (e *TypeEnv) LookupTypeDef(name string) (ast.TypeExpression, bool) {
 		e.MarkUsed(name)
 		return def.Type, true
 	}
+
 	if e.parent != nil {
 		if e.nonCapturing {
 			return e.root().LookupTypeDef(name)

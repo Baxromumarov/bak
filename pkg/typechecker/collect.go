@@ -3,11 +3,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
@@ -35,12 +35,22 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 			if s.Name == nil {
 				continue
 			}
-			tc.env.DefineTypeDefAt(s.Name.Value, s.Underlying, s.Visibility, tokenPos(s.Name.Token))
+			tc.env.DefineTypeDefAt(
+				s.Name.Value,
+				s.Underlying,
+				s.Visibility,
+				tokenPos(s.Name.Token),
+			)
 		case *ast.AliasDecl:
 			if s.Name == nil {
 				continue
 			}
-			tc.env.DefineAliasAt(s.Name.Value, s.Underlying, s.Visibility, tokenPos(s.Name.Token))
+			tc.env.DefineAliasAt(
+				s.Name.Value,
+				s.Underlying,
+				s.Visibility,
+				tokenPos(s.Name.Token),
+			)
 		}
 	}
 
@@ -70,7 +80,14 @@ func (tc *TypeChecker) registerStructDecl(s *ast.StructDecl) {
 	if s == nil || s.Name == nil {
 		return
 	}
-	tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic struct declarations")
+
+	tc.reportUserGenericDeclIfDisabled(
+		len(s.TypeParams),
+		tokenPos(s.Name.Token),
+		s.Name.Token.Filename,
+		"generic struct declarations",
+	)
+
 	typeParams := typeParamNames(s.TypeParams)
 	fields := make(map[string]FieldDef)
 	for _, f := range s.Fields {
@@ -82,6 +99,7 @@ func (tc *TypeChecker) registerStructDecl(s *ast.StructDecl) {
 			Visibility: f.Visibility,
 		}
 	}
+
 	tc.env.DefineStruct(s.Name.Value, &StructDef{
 		Fields:      fields,
 		Methods:     make(map[string]*FunctionSig),
@@ -98,17 +116,24 @@ func (tc *TypeChecker) registerEnumDecl(s *ast.EnumDecl) {
 	if s == nil || s.Name == nil {
 		return
 	}
-	tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic enum declarations")
+	tc.reportUserGenericDeclIfDisabled(
+		len(s.TypeParams),
+		tokenPos(s.Name.Token),
+		s.Name.Token.Filename,
+		"generic enum declarations",
+	)
 	variants := make(map[string]EnumVariantDef)
 	for _, v := range s.Variants {
 		if v == nil || v.Name == nil {
 			continue
 		}
+
 		variants[v.Name.Value] = EnumVariantDef{
 			HasPayload: len(v.Fields) > 0,
 			Fields:     v.Fields,
 		}
 	}
+
 	tc.env.DefineEnum(s.Name.Value, &EnumDef{
 		Variants:    variants,
 		Visibility:  s.Visibility,
@@ -123,9 +148,17 @@ func (tc *TypeChecker) registerFunctionDecl(s *ast.FunctionDecl) {
 	if s == nil || s.Name == nil {
 		return
 	}
-	tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.Name.Token), s.Name.Token.Filename, "generic function declarations")
+
+	tc.reportUserGenericDeclIfDisabled(
+		len(s.TypeParams),
+		tokenPos(s.Name.Token),
+		s.Name.Token.Filename,
+		"generic function declarations",
+	)
+
 	typeParams := typeParamNames(s.TypeParams)
 	params := parameterTypes(s.Parameters)
+
 	tc.env.DefineFunction(s.Name.Value, &FunctionSig{
 		TypeParams:  typeParams,
 		Parameters:  params,
@@ -142,20 +175,45 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 	if s == nil || s.TypeName == nil {
 		return
 	}
-	tc.reportUserGenericDeclIfDisabled(len(s.TypeParams), tokenPos(s.TypeName.Token), s.TypeName.Token.Filename, "generic impl declarations")
+
+	tc.reportUserGenericDeclIfDisabled(
+		len(s.TypeParams),
+		tokenPos(s.TypeName.Token),
+		s.TypeName.Token.Filename,
+		"generic impl declarations",
+	)
+
 	structDef, ok := tc.env.LookupStruct(s.TypeName.Value)
 	if !ok {
 		return
 	}
+
 	for _, method := range s.Methods {
 		if method == nil || method.Name == nil {
 			continue
 		}
-		tc.reportUserGenericDeclIfDisabled(len(method.TypeParams), tokenPos(method.Name.Token), method.Name.Token.Filename, "generic method declarations")
+
+		tc.reportUserGenericDeclIfDisabled(
+			len(method.TypeParams),
+			tokenPos(method.Name.Token),
+			method.Name.Token.Filename,
+			"generic method declarations",
+		)
+
 		if _, exists := structDef.Methods[method.Name.Value]; exists {
-			tc.addError(method.Name.Token.Line, method.Name.Token.Column, fmt.Sprintf("duplicate method '%s' for type '%s'", method.Name.Value, s.TypeName.Value))
+			tc.addError(
+				method.Name.Token.Line,
+				method.Name.Token.Column,
+				strfmt.Named(
+					"duplicate method '{method}' for type '{typeName}'",
+					"method", method.Name.Value,
+					"typeName", s.TypeName.Value,
+				),
+			)
+
 			continue
 		}
+
 		structDef.Methods[method.Name.Value] = &FunctionSig{
 			Parameters:  parameterTypes(method.Parameters),
 			ReturnType:  method.ReturnType,
@@ -175,11 +233,15 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 	case *ast.StructDecl:
 		restore := tc.setTypeParams(typeParamNames(s.TypeParams))
 		for _, f := range s.Fields {
-			if f != nil && f.Type != nil && f.Name != nil {
+			if f != nil &&
+				f.Type != nil &&
+				f.Name != nil {
 				tc.validateTypeUsage(f.Type, tokenPos(f.Name.Token))
 			}
 		}
+
 		restore()
+
 	case *ast.FunctionDecl:
 		restore := tc.setTypeParams(typeParamNames(s.TypeParams))
 		for _, p := range s.Parameters {

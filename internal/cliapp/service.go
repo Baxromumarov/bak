@@ -16,6 +16,7 @@ import (
 	"github.com/baxromumarov/bak/internal/pipeline"
 	"github.com/baxromumarov/bak/internal/runner"
 	internaltest "github.com/baxromumarov/bak/internal/test"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 type commandService struct {
@@ -69,7 +70,7 @@ func (s *commandService) Build(path, output string, ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(s.stdout, "Built native: %s\n", builtOutput)
+	_, _ = strfmt.Fprintln(s.stdout, "Built native: ", builtOutput)
 	return nil
 }
 

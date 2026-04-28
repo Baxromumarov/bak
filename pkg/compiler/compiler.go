@@ -8,6 +8,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // Compiler compiles bak AST to bytecode.
@@ -385,7 +386,7 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	// Generate unique name
 	c.anonCount++
-	name := fmt.Sprintf("__anon_%d", c.anonCount)
+	name := strfmt.Format("__anon_{anonCount}", struct{ AnonCount any }{c.anonCount})
 
 	fn := &FunctionObj{
 		Name:      name,

@@ -10,6 +10,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // Code generation: AST -> x86_64 machine code.
@@ -420,7 +421,8 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		}
 		if t, ok := s.resolveMethodReturnType(e.Object, e.Method.Value); ok {
 			if st, ok := t.(*ast.SimpleType); ok {
-				return st.Name == "int" || st.Name == "bool"
+				return st.Name == "int" ||
+					st.Name == "bool"
 			}
 		}
 	case *ast.CallExpression:
@@ -431,7 +433,8 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 			}
 			if t, ok := s.resolveFunctionReturnType(id.Value); ok {
 				if st, ok := t.(*ast.SimpleType); ok {
-					return st.Name == "int" || st.Name == "bool"
+					return st.Name == "int" ||
+						st.Name == "bool"
 				}
 			}
 		}
@@ -445,6 +448,14 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		// array/vec indexing - check the type context
 		// If indexing an int-typed Vec, return true
 	case *ast.FieldAccessExpression:
+
+		var nameMap = map[string]bool{
+			"int":  true,
+			"bool": true,
+			"char": true,
+			// Note: string fields are not ints, even though they may be indexed as such
+		}
+
 		// Struct field access - use object type tracking when possible.
 		fieldName := e.Field.Value
 		if structType := s.getExpressionStructType(e.Object); structType != "" {
@@ -452,22 +463,19 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 				for _, f := range sd.Fields {
 					if f.Name.Value == fieldName {
 						if st, ok := f.Type.(*ast.SimpleType); ok {
-							return st.Name == "int" ||
-								st.Name == "bool" ||
-								st.Name == "char"
+							return nameMap[st.Name]
 						}
 					}
 				}
 			}
 		}
 		// Fallback: try any known struct that has this field name.
+
 		for _, sd := range s.Structs {
 			for _, f := range sd.Fields {
 				if f.Name.Value == fieldName {
 					if st, ok := f.Type.(*ast.SimpleType); ok {
-						return st.Name == "int" ||
-							st.Name == "bool" ||
-							st.Name == "char"
+						return nameMap[st.Name]
 					}
 				}
 			}
@@ -1959,8 +1967,12 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 		for _, sd := range s.Structs {
 			offset, _ := s.getFieldOffset(sd, fieldName)
 			if offset >= 0 {
-				_, _ = fmt.Fprintf(os.Stderr, "[WARN-FA] field '%s' resolved via fallback to struct '%s' (offset=%d) in module=%s\n",
-					fieldName, sd.Name.Value, offset, s.CurrentModule)
+				_, _ = strfmt.Fprintln(
+					os.Stderr,
+					"[WARN-FA] field '", fieldName,
+					"' resolved via fallback to struct '", sd.Name.Value,
+					"' (offset=", offset, ") in module=", s.CurrentModule,
+				)
 				fieldOffset = offset
 				break
 			}
@@ -3499,7 +3511,11 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 1 {
 			return true, fmt.Errorf("native: __builtin_mkdir expects 1 argument")
 		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_mkdir", runtimecap.FlagAllowFSMutate); err != nil {
+		if err := s.requirePermission(
+			s.Permissions.AllowFSMutate,
+			"__builtin_mkdir",
+			runtimecap.FlagAllowFSMutate,
+		); err != nil {
 			return true, err
 		}
 		s.emitRuntimePermissionCheck(0x04)
@@ -3529,7 +3545,11 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 2 {
 			return true, fmt.Errorf("native: __builtin_write_file expects 2 arguments")
 		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file", runtimecap.FlagAllowFSMutate); err != nil {
+		if err := s.requirePermission(
+			s.Permissions.AllowFSMutate,
+			"__builtin_write_file",
+			runtimecap.FlagAllowFSMutate,
+		); err != nil {
 			return true, err
 		}
 		s.emitRuntimePermissionCheck(0x04)
@@ -3538,7 +3558,11 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 2 {
 			return true, fmt.Errorf("native: __builtin_write_file_bytes expects 2 arguments")
 		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_write_file_bytes", runtimecap.FlagAllowFSMutate); err != nil {
+		if err := s.requirePermission(
+			s.Permissions.AllowFSMutate,
+			"__builtin_write_file_bytes",
+			runtimecap.FlagAllowFSMutate,
+		); err != nil {
 			return true, err
 		}
 		s.emitRuntimePermissionCheck(0x04)
@@ -3547,7 +3571,11 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 2 {
 			return true, fmt.Errorf("native: __builtin_append_file expects 2 arguments")
 		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_append_file", runtimecap.FlagAllowFSMutate); err != nil {
+		if err := s.requirePermission(
+			s.Permissions.AllowFSMutate,
+			"__builtin_append_file",
+			runtimecap.FlagAllowFSMutate,
+		); err != nil {
 			return true, err
 		}
 		s.emitRuntimePermissionCheck(0x04)
@@ -3556,7 +3584,11 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 1 {
 			return true, fmt.Errorf("native: __builtin_remove expects 1 argument")
 		}
-		if err := s.requirePermission(s.Permissions.AllowFSMutate, "__builtin_remove", runtimecap.FlagAllowFSMutate); err != nil {
+		if err := s.requirePermission(
+			s.Permissions.AllowFSMutate,
+			"__builtin_remove",
+			runtimecap.FlagAllowFSMutate,
+		); err != nil {
 			return true, err
 		}
 		s.emitRuntimePermissionCheck(0x04)
@@ -3591,7 +3623,7 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		s.emitDataAddr(tmpIdx)
 		return true, nil
 	case "__builtin_user_home_dir", "__builtin_hostname", "__builtin_executable":
-		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+		return true, s.emitResultErrStr(strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}))
 	case "__builtin_join":
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
@@ -3661,36 +3693,63 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 
 	// Database stubs
 	switch funcName {
-	case "__builtin_pg_connect", "__builtin_pg_close", "__builtin_pg_query",
-		"__builtin_mysql_connect", "__builtin_mysql_close", "__builtin_mysql_query",
+	case "__builtin_pg_connect",
+		"__builtin_pg_close",
+		"__builtin_pg_query",
+		"__builtin_mysql_connect",
+		"__builtin_mysql_close",
+		"__builtin_mysql_query",
 		"__builtin_db_config":
-		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
+
+		if err := s.requirePermission(
+			s.Permissions.AllowNet,
+			funcName,
+			runtimecap.FlagAllowNet,
+		); err != nil {
 			return true, err
 		}
+
 		s.emitRuntimePermissionCheck(0x02)
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return true, err
 			}
 		}
-		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+		return true, s.emitResultErrStr(
+			strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}),
+		)
 	}
 
 	// Socket stubs
 	switch funcName {
-	case "__builtin_socket_bind", "__builtin_socket_accept", "__builtin_socket_connect",
-		"__builtin_socket_connect_tls", "__builtin_socket_read", "__builtin_socket_write",
-		"__builtin_socket_close", "__builtin_socket_set_timeout":
-		if err := s.requirePermission(s.Permissions.AllowNet, funcName, runtimecap.FlagAllowNet); err != nil {
+	case "__builtin_socket_bind",
+		"__builtin_socket_accept",
+		"__builtin_socket_connect",
+		"__builtin_socket_connect_tls",
+		"__builtin_socket_read",
+		"__builtin_socket_write",
+		"__builtin_socket_close",
+		"__builtin_socket_set_timeout":
+
+		if err := s.requirePermission(
+			s.Permissions.AllowNet,
+			funcName,
+			runtimecap.FlagAllowNet,
+		); err != nil {
 			return true, err
 		}
+
 		s.emitRuntimePermissionCheck(0x02)
+
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return true, err
 			}
 		}
-		return true, s.emitResultErrStr(fmt.Sprintf("%s is not supported in native backend", funcName))
+
+		return true, s.emitResultErrStr(
+			strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}),
+		)
 	}
 
 	// Exec builtin
@@ -3698,9 +3757,15 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		if len(e.Arguments) != 2 {
 			return true, fmt.Errorf("native: __builtin_exec expects 2 arguments")
 		}
-		if err := s.requirePermission(s.Permissions.AllowExec, "__builtin_exec", runtimecap.FlagAllowExec); err != nil {
+
+		if err := s.requirePermission(
+			s.Permissions.AllowExec,
+			"__builtin_exec",
+			runtimecap.FlagAllowExec,
+		); err != nil {
 			return true, err
 		}
+
 		s.emitRuntimePermissionCheck(0x01)
 		return true, s.emitOsExec(e.Arguments[0], e.Arguments[1])
 	}
@@ -3748,7 +3813,10 @@ func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
 			printTarget = "__rt_print_int"
 		}
 		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: printTarget})
+		s.CallPatches = append(s.CallPatches, CallPatch{
+			ImmOffset: callSite,
+			Target:    printTarget,
+		})
 
 		// Now print newline
 		emitMovRegImm32(&s.Code, RAX, 0x0A)
@@ -3795,7 +3863,10 @@ func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
 			target = "__rt_print_int"
 		}
 		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: target})
+		s.CallPatches = append(s.CallPatches, CallPatch{
+			ImmOffset: callSite,
+			Target:    target,
+		})
 	}
 	// Final newline
 	emitMovRegImm32(&s.Code, RAX, 0x0A)
@@ -3835,7 +3906,10 @@ func (s *EmitState) emitBuiltinPrint(e *ast.CallExpression) error {
 		target = "__rt_print_int"
 	}
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: target})
+	s.CallPatches = append(s.CallPatches, CallPatch{
+		ImmOffset: callSite,
+		Target:    target,
+	})
 	return nil
 }
 
@@ -3892,7 +3966,10 @@ func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
 
 	// Call runtime function: __rt_string_from_bytes(vec, start, end) -> string ptr
 	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_string_from_bytes"})
+	s.CallPatches = append(s.CallPatches, CallPatch{
+		ImmOffset: callSite,
+		Target:    "__rt_string_from_bytes",
+	})
 
 	return nil
 }
@@ -3900,7 +3977,11 @@ func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
 func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	// Module-qualified calls: module.func(args)
 	if id, ok := e.Object.(*ast.Identifier); ok {
-		if err := s.enforceModuleMethodBuiltinContract(id.Value, e.Method.Value, len(e.Arguments)); err != nil {
+		if err := s.enforceModuleMethodBuiltinContract(
+			id.Value,
+			e.Method.Value,
+			len(e.Arguments),
+		); err != nil {
 			return err
 		}
 
@@ -3944,7 +4025,10 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				}
 				emitMovRegReg(&s.Code, RDI, RAX)
 				callSite := emitCallRel32(&s.Code, 0)
-				s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
+				s.CallPatches = append(s.CallPatches, CallPatch{
+					ImmOffset: callSite,
+					Target:    "__rt_itoa",
+				})
 				return nil
 			case "parseInt", "atoi":
 				if len(e.Arguments) != 1 {
@@ -3959,7 +4043,10 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				}
 				emitMovRegReg(&s.Code, RDI, RAX)
 				callSite := emitCallRel32(&s.Code, 0)
-				s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
+				s.CallPatches = append(s.CallPatches, CallPatch{
+					ImmOffset: callSite,
+					Target:    "__rt_atoi",
+				})
 				return nil
 			case "formatInt", "formatHex", "formatOctal", "formatBinary":
 				// For now, redirect these to itoa (base 10 only)
@@ -3969,7 +4056,11 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 					}
 					emitMovRegReg(&s.Code, RDI, RAX)
 					callSite := emitCallRel32(&s.Code, 0)
-					s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
+					s.CallPatches = append(s.CallPatches, CallPatch{
+						ImmOffset: callSite,
+						Target:    "__rt_itoa",
+					})
+
 					return nil
 				}
 				return fmt.Errorf("native: strconv.%s expects at least 1 argument", e.Method.Value)
@@ -4057,7 +4148,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 							}
 						}
 						// Variant not found
-						return fmt.Errorf("native: enum %s has no variant %s (in function %s)", enumTypeName, variantName, s.CurrentFunc)
+						return fmt.Errorf(
+							"native: enum %s has no variant %s (in function %s)",
+							enumTypeName,
+							variantName,
+							s.CurrentFunc,
+						)
 					}
 				}
 				// Enum type not found - collect all enum names for debugging
@@ -4065,7 +4161,15 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 				for _, ed := range s.Enums {
 					enumNames = append(enumNames, ed.Name.Value)
 				}
-				return fmt.Errorf("native: could not find enum %s (module alias: %s, variant: %s) in %d enums: %v (in function %s)", enumTypeName, id.Value, variantName, len(s.Enums), enumNames, s.CurrentFunc)
+				return fmt.Errorf(
+					"native: could not find enum %s (module alias: %s, variant: %s) in %d enums: %v (in function %s)",
+					enumTypeName,
+					id.Value,
+					variantName,
+					len(s.Enums),
+					enumNames,
+					s.CurrentFunc,
+				)
 			}
 		}
 	}
@@ -4178,7 +4282,11 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		emitPushReg(&s.Code, RAX)
 		emitMovRegReg(&s.Code, RDI, RSP)
 		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "strconv.atof"})
+		s.CallPatches = append(s.CallPatches, CallPatch{
+			ImmOffset: callSite,
+			Target:    "strconv.atof",
+		})
+
 		emitAddRspImm8(&s.Code, 8)
 		return nil
 	case "parseInt":
@@ -4190,7 +4298,10 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		}
 		emitMovRegReg(&s.Code, RDI, RAX)
 		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
+		s.CallPatches = append(s.CallPatches, CallPatch{
+			ImmOffset: callSite,
+			Target:    "__rt_atoi",
+		})
 		return nil
 	case "toString":
 		return s.emitToString(obj)
@@ -4813,14 +4924,12 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 		offset, _ := s.getFieldOffset(sd, fieldName)
 		if offset >= 0 {
 			// Found the field, load it
-			_, _ = fmt.Fprintf(
+			_, _ = strfmt.Fprintln(
 				os.Stderr,
-				"[WARN] field '%s' resolved via fallback to struct '%s' (offset=%d) in module=%s, wanted struct=%s\n",
-				fieldName,
-				sd.Name.Value,
-				offset,
-				s.CurrentModule,
-				structName,
+				"[WARN] field '", fieldName,
+				"' resolved via fallback to struct '", sd.Name.Value,
+				"' (offset=", offset, ") in module=", s.CurrentModule,
+				", wanted struct=", structName,
 			)
 			s.emitSafeLoadRaxFromRaxDisp(offset)
 			return nil

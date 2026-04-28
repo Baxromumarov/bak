@@ -1,11 +1,11 @@
 package typechecker
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 var (
@@ -206,7 +206,7 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 				diagnostics.ErrUnusedVariable,
 				info.Name.Token.Line,
 				info.Name.Token.Column,
-				fmt.Sprintf("unused parameter: '%s'", name),
+				strfmt.Format("unused parameter: '{name}'", struct{ Name any }{name}),
 				"prefix with _ to ignore",
 			)
 		}
@@ -228,7 +228,7 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 				diagnostics.ErrUnusedVariable,
 				info.Line,
 				info.Column,
-				fmt.Sprintf("unused variable: '%s'", name),
+				strfmt.Format("unused variable: '{name}'", struct{ Name any }{name}),
 				"prefix with _ to ignore or remove the variable",
 			)
 		}
@@ -356,7 +356,10 @@ func (tc *TypeChecker) warnIfUnused(
 	tc.emitWarningAt(
 		spec.code,
 		pos,
-		fmt.Sprintf("unused %s: '%s'", spec.label, name),
+		strfmt.Format("unused {label}: '{name}'", struct {
+			Label any
+			Name  any
+		}{spec.label, name}),
 		spec.help,
 	)
 }

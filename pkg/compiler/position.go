@@ -1,9 +1,8 @@
 package compiler
 
 import (
-	"fmt"
-
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 // CompileError wraps an error with source position info.
@@ -19,7 +18,11 @@ func (e *CompileError) Error() string {
 		msg = e.Err.Error()
 	}
 	if e.Line > 0 {
-		return fmt.Sprintf("line %d:%d: %s", e.Line, e.Column, msg)
+		return strfmt.Format("line {Line}:{Column}: {msg}", struct {
+			Line   any
+			Column any
+			Msg    any
+		}{e.Line, e.Column, msg})
 	}
 	return msg
 }

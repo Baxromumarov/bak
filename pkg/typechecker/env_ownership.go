@@ -81,7 +81,11 @@ func (e *TypeEnv) MarkBorrowedMutAt(name string, pos ast.Position) {
 	// Always mark in current environment to support lexical scoping (cleared on scope exit)
 	e.borrowedMut[name] = true
 	if pos.Line > 0 {
-		e.borrowedMutAt[name] = &BorrowInfo{Line: pos.Line, Column: pos.Column, Mutable: true}
+		e.borrowedMutAt[name] = &BorrowInfo{
+			Line:    pos.Line,
+			Column:  pos.Column,
+			Mutable: true,
+		}
 	}
 }
 
@@ -125,7 +129,11 @@ func (e *TypeEnv) MarkBorrowedIm(name string) {
 // in this scope, where it started.
 func (e *TypeEnv) MarkBorrowedImAt(name string, pos ast.Position) {
 	if e.borrowedIm[name] == 0 && pos.Line > 0 {
-		e.borrowedImAt[name] = &BorrowInfo{Line: pos.Line, Column: pos.Column, Mutable: false}
+		e.borrowedImAt[name] = &BorrowInfo{
+			Line:    pos.Line,
+			Column:  pos.Column,
+			Mutable: false,
+		}
 	}
 	e.borrowedIm[name]++
 }
@@ -161,8 +169,10 @@ func (e *TypeEnv) GetBorrowedImInfo(name string) *BorrowInfo {
 		}
 		return nil
 	}
+
 	if e.parent != nil {
 		return e.parent.GetBorrowedImInfo(name)
 	}
+	
 	return nil
 }

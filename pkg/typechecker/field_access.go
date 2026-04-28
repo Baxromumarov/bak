@@ -3,12 +3,12 @@
 package typechecker
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeExpression {
@@ -104,7 +104,10 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			}
 
 			if idx < 0 || idx >= len(tt.Elements) {
-				tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("tuple index %d out of bounds (len: %d)", idx, len(tt.Elements)))
+				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("tuple index {idx} out of bounds (len: {ElementsCount})", struct {
+					Idx           any
+					ElementsCount any
+				}{idx, len(tt.Elements)}))
 				return nil
 			}
 
@@ -119,7 +122,10 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			// Check visibility
 			if fieldDef.Visibility != ast.Public &&
 				structDef.Package != tc.currentPkgName {
-				tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("field '%s' of struct '%s' is private", fa.Field.Value, structName))
+				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("field '{Value}' of struct '{structName}' is private", struct {
+					Value      any
+					StructName any
+				}{fa.Field.Value, structName}))
 			}
 
 			// If the struct is from an imported package, we MUST qualify its field's type
@@ -161,7 +167,10 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			}
 			return objType
 		}
-		tc.addError(fa.Token.Line, fa.Token.Column, fmt.Sprintf("enum '%s' has no variant '%s'", structName, fa.Field.Value))
+		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("enum '{structName}' has no variant '{Value}'", struct {
+			StructName any
+			Value      any
+		}{structName, fa.Field.Value}))
 		return nil
 	}
 
