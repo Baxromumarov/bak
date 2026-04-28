@@ -2153,7 +2153,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"defer",
 		"panic",
 		"unsafe",
-		"box",
 		"type",
 		"alias",
 		"true",
@@ -2184,7 +2183,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"Vec",
 		"HashMap",
 		"Result",
-		"Box",
 		"Range",
 	}
 	for _, typ := range typeKeywords {
@@ -2298,8 +2296,6 @@ var builtinSignatures = map[string]string{
 	"float":     "float(value: any) -> (float64 | Result<float64,string>)",
 	"string":    "string(value: any) -> (string)",
 	"char":      "char(value: int|char) -> (char)",
-	"Box":       "Box(value: any) -> (Box<any>)",
-	"unbox":     "unbox(value: Box<any>) -> (any)",
 	"concat":    "concat(values: string...) -> (string)",
 }
 
@@ -2683,11 +2679,6 @@ func baseTypeName(typeStr string) string {
 	}
 	t = strings.TrimPrefix(t, "&")
 	t = strings.TrimSpace(strings.TrimPrefix(t, "mut"))
-	if before, ok := strings.CutSuffix(t, " box?"); ok {
-		t = before
-	} else if before, ok := strings.CutSuffix(t, " box"); ok {
-		t = before
-	}
 	if idx := strings.Index(t, "<"); idx != -1 {
 		t = t[:idx]
 	}
@@ -2716,24 +2707,6 @@ func formatHoverType(typeStr string) string {
 	t := strings.TrimSpace(typeStr)
 	if t == "" {
 		return ""
-	}
-
-	if before, ok := strings.CutSuffix(t, " box?"); ok {
-		inner := strings.TrimSpace(before)
-		formattedInner := formatHoverType(inner)
-		if formattedInner == "" {
-			formattedInner = inner
-		}
-		return fmt.Sprintf("Result<Box<%s>, string>", formattedInner)
-	}
-
-	if before, ok := strings.CutSuffix(t, " box"); ok {
-		inner := strings.TrimSpace(before)
-		formattedInner := formatHoverType(inner)
-		if formattedInner == "" {
-			formattedInner = inner
-		}
-		return fmt.Sprintf("Box<%s>", formattedInner)
 	}
 
 	return t
@@ -3888,14 +3861,6 @@ func buildReferenceIndex(
 			if tt != nil {
 				walkType(tt.Inner, scope)
 			}
-		case *ast.BoxType:
-			if tt != nil {
-				walkType(tt.Inner, scope)
-			}
-		case *ast.BoxOptionalType:
-			if tt != nil {
-				walkType(tt.Inner, scope)
-			}
 		case *ast.TupleType:
 			if tt != nil {
 				for _, el := range tt.Elements {
@@ -4038,10 +4003,6 @@ func buildReferenceIndex(
 				walkExpr(e.Value, scope)
 			}
 		case *ast.DerefExpression:
-			if e != nil {
-				walkExpr(e.Value, scope)
-			}
-		case *ast.BoxExpression:
 			if e != nil {
 				walkExpr(e.Value, scope)
 			}
@@ -6236,10 +6197,6 @@ func findNode(node ast.Node, line, col int) ast.Node {
 		}
 	case *ast.BorrowType:
 		return findNode(n.Inner, line, col)
-	case *ast.BoxType:
-		return findNode(n.Inner, line, col)
-	case *ast.BoxOptionalType:
-		return findNode(n.Inner, line, col)
 	case *ast.ArrayType:
 		if f := findNode(n.ElemType, line, col); f != nil {
 			return f
@@ -6667,8 +6624,6 @@ func findStructLiteralAt(node ast.Node, line, col int) *ast.StructLiteral {
 			}
 		}
 	case *ast.BorrowExpression:
-		return findStructLiteralAt(n.Value, line, col)
-	case *ast.BoxExpression:
 		return findStructLiteralAt(n.Value, line, col)
 	case *ast.DerefExpression:
 		return findStructLiteralAt(n.Value, line, col)

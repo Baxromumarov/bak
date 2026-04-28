@@ -109,8 +109,6 @@ var builtinContractsByID = map[BuiltinID]BuiltinContract{
 		MaxArgs:       1,
 		CheckArgTypes: false,
 	},
-	BUILTIN_BOX:     fixedArity("Box", 1),
-	BUILTIN_UNBOX:   fixedArity("unbox", 1),
 	BUILTIN_IS_SOME: fixedArity("isSome", 1),
 	BUILTIN_IS_NONE: fixedArity("isNone", 1),
 	BUILTIN_UNWRAP:  fixedArity("unwrap", 1),

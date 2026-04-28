@@ -1657,8 +1657,6 @@ func (c *Compiler) compileExpression(expr ast.Expression) (err error) {
 		return c.compileBorrowExpression(e)
 	case *ast.DerefExpression:
 		return c.compileDerefExpression(e)
-	case *ast.BoxExpression:
-		return c.compileBoxExpression(e)
 	case *ast.UnwrapExpression:
 		return c.compileUnwrapExpression(e)
 	case *ast.FStringLiteral:
@@ -1942,8 +1940,6 @@ const (
 	BUILTIN_FLOAT
 	BUILTIN_STRING
 	BUILTIN_CHAR
-	BUILTIN_BOX
-	BUILTIN_UNBOX
 	BUILTIN_IS_SOME
 	BUILTIN_IS_NONE
 	BUILTIN_UNWRAP
@@ -2043,8 +2039,6 @@ var builtinNames = map[string]BuiltinID{
 	"float":                        BUILTIN_FLOAT,
 	"string":                       BUILTIN_STRING,
 	"char":                         BUILTIN_CHAR,
-	"Box":                          BUILTIN_BOX,
-	"unbox":                        BUILTIN_UNBOX,
 	"isSome":                       BUILTIN_IS_SOME,
 	"isNone":                       BUILTIN_IS_NONE,
 	"unwrap":                       BUILTIN_UNWRAP,
@@ -2544,11 +2538,6 @@ func (c *Compiler) compileDefaultValueWithSeen(typeExpr ast.TypeExpression, seen
 		return nil
 	case *ast.GenericType:
 		return c.compileDefaultGenericType(te, seen)
-	case *ast.BoxType:
-		return c.compileDefaultBox()
-	case *ast.BoxOptionalType:
-		c.emit(OP_NIL)
-		return nil
 	case *ast.BorrowType:
 		c.emit(OP_NIL)
 		return nil
@@ -2603,8 +2592,6 @@ func (c *Compiler) compileDefaultGenericType(te *ast.GenericType, seen map[strin
 	case "Result":
 		c.emit(OP_NIL)
 		return nil
-	case "Box":
-		return c.compileDefaultBox()
 	default:
 		c.emit(OP_NIL)
 		return nil
@@ -2659,24 +2646,6 @@ func (c *Compiler) compileDefaultStruct(def *StructDef, seen map[string]bool) er
 	c.emitConstant(NewInt(int64(def.TypeID)))
 	c.emitConstant(NewInt(int64(len(def.Fields))))
 	c.emit(OP_NEW_STRUCT)
-	return nil
-}
-
-func (c *Compiler) compileDefaultBox() error {
-	c.emit(OP_NIL)
-	c.emit(OP_BUILTIN)
-	c.emitByte(byte(BUILTIN_BOX))
-	c.emitByte(1)
-	return nil
-}
-
-func (c *Compiler) compileBoxExpression(be *ast.BoxExpression) error {
-	if err := c.compileExpression(be.Value); err != nil {
-		return err
-	}
-	c.emit(OP_BUILTIN)
-	c.emitByte(byte(BUILTIN_BOX))
-	c.emitByte(1)
 	return nil
 }
 

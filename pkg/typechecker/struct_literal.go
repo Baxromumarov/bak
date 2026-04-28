@@ -42,34 +42,9 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 
 	// Logic for imported structs (e.g. math.Calc)
 	if !ok && strings.Contains(structName, ".") {
-		parts := strings.Split(structName, ".")
-		if len(parts) == 2 {
-			pkgAlias := parts[0]
-			typeName := parts[1]
-			if symbols, exists := tc.importedSymbols[pkgAlias]; exists {
-				if sym, symExists := symbols[typeName]; symExists {
-					// Mark imported struct type as used by the current package
-					tc.markImportedSymbolUsed(pkgAlias, typeName)
-					if sym.Kind == packages.SymbolStruct {
-						if structDecl, okNode := sym.Node.(*ast.StructDecl); okNode {
-							fields := make(map[string]FieldDef)
-							for _, f := range structDecl.Fields {
-								fields[f.Name.Value] = FieldDef{
-									Type:       f.Type,
-									Visibility: f.Visibility,
-								}
-							}
-							structDef = &StructDef{
-								Fields:     fields,
-								Methods:    make(map[string]*FunctionSig),
-								TypeParams: []string{},
-								Package:    pkgAlias, // Use alias as package identifier for visibility check
-							}
-							ok = true
-						}
-					}
-				}
-			}
+		if importedDef, found := tc.resolveImportedStructDef(structName); found {
+			structDef = importedDef
+			ok = true
 		}
 	}
 
@@ -122,4 +97,50 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 	}
 
 	return &ast.SimpleType{Name: structName}
+}
+
+// resolveImportedStructDef tries to resolve a struct definition from an imported
+// package given a qualified name like "math.Calc".
+func (tc *TypeChecker) resolveImportedStructDef(structName string) (*StructDef, bool) {
+	parts := strings.Split(structName, ".")
+	if len(parts) != 2 {
+		return nil, false
+	}
+	pkgAlias := parts[0]
+	typeName := parts[1]
+
+	symbols, exists := tc.importedSymbols[pkgAlias]
+	if !exists {
+		return nil, false
+	}
+
+	sym, symExists := symbols[typeName]
+	if !symExists {
+		return nil, false
+	}
+
+	// Mark imported struct type as used by the current package
+	tc.markImportedSymbolUsed(pkgAlias, typeName)
+	if sym.Kind != packages.SymbolStruct {
+		return nil, false
+	}
+
+	structDecl, okNode := sym.Node.(*ast.StructDecl)
+	if !okNode {
+		return nil, false
+	}
+
+	fields := make(map[string]FieldDef)
+	for _, f := range structDecl.Fields {
+		fields[f.Name.Value] = FieldDef{
+			Type:       f.Type,
+			Visibility: f.Visibility,
+		}
+	}
+	return &StructDef{
+		Fields:     fields,
+		Methods:    make(map[string]*FunctionSig),
+		TypeParams: []string{},
+		Package:    pkgAlias, // Use alias as package identifier for visibility check
+	}, true
 }

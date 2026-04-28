@@ -26,9 +26,8 @@ const (
 	VAL_CHAR
 	VAL_BUILTIN
 	// VAL_OPTION is kept for runtime/internal compatibility only.
-	// The frozen user-facing surface is Result-first and rejects Option<T>.
+	// The frozen user-facing surface is Result-first.
 	VAL_OPTION
-	VAL_BOX
 	VAL_TUPLE
 	VAL_BORROW
 	VAL_THREAD
@@ -66,8 +65,6 @@ func (vt ValueType) String() string {
 		return "builtin"
 	case VAL_OPTION:
 		return "option"
-	case VAL_BOX:
-		return "box"
 	case VAL_TUPLE:
 		return "tuple"
 	case VAL_BORROW:
@@ -230,14 +227,6 @@ func (v Value) String() string {
 			return "None"
 		}
 		return "<option>"
-	case VAL_BOX:
-		if b, ok := v.AsObject.(*BoxInstance); ok {
-			if b.IsNil {
-				return "Box(nil)"
-			}
-			return fmt.Sprintf("Box(%s)", b.Value.String())
-		}
-		return "<box>"
 	case VAL_TUPLE:
 		if t, ok := v.AsObject.(*TupleInstance); ok {
 			var elements []string
@@ -309,18 +298,10 @@ type EnumInstance struct {
 	Payload     []Value
 }
 
-// OptionInstance is runtime-internal compatibility state for legacy bytecode
-// and box-optional lowering. User-facing Option<T> syntax is not part of the
-// frozen language surface.
+// OptionInstance is runtime-internal compatibility state for legacy bytecode.
 type OptionInstance struct {
 	IsSome bool
 	Value  Value
-}
-
-// BoxInstance represents a heap-allocated value (like Option but mutable).
-type BoxInstance struct {
-	IsNil bool
-	Value Value
 }
 
 // ArrayInstance represents a fixed-size array at runtime.

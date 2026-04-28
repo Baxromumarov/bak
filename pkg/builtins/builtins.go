@@ -38,8 +38,6 @@ var Builtins = map[string]*object.Builtin{
 	"float":     {Fn: builtinFloat},
 	"string":    {Fn: builtinString},
 	"char":      {Fn: builtinChar},
-	"Box":       {Fn: builtinBox},
-	"unbox":     {Fn: builtinUnbox},
 	"concat":    {Fn: builtinConcat},
 	// __builtin_* functions for std library support
 	"__builtin_args":               {Fn: osArgs},
@@ -361,33 +359,6 @@ func builtinChar(args ...object.Object) object.Object {
 	default:
 		return argTypeError("char", args[0], "INTEGER")
 	}
-}
-
-// builtinBox wraps a value in a Box (heap allocation for recursive types)
-func builtinBox(args ...object.Object) object.Object {
-	if len(args) != 1 {
-		return argCountError("", len(args), "1")
-	}
-
-	return &object.Box{Value: args[0]}
-}
-
-// builtinUnbox extracts the value from a Box
-func builtinUnbox(args ...object.Object) object.Object {
-	if len(args) != 1 {
-		return argCountError("", len(args), "1")
-	}
-
-	box, ok := args[0].(*object.Box)
-	if !ok {
-		return argTypeError("unbox", args[0], "BOX")
-	}
-
-	if box.Value == nil {
-		return object.NewVoid()
-	}
-
-	return box.Value
 }
 
 func builtinSocketConnect(args ...object.Object) object.Object {

@@ -24,6 +24,31 @@ func (s builtinCallSpec) acceptsArgCount(got int) bool {
 	return true
 }
 
+// Helper constructors for common builtin return types.
+func builtinResultVoidError(err string) *ast.GenericType {
+	return &ast.GenericType{
+		Name: "Result",
+		TypeParams: []ast.TypeExpression{
+			&ast.VoidType{},
+			ast.NewSimpleType(err),
+		},
+	}
+}
+
+func builtinResultValueError(val ast.TypeExpression, err string) *ast.GenericType {
+	return &ast.GenericType{
+		Name: "Result",
+		TypeParams: []ast.TypeExpression{val, ast.NewSimpleType(err)},
+	}
+}
+
+func builtinVecDynamic(elem ast.TypeExpression) *ast.GenericType {
+	return &ast.GenericType{
+		Name: "Vec",
+		TypeParams: []ast.TypeExpression{elem, &ast.SizeExpression{IsDynamic: true}},
+	}
+}
+
 func buildBuiltinCallSpec(sig *ast.FunctionType) builtinCallSpec {
 	if sig == nil || sig.Params == nil {
 		return builtinCallSpec{

@@ -21,12 +21,6 @@ var TypeConstructors = map[string]*object.TypeConstructor{
 			"withCap": {Fn: vecWithCap},
 		},
 	},
-	"Box": {
-		Name: "Box",
-		Functions: map[string]*object.Builtin{
-			"new": {Fn: builtinBox},
-		},
-	},
 }
 
 // vecNew creates a new empty dynamic Vec

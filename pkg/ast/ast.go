@@ -178,33 +178,6 @@ func (bt *BorrowType) String() string {
 	return "&" + bt.Inner.String()
 }
 
-// BoxType represents a box (heap-allocated) type like T box
-type BoxType struct {
-	Span  Span
-	Token token.Token
-	Inner TypeExpression
-}
-
-func (bt *BoxType) typeExpressionNode()  {}
-func (bt *BoxType) TokenLiteral() string { return bt.Token.Literal }
-func (bt *BoxType) String() string {
-	return bt.Inner.String() + " box"
-}
-
-// BoxOptionalType represents an optional boxed type like T box?
-// This is equivalent to Rust's Option<Box<T>>
-type BoxOptionalType struct {
-	Span  Span
-	Token token.Token
-	Inner TypeExpression
-}
-
-func (bot *BoxOptionalType) typeExpressionNode()  {}
-func (bot *BoxOptionalType) TokenLiteral() string { return bot.Token.Literal }
-func (bot *BoxOptionalType) String() string {
-	return bot.Inner.String() + " box?"
-}
-
 // ArrayType represents a fixed-size array type like Vec<T, N> (internally __Array<T, N>)
 type ArrayType struct {
 	Span      Span
@@ -1453,19 +1426,6 @@ func (be *BorrowExpression) String() string {
 		return "&mut " + be.Value.String()
 	}
 	return "&" + be.Value.String()
-}
-
-// BoxExpression represents heap allocation like box expr
-type BoxExpression struct {
-	Span  Span
-	Token token.Token
-	Value Expression
-}
-
-func (be *BoxExpression) expressionNode()      {}
-func (be *BoxExpression) TokenLiteral() string { return be.Token.Literal }
-func (be *BoxExpression) String() string {
-	return "box " + be.Value.String()
 }
 
 // DerefExpression represents dereferencing like *x

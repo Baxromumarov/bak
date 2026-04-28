@@ -11,7 +11,6 @@ enum AnyKind {
     String
     Bool
     Float
-    Box
     Array
 }
 
@@ -22,8 +21,6 @@ pub struct Any {
     float_val: float64
     bool_val: bool
     string_val: string
-    box_type: string
-    box_repr: string
     array_val: Vec<Any, _>
 }
 
@@ -44,16 +41,6 @@ pub func fromFloat(v: float64) -> (Any) {
     return Any{float_val: v, kind: AnyKind.Float}
 }
 
-// from_box records a boxed value's type name for debugging/inspection.
-// NOTE: v1 stores a debug representation only; typed extraction is a TODO.
-pub func from_box<T>(v: T) -> (Any) {
-    return Any{
-        box_repr: string(v),
-        box_type: typeof(v),
-        kind: AnyKind.Box,
-    }
-}
-
 // fromArray creates an Any from a Vec of Any values.
 pub func fromArray(v: Vec<Any, _>) -> (Any) {
     return Any{array_val: v, kind: AnyKind.Array}
@@ -72,9 +59,6 @@ impl Any as a {
     }
     pub func isFloat() -> (bool) {
         return a.kind == AnyKind.Float
-    }
-    pub func isBox() -> (bool) {
-        return a.kind == AnyKind.Box
     }
     pub func isArray() -> (bool) {
         return a.kind == AnyKind.Array
@@ -104,10 +88,6 @@ impl Any as a {
         }
         return Err("value is not float64")
     }
-    pub func as_box<T>() -> (Result<T, string>) {
-        // Box syntax is frozen out in v0.1; keep API but always return an error.
-        return Err("box values are not supported in the frozen v0.1 language surface")
-    }
     pub func asArray() -> (Vec<Any, _>) {
         if a.kind == AnyKind.Array {
             return a.array_val
@@ -127,12 +107,6 @@ impl Any as a {
         }
         if a.kind == AnyKind.Float {
             return "float64"
-        }
-        if a.kind == AnyKind.Box {
-            if a.box_type == "" {
-                return "box"
-            }
-            return a.box_type
         }
         if a.kind == AnyKind.Array {
             return "array"
@@ -154,12 +128,6 @@ impl Any as a {
         }
         if a.kind == AnyKind.Float {
             return strconv.ftoa(a.float_val)
-        }
-        if a.kind == AnyKind.Box {
-            if a.box_repr == "" {
-                return "<box>"
-            }
-            return a.box_repr
         }
         if a.kind == AnyKind.Array {
             mut var out: string = "["

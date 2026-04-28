@@ -88,9 +88,6 @@ func format_value<T>(val: T) -> (string) {
         }
         return "true"
     }
-    if typeName == "BOX" || typeName == "box" {
-        return format_value(unbox(val))
-    }
     return "<value>"
 }
 

@@ -135,9 +135,6 @@ const (
 	AMPERSAND  TokenType = "&" // Also used for borrowing
 	UNDERSCORE TokenType = "_"
 	QUESTION   TokenType = "?"
-
-	// Legacy experimental tokens kept for parser/typechecker internal compatibility.
-	BOX TokenType = "BOX"
 )
 
 // keywords maps keyword strings to their token types
@@ -267,8 +264,7 @@ func IsType(t TokenType) bool {
 		TYPE_STRING,
 		TYPE_VOID,
 		VEC,
-		RESULT,
-		BOX:
+		RESULT:
 		return true
 	}
 	return false

@@ -386,20 +386,6 @@ func (s *EmitState) applyBindingType(name string, t ast.TypeExpression) {
 	case *ast.BorrowType:
 		s.RefVariables[name] = true
 		s.applyBindingType(name, tt.Inner)
-	case *ast.BoxType:
-		s.RefVariables[name] = true
-		if inner, ok := tt.Inner.(*ast.SimpleType); ok {
-			if s.findStructDecl(inner.Name) != nil {
-				s.StructVariables[name] = inner.Name
-			}
-		}
-	case *ast.BoxOptionalType:
-		s.RefVariables[name] = true
-		if inner, ok := tt.Inner.(*ast.SimpleType); ok {
-			if s.findStructDecl(inner.Name) != nil {
-				s.StructVariables[name] = inner.Name
-			}
-		}
 	}
 }
 
@@ -2216,7 +2202,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 								}
 							}
 							// Track struct type for field access in case body
-							// Unwrap BoxType, BoxOptionalType, BorrowType to find struct name
+							// Unwrap borrow/generic wrappers to find struct name
 							if i < len(variantFields) {
 								s.applyBindingType(ident.Value, variantFields[i])
 								structName := s.extractStructNameFromType(variantFields[i])
@@ -2370,7 +2356,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 					if ident, ok := arg.(*ast.Identifier); ok && ident.Value != "_" {
 						bindOffsets[i] = s.declareLocal(ident.Value, 8)
 						// Track struct type for field access in case body
-						// Unwrap BoxType, BoxOptionalType, BorrowType to find struct name
+						// Unwrap borrow/generic wrappers to find struct name
 						if i < len(variantFields) {
 							s.applyBindingType(ident.Value, variantFields[i])
 							structName := s.extractStructNameFromType(variantFields[i])
@@ -3125,16 +3111,6 @@ func (s *EmitState) getExpressionStructType(expr ast.Expression) string {
 						// Return the field's type if it's a struct
 						if st, ok := f.Type.(*ast.SimpleType); ok {
 							return st.Name
-						}
-						if bt, ok := f.Type.(*ast.BoxType); ok {
-							if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-								return inner.Name
-							}
-						}
-						if bt, ok := f.Type.(*ast.BoxOptionalType); ok {
-							if inner, ok := bt.Inner.(*ast.SimpleType); ok {
-								return inner.Name
-							}
 						}
 					}
 				}
@@ -4112,17 +4088,6 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		}
 	}
 
-	// Box static methods
-	if id, ok := e.Object.(*ast.Identifier); ok && id.Value == "Box" {
-		switch e.Method.Value {
-		case "new":
-			if len(e.Arguments) != 1 {
-				return fmt.Errorf("native: Box.new expects 1 argument")
-			}
-			return s.emitBoxNew(e.Arguments[0])
-		}
-	}
-
 	// Instance methods (including field-access receivers like obj.field.method())
 	obj := e.Object
 	if _, ok := obj.(*ast.FieldAccessExpression); ok {
@@ -4599,19 +4564,13 @@ func (s *EmitState) findStructDecl(name string) *ast.StructDecl {
 	return nil
 }
 
-// extractStructNameFromType unwraps type wrappers (Box, BoxOptional, Borrow, Generic)
+// extractStructNameFromType unwraps type wrappers (Borrow, Generic)
 // to extract the underlying struct name. Returns empty string if not a struct type.
 func (s *EmitState) extractStructNameFromType(t ast.TypeExpression) string {
 	switch typ := t.(type) {
 	case *ast.SimpleType:
 		// Direct struct type
 		return typ.Name
-	case *ast.BoxType:
-		// Box<StructName> - unwrap the inner type
-		return s.extractStructNameFromType(typ.Inner)
-	case *ast.BoxOptionalType:
-		// Box<Option<StructName>> - unwrap the inner type
-		return s.extractStructNameFromType(typ.Inner)
 	case *ast.BorrowType:
 		// &StructName or &mut StructName - unwrap the inner type
 		return s.extractStructNameFromType(typ.Inner)
@@ -5094,27 +5053,6 @@ func (s *EmitState) emitEnumVariantConstruction(ed *ast.EnumDecl, variantIdx int
 		emitMovMemBaseDispReg(&s.Code, RAX, payloadOffset, RCX)
 	}
 
-	return nil
-}
-
-func (s *EmitState) emitBoxNew(valueExpr ast.Expression) error {
-	// Box.new(value) - allocate 8 bytes and store the value
-	// Evaluate the value first
-	if err := s.emitExpression(valueExpr); err != nil {
-		return err
-	}
-	emitPushReg(&s.Code, RAX) // save value
-
-	// Allocate 8 bytes for the boxed value
-	emitMovRegImm32(&s.Code, RDI, 8)
-	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_alloc"})
-
-	// Store value in the box
-	emitPopReg(&s.Code, RCX)
-	emitMovMemReg(&s.Code, RAX, RCX)
-
-	// RAX = box pointer
 	return nil
 }
 
@@ -5614,10 +5552,7 @@ func (s *EmitState) isRefExpression(expr ast.Expression) bool {
 		if sd := s.findStructDecl(objType); sd != nil {
 			for _, f := range sd.Fields {
 				if f.Name.Value == e.Field.Value {
-					switch f.Type.(type) {
-					case *ast.BoxType, *ast.BoxOptionalType:
-						return true
-					}
+					return false
 				}
 			}
 		}

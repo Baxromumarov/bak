@@ -245,9 +245,6 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	case *ast.BorrowExpression:
 		return evalBorrowExpression(node, env)
 
-	case *ast.BoxExpression:
-		return evalBoxExpression(node, env)
-
 	case *ast.DerefExpression:
 		return evalDerefExpression(node, env)
 
@@ -313,11 +310,7 @@ func evalUnwrapExpression(node *ast.UnwrapExpression, env *object.Environment) o
 		}
 		return object.NewReturnValue(inner)
 	} else if inner == NULL {
-		// None represented as NULL (box?)
 		return object.NewReturnValue(NULL)
-	} else if box, ok := inner.(*object.Box); ok {
-		// box? -> Unwrap box
-		return box
 	}
 
 	return newError("cannot unwrap non-option/result: %s", inner.Type())
@@ -828,15 +821,6 @@ func evalVarStatement(vs *ast.VarStatement, env *object.Environment) object.Obje
 			return newError("variable '%s' type mismatch: %s", vs.Name.Value, errMsg)
 		}
 
-		// Runtime coercion: if the declared type is Option and the value is a Box,
-		// wrap the Box into Some(Box) so code like `var opt Option<T> = Box(v)`
-		// behaves as expected.
-		if gt, ok := vs.Type.(*ast.GenericType); ok && gt.Name == "Option" {
-			if b, ok2 := val.(*object.Box); ok2 {
-				val = &object.Option{IsSome: true, Value: b}
-			}
-		}
-
 		if st, ok := vs.Type.(*ast.SimpleType); ok {
 			if intVal, ok := val.(*object.Integer); ok {
 				if coerced, ok := coerceIntegerToType(intVal, st.Name); ok {
@@ -1226,27 +1210,6 @@ func bindingFromPattern(expr ast.Expression) (string, bool, bool) {
 func matchEnumPattern(value object.Object, pattern *ast.EnumVariantExpression) (bool, map[string]patternBinding) {
 	bindings := make(map[string]patternBinding)
 
-	// Special-case: allow matching a bare Box value against an Option::Some pattern.
-	// This supports treating `T box?` and `Option<Box<T>>` interchangeably at runtime
-	// for pattern matching (e.g., `switch current.next { case Some(next) { ... } }`).
-	if box, ok := value.(*object.Box); ok {
-		switch pattern.Variant.Value {
-		case "Some":
-			// Only match Some(...) when the box is not nil (i.e., contains a real value)
-			if !isBoxNil(box) && len(pattern.Values) == 1 {
-				if name, mutable, ok := bindingFromPattern(pattern.Values[0]); ok {
-					bindings[name] = patternBinding{Value: box, Mutable: mutable}
-					return true, bindings
-				}
-			}
-		case "None":
-			// Match None when the box is nil (contains nil or Option None)
-			if isBoxNil(box) && len(pattern.Values) == 0 {
-				return true, bindings
-			}
-		}
-	}
-
 	// Handle Result type matching
 	if result, ok := value.(*object.Result); ok {
 		switch pattern.Variant.Value {
@@ -1386,14 +1349,6 @@ func evalAssignmentStatement(as *ast.AssignmentStatement, env *object.Environmen
 			}
 			break
 		}
-		// Auto-deref Box for field assignment
-		if box, ok := obj.(*object.Box); ok {
-			if box.Value == nil {
-				return newError("cannot assign property %s on nil Box", left.Field.Value)
-			}
-			obj = box.Value
-		}
-
 		if s, ok := obj.(*object.Struct); ok {
 			s.Fields[left.Field.Value] = val
 			return val
@@ -1411,11 +1366,6 @@ func evalAssignmentStatement(as *ast.AssignmentStatement, env *object.Environmen
 				return newError("cannot assign to immutable borrow")
 			}
 			return updateObjectValue(borrow.Value, val)
-		}
-
-		if box, ok := target.(*object.Box); ok {
-			box.Value = val
-			return val
 		}
 
 		return newError("cannot dereference non-pointer type: %s", target.Type())
@@ -2663,14 +2613,6 @@ func evalFieldAccessExpression(fa *ast.FieldAccessExpression, env *object.Enviro
 		left = borrow.Value
 	}
 
-	// Auto-deref Box for field access
-	if box, ok := left.(*object.Box); ok {
-		if box.Value == nil {
-			return newError("cannot access property %s on nil Box", fa.Field.Value)
-		}
-		left = box.Value
-	}
-
 	switch obj := left.(type) {
 	case *object.Struct:
 		if val, ok := obj.Fields[fa.Field.Value]; ok {
@@ -2769,16 +2711,6 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 		left = borrow.Value
 	}
 
-	if box, ok := left.(*object.Box); ok {
-		if isBoxMethod(methodName) {
-			return evalBoxMethod(box, methodName, args)
-		}
-		if box.Value == nil {
-			return newError("cannot call %s on nil Box", methodName)
-		}
-		return applyMethodCall(box.Value, methodName, args, env)
-	}
-
 	// Check for module method calls (fs.readFile, os.args, etc.)
 	if module, ok := left.(*object.Module); ok {
 		if fn, ok := module.Functions[methodName]; ok {
@@ -2787,7 +2719,7 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 		return newError("undefined function: %s.%s", module.Name, methodName)
 	}
 
-	// Allow Box.new(...) style calls on builtins
+	// Allow type constructor style calls on builtins that expose .new().
 	if b, ok := left.(*object.Builtin); ok && methodName == "new" {
 		return b.Fn(args...)
 	}
@@ -3858,17 +3790,6 @@ func evalBorrowExpression(be *ast.BorrowExpression, env *object.Environment) obj
 	}
 }
 
-func evalBoxExpression(be *ast.BoxExpression, env *object.Environment) object.Object {
-	val := Eval(be.Value, env)
-	if isError(val) {
-		return val
-	}
-
-	return &object.Box{
-		Value: val,
-	}
-}
-
 func evalDerefExpression(de *ast.DerefExpression, env *object.Environment) object.Object {
 	val := Eval(de.Value, env)
 	if isError(val) {
@@ -4009,81 +3930,6 @@ func objectsEqual(a, b object.Object) bool {
 		}
 	}
 	return a == b
-}
-
-func evalBoxMethod(box *object.Box, method string, args []object.Object) object.Object {
-	switch method {
-	case "isSome":
-		return nativeBoolToBooleanObject(!isBoxNil(box))
-	case "isNone":
-		return nativeBoolToBooleanObject(isBoxNil(box))
-	case "get":
-		// Returns the boxed value, or None if nil
-		if box.Value == nil || isBoxNil(box) {
-			return &object.Option{IsSome: false}
-		}
-		return &object.Option{IsSome: true, Value: box.Value}
-
-	case "set":
-		// Sets the boxed value
-		if len(args) != 1 {
-			return newError("wrong number of arguments for Box.set(). got=%d, want=1", len(args))
-		}
-		box.Value = args[0]
-		return object.NewVoid()
-
-	case "isNil":
-		// Check if the box contains nil or None
-		return nativeBoolToBooleanObject(isBoxNil(box))
-
-	case "unwrap":
-		// Get the value directly (panics if nil in real implementation)
-		if box.Value == nil || isBoxNil(box) {
-			return newError("cannot unwrap nil Box")
-		}
-		return box.Value
-
-	case "unwrapOr":
-		// Get the value or a default
-		if len(args) != 1 {
-			return newError("wrong number of arguments for Box.unwrapOr(). got=%d, want=1", len(args))
-		}
-		if box.Value == nil || isBoxNil(box) {
-			return args[0]
-		}
-		return box.Value
-
-	case "deref":
-		// Return a borrowed reference to the boxed value
-		if box.Value == nil || isBoxNil(box) {
-			return newError("cannot deref nil Box")
-		}
-		return &object.Borrow{Value: box.Value, Mutable: false}
-
-	default:
-		return newError("undefined method: Box.%s", method)
-	}
-}
-
-func isBoxMethod(name string) bool {
-	switch name {
-	case "isSome", "isNone", "get", "set", "isNil", "unwrap", "unwrapOr", "deref":
-		return true
-	default:
-		return false
-	}
-}
-
-// isBoxNil checks if a Box contains nil or None
-func isBoxNil(box *object.Box) bool {
-	if box.Value == nil {
-		return true
-	}
-	// Check if it contains Option None
-	if opt, ok := box.Value.(*object.Option); ok && !opt.IsSome {
-		return true
-	}
-	return false
 }
 
 func newError(format string, a ...any) *object.Error {
@@ -4268,19 +4114,7 @@ func checkGenericType(obj object.Object, te *ast.GenericType) string {
 		if obj.Type() == object.OPTION_OBJ {
 			return ""
 		}
-		// Accept a Box object here because at runtime a field typed as
-		// `T box?` may be represented as a `Box` value (the language
-		// allows assigning `Box(x)` directly to an optional boxed field),
-		// and we will coerce/wrap it into an Option during var initialization.
-		if obj.Type() == object.BOX_OBJ {
-			return ""
-		}
 		return fmt.Sprintf("expected Option, got %s", obj.Type())
-	case "Box":
-		if obj.Type() == object.BOX_OBJ {
-			return ""
-		}
-		return fmt.Sprintf("expected Box, got %s", obj.Type())
 	default:
 		return "" // Unknown generic, allow it
 	}
@@ -4302,10 +4136,6 @@ func defaultValueForTypeWithSeen(typeExpr ast.TypeExpression, env *object.Enviro
 		return object.NewVoid()
 	case *ast.GenericType:
 		return defaultValueForGenericType(te, env, seen)
-	case *ast.BoxType:
-		return &object.Box{Value: nil}
-	case *ast.BoxOptionalType:
-		return &object.Option{IsSome: false}
 	case *ast.BorrowType:
 		return &object.Borrow{Value: defaultValueForTypeWithSeen(te.Inner, env, seen), Mutable: te.Mutable}
 	case *ast.TupleType:
@@ -4358,8 +4188,6 @@ func defaultValueForGenericType(te *ast.GenericType, env *object.Environment, se
 			errValue = defaultValueForTypeWithSeen(te.TypeParams[1], env, seen)
 		}
 		return &object.Result{IsOk: false, Value: errValue}
-	case "Box":
-		return &object.Box{Value: nil}
 	default:
 		return NULL
 	}

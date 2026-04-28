@@ -497,35 +497,6 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		return compiler.NewNil(), fmt.Errorf("char() requires an integer")
 
-	case compiler.BUILTIN_BOX:
-		if len(args) != 1 {
-			return compiler.NewNil(), fmt.Errorf("Box() requires exactly 1 argument")
-		}
-		arg := args[0]
-		// Box(None) creates a nil box
-		if arg.Type == compiler.VAL_OPTION {
-			opt := arg.AsObject.(*compiler.OptionInstance)
-			if !opt.IsSome {
-				box := &compiler.BoxInstance{IsNil: true}
-				return compiler.Value{Type: compiler.VAL_BOX, AsObject: box}, nil
-			}
-		}
-		box := &compiler.BoxInstance{IsNil: false, Value: arg}
-		return compiler.Value{Type: compiler.VAL_BOX, AsObject: box}, nil
-
-	case compiler.BUILTIN_UNBOX:
-		if len(args) != 1 {
-			return compiler.NewNil(), fmt.Errorf("unbox() requires exactly 1 argument")
-		}
-		if args[0].Type == compiler.VAL_BOX {
-			box := args[0].AsObject.(*compiler.BoxInstance)
-			if box.IsNil {
-				return compiler.NewNil(), fmt.Errorf("cannot unbox nil Box")
-			}
-			return box.Value, nil
-		}
-		return args[0], nil
-
 	case compiler.BUILTIN_IS_SOME:
 		if len(args) != 1 {
 			return compiler.NewNil(), fmt.Errorf("isSome() requires exactly 1 argument")
@@ -558,8 +529,6 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 				return opt.Value, nil
 			}
 			return compiler.NewNil(), fmt.Errorf("unwrap called on None")
-		case compiler.VAL_BOX:
-			return obj.AsObject.(*compiler.BoxInstance).Value, nil
 		case compiler.VAL_ENUM:
 			// For Result-like enums, unwrap should return the payload (Ok value).
 			if inst, ok := obj.AsObject.(*compiler.EnumInstance); ok {

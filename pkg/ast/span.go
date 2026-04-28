@@ -345,12 +345,6 @@ func spanNode(node Node) Span {
 			spanNode(n.Value),
 		)
 		return n.Span
-	case *BoxExpression:
-		n.Span = mergeSpans(
-			tokenSpan(n.Token),
-			spanNode(n.Value),
-		)
-		return n.Span
 	case *DerefExpression:
 		n.Span = mergeSpans(
 			tokenSpan(n.Token),
@@ -381,18 +375,6 @@ func spanNode(node Node) Span {
 		)
 		return n.Span
 	case *BorrowType:
-		n.Span = mergeSpans(
-			tokenSpan(n.Token),
-			spanNode(n.Inner),
-		)
-		return n.Span
-	case *BoxType:
-		n.Span = mergeSpans(
-			tokenSpan(n.Token),
-			spanNode(n.Inner),
-		)
-		return n.Span
-	case *BoxOptionalType:
 		n.Span = mergeSpans(
 			tokenSpan(n.Token),
 			spanNode(n.Inner),

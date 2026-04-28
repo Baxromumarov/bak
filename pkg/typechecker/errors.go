@@ -22,6 +22,7 @@ func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 	if noteLoc != "" {
 		var line int
 		var col int
+
 		if _, err := fmt.Sscanf(noteLoc, "line %d:%d", &line, &col); err == nil && line > 0 {
 			noteDiag.Line = line
 			noteDiag.Column = col
@@ -58,8 +59,16 @@ func (tc *TypeChecker) emitSuggestedDiagnostic(
 	if file != "" {
 		diag.File = file
 	}
+
 	diag.Help = help
-	diag.Fixes = append(diag.Fixes, suggestionFixes(fromText, suggestions, line, col)...)
+
+	diag.Fixes = append(diag.Fixes, suggestionFixes(
+		fromText,
+		suggestions,
+		line,
+		col,
+	)...)
+
 	tc.emitError(diag)
 }
 
@@ -90,7 +99,13 @@ func (tc *TypeChecker) signatureDeclNote(sig *FunctionSig, message string) []dia
 	}}
 }
 
-func replacementFix(title, fromText, toText string, line, col int) diagnostics.Fix {
+func replacementFix(
+	title,
+	fromText,
+	toText string,
+	line,
+	col int,
+) diagnostics.Fix {
 	width := utf8.RuneCountInString(fromText)
 	if width <= 0 {
 		width = 1
@@ -141,25 +156,51 @@ func suggestionFixes(fromText string, suggestions []string, line, col int) []dia
 	return fixes
 }
 
-func fixFromNodeReplacement(title, replacement string, node ast.Node, fallbackLine, fallbackCol int) (diagnostics.Fix, bool) {
-	textProvider, ok := node.(interface{ String() string })
+type textProvider interface {
+	String() string
+}
+
+func fixFromNodeReplacement(
+	title,
+	replacement string,
+	node ast.Node,
+	fallbackLine,
+	fallbackCol int,
+) (
+	diagnostics.Fix,
+	bool,
+) {
+	textProvider, ok := node.(textProvider)
 	if !ok || strings.TrimSpace(textProvider.String()) == "" {
 		return diagnostics.Fix{}, false
 	}
+
 	line := fallbackLine
 	col := fallbackCol
+
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
 		line = tok.Line
 		col = tok.Column
 	}
+
 	return replacementFix(title, textProvider.String(), replacement, line, col), true
 }
 
-func (tc *TypeChecker) typeMismatchFixes(expected, got string, node ast.Node, line, col int) []diagnostics.Fix {
+func (tc *TypeChecker) typeMismatchFixes(
+	expected,
+	got string,
+	node ast.Node,
+	line,
+	col int,
+) []diagnostics.Fix {
 	if node == nil {
 		return nil
 	}
-	addFix := func(fixes []diagnostics.Fix, title, replacement string) []diagnostics.Fix {
+	addFix := func(
+		fixes []diagnostics.Fix,
+		title,
+		replacement string,
+	) []diagnostics.Fix {
 		fix, ok := fixFromNodeReplacement(title, replacement, node, line, col)
 		if !ok {
 			return fixes
@@ -171,7 +212,8 @@ func (tc *TypeChecker) typeMismatchFixes(expected, got string, node ast.Node, li
 		}
 		return append(fixes, fix)
 	}
-	textProvider, ok := node.(interface{ String() string })
+
+	textProvider, ok := node.(textProvider)
 	if !ok {
 		return nil
 	}
@@ -182,26 +224,50 @@ func (tc *TypeChecker) typeMismatchFixes(expected, got string, node ast.Node, li
 
 	fixes := make([]diagnostics.Fix, 0, 2)
 
-	if strings.HasPrefix(expected, "float") && (got == "int" || strings.HasPrefix(got, "int")) {
-		fixes = addFix(fixes, fmt.Sprintf("Convert to %s(...)", expected), fmt.Sprintf("%s(%s)", expected, expr))
+	if strings.HasPrefix(expected, "float") &&
+		(got == "int" || strings.HasPrefix(got, "int")) {
+
+		fixes = addFix(
+			fixes,
+			fmt.Sprintf("Convert to %s(...)", expected),
+			fmt.Sprintf("%s(%s)", expected, expr),
+		)
 	}
-	if (expected == "int" || strings.HasPrefix(expected, "int")) && strings.HasPrefix(got, "float") {
-		fixes = addFix(fixes, "Convert to int(...)", fmt.Sprintf("int(%s)", expr))
+
+	if (expected == "int" || strings.HasPrefix(expected, "int")) &&
+		strings.HasPrefix(got, "float") {
+
+		fixes = addFix(
+			fixes,
+			"Convert to int(...)",
+			fmt.Sprintf("int(%s)", expr),
+		)
 	}
-	if expected == "string" && (got == "int" || strings.HasPrefix(got, "int") || strings.HasPrefix(got, "float") || got == "bool" || got == "char") {
-		fixes = addFix(fixes, "Convert to string", fmt.Sprintf("%s.toString()", expr))
+
+	if expected == "string" &&
+		(got == "int" ||
+			strings.HasPrefix(got, "int") ||
+			strings.HasPrefix(got, "float") ||
+			got == "bool" ||
+			got == "char") {
+
+		fixes = addFix(
+			fixes,
+			"Convert to string",
+			fmt.Sprintf("%s.toString()", expr),
+		)
 	}
-	if strings.HasPrefix(expected, "&") && !strings.HasPrefix(got, "&") {
+
+	if strings.HasPrefix(expected, "&") &&
+		!strings.HasPrefix(got, "&") {
+
 		fixes = addFix(fixes, "Borrow value", "&"+expr)
 	}
-	if !strings.HasPrefix(expected, "&") && strings.HasPrefix(got, "&") {
+
+	if !strings.HasPrefix(expected, "&") &&
+		strings.HasPrefix(got, "&") {
+
 		fixes = addFix(fixes, "Dereference value", "*"+expr)
-	}
-	if strings.HasPrefix(expected, "box") && !strings.HasPrefix(got, "box") {
-		fixes = addFix(fixes, "Box value", fmt.Sprintf("box(%s)", expr))
-	}
-	if !strings.HasPrefix(expected, "box") && strings.HasPrefix(got, "box") {
-		fixes = addFix(fixes, "Unbox value", "*"+expr)
 	}
 
 	return fixes
@@ -458,7 +524,13 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 	if sig != nil {
 		diag.Notes = append(diag.Notes, tc.signatureDeclNote(
 			sig,
-			fmt.Sprintf("where expected: method '%s.%s' parameter %d has type %s", receiverType, methodName, argIndex, expected),
+			fmt.Sprintf(
+				"where expected: method '%s.%s' parameter %d has type %s",
+				receiverType,
+				methodName,
+				argIndex,
+				expected,
+			),
 		)...)
 	}
 	tc.emitError(diag)

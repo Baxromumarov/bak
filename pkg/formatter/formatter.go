@@ -884,9 +884,6 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 			p.write("&")
 		}
 		p.printExpression(e.Value, precPrefix)
-	case *ast.BoxExpression:
-		p.write("box ")
-		p.printExpression(e.Value, precPrefix)
 	case *ast.DerefExpression:
 		p.write("*")
 		p.printExpression(e.Value, precPrefix)
@@ -1302,7 +1299,7 @@ func precedence(expr ast.Expression) int {
 	switch e := expr.(type) {
 	case *ast.InfixExpression:
 		return infixPrecedence(e.Operator)
-	case *ast.PrefixExpression, *ast.BorrowExpression, *ast.BoxExpression, *ast.DerefExpression:
+	case *ast.PrefixExpression, *ast.BorrowExpression, *ast.DerefExpression:
 		return precPrefix
 	case *ast.CallExpression:
 		return precCall

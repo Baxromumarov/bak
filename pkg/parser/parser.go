@@ -261,7 +261,6 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.FUNC, p.parseFunctionLiteral)
 	p.registerPrefix(token.OK, p.parseEnumVariantExpression)
 	p.registerPrefix(token.ERR, p.parseEnumVariantExpression)
-	p.registerPrefix(token.BOX, p.parseBoxExpression)
 	p.registerPrefix(token.UNDERSCORE, p.parseWildcardExpression)
 	p.registerPrefix(token.VEC, p.parseTypeIdentifier)
 	p.registerPrefix(token.RESULT, p.parseTypeIdentifier)
@@ -1350,40 +1349,6 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 		baseType = &ast.SimpleType{Token: tok, Name: name}
 	}
 
-	// Support Box<T> as syntax sugar for T box
-	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Box" && len(gt.TypeParams) == 1 {
-		p.errors = append(p.errors, p.formatMessage(
-			tokenPos(gt.Token),
-			"Box<T> and box types are not supported in the frozen v0.1 language surface",
-			"remove box syntax and use stable value types",
-		))
-		baseType = &ast.BoxType{Token: gt.Token, Inner: gt.TypeParams[0]}
-		if p.peekTokenIs(token.QUESTION) {
-			p.nextToken() // consume ?
-			return &ast.BoxOptionalType{Token: p.curToken, Inner: gt.TypeParams[0]}
-		}
-	}
-
-	// Check for box modifier: Type box or Type box?
-	if p.peekTokenIs(token.BOX) {
-		p.errors = append(p.errors, p.formatMessage(
-			tokenPos(p.peekToken),
-			"box types are not supported in the frozen v0.1 language surface",
-			"remove box syntax and use stable value types",
-		))
-		p.nextToken() // consume box
-		boxTok := p.curToken
-
-		// Check for optional: Type box?
-		if p.peekTokenIs(token.QUESTION) {
-			p.nextToken() // consume ?
-			return &ast.BoxOptionalType{Token: boxTok, Inner: baseType}
-		}
-
-		// Just box without ?
-		return &ast.BoxType{Token: boxTok, Inner: baseType}
-	}
-
 	return baseType
 }
 
@@ -1626,8 +1591,8 @@ func (p *Parser) parseReturnTypes() ast.TypeExpression {
 
 	// Try to parse the first element
 	// It could be either:
-	// 1. A type directly (int, string, Tree box?)
-	// 2. A named parameter (name Type, name Type box?)
+	// 1. A type directly (int, string, Tree)
+	// 2. A named parameter (name Type)
 
 	firstType := p.parseReturnTypeElement()
 	if firstType == nil {
@@ -2550,20 +2515,6 @@ func (p *Parser) parseBorrowExpression() ast.Expression {
 
 func (p *Parser) parseDerefExpression() ast.Expression {
 	expression := &ast.DerefExpression{Token: p.curToken}
-
-	p.nextToken()
-	expression.Value = p.parseExpression(PREFIX)
-
-	return expression
-}
-
-func (p *Parser) parseBoxExpression() ast.Expression {
-	p.errors = append(p.errors, p.formatMessage(
-		tokenPos(p.curToken),
-		"box expressions are not supported in the frozen v0.1 language surface",
-		"remove box expressions and use stable value types",
-	))
-	expression := &ast.BoxExpression{Token: p.curToken}
 
 	p.nextToken()
 	expression.Value = p.parseExpression(PREFIX)

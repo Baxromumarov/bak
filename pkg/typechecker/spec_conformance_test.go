@@ -98,26 +98,6 @@ func main() -> (void) {
 	}
 }
 
-func TestBoxSyntaxIsRejectedFromPublicSurface(t *testing.T) {
-	source := `package main
-
-struct Node {
-    next: Node box?
-}
-
-func main() -> (void) {
-    var node: Node = Node{next: None}
-    var _boxed: Node box = box node
-    println("boxed")
-    return void
-}`
-
-	parseErrs, _ := parseAndCheckSource(t, source, nil)
-	if len(parseErrs) == 0 {
-		t.Fatalf("expected parser to reject box syntax from the frozen public surface, got %v", parseErrs)
-	}
-}
-
 func TestExperimentalUserGenericsRequireOptIn(t *testing.T) {
 	source := `package main
 

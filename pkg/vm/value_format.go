@@ -88,14 +88,6 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 			return "None"
 		}
 		return "<option>"
-	case compiler.VAL_BOX:
-		if b, ok := v.AsObject.(*compiler.BoxInstance); ok {
-			if b.IsNil {
-				return "Box(nil)"
-			}
-			return fmt.Sprintf("Box(%s)", vm.formatValueDepth(b.Value, depth+1))
-		}
-		return "<box>"
 	case compiler.VAL_TUPLE:
 		if t, ok := v.AsObject.(*compiler.TupleInstance); ok {
 			elements := make([]string, 0, len(t.Elements))

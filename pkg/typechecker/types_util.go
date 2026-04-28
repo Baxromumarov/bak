@@ -107,14 +107,6 @@ func (tc *TypeChecker) unifyTypes(paramType, argType ast.TypeExpression, generic
 		if at, ok := argType.(*ast.BorrowType); ok {
 			tc.unifyTypes(pt.Inner, at.Inner, genericParams, inferred)
 		}
-	case *ast.BoxType:
-		if at, ok := argType.(*ast.BoxType); ok {
-			tc.unifyTypes(pt.Inner, at.Inner, genericParams, inferred)
-		}
-	case *ast.BoxOptionalType:
-		if at, ok := argType.(*ast.BoxOptionalType); ok {
-			tc.unifyTypes(pt.Inner, at.Inner, genericParams, inferred)
-		}
 	case *ast.TupleType:
 		if at, ok := argType.(*ast.TupleType); ok {
 			if len(pt.Elements) == len(at.Elements) {
@@ -143,31 +135,31 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 	}
 
 	if strings.HasPrefix(expectedStr, "Result<") && strings.HasPrefix(actualStr, "Result<") {
-		if eg, ok := expected.(*ast.GenericType); ok {
-			if ag, ok := actual.(*ast.GenericType); ok {
-				if len(eg.TypeParams) == len(ag.TypeParams) {
-					for i := range eg.TypeParams {
-						if !tc.typesMatch(eg.TypeParams[i], ag.TypeParams[i]) {
-							return false
-						}
-					}
-					return true
+		eg, ok1 := expected.(*ast.GenericType)
+		ag, ok2 := actual.(*ast.GenericType)
+		if ok1 && ok2 && len(eg.TypeParams) == len(ag.TypeParams) {
+			for i := range eg.TypeParams {
+				if !tc.typesMatch(eg.TypeParams[i], ag.TypeParams[i]) {
+					return false
 				}
 			}
+			return true
 		}
 	}
 
 	switch exp := expected.(type) {
 	case *ast.ArrayType:
-		if act, ok := actual.(*ast.ArrayType); ok {
-			if !tc.typesMatch(exp.ElemType, act.ElemType) {
-				return false
-			}
-			if exp.IsDynamic || act.IsDynamic {
-				return true
-			}
-			return exp.Size == act.Size
+		act, ok := actual.(*ast.ArrayType)
+		if !ok {
+			break
 		}
+		if !tc.typesMatch(exp.ElemType, act.ElemType) {
+			return false
+		}
+		if exp.IsDynamic || act.IsDynamic {
+			return true
+		}
+		return exp.Size == act.Size
 	case *ast.SimpleType:
 		if act, ok := actual.(*ast.SimpleType); ok {
 			return tc.baseNamesMatch(exp.Name, act.Name)
@@ -176,73 +168,73 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 			return tc.baseNamesMatch(exp.Name, act.Name)
 		}
 	case *ast.BorrowType:
-		if act, ok := actual.(*ast.BorrowType); ok {
-			return exp.Mutable == act.Mutable && tc.typesMatch(exp.Inner, act.Inner)
+		act, ok := actual.(*ast.BorrowType)
+		if !ok {
+			break
 		}
+		return exp.Mutable == act.Mutable && tc.typesMatch(exp.Inner, act.Inner)
 	case *ast.GenericType:
-		if act, ok := actual.(*ast.GenericType); ok {
-			if !tc.baseNamesMatch(exp.Name, act.Name) {
-				return false
+		act, ok := actual.(*ast.GenericType)
+		if !ok {
+			if st, ok := actual.(*ast.SimpleType); ok {
+				return tc.baseNamesMatch(exp.Name, st.Name)
 			}
-			if exp.Name == "Vec" && act.Name == "Vec" {
-				if len(exp.TypeParams) == 1 && len(act.TypeParams) == 2 {
-					if !tc.typesMatch(exp.TypeParams[0], act.TypeParams[0]) {
-						return false
-					}
-					return isDynamicVecSize(act.TypeParams[1])
-				}
-				if len(exp.TypeParams) == 2 && len(act.TypeParams) == 1 {
-					if !tc.typesMatch(exp.TypeParams[0], act.TypeParams[0]) {
-						return false
-					}
-					return isDynamicVecSize(exp.TypeParams[1])
-				}
-			}
-			if len(exp.TypeParams) != len(act.TypeParams) {
-				return false
-			}
-			for i := range exp.TypeParams {
-				if !tc.typesMatch(exp.TypeParams[i], act.TypeParams[i]) {
+			break
+		}
+		if !tc.baseNamesMatch(exp.Name, act.Name) {
+			return false
+		}
+		if exp.Name == "Vec" && act.Name == "Vec" {
+			if len(exp.TypeParams) == 1 && len(act.TypeParams) == 2 {
+				if !tc.typesMatch(exp.TypeParams[0], act.TypeParams[0]) {
 					return false
 				}
+				return isDynamicVecSize(act.TypeParams[1])
 			}
-			return true
+			if len(exp.TypeParams) == 2 && len(act.TypeParams) == 1 {
+				if !tc.typesMatch(exp.TypeParams[0], act.TypeParams[0]) {
+					return false
+				}
+				return isDynamicVecSize(exp.TypeParams[1])
+			}
 		}
-		if act, ok := actual.(*ast.SimpleType); ok {
-			return tc.baseNamesMatch(exp.Name, act.Name)
+		if len(exp.TypeParams) != len(act.TypeParams) {
+			return false
 		}
-	case *ast.BoxType:
-		if act, ok := actual.(*ast.BoxType); ok {
-			return tc.typesMatch(exp.Inner, act.Inner)
+		for i := range exp.TypeParams {
+			if !tc.typesMatch(exp.TypeParams[i], act.TypeParams[i]) {
+				return false
+			}
 		}
-	case *ast.BoxOptionalType:
-		if act, ok := actual.(*ast.BoxOptionalType); ok {
-			return tc.typesMatch(exp.Inner, act.Inner)
-		}
+		return true
 	case *ast.TupleType:
-		if act, ok := actual.(*ast.TupleType); ok {
-			if len(exp.Elements) != len(act.Elements) {
+		act, ok := actual.(*ast.TupleType)
+		if !ok {
+			break
+		}
+		if len(exp.Elements) != len(act.Elements) {
+			return false
+		}
+		for i := range exp.Elements {
+			if !tc.typesMatch(exp.Elements[i], act.Elements[i]) {
 				return false
 			}
-			for i := range exp.Elements {
-				if !tc.typesMatch(exp.Elements[i], act.Elements[i]) {
-					return false
-				}
-			}
-			return true
 		}
+		return true
 	case *ast.FunctionType:
-		if act, ok := actual.(*ast.FunctionType); ok {
-			if len(exp.Params) != len(act.Params) {
+		act, ok := actual.(*ast.FunctionType)
+		if !ok {
+			break
+		}
+		if len(exp.Params) != len(act.Params) {
+			return false
+		}
+		for i := range exp.Params {
+			if !tc.typesMatch(exp.Params[i], act.Params[i]) {
 				return false
 			}
-			for i := range exp.Params {
-				if !tc.typesMatch(exp.Params[i], act.Params[i]) {
-					return false
-				}
-			}
-			return tc.typesMatch(exp.ReturnType, act.ReturnType)
 		}
+		return tc.typesMatch(exp.ReturnType, act.ReturnType)
 	}
 
 	if strings.Contains(expectedStr, "Vec<") && actualStr == "Vec<>" {
@@ -633,12 +625,6 @@ func (tc *TypeChecker) suggestTypeFix(expected, got string) string {
 	}
 	if !strings.HasPrefix(expected, "&") && strings.HasPrefix(got, "&") {
 		return "dereference with * to get the owned value"
-	}
-	if strings.HasPrefix(expected, "box") && !strings.HasPrefix(got, "box") {
-		return "use box(...) to allocate on the heap"
-	}
-	if !strings.HasPrefix(expected, "box") && strings.HasPrefix(got, "box") {
-		return "dereference with * to unbox the value"
 	}
 	if expected == "string" && (got == "int" || strings.HasPrefix(got, "int")) {
 		return "use strconv.intToString() to convert integer to string"

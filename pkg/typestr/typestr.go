@@ -56,10 +56,6 @@ func renderType(t ast.TypeExpression, unknownForNil bool) string {
 			return "&mut " + renderType(tt.Inner, unknownForNil)
 		}
 		return "&" + renderType(tt.Inner, unknownForNil)
-	case *ast.BoxType:
-		return renderType(tt.Inner, unknownForNil) + " box"
-	case *ast.BoxOptionalType:
-		return renderType(tt.Inner, unknownForNil) + " box?"
 	case *ast.ArrayType:
 		name := strings.TrimSpace(tt.Token.Literal)
 		if name == "" {

@@ -1185,13 +1185,6 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			case compiler.VAL_BORROW:
 				b := val.AsObject.(*compiler.BorrowInstance)
 				vm.push(*b.Location)
-			case compiler.VAL_BOX:
-				b := val.AsObject.(*compiler.BoxInstance)
-				if b.IsNil {
-					vm.push(compiler.NewNil())
-				} else {
-					vm.push(b.Value)
-				}
 			default:
 				// No-op for other non-borrow types (legacy compatibility)
 				vm.push(val)
@@ -1248,14 +1241,6 @@ func (vm *VM) run() (result compiler.Value, err error) {
 					inner = val
 				default:
 					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot unwrap enum variant %s", e.VariantName)
-				}
-			case compiler.VAL_BOX:
-				b := val.AsObject.(*compiler.BoxInstance)
-				if b.IsNil {
-					isErr = true
-					inner = compiler.NewNil()
-				} else {
-					inner = b.Value
 				}
 			case compiler.VAL_NIL:
 				isErr = true
@@ -1548,14 +1533,6 @@ func (vm *VM) derefAll(v compiler.Value) compiler.Value {
 		if v.Type == compiler.VAL_BORROW {
 			b := v.AsObject.(*compiler.BorrowInstance)
 			v = *b.Location
-			continue
-		}
-		if v.Type == compiler.VAL_BOX {
-			b := v.AsObject.(*compiler.BoxInstance)
-			if b.IsNil {
-				return compiler.NewNil()
-			}
-			v = b.Value
 			continue
 		}
 		break

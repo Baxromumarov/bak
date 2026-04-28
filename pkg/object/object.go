@@ -38,7 +38,6 @@ const (
 	MODULE_OBJ           ObjectType = "MODULE"
 	DIR_ENTRY_OBJ        ObjectType = "DIR_ENTRY"
 	FILE_INFO_OBJ        ObjectType = "FILE_INFO"
-	BOX_OBJ              ObjectType = "BOX"
 	TUPLE_OBJ            ObjectType = "TUPLE"
 	TYPEDEF_OBJ          ObjectType = "TYPEDEF"
 	ALIAS_OBJ            ObjectType = "ALIAS"
@@ -615,19 +614,6 @@ type FileInfo struct {
 func (f *FileInfo) Type() ObjectType { return FILE_INFO_OBJ }
 func (f *FileInfo) Inspect() string {
 	return fmt.Sprintf("FileInfo{name: %q, size: %d, modTime: %d, isDir: %t}", f.FileName, f.FileSize, f.ModTime, f.IsDir)
-}
-
-// Box represents a heap-allocated value (for recursive types)
-type Box struct {
-	Value Object
-}
-
-func (b *Box) Type() ObjectType { return BOX_OBJ }
-func (b *Box) Inspect() string {
-	if b.Value == nil {
-		return "Box(nil)"
-	}
-	return fmt.Sprintf("Box(%s)", b.Value.Inspect())
 }
 
 // TypeConstructor represents a type that can have static methods (e.g., Vec.new())

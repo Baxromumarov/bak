@@ -273,25 +273,6 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		default:
 			return vmUndefinedMethodError("char", methodName)
 		}
-	case compiler.VAL_BOX:
-		box := receiver.AsObject.(*compiler.BoxInstance)
-		var result compiler.Value
-		switch methodName {
-		case "isNil":
-			result = compiler.NewBool(box.IsNil)
-		case "unwrap":
-			if len(args) != 0 {
-				return vmArgCountError("unwrap", 0)
-			}
-			if box.IsNil {
-				return fmt.Errorf("unwrap called on nil box")
-			}
-			result = box.Value
-		default:
-			return vmUndefinedMethodError("Box", methodName)
-		}
-		vm.pushMethodResult(result, discardReturn)
-		return nil
 	case compiler.VAL_OPTION:
 		// Internal compatibility path only. Frozen user code cannot define/use
 		// Option<T>, but VM still supports this value kind for legacy artifacts.

@@ -533,58 +533,9 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	// Return types for Vec methods
 	switch method {
 	case "push":
-		// Check that the argument type matches the Vec's element type
-		if len(mc.Arguments) != 1 {
-			tc.addErrorAt(callPos,
-				"push requires exactly 1 argument, got %d", len(mc.Arguments))
-			return &ast.ErrorType{Message: "wrong number of arguments"}
-		}
-
-		// If elemType is nil, it means we have an untyped Vec (raw generic), which should be illegal.
-		// We error here as a failsafe, though checkVarStatement should prevent it from existing.
-		if elemType == nil {
-			tc.addErrorAt(callPos, "cannot call 'push' on untyped Vec; use explicit type (Vec<T, _>)")
-			return &ast.ErrorType{Message: "untyped vec"}
-		}
-
-		argType := tc.inferType(mc.Arguments[0])
-		if argType != nil && !tc.typesMatch(elemType, argType) {
-			tc.errorTypeMismatchAt(callPos,
-				typeToString(elemType), typeToString(argType),
-				fmt.Sprintf("argument to '%s.push'", varName),
-				mc.Arguments[0])
-			return &ast.ErrorType{Message: "type mismatch"}
-		}
-		return &ast.VoidType{}
-
+		return tc.checkVecPush(mc, elemType, varName, callPos)
 	case "append":
-		// Check that the argument is a Vec of the same element type
-		if len(mc.Arguments) != 1 {
-			tc.addErrorAt(callPos,
-				"append requires exactly 1 argument, got %d", len(mc.Arguments))
-			return &ast.ErrorType{Message: "wrong number of arguments"}
-		}
-
-		if elemType == nil {
-			tc.addErrorAt(callPos, "cannot call 'append' on untyped Vec; use explicit type (Vec<T, _>)")
-			return &ast.ErrorType{Message: "untyped vec"}
-		}
-
-		argType := tc.inferType(mc.Arguments[0])
-		// argType should be Vec<elemType, _>
-		if argType != nil {
-			if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" {
-				if len(gt.TypeParams) >= 1 && !tc.typesMatch(elemType, gt.TypeParams[0]) {
-					tc.errorTypeMismatchAt(callPos,
-						fmt.Sprintf("Vec<%s, _>", typeToString(elemType)),
-						typeToString(argType),
-						fmt.Sprintf("argument to '%s.append'", varName),
-						mc.Arguments[0])
-					return &ast.ErrorType{Message: "type mismatch"}
-				}
-			}
-		}
-		return &ast.VoidType{}
+		return tc.checkVecAppend(mc, elemType, varName, callPos)
 
 	case "pop", "remove", "first", "last", "get":
 		// Returns Result<T, string>
@@ -605,63 +556,11 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 		}
 		return &ast.GenericType{Name: "Vec"}
 	case "set":
-		// set(index int, value T) -> void
-		if len(mc.Arguments) != 2 {
-			tc.addErrorAt(callPos,
-				"set requires exactly 2 arguments (index, value), got %d", len(mc.Arguments))
-			return &ast.ErrorType{Message: "wrong number of arguments"}
-		}
-		// Check index type
-		idxType := tc.inferType(mc.Arguments[0])
-		if idxType != nil && !tc.isIntegerType(idxType) {
-			tc.addErrorAt(callPos,
-				"set: first argument must be integer, got %s", typeToString(idxType))
-		}
-		// Check value type matches element type
-		if elemType != nil {
-			if !tc.fitsInType(elemType, mc.Arguments[1]) {
-				valType := tc.inferType(mc.Arguments[1])
-				tc.errorTypeMismatchAt(callPos,
-					typeToString(elemType), typeToString(valType),
-					fmt.Sprintf("argument to '%s.set'", varName),
-					mc.Arguments[1])
-				return &ast.ErrorType{Message: "type mismatch"}
-			}
-		}
-		return &ast.VoidType{}
+		return tc.checkVecSet(mc, elemType, varName, callPos)
 	case "new", "withCap":
-		// These are static constructors. They return Vec<T, _> or Vec<T, N>.
-		// When called as Vec.new(), the element type is often inferred from context.
-		// For now we return the untyped Vec generic type, which fits anything Vec.
-		// NOTE: Variable declaration check must enforce explicit type for these.
 		return vecType
-
 	case "from":
-		// Vec.from([...]) -> infer T from argument
-		if len(mc.Arguments) == 1 {
-			argType := tc.inferType(mc.Arguments[0])
-			if at, ok := argType.(*ast.ArrayType); ok {
-				// Inferred from ArrayLiteral (e.g. [1, 2, 3] -> Vec<int, _>)
-				return &ast.GenericType{
-					Name: "Vec",
-					TypeParams: []ast.TypeExpression{
-						at.ElemType,
-						&ast.SizeExpression{IsDynamic: true},
-					},
-				}
-			} else if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" && len(gt.TypeParams) > 0 {
-				// Inferred from another Vec
-				return &ast.GenericType{
-					Name: "Vec",
-					TypeParams: []ast.TypeExpression{
-						gt.TypeParams[0],
-						&ast.SizeExpression{IsDynamic: true},
-					},
-				}
-			}
-		}
-		// Fallback to raw vec if inference failed (will error at var decl)
-		return vecType
+		return tc.checkVecFrom(mc, vecType, callPos)
 	default:
 		tc.errorUndefinedMethodAt("Vec", method, callPos, vecMethodCandidates)
 		return nil
@@ -695,4 +594,96 @@ func formatVecTypeForDiagnostic(vecType *ast.GenericType) string {
 		return rendered
 	}
 	return fmt.Sprintf("Vec<%s, _>", elemType)
+}
+
+func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
+	if len(mc.Arguments) != 1 {
+		tc.addErrorAt(callPos, "push requires exactly 1 argument, got %d", len(mc.Arguments))
+		return &ast.ErrorType{Message: "wrong number of arguments"}
+	}
+	if elemType == nil {
+		tc.addErrorAt(callPos, "cannot call 'push' on untyped Vec; use explicit type (Vec<T, _>)")
+		return &ast.ErrorType{Message: "untyped vec"}
+	}
+	argType := tc.inferType(mc.Arguments[0])
+	if argType != nil && !tc.typesMatch(elemType, argType) {
+		tc.errorTypeMismatchAt(callPos,
+			typeToString(elemType), typeToString(argType),
+			fmt.Sprintf("argument to '%s.push'", varName),
+			mc.Arguments[0])
+		return &ast.ErrorType{Message: "type mismatch"}
+	}
+	return &ast.VoidType{}
+}
+
+func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
+	if len(mc.Arguments) != 1 {
+		tc.addErrorAt(callPos, "append requires exactly 1 argument, got %d", len(mc.Arguments))
+		return &ast.ErrorType{Message: "wrong number of arguments"}
+	}
+	if elemType == nil {
+		tc.addErrorAt(callPos, "cannot call 'append' on untyped Vec; use explicit type (Vec<T, _>)")
+		return &ast.ErrorType{Message: "untyped vec"}
+	}
+	argType := tc.inferType(mc.Arguments[0])
+	if argType != nil {
+		if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" {
+			if len(gt.TypeParams) >= 1 && !tc.typesMatch(elemType, gt.TypeParams[0]) {
+				tc.errorTypeMismatchAt(callPos,
+					fmt.Sprintf("Vec<%s, _>", typeToString(elemType)),
+					typeToString(argType),
+					fmt.Sprintf("argument to '%s.append'", varName),
+					mc.Arguments[0])
+				return &ast.ErrorType{Message: "type mismatch"}
+			}
+		}
+	}
+	return &ast.VoidType{}
+}
+
+func (tc *TypeChecker) checkVecSet(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
+	if len(mc.Arguments) != 2 {
+		tc.addErrorAt(callPos, "set requires exactly 2 arguments (index, value), got %d", len(mc.Arguments))
+		return &ast.ErrorType{Message: "wrong number of arguments"}
+	}
+	idxType := tc.inferType(mc.Arguments[0])
+	if idxType != nil && !tc.isIntegerType(idxType) {
+		tc.addErrorAt(callPos, "set: first argument must be integer, got %s", typeToString(idxType))
+	}
+	if elemType != nil {
+		if !tc.fitsInType(elemType, mc.Arguments[1]) {
+			valType := tc.inferType(mc.Arguments[1])
+			tc.errorTypeMismatchAt(callPos,
+				typeToString(elemType), typeToString(valType),
+				fmt.Sprintf("argument to '%s.set'", varName),
+				mc.Arguments[1])
+			return &ast.ErrorType{Message: "type mismatch"}
+		}
+	}
+	return &ast.VoidType{}
+}
+
+func (tc *TypeChecker) checkVecFrom(mc *ast.MethodCallExpression, vecType *ast.GenericType, callPos ast.Position) ast.TypeExpression {
+	if len(mc.Arguments) == 1 {
+		argType := tc.inferType(mc.Arguments[0])
+		if at, ok := argType.(*ast.ArrayType); ok {
+			return &ast.GenericType{
+				Name: "Vec",
+				TypeParams: []ast.TypeExpression{
+					at.ElemType,
+					&ast.SizeExpression{IsDynamic: true},
+				},
+			}
+		}
+		if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" && len(gt.TypeParams) > 0 {
+			return &ast.GenericType{
+				Name: "Vec",
+				TypeParams: []ast.TypeExpression{
+					gt.TypeParams[0],
+					&ast.SizeExpression{IsDynamic: true},
+				},
+			}
+		}
+	}
+	return vecType
 }
