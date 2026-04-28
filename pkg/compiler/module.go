@@ -119,7 +119,11 @@ func (m *BytecodeModule) AddEnum(name string, variants []VariantDef) int {
 }
 
 // AddMethod registers a method for a type.
-func (m *BytecodeModule) AddMethod(typeName, methodName string, fnIndex int) {
+func (m *BytecodeModule) AddMethod(
+	typeName,
+	methodName string,
+	fnIndex int,
+) {
 	key := typeName + "." + methodName
 	m.Methods[key] = fnIndex
 }

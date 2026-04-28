@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
+
+var ErrTypecheckFailed = errors.New("typecheck failed")
 
 // Pipeline owns the shared parse/typecheck/compile state for a single source file.
 type Pipeline struct {
@@ -85,7 +88,7 @@ func (p *Pipeline) Typecheck() error {
 		return nil
 	}
 	if hasFatalTypeErrors(tc) {
-		return fmt.Errorf("typecheck failed: %s", typeErrors[0])
+		return ErrTypecheckFailed
 	}
 	return nil
 }

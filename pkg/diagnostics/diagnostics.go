@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -219,9 +220,31 @@ func (d *Diagnostic) Format() string {
 	// Code snippet
 	codeLine := readLine(file, d.Line)
 	if codeLine != "" {
-		// Padding for line number
-		lineNumStr := strfmt.Format("{Line}", struct{ Line any }{d.Line})
-		padding := strings.Repeat(" ", len(lineNumStr))
+		prevLine := ""
+		if d.Line > 1 {
+			prevLine = readLine(file, d.Line-1)
+		}
+		nextLine := readLine(file, d.Line+1)
+		maxLine := d.Line
+		if d.Line > 1 && prevLine != "" && d.Line-1 > maxLine {
+			maxLine = d.Line - 1
+		}
+		if nextLine != "" && d.Line+1 > maxLine {
+			maxLine = d.Line + 1
+		}
+		lineWidth := len(strconv.Itoa(maxLine))
+		if lineWidth < 1 {
+			lineWidth = 1
+		}
+
+		formatLineNum := func(n int) string {
+			s := strconv.Itoa(n)
+			if len(s) >= lineWidth {
+				return s
+			}
+			return strings.Repeat(" ", lineWidth-len(s)) + s
+		}
+		padding := strings.Repeat(" ", lineWidth)
 
 		sb.WriteString(strfmt.S(
 			"  ",
@@ -232,10 +255,23 @@ func (d *Diagnostic) Format() string {
 			"\n",
 		))
 
+		if prevLine != "" {
+			sb.WriteString(strfmt.S(
+				"  ",
+				ColorBlue,
+				formatLineNum(d.Line-1),
+				" |",
+				ColorReset,
+				" ",
+				prevLine,
+				"\n",
+			))
+		}
+
 		sb.WriteString(strfmt.S(
 			"  ",
 			ColorBlue,
-			lineNumStr,
+			formatLineNum(d.Line),
 			" |",
 			ColorReset,
 			" ",
@@ -243,7 +279,7 @@ func (d *Diagnostic) Format() string {
 			"\n",
 		))
 
-		// Uncerline
+		// Underline
 		underline := strings.Repeat(" ", d.Column-1) + "^"
 
 		sb.WriteString(strfmt.S(
@@ -259,8 +295,20 @@ func (d *Diagnostic) Format() string {
 			"\n",
 		))
 
+		if nextLine != "" {
+			sb.WriteString(strfmt.S(
+				"  ",
+				ColorBlue,
+				formatLineNum(d.Line+1),
+				" |",
+				ColorReset,
+				" ",
+				nextLine,
+				"\n",
+			))
+		}
+
 		if d.Help != "" {
-			// Place help on the same line if space permits or next line
 			sb.WriteString(strfmt.S(
 				"  ",
 				padding,
@@ -270,10 +318,7 @@ func (d *Diagnostic) Format() string {
 				d.Help,
 				"\n",
 			))
-		} else {
-			sb.WriteString("\n") // Just a newline
 		}
-
 	} else if d.Help != "" {
 		// Fallback if no code snippet
 		sb.WriteString(strfmt.S(
@@ -307,6 +352,9 @@ func (d *Diagnostic) Format() string {
 
 			noteCodeLine := readLine(noteFile, note.Line)
 			if noteCodeLine != "" {
+				noteLineNum := strconv.Itoa(note.Line)
+				notePad := strings.Repeat(" ", len(noteLineNum))
+
 				sb.WriteString(strfmt.S(
 					"  ",
 					ColorBlue,
@@ -321,9 +369,36 @@ func (d *Diagnostic) Format() string {
 				))
 
 				sb.WriteString(strfmt.S(
-					"      ",
-					ColorGray,
-					strings.TrimSpace(noteCodeLine),
+					"  ",
+					ColorBlue,
+					noteLineNum,
+					" |",
+					ColorReset,
+					" ",
+					noteCodeLine,
+					"\n",
+				))
+				if note.Column > 0 {
+					noteUnderline := strings.Repeat(" ", note.Column-1) + "^"
+					sb.WriteString(strfmt.S(
+						"  ",
+						notePad,
+						ColorBlue,
+						" |",
+						ColorReset,
+						" ",
+						ColorCyan,
+						ColorBold,
+						noteUnderline,
+						"\n",
+					))
+				}
+				sb.WriteString(strfmt.S(
+					"  ",
+					notePad,
+					ColorBlue,
+					" |",
+					ColorReset,
 					"\n",
 				))
 			}

@@ -2139,7 +2139,8 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 		escapeReasons = c.currentEscape.ReasonsFor(name)
 		escapes = len(escapeReasons) > 0
 	}
-	local := Local{
+
+	c.locals = append(c.locals, Local{
 		Name:          name,
 		Depth:         c.scopeDepth,
 		Slot:          len(c.locals),
@@ -2147,8 +2148,8 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 		BorrowLike:    borrowLike,
 		HeapCell:      false,
 		EscapeReasons: escapeReasons,
-	}
-	c.locals = append(c.locals, local)
+	})
+
 	if len(c.locals) > c.currentFn.NumLocals {
 		c.currentFn.NumLocals = len(c.locals)
 	}

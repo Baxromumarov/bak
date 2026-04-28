@@ -118,9 +118,27 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 		help = "how to fix: " + help
 	}
 
-	diag := tc.baseDiagnostic(diagnostics.ErrArgumentType, line, col, msg)
+	diagLine := line
+	diagCol := col
+	if tok, ok := extractTokenFromNode(argNode); ok && tok.Line > 0 {
+		diagLine = tok.Line
+		diagCol = tok.Column
+	}
+
+	diag := tc.baseDiagnostic(diagnostics.ErrArgumentType, diagLine, diagCol, msg)
 	diag.Help = help
-	diag.Fixes = tc.typeMismatchFixes(expected, got, argNode, line, col)
+	diag.Fixes = tc.typeMismatchFixes(expected, got, argNode, diagLine, diagCol)
+	if line > 0 && (line != diagLine || col != diagCol) {
+		diag.Notes = append(diag.Notes, diagnostics.Note{
+			Message: strfmt.Format("in call: method '{receiverType}.{methodName}' invoked here", struct {
+				ReceiverType any
+				MethodName   any
+			}{receiverType, methodName}),
+			Line:   line,
+			Column: col,
+			File:   tc.currentPkgPath,
+		})
+	}
 	if sig != nil {
 		diag.Notes = append(diag.Notes, tc.signatureDeclNote(
 			sig,

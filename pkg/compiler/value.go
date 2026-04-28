@@ -177,31 +177,41 @@ func (v Value) String() string {
 		}
 		return "false"
 	case VAL_INT:
-		return strfmt.Format("{AsInt}", struct{ AsInt any }{v.AsInt})
+		return strfmt.S(v.AsInt)
 	case VAL_FLOAT:
-		return strfmt.Format("{AsFloat}", struct{ AsFloat any }{strconv.FormatFloat(float64(v.AsFloat), 'g', -1, 64)})
+		return strfmt.S(strconv.FormatFloat(float64(v.AsFloat), 'g', -1, 64))
 	case VAL_STRING:
 		return v.AsString
 	case VAL_CHAR:
 		return string(v.AsChar)
 	case VAL_FUNCTION:
 		if fn, ok := v.AsObject.(*FunctionObj); ok {
-			return strfmt.Format("<fn {Name}>", struct{ Name any }{fn.Name})
+			return strfmt.Named("<fn {name}>", "name", fn.Name)
 		}
 		return "<fn>"
 	case VAL_CLOSURE:
 		if cl, ok := v.AsObject.(*Closure); ok {
-			return strfmt.Format("<closure {Name}>", struct{ Name any }{cl.Function.Name})
+			return strfmt.Named(
+				"<closure {name}>",
+				"name", cl.Function.Name,
+			)
 		}
 		return "<closure>"
 	case VAL_STRUCT:
 		if s, ok := v.AsObject.(*StructInstance); ok {
-			return strfmt.Format("<{TypeName} instance>", struct{ TypeName any }{s.TypeName})
+			return strfmt.Named(
+				"<{typeName} instance>",
+				"typeName", s.TypeName,
+			)
 		}
 		return "<struct>"
 	case VAL_ENUM:
 		if e, ok := v.AsObject.(*EnumInstance); ok {
-			return strfmt.Format("{EnumName}.{VariantName}", e)
+			return strfmt.Named(
+				"{enumName}.{variantName}",
+				"enumName", e.EnumName,
+				"variantName", e.VariantName,
+			)
 		}
 		return "<enum>"
 	case VAL_ARRAY:
@@ -216,12 +226,13 @@ func (v Value) String() string {
 			if r.EndInclusive {
 				endBracket = "]"
 			}
-			return strfmt.Format("{startBracket}{Start}, {End}{endBracket}", struct {
-				StartBracket any
-				Start        any
-				End          any
-				EndBracket   any
-			}{startBracket, r.Start, r.End, endBracket})
+			return strfmt.Named(
+				"{startBracket}{start}, {end}{endBracket}",
+				"startBracket", startBracket,
+				"start", r.Start,
+				"end", r.End,
+				"endBracket", endBracket,
+			)
 		}
 		return "<range>"
 	case VAL_BUILTIN:
@@ -229,7 +240,10 @@ func (v Value) String() string {
 	case VAL_OPTION:
 		if o, ok := v.AsObject.(*OptionInstance); ok {
 			if o.IsSome {
-				return strfmt.Format("Some({string})", struct{ String any }{o.Value.String()})
+				return strfmt.Named(
+					"Some({value})",
+					"value", o.Value.String(),
+				)
 			}
 			return "None"
 		}
@@ -240,7 +254,10 @@ func (v Value) String() string {
 			for _, e := range t.Elements {
 				elements = append(elements, e.String())
 			}
-			return strfmt.Format("({elements})", struct{ Elements any }{strings.Join(elements, ", ")})
+			return strfmt.Named(
+				"({elements})",
+				"elements", strings.Join(elements, ", "),
+			)
 		}
 		return "<tuple>"
 	case VAL_BORROW:
@@ -254,7 +271,7 @@ func (v Value) String() string {
 		return "<borrow>"
 	case VAL_THREAD:
 		if t, ok := v.AsObject.(*ThreadInstance); ok {
-			return strfmt.Format("<thread {ID}>", struct{ ID any }{t.ID})
+			return strfmt.Named("<thread {id}>", "id", t.ID)
 		}
 		return "<thread>"
 	default:

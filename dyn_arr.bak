@@ -24,7 +24,7 @@ func main() -> (void) {
     )
     mp.remove("a")
     mp.insert(
-        "b",
+       " 1",
         3,
     )
 

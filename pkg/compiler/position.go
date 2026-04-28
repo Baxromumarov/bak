@@ -17,12 +17,14 @@ func (e *CompileError) Error() string {
 	if e.Err != nil {
 		msg = e.Err.Error()
 	}
+
 	if e.Line > 0 {
-		return strfmt.Format("line {Line}:{Column}: {msg}", struct {
-			Line   any
-			Column any
-			Msg    any
-		}{e.Line, e.Column, msg})
+		return strfmt.Named(
+			"line {line}:{column}: {msg}",
+			"line", e.Line,
+			"column", e.Column,
+			"msg", msg,
+		)
 	}
 	return msg
 }

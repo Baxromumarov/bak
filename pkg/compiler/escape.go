@@ -71,8 +71,14 @@ func (s *FunctionEscapeSummary) ensureLocal(name string) *LocalEscape {
 	if existing, ok := s.Locals[name]; ok {
 		return existing
 	}
-	le := &LocalEscape{Name: name, Reasons: make(map[EscapeReason]struct{})}
+
+	le := &LocalEscape{
+		Name:    name,
+		Reasons: make(map[EscapeReason]struct{}),
+	}
+
 	s.Locals[name] = le
+
 	return le
 }
 
@@ -159,8 +165,12 @@ func newEscapeAnalyzer(functionName string) *escapeAnalyzer {
 
 func AnalyzeFunctionDeclEscapes(fd *ast.FunctionDecl) *FunctionEscapeSummary {
 	if fd == nil || fd.Name == nil {
-		return &FunctionEscapeSummary{FunctionName: "", Locals: map[string]*LocalEscape{}}
+		return &FunctionEscapeSummary{
+			FunctionName: "",
+			Locals:       map[string]*LocalEscape{},
+		}
 	}
+
 	an := newEscapeAnalyzer(fd.Name.Value)
 	for _, p := range fd.Parameters {
 		if p != nil && p.Name != nil {
@@ -172,37 +182,55 @@ func AnalyzeFunctionDeclEscapes(fd *ast.FunctionDecl) *FunctionEscapeSummary {
 	return an.summary
 }
 
-func AnalyzeMethodDeclEscapes(typeName, receiverName string, md *ast.MethodDecl) *FunctionEscapeSummary {
+func AnalyzeMethodDeclEscapes(
+	typeName,
+	receiverName string,
+	md *ast.MethodDecl,
+) *FunctionEscapeSummary {
+
 	if md == nil || md.Name == nil {
-		return &FunctionEscapeSummary{FunctionName: "", Locals: map[string]*LocalEscape{}}
+		return &FunctionEscapeSummary{
+			FunctionName: "",
+			Locals:       map[string]*LocalEscape{},
+		}
 	}
+
 	fnName := typeName + "." + md.Name.Value
 	an := newEscapeAnalyzer(fnName)
 	if receiverName != "" {
-		an.scope.define(receiverName)
-		an.summary.ensureLocal(receiverName)
+		defineEnsureLocal(an, receiverName)
 	}
+
 	for _, p := range md.Parameters {
 		if p != nil && p.Name != nil {
-			an.scope.define(p.Name.Value)
-			an.summary.ensureLocal(p.Name.Value)
+			defineEnsureLocal(an, p.Name.Value)
 		}
 	}
 	an.walkBlock(md.Body)
 	return an.summary
 }
 
-func AnalyzeFunctionLiteralEscapes(name string, fl *ast.FunctionLiteral) *FunctionEscapeSummary {
+func defineEnsureLocal(an *escapeAnalyzer, name string) {
+	an.scope.define(name)
+	an.summary.ensureLocal(name)
+}
+
+func AnalyzeFunctionLiteralEscapes(
+	name string,
+	fl *ast.FunctionLiteral,
+) *FunctionEscapeSummary {
+
 	an := newEscapeAnalyzer(name)
 	if fl == nil {
 		return an.summary
 	}
+
 	for _, p := range fl.Parameters {
 		if p != nil && p.Name != nil {
-			an.scope.define(p.Name.Value)
-			an.summary.ensureLocal(p.Name.Value)
+			defineEnsureLocal(an, p.Name.Value)
 		}
 	}
+
 	an.walkBlock(fl.Body)
 	return an.summary
 }
@@ -246,6 +274,7 @@ func (an *escapeAnalyzer) walkStmt(stmt ast.Statement) {
 		}
 	case *ast.ReturnStatement:
 		an.markLocalsInExpr(s.ReturnValue, EscapeReturnedValue)
+
 		if be, ok := s.ReturnValue.(*ast.BorrowExpression); ok {
 			if id, ok := be.Value.(*ast.Identifier); ok && an.scope.isLocal(id.Value) {
 				an.summary.mark(id.Value, EscapeReturnedReference)
@@ -303,7 +332,9 @@ func (an *escapeAnalyzer) handleAssignmentEscape(as *ast.AssignmentStatement) {
 		if !an.scope.isLocal(left.Value) {
 			an.markLocalsInExpr(as.Value, EscapeAssignedToGlobal)
 		}
-	case *ast.FieldAccessExpression, *ast.IndexExpression, *ast.DerefExpression:
+	case *ast.FieldAccessExpression,
+		*ast.IndexExpression,
+		*ast.DerefExpression:
 		an.markLocalsInExpr(as.Value, EscapeStoredExternally)
 	}
 }

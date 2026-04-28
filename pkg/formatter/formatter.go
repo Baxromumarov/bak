@@ -218,65 +218,105 @@ func (p *printer) printProgram(program *ast.Program) {
 			}
 		}
 	}
-	p.flushCommentsBefore(ast.Position{Line: maxInt, Column: maxInt})
+	p.flushCommentsBefore(ast.Position{
+		Line:   maxInt,
+		Column: maxInt,
+	})
 }
 
-func isImportStatement(stmt ast.Statement) bool {
+type stmtKind int
+
+const (
+	stmtKindOther stmtKind = iota
+	stmtKindPackage
+	stmtKindImport
+	stmtKindTypeAlias
+	stmtKindTopLevel
+	stmtKindVarConst
+)
+
+func kindOfStatement(stmt ast.Statement) stmtKind {
 	switch stmt.(type) {
+	case *ast.PackageStatement:
+		return stmtKindPackage
 	case *ast.ImportStatement, *ast.ImportBlock:
-		return true
-	default:
-		return false
-	}
-}
-
-func isTopLevelDecl(stmt ast.Statement) bool {
-	switch stmt.(type) {
-	case *ast.FunctionDecl, *ast.StructDecl, *ast.EnumDecl, *ast.TypeDecl, *ast.AliasDecl, *ast.ImplDecl:
-		return true
-	default:
-		return false
-	}
-}
-
-func isTypeAliasDecl(stmt ast.Statement) bool {
-	switch stmt.(type) {
+		return stmtKindImport
 	case *ast.TypeDecl, *ast.AliasDecl:
-		return true
+		return stmtKindTypeAlias
+	case *ast.FunctionDecl, *ast.StructDecl, *ast.EnumDecl, *ast.ImplDecl:
+		return stmtKindTopLevel
+	case *ast.VarStatement, *ast.VarBlock, *ast.MultiVarStatement, *ast.ConstStatement, *ast.ConstBlock:
+		return stmtKindVarConst
 	default:
-		return false
+		return stmtKindOther
 	}
 }
 
 func isVarConstDecl(stmt ast.Statement) bool {
 	switch stmt.(type) {
-	case *ast.VarStatement, *ast.VarBlock, *ast.MultiVarStatement, *ast.ConstStatement, *ast.ConstBlock:
+	case *ast.VarStatement,
+		*ast.VarBlock,
+		*ast.MultiVarStatement,
+		*ast.ConstStatement,
+		*ast.ConstBlock:
 		return true
 	default:
 		return false
 	}
 }
 
+var spacingRules = map[[2]stmtKind]bool{
+	// Package transitions (Always space after package)
+	{stmtKindPackage, stmtKindImport}:    true,
+	{stmtKindPackage, stmtKindVarConst}:  true,
+	{stmtKindPackage, stmtKindTypeAlias}: true,
+	{stmtKindPackage, stmtKindTopLevel}:  true,
+	{stmtKindPackage, stmtKindOther}:     true,
+
+	// Import transitions
+	{stmtKindImport, stmtKindVarConst}:  true,
+	{stmtKindImport, stmtKindTypeAlias}: true,
+	{stmtKindImport, stmtKindTopLevel}:  true,
+	{stmtKindImport, stmtKindOther}:     true,
+
+	// Top-Level Declarations (Functions/Structs) - Always need space
+	{stmtKindTopLevel, stmtKindTopLevel}:  true,
+	{stmtKindTopLevel, stmtKindVarConst}:  true,
+	{stmtKindTopLevel, stmtKindTypeAlias}: true,
+	{stmtKindVarConst, stmtKindTopLevel}:  true,
+	{stmtKindTypeAlias, stmtKindTopLevel}: true,
+
+	// Grouping Logic
+	{stmtKindVarConst, stmtKindVarConst}:   false, // Keep vars/consts together
+	{stmtKindTypeAlias, stmtKindTypeAlias}: false, // Keep aliases together
+	{stmtKindImport, stmtKindImport}:       false, // Keep imports together
+
+	// Transitions between different "small" types
+	{stmtKindVarConst, stmtKindTypeAlias}: true,
+	{stmtKindTypeAlias, stmtKindVarConst}: true,
+}
+
 func needsBlankLine(curr, next ast.Statement) bool {
-	if _, ok := curr.(*ast.PackageStatement); ok {
-		return true
-	}
-	if isImportStatement(curr) && !isImportStatement(next) {
-		return true
-	}
-	if isTypeAliasDecl(curr) && isTypeAliasDecl(next) {
+	currKind := kindOfStatement(curr)
+	nextKind := kindOfStatement(next)
+
+	// Identity check: If they are the same kind, usually no blank line
+	// UNLESS they are TopLevel (functions/structs).
+	if currKind == nextKind && currKind != stmtKindTopLevel {
+		// Double check our exceptions in the map
+		if val, ok := spacingRules[[2]stmtKind{currKind, nextKind}]; ok {
+			return val
+		}
 		return false
 	}
-	if isTopLevelDecl(curr) && isTopLevelDecl(next) {
-		return true
+
+	// Check explicit rules
+	if val, ok := spacingRules[[2]stmtKind{currKind, nextKind}]; ok {
+		return val
 	}
-	if isTopLevelDecl(curr) && isVarConstDecl(next) {
-		return true
-	}
-	if isVarConstDecl(curr) && isTopLevelDecl(next) {
-		return true
-	}
-	return false
+
+	// Default Fallback: Add a line for safety between mismatched types
+	return true
 }
 
 func needsInnerBlankLine(curr, next ast.Statement) bool {
@@ -304,7 +344,11 @@ func needsInnerBlankLine(curr, next ast.Statement) bool {
 
 func isControlStructure(stmt ast.Statement) bool {
 	switch stmt.(type) {
-	case *ast.IfStatement, *ast.ForStatement, *ast.WhileStatement, *ast.SwitchStatement, *ast.UnsafeBlock:
+	case *ast.IfStatement,
+		*ast.ForStatement,
+		*ast.WhileStatement,
+		*ast.SwitchStatement,
+		*ast.UnsafeBlock:
 		return true
 	default:
 		return false
@@ -1259,7 +1303,10 @@ func statementPosition(stmt ast.Statement) ast.Position {
 }
 
 func tokenPos(tok token.Token) ast.Position {
-	return ast.Position{Line: tok.Line, Column: tok.Column}
+	return ast.Position{
+		Line:   tok.Line,
+		Column: tok.Column,
+	}
 }
 
 func unwrapElseIf(block *ast.BlockStatement) *ast.IfStatement {
@@ -1299,13 +1346,16 @@ func precedence(expr ast.Expression) int {
 	switch e := expr.(type) {
 	case *ast.InfixExpression:
 		return infixPrecedence(e.Operator)
-	case *ast.PrefixExpression, *ast.BorrowExpression, *ast.DerefExpression:
+	case *ast.PrefixExpression,
+		*ast.BorrowExpression,
+		*ast.DerefExpression:
 		return precPrefix
 	case *ast.CallExpression:
 		return precCall
 	case *ast.IndexExpression:
 		return precIndex
-	case *ast.FieldAccessExpression, *ast.MethodCallExpression:
+	case *ast.FieldAccessExpression,
+		*ast.MethodCallExpression:
 		return precDot
 	default:
 		return precLowest
