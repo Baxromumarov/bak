@@ -170,7 +170,7 @@ func dbQuery(vm *VM, handle int, sqlStr string, queryArgs []any) (compiler.Value
 			} else if b, ok := val.([]byte); ok {
 				strVal = string(b)
 			} else {
-				strVal = strfmt.Format("{val}", struct{ Val any }{val})
+				strVal = strfmt.Named("{val}", "Val", val)
 			}
 			rowCells[i] = compiler.NewString(strVal)
 		}

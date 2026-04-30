@@ -37,10 +37,7 @@ func extractIdentifierName(node ast.Node) (string, bool) {
 
 func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnostics.Note {
 	note := diagnostics.Note{
-		Message: strfmt.Format("where expected: {context} expects type {expected}", struct {
-			Context  any
-			Expected any
-		}{context, expected}),
+		Message: strfmt.Named("where expected: {context} expects type {expected}", "Context", context, "Expected", expected),
 		File: tc.currentPkgPath,
 	}
 	const assignmentPrefix = "assignment to variable '"

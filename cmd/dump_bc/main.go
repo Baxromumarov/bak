@@ -139,7 +139,9 @@ func disassemble(code []int, mod Module) {
 		op := code[ip]
 		opName := OpcodeNames[op]
 		if opName == "" {
-			opName = strfmt.Format("UNKNOWN({op})", struct{ Op any }{op})
+			opName = strfmt.Named("UNKNOWN({op})",
+				"op", op,
+			)
 		}
 
 		fmt.Printf("%04d: %s", ip, opName)
@@ -150,6 +152,7 @@ func disassemble(code []int, mod Module) {
 			idx := (code[ip] << 8) | code[ip+1]
 			strfmt.Print(" ", idx, " (Const: ", getConst(mod, idx), ")")
 			ip += 2
+
 		} else if strings.Contains(opName, "JMP") ||
 			opName == "OP_GET_GLOBAL" ||
 			opName == "OP_SET_GLOBAL" ||
@@ -173,7 +176,9 @@ func disassemble(code []int, mod Module) {
 			} else {
 				strfmt.Print(" val=", val)
 			}
-		} else if strings.Contains(opName, "CALL") || strings.Contains(opName, "BUILTIN") || strings.Contains(opName, "LOCAL") {
+		} else if strings.Contains(opName, "CALL") ||
+			strings.Contains(opName, "BUILTIN") ||
+			strings.Contains(opName, "LOCAL") {
 			// Byte operands
 			strfmt.Print(" ", code[ip])
 			ip++
@@ -199,7 +204,9 @@ func getConst(mod Module, idx int) string {
 		if c.Type == 0 {
 			return strconv.FormatInt(c.AsInt, 10)
 		}
-		return strfmt.Format("{AsString}", struct{ AsString any }{strconv.Quote(c.AsString)})
+		return strfmt.Named("{AsString}",
+			"AsString", strconv.Quote(c.AsString),
+		)
 	}
 	return "?"
 }

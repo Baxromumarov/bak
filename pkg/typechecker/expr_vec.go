@@ -27,7 +27,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 	case "new":
 		// Vec.new() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addErrorAt(pos, strfmt.Format("Vec.new() cannot be used with static Vec<T,{staticSize}>; use Vec.from() instead", struct{ StaticSize any }{staticSize}))
+			tc.addErrorAt(pos, strfmt.Named("Vec.new() cannot be used with static Vec<T,{staticSize}>; use Vec.from() instead", "StaticSize", staticSize))
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Vec.new() requires mut for the variable to be useful
@@ -71,7 +71,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 						if !tc.fitsInType(expectedElemType, elem) {
 							tc.errorTypeMismatchAt(pos,
 								typeToString(expectedElemType), "struct literal",
-								strfmt.Format("element {i} in Vec.from()", struct{ I any }{i}),
+								strfmt.Named("element {i} in Vec.from()", "I", i),
 								elem)
 							return &ast.ErrorType{Message: "element type mismatch"}
 						}
@@ -81,7 +81,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 					if elemType != nil && !tc.fitsInType(expectedElemType, elem) {
 						tc.errorTypeMismatchAt(pos,
 							typeToString(expectedElemType), typeToString(elemType),
-							strfmt.Format("element {i} in Vec.from()", struct{ I any }{i}),
+							strfmt.Named("element {i} in Vec.from()", "I", i),
 							elem)
 						return &ast.ErrorType{Message: "element type mismatch"}
 					}
@@ -95,7 +95,7 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 	case "withCap":
 		// Vec.withCap() is only allowed for dynamic Vec
 		if isStatic {
-			tc.addErrorAt(pos, strfmt.Format("Vec.withCap() cannot be used with static Vec<T,{staticSize}>; use Vec.from() instead", struct{ StaticSize any }{staticSize}))
+			tc.addErrorAt(pos, strfmt.Named("Vec.withCap() cannot be used with static Vec<T,{staticSize}>; use Vec.from() instead", "StaticSize", staticSize))
 			return &ast.ErrorType{Message: "static Vec requires initial values"}
 		}
 		// Requires mut
@@ -108,18 +108,14 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 		if structDef, ok := tc.env.LookupStruct("Vec"); ok {
 			if methodSig, ok := structDef.Methods[method]; ok {
 				if len(mc.Arguments) != len(methodSig.Parameters) {
-					tc.addErrorAt(pos, strfmt.Format("method {method} expects {ParametersCount} arguments, but {ArgumentsCount} were provided", struct {
-						Method          any
-						ParametersCount any
-						ArgumentsCount  any
-					}{method, len(methodSig.Parameters), len(mc.Arguments)}))
+					tc.addErrorAt(pos, strfmt.Named("method {method} expects {ParametersCount} arguments, but {ArgumentsCount} were provided", "Method", method, "ParametersCount", len(methodSig.Parameters), "ArgumentsCount", len(mc.Arguments)))
 					return &ast.ErrorType{Message: "arg count mismatch"}
 				}
 				for i, paramType := range methodSig.Parameters {
 					arg := mc.Arguments[i]
 					argType := tc.inferType(arg)
 					if !tc.fitsInType(paramType, arg) {
-						tc.errorTypeMismatchAt(pos, typeToString(paramType), typeToString(argType), strfmt.Format("argument {i}", struct{ I any }{i}), arg)
+						tc.errorTypeMismatchAt(pos, typeToString(paramType), typeToString(argType), strfmt.Named("argument {i}", "I", i), arg)
 					}
 				}
 				return methodSig.ReturnType
@@ -185,7 +181,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 			if targetName == "" {
 				targetName = "expression"
 			}
-			tc.errorMutabilityRequiredAt(targetName, callPos, strfmt.Format("call '{method}'", struct{ Method any }{method}))
+			tc.errorMutabilityRequiredAt(targetName, callPos, strfmt.Named("call '{method}'", "Method", method))
 			return &ast.ErrorType{Message: "mutability required"}
 		}
 	}
@@ -201,10 +197,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 
 	if dynamicOnlyMethods[method] && isFixedSize {
 		vecLabel := formatVecTypeForDiagnostic(vecType)
-		tc.addErrorAt(callPos, strfmt.Format("cannot call {method} on fixed-size {vecLabel}", struct {
-			Method   any
-			VecLabel any
-		}{method, vecLabel}))
+		tc.addErrorAt(callPos, strfmt.Named("cannot call {method} on fixed-size {vecLabel}", "Method", method, "VecLabel", vecLabel))
 		return nil
 	}
 
@@ -258,28 +251,25 @@ func formatVecTypeForDiagnostic(vecType *ast.GenericType) string {
 	if len(vecType.TypeParams) >= 2 {
 		if se, ok := vecType.TypeParams[1].(*ast.SizeExpression); ok {
 			if se.IsDynamic {
-				return strfmt.Format("Vec<{elemType}, _>", struct{ ElemType any }{elemType})
+				return strfmt.Named("Vec<{elemType}, _>", "ElemType", elemType)
 			}
-			return strfmt.Format("Vec<{elemType}, {Value}>", struct {
-				ElemType any
-				Value    any
-			}{elemType, se.Value})
+			return strfmt.Named("Vec<{elemType}, {Value}>", "ElemType", elemType, "Value", se.Value)
 		}
 	}
 
 	if len(vecType.TypeParams) == 1 {
-		return strfmt.Format("Vec<{elemType}, _>", struct{ ElemType any }{elemType})
+		return strfmt.Named("Vec<{elemType}, _>", "ElemType", elemType)
 	}
 
 	if rendered := typeToString(vecType); rendered != "" {
 		return rendered
 	}
-	return strfmt.Format("Vec<{elemType}, _>", struct{ ElemType any }{elemType})
+	return strfmt.Named("Vec<{elemType}, _>", "ElemType", elemType)
 }
 
 func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 1 {
-		tc.addErrorAt(callPos, strfmt.Format("push requires exactly 1 argument, got {ArgumentsCount}", struct{ ArgumentsCount any }{len(mc.Arguments)}))
+		tc.addErrorAt(callPos, strfmt.Named("push requires exactly 1 argument, got {ArgumentsCount}", "ArgumentsCount", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	if elemType == nil {
@@ -290,7 +280,7 @@ func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.T
 	if argType != nil && !tc.typesMatch(elemType, argType) {
 		tc.errorTypeMismatchAt(callPos,
 			typeToString(elemType), typeToString(argType),
-			strfmt.Format("argument to '{varName}.push'", struct{ VarName any }{varName}),
+			strfmt.Named("argument to '{varName}.push'", "VarName", varName),
 			mc.Arguments[0])
 		return &ast.ErrorType{Message: "type mismatch"}
 	}
@@ -299,7 +289,7 @@ func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.T
 
 func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 1 {
-		tc.addErrorAt(callPos, strfmt.Format("append requires exactly 1 argument, got {ArgumentsCount}", struct{ ArgumentsCount any }{len(mc.Arguments)}))
+		tc.addErrorAt(callPos, strfmt.Named("append requires exactly 1 argument, got {ArgumentsCount}", "ArgumentsCount", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	if elemType == nil {
@@ -311,9 +301,9 @@ func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast
 		if gt, ok := argType.(*ast.GenericType); ok && gt.Name == "Vec" {
 			if len(gt.TypeParams) >= 1 && !tc.typesMatch(elemType, gt.TypeParams[0]) {
 				tc.errorTypeMismatchAt(callPos,
-					strfmt.Format("Vec<{typeToString}, _>", struct{ TypeToString any }{typeToString(elemType)}),
+					strfmt.Named("Vec<{typeToString}, _>", "TypeToString", typeToString(elemType)),
 					typeToString(argType),
-					strfmt.Format("argument to '{varName}.append'", struct{ VarName any }{varName}),
+					strfmt.Named("argument to '{varName}.append'", "VarName", varName),
 					mc.Arguments[0])
 				return &ast.ErrorType{Message: "type mismatch"}
 			}
@@ -324,19 +314,19 @@ func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast
 
 func (tc *TypeChecker) checkVecSet(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {
 	if len(mc.Arguments) != 2 {
-		tc.addErrorAt(callPos, strfmt.Format("set requires exactly 2 arguments (index, value), got {ArgumentsCount}", struct{ ArgumentsCount any }{len(mc.Arguments)}))
+		tc.addErrorAt(callPos, strfmt.Named("set requires exactly 2 arguments (index, value), got {ArgumentsCount}", "ArgumentsCount", len(mc.Arguments)))
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	idxType := tc.inferType(mc.Arguments[0])
 	if idxType != nil && !tc.isIntegerType(idxType) {
-		tc.addErrorAt(callPos, strfmt.Format("set: first argument must be integer, got {typeToString}", struct{ TypeToString any }{typeToString(idxType)}))
+		tc.addErrorAt(callPos, strfmt.Named("set: first argument must be integer, got {typeToString}", "TypeToString", typeToString(idxType)))
 	}
 	if elemType != nil {
 		if !tc.fitsInType(elemType, mc.Arguments[1]) {
 			valType := tc.inferType(mc.Arguments[1])
 			tc.errorTypeMismatchAt(callPos,
 				typeToString(elemType), typeToString(valType),
-				strfmt.Format("argument to '{varName}.set'", struct{ VarName any }{varName}),
+				strfmt.Named("argument to '{varName}.set'", "VarName", varName),
 				mc.Arguments[1])
 			return &ast.ErrorType{Message: "type mismatch"}
 		}

@@ -35,7 +35,7 @@ func (tc *TypeChecker) checkBlockStatement(bs *ast.BlockStatement) {
 				diagnostics.ErrUnusedVariable,
 				info.Line,
 				info.Column,
-				strfmt.Format("unused variable: '{name}'", struct{ Name any }{name}),
+				strfmt.Named("unused variable: '{name}'", "Name", name),
 				"prefix with _ to ignore",
 			)
 		}
@@ -52,14 +52,11 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 	if !tc.fitsInType(tc.currentFuncRet, rs.ReturnValue) {
 		returnType := tc.inferType(rs.ReturnValue)
 		expectedName := typeToString(tc.currentFuncRet)
-		help := strfmt.Format("return a value of type {expectedName} or change the function return type", struct{ ExpectedName any }{expectedName})
+		help := strfmt.Named("return a value of type {expectedName} or change the function return type", "ExpectedName", expectedName)
 		if expectedName == "void" {
 			help = "remove the return value or change the function return type"
 		}
-		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, strfmt.Format("cannot return {typeToString} from function expecting {expectedName}", struct {
-			TypeToString any
-			ExpectedName any
-		}{typeToString(returnType), expectedName}))
+		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, strfmt.Named("cannot return {typeToString} from function expecting {expectedName}", "TypeToString", typeToString(returnType), "ExpectedName", expectedName))
 	}
 
 	// Track ownership transfer for returned values
@@ -101,7 +98,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	}
 
 	if !varInfo.Mutable {
-		tc.addErrorWithHelp(as.Token.Line, as.Token.Column, "declare the variable as 'mut var'", strfmt.Format("cannot assign to immutable variable '{varName}' (declare with 'mut var' to allow reassignment)", struct{ VarName any }{varName}))
+		tc.addErrorWithHelp(as.Token.Line, as.Token.Column, "declare the variable as 'mut var'", strfmt.Named("cannot assign to immutable variable '{varName}' (declare with 'mut var' to allow reassignment)", "VarName", varName))
 		return
 	}
 
@@ -114,7 +111,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 			as.Token.Column,
 			typeToString(varInfo.Type),
 			typeToString(valueType),
-			strfmt.Format("assignment to variable '{varName}'", struct{ VarName any }{varName}),
+			strfmt.Named("assignment to variable '{varName}'", "VarName", varName),
 			as.Value,
 		)
 	}

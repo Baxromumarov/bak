@@ -36,11 +36,11 @@ func (c BuiltinContract) AcceptsArity(got int) bool {
 func (c BuiltinContract) ArityDescription() string {
 	switch {
 	case c.MaxArgs < 0:
-		return strfmt.Format("at least {MinArgs}", struct{ MinArgs any }{c.MinArgs})
+		return strfmt.Named("at least {MinArgs}", "MinArgs", c.MinArgs)
 	case c.MinArgs == c.MaxArgs:
-		return strfmt.Format("{MinArgs}", struct{ MinArgs any }{c.MinArgs})
+		return strfmt.Named("{MinArgs}", "MinArgs", c.MinArgs)
 	default:
-		return strfmt.Format("between {MinArgs} and {MaxArgs}", c)
+		return strfmt.Named("between {MinArgs} and {MaxArgs}", "MinArgs", c.MinArgs, "MaxArgs", c.MaxArgs)
 	}
 }
 

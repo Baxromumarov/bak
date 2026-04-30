@@ -170,7 +170,7 @@ func TestBuildExecutableRejectsOsExecWithoutPermission(t *testing.T) {
 
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
-	source := strfmt.Format("package main\n\n\timport {osImport} as os\n\nfunc main() -> (void) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n    if result.isErr() {{\n        return void\n    }}\n    return void\n}}\n", struct{ OsImport any }{strconv.Quote(osImport)})
+	source := strfmt.Named("package main\n\n\timport {osImport} as os\n\nfunc main() -> (void) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n    if result.isErr() {{\n        return void\n    }}\n    return void\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	err := buildNativeProgramError(t, source, runtimecap.Permissions{})
 	if err == nil {
@@ -218,7 +218,7 @@ func TestBuildExecutableRejectsFsWriteFileWithoutPermission(t *testing.T) {
 
 	root := findRepoRoot(t)
 	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
-	source := strfmt.Format("package main\n\n\timport {fsImport} as fs\n\nfunc main() -> (void) {{\n    var result: Result<void, string> = fs.writeFile(\"native_permission_gate.tmp\", \"bak\")\n    if result.isErr() {{\n        return void\n    }}\n    return void\n}}\n", struct{ FsImport any }{strconv.Quote(fsImport)})
+	source := strfmt.Named("package main\n\n\timport {fsImport} as fs\n\nfunc main() -> (void) {{\n    var result: Result<void, string> = fs.writeFile(\"native_permission_gate.tmp\", \"bak\")\n    if result.isErr() {{\n        return void\n    }}\n    return void\n}}\n", "FsImport", strconv.Quote(fsImport))
 
 	err := buildNativeProgramError(t, source, runtimecap.Permissions{})
 	if err == nil {
@@ -237,7 +237,7 @@ func TestBuildExecutableAllowsFsWriteFileWithPermission(t *testing.T) {
 
 	root := findRepoRoot(t)
 	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
-	source := strfmt.Format("package main\n\n\timport {fsImport} as fs\n\nfunc main() -> (void) {{\n    fs.writeFile(\"native_permission_gate_allow.tmp\", \"bak\")\n    return void\n}}\n", struct{ FsImport any }{strconv.Quote(fsImport)})
+	source := strfmt.Named("package main\n\n\timport {fsImport} as fs\n\nfunc main() -> (void) {{\n    fs.writeFile(\"native_permission_gate_allow.tmp\", \"bak\")\n    return void\n}}\n", "FsImport", strconv.Quote(fsImport))
 
 	buildNativeProgram(t, source, runtimecap.Permissions{AllowFSMutate: true})
 }
@@ -346,7 +346,7 @@ func TestBuildExecutableExecCapturesOutputAndExitCode(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
 
-	source := strfmt.Format("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n\tif result.isErr() {{\n\t\treturn 2\n\t}}\n\n\tif result.isOk() {{\n\t\treturn 1\n    }}\n\n\treturn 3\n}}\n", struct{ OsImport any }{strconv.Quote(osImport)})
+	source := strfmt.Named("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n\tif result.isErr() {{\n\t\treturn 2\n\t}}\n\n\tif result.isOk() {{\n\t\treturn 1\n    }}\n\n\treturn 3\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{AllowExec: true})
 	exitCode, output := runNativeBinary(t, binary)
@@ -361,7 +361,7 @@ func TestBuildExecutableExecTimesOut(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
 
-	source := strfmt.Format("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"sleep\", [\"1\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.TimedOut && exec_result.ExitCode == -1 && exec_result.Output == \"\" && exec_result.Stdout == \"\" && exec_result.Stderr == \"\" && !exec_result.Truncated {{\n            return 11\n        }}\n    }}\n    return 0\n}}\n", struct{ OsImport any }{strconv.Quote(osImport)})
+	source := strfmt.Named("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"sleep\", [\"1\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.TimedOut && exec_result.ExitCode == -1 && exec_result.Output == \"\" && exec_result.Stdout == \"\" && exec_result.Stderr == \"\" && !exec_result.Truncated {{\n            return 11\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{
 		AllowExec:   true,
@@ -379,7 +379,7 @@ func TestBuildExecutableExecTruncatesOutput(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
 
-	source := strfmt.Format("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"abcdef\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.Output == \"abc\" && exec_result.Stdout == \"abc\" && exec_result.Stderr == \"\" && exec_result.ExitCode == 0 && !exec_result.TimedOut && exec_result.Truncated {{\n            return 13\n        }}\n    }}\n    return 0\n}}\n", struct{ OsImport any }{strconv.Quote(osImport)})
+	source := strfmt.Named("package main\n\n\timport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"abcdef\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.Output == \"abc\" && exec_result.Stdout == \"abc\" && exec_result.Stderr == \"\" && exec_result.ExitCode == 0 && !exec_result.TimedOut && exec_result.Truncated {{\n            return 13\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{
 		AllowExec:     true,
@@ -467,7 +467,7 @@ func TestBuildExecutableTimeBuiltinsAreDeterministicAndRunnable(t *testing.T) {
 
 	root := findRepoRoot(t)
 	timeImport := filepath.Join(root, "src", "std", "time", "time.bak")
-	source := strfmt.Format("package main\n\nimport {timeImport} as time\n\nfunc main() -> (int) {{\n\tvar start: int = time.monotonicNow()\n\ttime.sleepMs(7)\n\tvar delta: time.Duration = time.monotonicSince(start)\n\treturn delta.asMillis()\n}}\n", struct{ TimeImport any }{strconv.Quote(timeImport)})
+	source := strfmt.Named("package main\n\nimport {timeImport} as time\n\nfunc main() -> (int) {{\n\tvar start: int = time.monotonicNow()\n\ttime.sleepMs(7)\n\tvar delta: time.Duration = time.monotonicSince(start)\n\treturn delta.asMillis()\n}}\n", "TimeImport", strconv.Quote(timeImport))
 
 	resetNativeTestState := func() {
 		packages.GlobalRegistry.Reset()

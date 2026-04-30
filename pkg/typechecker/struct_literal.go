@@ -50,7 +50,7 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 	}
 
 	if !ok {
-		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Format("undefined struct: {Value}", struct{ Value any }{sl.Name.Value}))
+		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named("undefined struct: {Value}", "Value", sl.Name.Value))
 		return nil
 	}
 
@@ -74,10 +74,7 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			// We don't have the token for the field name key in the map,
 			// so we use the struct token or value token for the error location.
 			// Using the struct token is safer as valueExpr might be complex.
-			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Format("field '{fieldName}' of struct '{structName}' is private", struct {
-				FieldName  any
-				StructName any
-			}{fieldName, structName}))
+			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named("field '{fieldName}' of struct '{structName}' is private", "FieldName", fieldName, "StructName", structName))
 		}
 
 		// Mark field as used (propagate to root env)

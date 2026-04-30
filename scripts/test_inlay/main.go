@@ -69,7 +69,7 @@ func sendMessage(w io.Writer, msg any) error {
 	if err != nil {
 		return err
 	}
-	header := strfmt.Format("Content-Length: {contentCount}\r\n\r\n", struct{ ContentCount any }{len(content)})
+	header := strfmt.Named("Content-Length: {contentCount}\r\n\r\n", "ContentCount", len(content))
 	_, err = w.Write([]byte(header + string(content)))
 	return err
 }

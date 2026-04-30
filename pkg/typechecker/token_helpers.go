@@ -26,10 +26,7 @@ func describeNodeToken(node ast.Node) string {
 	}
 	if tok, ok := extractTokenFromNode(node); ok {
 		if tok.Literal != "" {
-			return strfmt.Format("{Type} ({Literal})", struct {
-				Type    any
-				Literal any
-			}{tok.Type, strconv.Quote(tok.Literal)})
+			return strfmt.Named("{Type} ({Literal})", "Type", tok.Type, "Literal", strconv.Quote(tok.Literal))
 		}
 
 		return string(tok.Type)

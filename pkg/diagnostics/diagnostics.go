@@ -501,15 +501,15 @@ func UseAfterMove(
 	d := Diagnostic{
 		Code:    ErrUseAfterMove,
 		Level:   LevelError,
-		Message: strfmt.Format("use of moved value '{varName}'", struct{ VarName any }{varName}),
+		Message: strfmt.Named("use of moved value '{varName}'", "VarName", varName),
 		Line:    line,
 		Column:  col,
-		Help:    strfmt.Format("consider borrowing instead: &{varName}", struct{ VarName any }{varName}),
+		Help:    strfmt.Named("consider borrowing instead: &{varName}", "VarName", varName),
 	}
 
 	if moveLine > 0 {
 		d.Notes = append(d.Notes, Note{
-			Message: strfmt.Format("value was {moveReason}", struct{ MoveReason any }{moveReason}),
+			Message: strfmt.Named("value was {moveReason}", "MoveReason", moveReason),
 			Line:    moveLine,
 			Column:  moveCol,
 		})
@@ -528,10 +528,7 @@ func CannotMove(
 	return Diagnostic{
 		Code:  ErrMoveWhileBorrowed,
 		Level: LevelError,
-		Message: strfmt.Format("cannot move '{varName}' because it is {reason}", struct {
-			VarName any
-			Reason  any
-		}{varName, reason}),
+		Message: strfmt.Named("cannot move '{varName}' because it is {reason}", "VarName", varName, "Reason", reason),
 		Line:   line,
 		Column: col,
 	}
@@ -548,11 +545,7 @@ func BorrowConflict(
 	return Diagnostic{
 		Code:  ErrBorrowConflict,
 		Level: LevelError,
-		Message: strfmt.Format("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", struct {
-			VarName         any
-			AttemptedBorrow any
-			ExistingState   any
-		}{varName, attemptedBorrow, existingState}),
+		Message: strfmt.Named("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", "VarName", varName, "AttemptedBorrow", attemptedBorrow, "ExistingState", existingState),
 		Line:   line,
 		Column: col,
 	}
@@ -568,10 +561,7 @@ func MutabilityRequired(
 	return Diagnostic{
 		Code:  ErrMutabilityRequired,
 		Level: LevelError,
-		Message: strfmt.Format("cannot {operation} on immutable variable '{varName}'", struct {
-			Operation any
-			VarName   any
-		}{operation, varName}),
+		Message: strfmt.Named("cannot {operation} on immutable variable '{varName}'", "Operation", operation, "VarName", varName),
 		Line:   line,
 		Column: col,
 		Help:   "declare the variable as 'mut var'",
@@ -587,15 +577,9 @@ func TypeMismatch(
 	context string,
 ) Diagnostic {
 
-	msg := strfmt.Format("type mismatch: expected {expected}, got {got}", struct {
-		Expected any
-		Got      any
-	}{expected, got})
+	msg := strfmt.Named("type mismatch: expected {expected}, got {got}", "Expected", expected, "Got", got)
 	if context != "" {
-		msg = strfmt.Format("{msg} in {context}", struct {
-			Msg     any
-			Context any
-		}{msg, context})
+		msg = strfmt.Named("{msg} in {context}", "Msg", msg, "Context", context)
 	}
 
 	return Diagnostic{
@@ -616,10 +600,7 @@ func VecMutatingMethodOnImmutable(
 	return Diagnostic{
 		Code:  ErrMutabilityRequired,
 		Level: LevelError,
-		Message: strfmt.Format("cannot call '{method}' on immutable variable '{varName}'", struct {
-			Method  any
-			VarName any
-		}{method, varName}),
+		Message: strfmt.Named("cannot call '{method}' on immutable variable '{varName}'", "Method", method, "VarName", varName),
 		Line:   pos.Line,
 		Column: pos.Column,
 		Help:   "declare the variable as 'mut var'",
@@ -631,10 +612,7 @@ func VecDynamicOnlyMethod(method, vecType string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:  ErrVecDynamicOnly,
 		Level: LevelError,
-		Message: strfmt.Format("cannot call '{method}' on fixed-size {vecType}", struct {
-			Method  any
-			VecType any
-		}{method, vecType}),
+		Message: strfmt.Named("cannot call '{method}' on fixed-size {vecType}", "Method", method, "VecType", vecType),
 		Line:   pos.Line,
 		Column: pos.Column,
 		Help:   "use Vec<T, _> for dynamic arrays",
@@ -646,7 +624,7 @@ func UnusedImport(importPath string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedImport,
 		Level:   LevelWarning,
-		Message: strfmt.Format("unused import: '{importPath}'", struct{ ImportPath any }{importPath}),
+		Message: strfmt.Named("unused import: '{importPath}'", "ImportPath", importPath),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		Help:    "remove this import if it's not used",
@@ -658,7 +636,7 @@ func UnusedVariable(varName string, pos ast.Position) Diagnostic {
 	return Diagnostic{
 		Code:    ErrUnusedVariable,
 		Level:   LevelWarning,
-		Message: strfmt.Format("unused variable: '{varName}'", struct{ VarName any }{varName}),
+		Message: strfmt.Named("unused variable: '{varName}'", "VarName", varName),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		Help:    "prefix with _ to ignore: '_" + varName + "'",

@@ -61,10 +61,7 @@ func AllPermissions() Permissions {
 }
 
 func PermissionError(op string, flag string) string {
-	return strfmt.Format("permission denied: {op} requires {flag}", struct {
-		Op   any
-		Flag any
-	}{op, flag})
+	return strfmt.Named("permission denied: {op} requires {flag}", "Op", op, "Flag", flag)
 }
 
 func (p Permissions) EffectiveExecTimeout() time.Duration {

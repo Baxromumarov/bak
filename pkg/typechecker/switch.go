@@ -164,11 +164,11 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 
 // enum payload error helpers
 func (tc *TypeChecker) errorEnumRequiresPayload(pos ast.Position, variantName string) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Format("provide payload arguments like `{variantName}(value)`", struct{ VariantName any }{variantName}), strfmt.Format("enum variant '{variantName}' requires payload", struct{ VariantName any }{variantName}))
+	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("provide payload arguments like `{variantName}(value)`", "VariantName", variantName), strfmt.Named("enum variant '{variantName}' requires payload", "VariantName", variantName))
 }
 
 func (tc *TypeChecker) errorEnumNoPayload(pos ast.Position, variantName string) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Format("remove the parentheses from `{variantName}()`", struct{ VariantName any }{variantName}), strfmt.Format("enum variant '{variantName}' does not accept payload", struct{ VariantName any }{variantName}))
+	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("remove the parentheses from `{variantName}()`", "VariantName", variantName), strfmt.Named("enum variant '{variantName}' does not accept payload", "VariantName", variantName))
 }
 
 func (tc *TypeChecker) errorEnumPayloadCount(
@@ -177,11 +177,7 @@ func (tc *TypeChecker) errorEnumPayloadCount(
 	expected int,
 	got int,
 ) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Format("provide exactly {expected} payload field(s) in order", struct{ Expected any }{expected}), strfmt.Format("enum variant '{variantName}' expects {expected} payload fields, but got {got}", struct {
-		VariantName any
-		Expected    any
-		Got         any
-	}{variantName, expected, got}))
+	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("provide exactly {expected} payload field(s) in order", "Expected", expected), strfmt.Named("enum variant '{variantName}' expects {expected} payload fields, but got {got}", "VariantName", variantName, "Expected", expected, "Got", got))
 }
 
 // tryMatchEnumCase attempts to resolve a switch case value as an enum variant.
@@ -340,7 +336,7 @@ func (tc *TypeChecker) matchFallbackEnumFieldAccess(fa *ast.FieldAccessExpressio
 		return false
 	}
 	if variant.HasPayload {
-		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("enum variant '{Value}' requires payload", struct{ Value any }{fa.Field.Value}))
+		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Named("enum variant '{Value}' requires payload", "Value", fa.Field.Value))
 	}
 	return true
 }

@@ -371,20 +371,14 @@ func formatSymbolList(symbols map[string]*Symbol, limit int) string {
 		if sym == nil || sym.Visibility != ast.Public {
 			continue
 		}
-		entries = append(entries, strfmt.Format("{name} ({Kind})", struct {
-			Name any
-			Kind any
-		}{name, sym.Kind}))
+		entries = append(entries, strfmt.Named("{name} ({Kind})", "Name", name, "Kind", sym.Kind))
 	}
 	sort.Strings(entries)
 	if len(entries) == 0 {
 		return ""
 	}
 	if limit > 0 && len(entries) > limit {
-		return strfmt.Format("{value}, and {expr} more", struct {
-			Value any
-			Expr  any
-		}{strings.Join(entries[:limit], ", "), len(entries) - limit})
+		return strfmt.Named("{value}, and {expr} more", "Value", strings.Join(entries[:limit], ", "), "Expr", len(entries) - limit)
 	}
 	return strings.Join(entries, ", ")
 }

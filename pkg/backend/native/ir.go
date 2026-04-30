@@ -81,20 +81,8 @@ func renderIRType(t ast.TypeExpression) string {
 		for _, param := range tt.TypeParams {
 			parts = append(parts, renderIRType(param))
 		}
-		return strfmt.Format(
-			"{Name}<{Parts}>",
-			struct {
-				Name  any
-				Parts any
-			}{
-				tt.Name,
-				strings.Join(parts, ","),
-			},
-		)
+		return strfmt.Named("{Name}<{Parts}>", "Name", tt.Name, "Parts", strings.Join(parts, ","))
 	default:
-		return strfmt.Format(
-			"{t}",
-			struct{ T any }{reflect.TypeOf(t).String()},
-		)
+		return strfmt.Named("{t}", "T", reflect.TypeOf(t).String())
 	}
 }

@@ -16,14 +16,10 @@ func (tc *TypeChecker) errorArgumentCountMismatchAt(
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos.Line, pos.Column,
-		strfmt.Format("function '{name}' expects {expected} argument(s), but got {got}", struct {
-			Name     any
-			Expected any
-			Got      any
-		}{name, expected, got}),
+		strfmt.Named("function '{name}' expects {expected} argument(s), but got {got}", "Name", name, "Expected", expected, "Got", got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
-	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Format("function '{name}' declared here", struct{ Name any }{name}))...)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Named("function '{name}' declared here", "Name", name))...)
 	tc.emitError(diag)
 }
 
@@ -37,27 +33,20 @@ func (tc *TypeChecker) errorArgumentCountRangeMismatchAt(
 	help := ""
 	switch {
 	case got < minExpected:
-		help = strfmt.Format("add at least {expr} more argument(s)", struct{ Expr any }{minExpected - got})
+		help = strfmt.Named("add at least {expr} more argument(s)", "Expr", minExpected - got)
 	case maxExpected >= 0 && got > maxExpected:
-		help = strfmt.Format("remove {expr} argument(s)", struct{ Expr any }{got - maxExpected})
+		help = strfmt.Named("remove {expr} argument(s)", "Expr", got - maxExpected)
 	}
 
-	rangeHint := strfmt.Format("between {minExpected} and {maxExpected}", struct {
-		MinExpected any
-		MaxExpected any
-	}{minExpected, maxExpected})
+	rangeHint := strfmt.Named("between {minExpected} and {maxExpected}", "MinExpected", minExpected, "MaxExpected", maxExpected)
 	if maxExpected < 0 {
-		rangeHint = strfmt.Format("at least {minExpected}", struct{ MinExpected any }{minExpected})
+		rangeHint = strfmt.Named("at least {minExpected}", "MinExpected", minExpected)
 	}
 
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos.Line, pos.Column,
-		strfmt.Format("function '{name}' expects {rangeHint} argument(s), but got {got}", struct {
-			Name      any
-			RangeHint any
-			Got       any
-		}{name, rangeHint, got}),
+		strfmt.Named("function '{name}' expects {rangeHint} argument(s), but got {got}", "Name", name, "RangeHint", rangeHint, "Got", got),
 	)
 	diag.Help = help
 	tc.emitError(diag)
@@ -74,18 +63,10 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatchAt(
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos.Line, pos.Column,
-		strfmt.Format("method '{typeName}.{method}' expects {expected} argument(s), but got {got}", struct {
-			TypeName any
-			Method   any
-			Expected any
-			Got      any
-		}{typeName, method, expected, got}),
+		strfmt.Named("method '{typeName}.{method}' expects {expected} argument(s), but got {got}", "TypeName", typeName, "Method", method, "Expected", expected, "Got", got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
-	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Format("method '{typeName}.{method}' declared here", struct {
-		TypeName any
-		Method   any
-	}{typeName, method}))...)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Named("method '{typeName}.{method}' declared here", "TypeName", typeName, "Method", method))...)
 	tc.emitError(diag)
 }
 
@@ -93,12 +74,12 @@ func (tc *TypeChecker) errorMissingReturnAt(pos ast.Position, expected ast.TypeE
 	expectedName := typeToString(expected)
 	help := "add a return statement"
 	if expectedName != "" && expectedName != "void" {
-		help = strfmt.Format("add `return ...` of type {expectedName} or change the return type to void", struct{ ExpectedName any }{expectedName})
+		help = strfmt.Named("add `return ...` of type {expectedName} or change the return type to void", "ExpectedName", expectedName)
 	}
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrMissingReturn,
 		pos.Line, pos.Column,
-		strfmt.Format("missing return of type {expectedName}", struct{ ExpectedName any }{expectedName}),
+		strfmt.Named("missing return of type {expectedName}", "ExpectedName", expectedName),
 	)
 	diag.Help = help
 	tc.emitError(diag)

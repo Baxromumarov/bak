@@ -16,7 +16,7 @@ func (tc *TypeChecker) errorUndefinedIdentifierAt(name string, pos ast.Position)
 		diagnostics.ErrUndefinedVariable,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		strfmt.Format("undefined: {name}", struct{ Name any }{name}),
+		strfmt.Named("undefined: {name}", "Name", name),
 		help,
 		name,
 		suggestions,
@@ -33,7 +33,7 @@ func (tc *TypeChecker) errorUndefinedTypeInFileAt(name string, pos ast.Position,
 		diagnostics.ErrUnknownType,
 		pos.Line, pos.Column,
 		file,
-		strfmt.Format("undefined type: {name}", struct{ Name any }{name}),
+		strfmt.Named("undefined type: {name}", "Name", name),
 		help,
 		name,
 		suggestions,
@@ -51,7 +51,7 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelpAt(typeName, method string, p
 		help = suggestionsHelp(suggestions, "")
 	} else if len(candidates) > 0 && len(candidates) <= 6 {
 		sort.Strings(candidates)
-		help = strfmt.Format("available methods: {candidates}", struct{ Candidates any }{strings.Join(candidates, ", ")})
+		help = strfmt.Named("available methods: {candidates}", "Candidates", strings.Join(candidates, ", "))
 	}
 	if extraHelp != "" {
 		if help != "" {
@@ -64,10 +64,7 @@ func (tc *TypeChecker) errorUndefinedMethodWithHelpAt(typeName, method string, p
 		diagnostics.ErrUndefinedMethod,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		strfmt.Format("undefined method '{method}' for {typeName}", struct {
-			Method   any
-			TypeName any
-		}{method, typeName}),
+		strfmt.Named("undefined method '{method}' for {typeName}", "Method", method, "TypeName", typeName),
 		help,
 		method,
 		suggestions,
@@ -81,7 +78,7 @@ func (tc *TypeChecker) errorUndefinedFunctionAt(name string, pos ast.Position) {
 		diagnostics.ErrUndefinedFunction,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		strfmt.Format("undefined function '{name}'", struct{ Name any }{name}),
+		strfmt.Named("undefined function '{name}'", "Name", name),
 		help,
 		name,
 		suggestions,
@@ -95,10 +92,7 @@ func (tc *TypeChecker) errorStructHasNoFieldAt(structName, field string, pos ast
 		diagnostics.ErrGeneric,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		strfmt.Format("struct '{structName}' has no field '{field}'", struct {
-			StructName any
-			Field      any
-		}{structName, field}),
+		strfmt.Named("struct '{structName}' has no field '{field}'", "StructName", structName, "Field", field),
 		help,
 		field,
 		suggestions,
@@ -112,10 +106,7 @@ func (tc *TypeChecker) errorTypeHasNoFieldAt(typeName, field string, pos ast.Pos
 		diagnostics.ErrGeneric,
 		pos.Line, pos.Column,
 		tc.currentPkgPath,
-		strfmt.Format("type '{typeName}' has no field '{field}'", struct {
-			TypeName any
-			Field    any
-		}{typeName, field}),
+		strfmt.Named("type '{typeName}' has no field '{field}'", "TypeName", typeName, "Field", field),
 		help,
 		field,
 		suggestions,

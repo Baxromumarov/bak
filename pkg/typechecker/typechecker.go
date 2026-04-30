@@ -156,7 +156,7 @@ func stableFrozenGenericTypeName(name string) bool {
 
 func experimentalFeatureHelp(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return strfmt.Format("enable it by passing --experimental={short}", struct{ Short any }{short})
+	return strfmt.Named("enable it by passing --experimental={short}", "Short", short)
 }
 
 func isStdlibSourcePath(path string) bool {
@@ -179,7 +179,7 @@ func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, fea
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrExperimentalFeature,
 		Level:   diagnostics.LevelError,
-		Message: strfmt.Format("{syntax} is experimental and disabled by default", struct{ Syntax any }{syntax}),
+		Message: strfmt.Named("{syntax} is experimental and disabled by default", "Syntax", syntax),
 		Line:    pos.Line,
 		Column:  pos.Column,
 		File:    tc.currentPkgPath,

@@ -386,7 +386,7 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 	// Generate unique name
 	c.anonCount++
-	name := strfmt.Format("__anon_{anonCount}", struct{ AnonCount any }{c.anonCount})
+	name := strfmt.Named("__anon_{anonCount}", "AnonCount", c.anonCount)
 
 	fn := &FunctionObj{
 		Name:      name,

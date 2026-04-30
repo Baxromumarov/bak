@@ -2731,10 +2731,7 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 			return fn.Fn(args...)
 		}
 		// Fallback to global registry for custom static methods (e.g., Vec.my_new)
-		fullName := strfmt.Format("{Name}.{methodName}", struct {
-			Name       any
-			MethodName any
-		}{tc.Name, methodName})
+		fullName := strfmt.Named("{Name}.{methodName}", "Name", tc.Name, "MethodName", methodName)
 		if method, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(method, left, args, env)
 		}
@@ -2758,10 +2755,7 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 
 	// Check for static method calls on struct types (e.g., TaskManager.new())
 	if structDef, ok := left.(*object.StructDef); ok {
-		fullName := strfmt.Format("{Name}.{methodName}", struct {
-			Name       any
-			MethodName any
-		}{structDef.Name, methodName})
+		fullName := strfmt.Named("{Name}.{methodName}", "Name", structDef.Name, "MethodName", methodName)
 		if method, ok := lookupRegisteredMethod(fullName); ok {
 			// Static method - call without binding receiver (it won't use self)
 			extendedEnv := object.NewEnclosedEnvironment(method.Function.Env)
@@ -2779,17 +2773,11 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 
 	// Check for struct methods
 	if s, ok := left.(*object.Struct); ok {
-		fullName := strfmt.Format("{Name}.{methodName}", struct {
-			Name       any
-			MethodName any
-		}{s.Name, methodName})
+		fullName := strfmt.Named("{Name}.{methodName}", "Name", s.Name, "MethodName", methodName)
 		shortName := fullName
 		if strings.Contains(s.Name, ".") {
 			baseName := s.Name[strings.LastIndex(s.Name, ".")+1:]
-			shortName = strfmt.Format("{baseName}.{methodName}", struct {
-				BaseName   any
-				MethodName any
-			}{baseName, methodName})
+			shortName = strfmt.Named("{baseName}.{methodName}", "BaseName", baseName, "MethodName", methodName)
 		}
 
 		var method *object.Method
@@ -2827,17 +2815,11 @@ func applyMethodCall(left object.Object, methodName string, args []object.Object
 			if aliasInfo, ok := env.Get(s.Name); ok {
 				if aliasDef, ok := aliasInfo.Value.(*object.AliasDef); ok {
 					if def, resolvedName := resolveAliasToStruct(aliasDef, env); def != nil {
-						aliasFull := strfmt.Format("{resolvedName}.{methodName}", struct {
-							ResolvedName any
-							MethodName   any
-						}{resolvedName, methodName})
+						aliasFull := strfmt.Named("{resolvedName}.{methodName}", "ResolvedName", resolvedName, "MethodName", methodName)
 						aliasShort := aliasFull
 						if strings.Contains(resolvedName, ".") {
 							baseName := resolvedName[strings.LastIndex(resolvedName, ".")+1:]
-							aliasShort = strfmt.Format("{baseName}.{methodName}", struct {
-								BaseName   any
-								MethodName any
-							}{baseName, methodName})
+							aliasShort = strfmt.Named("{baseName}.{methodName}", "BaseName", baseName, "MethodName", methodName)
 						}
 						if info, ok := env.Get(aliasFull); ok {
 							if m, ok := info.Value.(*object.Method); ok {
@@ -3151,7 +3133,7 @@ func evalVecMethod(vec *object.Vec, method string, args []object.Object) object.
 		return NULL
 
 	default:
-		fullName := strfmt.Format("Vec.{method}", struct{ Method any }{method})
+		fullName := strfmt.Named("Vec.{method}", "Method", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, vec, args, nil) // env not needed here as applyCustomMethod handles it
 		}
@@ -3547,7 +3529,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 
 	switch method {
 	case "toString":
-		return object.NewString(strfmt.Format("{Value}", struct{ Value any }{num.Value}))
+		return object.NewString(strfmt.Named("{Value}", "Value", num.Value))
 	case "toFloat":
 		return object.NewFloat(float64(num.Value))
 	case "abs":
@@ -3563,7 +3545,7 @@ func evalIntegerMethod(num *object.Integer, method string, args []object.Object)
 func evalFloatMethod(num *object.Float, method string, args []object.Object) object.Object {
 	switch method {
 	case "toString":
-		return object.NewString(strfmt.Format("{Value}", struct{ Value any }{strconv.FormatFloat(float64(num.Value), 'g', -1, 64)}))
+		return object.NewString(strfmt.Named("{Value}", "Value", strconv.FormatFloat(float64(num.Value), 'g', -1, 64)))
 	case "toInt":
 		return object.NewInteger(int64(num.Value))
 	case "toFixed":
@@ -3649,7 +3631,7 @@ func evalResultMethod(result *object.Result, method string, args []object.Object
 	case "toString":
 		return object.NewString(result.Inspect())
 	default:
-		fullName := strfmt.Format("Result.{method}", struct{ Method any }{method})
+		fullName := strfmt.Named("Result.{method}", "Method", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, result, args, nil)
 		}
@@ -3679,7 +3661,7 @@ func evalOptionMethod(option *object.Option, method string, args []object.Object
 	case "toString":
 		return object.NewString(option.Inspect())
 	default:
-		fullName := strfmt.Format("Option.{method}", struct{ Method any }{method})
+		fullName := strfmt.Named("Option.{method}", "Method", method)
 		if m, ok := lookupRegisteredMethod(fullName); ok {
 			return applyCustomMethod(m, option, args, nil)
 		}
@@ -4011,14 +3993,14 @@ func checkTypeMatch(obj object.Object, typeExpr ast.TypeExpression) string {
 		if obj == nil || obj == NULL {
 			return ""
 		}
-		return strfmt.Format("expected void, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected void, got {type}", "Type", obj.Type())
 	case *ast.GenericType:
 		return checkGenericType(obj, te)
 	case *ast.BorrowType:
 		if _, ok := obj.(*object.Borrow); ok {
 			return ""
 		}
-		return strfmt.Format("expected borrow type, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected borrow type, got {type}", "Type", obj.Type())
 	default:
 		return "" // Unknown type expression, allow it
 	}
@@ -4029,7 +4011,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		return ""
 	}
 	if obj == nil {
-		return strfmt.Format("expected {typeName}, got nil", struct{ TypeName any }{typeName})
+		return strfmt.Named("expected {typeName}, got nil", "TypeName", typeName)
 	}
 
 	switch typeName {
@@ -4037,41 +4019,32 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		if obj.Type() == object.INTEGER_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected {typeName}, got {type}", struct {
-			TypeName any
-			Type     any
-		}{typeName, obj.Type()})
+		return strfmt.Named("expected {typeName}, got {type}", "TypeName", typeName, "Type", obj.Type())
 	case "uint", "uint8", "uint16", "uint32", "uint64":
 		if obj.Type() == object.INTEGER_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected {typeName}, got {type}", struct {
-			TypeName any
-			Type     any
-		}{typeName, obj.Type()})
+		return strfmt.Named("expected {typeName}, got {type}", "TypeName", typeName, "Type", obj.Type())
 	case "float32", "float64":
 		if obj.Type() == object.FLOAT_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected {typeName}, got {type}", struct {
-			TypeName any
-			Type     any
-		}{typeName, obj.Type()})
+		return strfmt.Named("expected {typeName}, got {type}", "TypeName", typeName, "Type", obj.Type())
 	case "bool":
 		if obj.Type() == object.BOOLEAN_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected bool, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected bool, got {type}", "Type", obj.Type())
 	case "string":
 		if obj.Type() == object.STRING_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected string, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected string, got {type}", "Type", obj.Type())
 	case "char":
 		if obj.Type() == object.CHAR_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected char, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected char, got {type}", "Type", obj.Type())
 	case "void":
 		if _, ok := obj.(*object.Void); ok {
 			return ""
@@ -4079,7 +4052,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 		if obj == NULL {
 			return ""
 		}
-		return strfmt.Format("expected void, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected void, got {type}", "Type", obj.Type())
 	default:
 		// Could be a struct name or other user-defined type
 		if s, ok := obj.(*object.Struct); ok {
@@ -4098,10 +4071,7 @@ func checkSimpleType(obj object.Object, typeName string) string {
 					return ""
 				}
 			}
-			return strfmt.Format("expected {typeName}, got struct {Name}", struct {
-				TypeName any
-				Name     any
-			}{typeName, s.Name})
+			return strfmt.Named("expected {typeName}, got struct {Name}", "TypeName", typeName, "Name", s.Name)
 		}
 		// Check for TypedValue (from type declarations)
 		if tv, ok := obj.(*object.TypedValue); ok {
@@ -4135,17 +4105,17 @@ func checkGenericType(obj object.Object, te *ast.GenericType) string {
 		if s, ok := obj.(*object.Struct); ok && (s.Name == "Vec" || strings.HasSuffix(s.Name, ".Vec")) {
 			return ""
 		}
-		return strfmt.Format("expected Vec, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected Vec, got {type}", "Type", obj.Type())
 	case "Result":
 		if obj.Type() == object.RESULT_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected Result, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected Result, got {type}", "Type", obj.Type())
 	case "Option":
 		if obj.Type() == object.OPTION_OBJ {
 			return ""
 		}
-		return strfmt.Format("expected Option, got {type}", struct{ Type any }{obj.Type()})
+		return strfmt.Named("expected Option, got {type}", "Type", obj.Type())
 	default:
 		return "" // Unknown generic, allow it
 	}

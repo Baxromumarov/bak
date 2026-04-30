@@ -105,7 +105,7 @@ func stableGenericTypeName(name string) bool {
 
 func featureFlagHint(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return strfmt.Format("enable it by passing `--experimental={short}`", struct{ Short any }{short})
+	return strfmt.Named("enable it by passing `--experimental={short}`", "Short", short)
 }
 
 func (p *Parser) experimentalFeatureEnabled(feature string) bool {
@@ -124,7 +124,7 @@ func isStdlibSourcePath(path string) bool {
 }
 
 func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
-	core := strfmt.Format("{syntax} is experimental and disabled by default", struct{ Syntax any }{syntax})
+	core := strfmt.Named("{syntax} is experimental and disabled by default", "Syntax", syntax)
 	p.errors = append(p.errors, p.formatMessage(tokenPos(tok), core, featureFlagHint(feature)))
 }
 
@@ -186,7 +186,7 @@ func (p *Parser) recentTokensSummary() string {
 	}
 	parts := make([]string, len(p.recentTokens))
 	for i, tok := range p.recentTokens {
-		parts[i] = strfmt.Format("{Literal}({Type})", tok)
+		parts[i] = strfmt.Named("{Literal}({Type})", "Literal", tok.Literal, "Type", tok.Type)
 	}
 	return "recent tokens: " + strings.Join(parts, " ")
 }
@@ -330,10 +330,7 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	core := strfmt.Format("expected next token to be {t}, got {describeToken} instead", struct {
-		T             any
-		DescribeToken any
-	}{t, p.describeToken(p.peekToken)})
+	core := strfmt.Named("expected next token to be {t}, got {describeToken} instead", "T", t, "DescribeToken", p.describeToken(p.peekToken))
 
 	msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 
@@ -344,14 +341,11 @@ func (p *Parser) describeToken(tok token.Token) string {
 	if tok.Literal == "" {
 		return string(tok.Type)
 	}
-	return strfmt.Format("{Type} ({Literal})", struct {
-		Type    any
-		Literal any
-	}{tok.Type, strconv.Quote(tok.Literal)})
+	return strfmt.Named("{Type} ({Literal})", "Type", tok.Type, "Literal", strconv.Quote(tok.Literal))
 }
 
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
-	core := strfmt.Format("no prefix parse function for {t} found", struct{ T any }{t})
+	core := strfmt.Named("no prefix parse function for {t} found", "T", t)
 	msg := p.formatMessage(tokenPos(p.curToken), core, "")
 	p.errors = append(p.errors, msg)
 }
@@ -365,42 +359,23 @@ func (p *Parser) formatMessage(pos ast.Position, core string, help string) strin
 }
 
 func (p *Parser) formatMessageWithSummary(pos ast.Position, core string, includeSummary bool, help string) string {
-	msg := strfmt.Format("line {Line}:{Column}: {core}", struct {
-		Line   any
-		Column any
-		Core   any
-	}{pos.Line, pos.Column, core})
+	msg := strfmt.Named("line {Line}:{Column}: {core}", "Line", pos.Line, "Column", pos.Column, "Core", core)
 	diagMsg := core
 
 	if ctx := p.currentContext(); ctx != "" {
-		msg = strfmt.Format("while {ctx}: {msg}", struct {
-			Ctx any
-			Msg any
-		}{ctx, msg})
-		diagMsg = strfmt.Format("{diagMsg} (while {ctx})", struct {
-			DiagMsg any
-			Ctx     any
-		}{diagMsg, ctx})
+		msg = strfmt.Named("while {ctx}: {msg}", "Ctx", ctx, "Msg", msg)
+		diagMsg = strfmt.Named("{diagMsg} (while {ctx})", "DiagMsg", diagMsg, "Ctx", ctx)
 	}
 
 	if intent := p.currentIntent(); intent != "" {
-		msg = strfmt.Format("{msg} (hint: {intent})", struct {
-			Msg    any
-			Intent any
-		}{msg, intent})
-		diagMsg = strfmt.Format("{diagMsg} (hint: {intent})", struct {
-			DiagMsg any
-			Intent  any
-		}{diagMsg, intent})
+		msg = strfmt.Named("{msg} (hint: {intent})", "Msg", msg, "Intent", intent)
+		diagMsg = strfmt.Named("{diagMsg} (hint: {intent})", "DiagMsg", diagMsg, "Intent", intent)
 	}
 
 	var notes []diagnostics.Note
 	if includeSummary {
 		if summary := p.recentTokensSummary(); summary != "" {
-			msg = strfmt.Format("{msg}; {summary}", struct {
-				Msg     any
-				Summary any
-			}{msg, summary})
+			msg = strfmt.Named("{msg}; {summary}", "Msg", msg, "Summary", summary)
 			notes = append(notes, diagnostics.Note{Message: summary})
 		}
 	}
@@ -712,7 +687,7 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		}
 		decl, ok := stmt.(*ast.FunctionDecl)
 		if !ok {
-			msg := strfmt.Format("line {Line}: 'pub trace' can only be used before func declarations", struct{ Line any }{pubToken.Line})
+			msg := strfmt.Named("line {Line}: 'pub trace' can only be used before func declarations", "Line", pubToken.Line)
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -736,7 +711,7 @@ func (p *Parser) parsePubDecl() ast.Statement {
 	case token.ALIAS:
 		return p.applyPublicModifier(p.parseAliasDecl())
 	default:
-		msg := strfmt.Format("line {Line}: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", struct{ Line any }{pubToken.Line})
+		msg := strfmt.Named("line {Line}: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", "Line", pubToken.Line)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -752,7 +727,7 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		return p.markFunctionTraced(p.parseFunctionDecl())
 	case token.PUB:
 		if !p.peekTokenIs(token.FUNC) {
-			msg := strfmt.Format("line {Line}: 'trace pub' can only be used before func declarations", struct{ Line any }{traceToken.Line})
+			msg := strfmt.Named("line {Line}: 'trace pub' can only be used before func declarations", "Line", traceToken.Line)
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -765,7 +740,7 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		decl.Visibility = ast.Public
 		return decl
 	default:
-		msg := strfmt.Format("line {Line}: 'trace' can only be used before func declarations", struct{ Line any }{traceToken.Line})
+		msg := strfmt.Named("line {Line}: 'trace' can only be used before func declarations", "Line", traceToken.Line)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -1363,7 +1338,7 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 	// Check for generic parameters
 	if p.peekTokenIs(token.LT) {
 		if !stableGenericTypeName(name) && !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, strfmt.Format("generic type `{name}<...>`", struct{ Name any }{name}), runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(p.peekToken, strfmt.Named("generic type `{name}<...>`", "Name", name), runtimecap.ExperimentalFeatureUserGenerics)
 		}
 		baseType = p.parseGenericType(tok, name)
 	} else {
@@ -1851,7 +1826,7 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 	}
 
 	if !p.peekTokenIs(token.LBRACE) {
-		core := strfmt.Format("expected '{{' to start struct '{Value}' body", struct{ Value any }{stmt.Name.Value})
+		core := strfmt.Named("expected '{{' to start struct '{Value}' body", "Value", stmt.Name.Value)
 		msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 		p.errors = append(p.errors, msg)
 		for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
@@ -2295,7 +2270,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		core := strfmt.Format("could not parse {Literal} as integer", struct{ Literal any }{strconv.Quote(p.curToken.Literal)})
+		core := strfmt.Named("could not parse {Literal} as integer", "Literal", strconv.Quote(p.curToken.Literal))
 		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
@@ -2310,7 +2285,7 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		core := strfmt.Format("could not parse {Literal} as float", struct{ Literal any }{strconv.Quote(p.curToken.Literal)})
+		core := strfmt.Named("could not parse {Literal} as float", "Literal", strconv.Quote(p.curToken.Literal))
 		msg := p.formatMessage(tokenPos(p.curToken), core, "")
 		p.errors = append(p.errors, msg)
 		return nil
@@ -2321,15 +2296,31 @@ func (p *Parser) parseFloatLiteral() ast.Expression {
 }
 
 func (p *Parser) parseFStringLiteral() ast.Expression {
-	fstr := &ast.FStringLiteral{Token: p.curToken}
+	return p.parseInterpolatedStringLiteral(p.curToken.Literal, true)
+}
 
-	s := p.curToken.Literal
+func (p *Parser) parseInterpolatedStringLiteral(s string, allowBareBraces bool) ast.Expression {
+	fstr := &ast.FStringLiteral{Token: p.curToken}
 	var elements []ast.Expression
 	var currentString []byte
 
 	i := 0
 	for i < len(s) {
-		if s[i] == '{' && (i == 0 || s[i-1] != '\\') {
+		if allowBareBraces && i+1 < len(s) {
+			if s[i] == '{' && s[i+1] == '{' {
+				currentString = append(currentString, '{')
+				i += 2
+				continue
+			}
+			if s[i] == '}' && s[i+1] == '}' {
+				currentString = append(currentString, '}')
+				i += 2
+				continue
+			}
+		}
+
+		start, exprStart, ok := interpolationStart(s, i, allowBareBraces)
+		if ok {
 			if len(currentString) > 0 {
 				elements = append(elements, &ast.StringLiteral{
 					Token: p.curToken,
@@ -2338,44 +2329,30 @@ func (p *Parser) parseFStringLiteral() ast.Expression {
 				currentString = nil
 			}
 
-			// Find matching brace
-			braceCount := 1
-			start := i + 1
-			j := start
-			for j < len(s) {
-				if s[j] == '{' {
-					braceCount++
-				} else if s[j] == '}' {
-					braceCount--
-					if braceCount == 0 {
-						break
-					}
-				}
-				j++
-			}
-
-			if braceCount > 0 {
-				p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "unclosed '{' in format string", ""))
+			j, closed := findInterpolationEnd(s, exprStart)
+			if !closed {
+				p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "unclosed '{' in interpolated string", ""))
 				return nil
 			}
 
-			exprStr := s[start:j]
-			// Parse the embedded expression
-			// To avoid circular dependency, we instantiate a parser via the lexer
-			importLexer := lexer.New(exprStr)
-			importParser := New(importLexer)
-			prog := importParser.ParseProgram()
+			exprStr := strings.TrimSpace(s[exprStart:j])
+			if exprStr == "" {
+				p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "empty interpolation expression", ""))
+				return nil
+			}
 
-			if len(importParser.Errors()) > 0 {
-				p.errors = append(p.errors, importParser.Errors()...)
-			} else if len(prog.Statements) > 0 {
-				if es, ok := prog.Statements[0].(*ast.ExpressionStatement); ok {
-					elements = append(elements, es.Expression)
-				}
+			expr := p.parseInterpolationExpression(exprStr)
+			if expr != nil {
+				elements = append(elements, expr)
 			}
 
 			i = j + 1
 		} else {
+			if start > i {
+				currentString = append(currentString, s[i:start]...)
+				i = start
+				continue
+			}
 			currentString = append(currentString, s[i])
 			i++
 		}
@@ -2393,9 +2370,117 @@ func (p *Parser) parseFStringLiteral() ast.Expression {
 }
 
 func (p *Parser) parseStringLiteral() ast.Expression {
+	if p.curToken.Type == token.RAW_STRING {
+		return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	if containsStringInterpolation(p.curToken.Literal) {
+		return p.parseInterpolatedStringLiteral(p.curToken.Literal, true)
+	}
+
 	// Process escape sequences in string literals
 	value := p.processStringEscapes(p.curToken.Literal)
 	return &ast.StringLiteral{Token: p.curToken, Value: value}
+}
+
+func (p *Parser) parseInterpolationExpression(exprStr string) ast.Expression {
+	exprLexer := lexer.New(exprStr)
+	exprParser := New(exprLexer)
+	exprParser.SetFilename(p.filename)
+	prog := exprParser.ParseProgram()
+
+	if lexerErrs := exprLexer.Errors(); len(lexerErrs) > 0 {
+		p.errors = append(p.errors, lexerErrs...)
+		return nil
+	}
+	if len(exprParser.Errors()) > 0 {
+		p.errors = append(p.errors, exprParser.Errors()...)
+		return nil
+	}
+	if len(prog.Statements) == 0 {
+		p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "empty interpolation expression", ""))
+		return nil
+	}
+	if len(prog.Statements) > 1 {
+		p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "interpolation must contain a single expression", ""))
+		return nil
+	}
+	es, ok := prog.Statements[0].(*ast.ExpressionStatement)
+	if !ok || es.Expression == nil {
+		p.errors = append(p.errors, p.formatMessage(tokenPos(p.curToken), "interpolation must contain an expression", ""))
+		return nil
+	}
+	return es.Expression
+}
+
+func interpolationStart(s string, i int, allowBareBraces bool) (literalEnd int, exprStart int, ok bool) {
+	if i < 0 || i >= len(s) {
+		return i, 0, false
+	}
+	if s[i] == '\\' {
+		if i+1 < len(s) {
+			return i + 2, 0, false
+		}
+		return i + 1, 0, false
+	}
+	if s[i] == '$' && i+1 < len(s) && s[i+1] == '{' {
+		return i, i + 2, true
+	}
+	if allowBareBraces && s[i] == '{' {
+		return i, i + 1, true
+	}
+	return i, 0, false
+}
+
+func containsStringInterpolation(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' {
+			i++
+			continue
+		}
+		if s[i] == '$' && i+1 < len(s) && s[i+1] == '{' {
+			return true
+		}
+		if s[i] == '{' {
+			if i+1 < len(s) && s[i+1] == '{' {
+				i++
+				continue
+			}
+			return true
+		}
+	}
+	return false
+}
+
+func findInterpolationEnd(s string, start int) (int, bool) {
+	depth := 1
+	quote := byte(0)
+	for i := start; i < len(s); i++ {
+		ch := s[i]
+		if quote != 0 {
+			if ch == '\\' && quote != '`' {
+				i++
+				continue
+			}
+			if ch == quote {
+				quote = 0
+			}
+			continue
+		}
+
+		switch ch {
+		case '"', '\'', '`':
+			quote = ch
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i, true
+			}
+		}
+	}
+	return len(s), false
 }
 
 // processStringEscapes handles escape sequences in string literals
@@ -2795,7 +2880,7 @@ func (p *Parser) parseStructFieldValue(lit *ast.StructLiteral) {
 	fieldName := p.curToken.Literal
 
 	if !p.peekTokenIs(token.COLON) {
-		core := strfmt.Format("struct field {fieldName} requires a value; add ': <value>' or remove the field", struct{ FieldName any }{strconv.Quote(fieldName)})
+		core := strfmt.Named("struct field {fieldName} requires a value; add ': <value>' or remove the field", "FieldName", strconv.Quote(fieldName))
 		help := "add ': <value>' or remove the field"
 		msg := p.formatMessageWithSummary(tokenPos(p.peekToken), core, false, help)
 		p.errors = append(p.errors, msg)

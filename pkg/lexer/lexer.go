@@ -37,11 +37,7 @@ func (l *Lexer) Errors() []string {
 
 // addError records a lexer error with position information
 func (l *Lexer) addError(pos sourcePos, msg string) {
-	l.errors = append(l.errors, strfmt.Format("lexer error at {Line}:{Column}: {msg}", struct {
-		Line   any
-		Column any
-		Msg    any
-	}{pos.Line, pos.Column, msg}))
+	l.errors = append(l.errors, strfmt.Named("lexer error at {Line}:{Column}: {msg}", "Line", pos.Line, "Column", pos.Column, "Msg", msg))
 }
 
 // New creates a new Lexer for the given input

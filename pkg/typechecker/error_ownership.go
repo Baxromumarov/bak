@@ -7,7 +7,7 @@ import (
 )
 
 func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, moveInfo *MoveInfo) {
-	help := strfmt.Format("how to fix: consider borrowing instead: &{varName}", struct{ VarName any }{varName})
+	help := strfmt.Named("how to fix: consider borrowing instead: &{varName}", "VarName", varName)
 	if moveInfo != nil {
 		switch moveInfo.Reason {
 		case MovedByCall:
@@ -29,7 +29,7 @@ func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, mov
 				"varName", varName,
 			)
 		case MovedByReturn:
-			help = strfmt.Format("how to fix: return a borrow if the signature allows it, or clone '{varName}' before returning", struct{ VarName any }{varName})
+			help = strfmt.Named("how to fix: return a borrow if the signature allows it, or clone '{varName}' before returning", "VarName", varName)
 		}
 	}
 	err := TypeError{
@@ -37,15 +37,15 @@ func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, mov
 		Tier:    TierFatal,
 		Line:    pos.Line,
 		Column:  pos.Column,
-		Message: strfmt.Format("use of moved value '{varName}'", struct{ VarName any }{varName}),
+		Message: strfmt.Named("use of moved value '{varName}'", "VarName", varName),
 		Help:    help,
 	}
 	if moveInfo != nil {
-		err.Note = strfmt.Format("where moved: value was {Reason}", struct{ Reason any }{moveInfo.Reason})
+		err.Note = strfmt.Named("where moved: value was {Reason}", "Reason", moveInfo.Reason)
 		if moveInfo.Detail != "" {
-			err.Note += strfmt.Format(" by '{Detail}'", struct{ Detail any }{moveInfo.Detail})
+			err.Note += strfmt.Named(" by '{Detail}'", "Detail", moveInfo.Detail)
 		}
-		err.NoteLoc = strfmt.Format("line {Line}:{Column}", moveInfo)
+		err.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", moveInfo.Line, "Column", moveInfo.Column)
 	}
 	tc.addFatalError(err)
 }
@@ -56,10 +56,7 @@ func (tc *TypeChecker) errorCannotMoveAt(varName string, pos ast.Position, reaso
 		Tier:   TierFatal,
 		Line:   pos.Line,
 		Column: pos.Column,
-		Message: strfmt.Format("cannot move '{varName}' because it is {reason}", struct {
-			VarName any
-			Reason  any
-		}{varName, reason}),
+		Message: strfmt.Named("cannot move '{varName}' because it is {reason}", "VarName", varName, "Reason", reason),
 		Help: strfmt.Named(
 			"how to fix: finish active borrows of '{varName}' before moving it, or clone '{varName}' first",
 			"varName", varName,
@@ -72,11 +69,8 @@ func (tc *TypeChecker) errorCannotMoveAt(varName string, pos ast.Position, reaso
 		} else {
 			state = "immutably borrowed"
 		}
-		diag.Note = strfmt.Format("where borrowed: '{varName}' became {state} here", struct {
-			VarName any
-			State   any
-		}{varName, state})
-		diag.NoteLoc = strfmt.Format("line {Line}:{Column}", borrowInfo)
+		diag.Note = strfmt.Named("where borrowed: '{varName}' became {state} here", "VarName", varName, "State", state)
+		diag.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", borrowInfo.Line, "Column", borrowInfo.Column)
 	}
 	tc.addFatalError(diag)
 }
@@ -107,11 +101,7 @@ func (tc *TypeChecker) errorBorrowConflictAt(
 		Tier:   TierFatal,
 		Line:   pos.Line,
 		Column: pos.Column,
-		Message: strfmt.Format("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", struct {
-			VarName         any
-			AttemptedBorrow any
-			ExistingState   any
-		}{varName, attemptedBorrow, existingState}),
+		Message: strfmt.Named("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", "VarName", varName, "AttemptedBorrow", attemptedBorrow, "ExistingState", existingState),
 		Help: help,
 	}
 	if borrowInfo != nil && borrowInfo.Line > 0 {
@@ -119,11 +109,8 @@ func (tc *TypeChecker) errorBorrowConflictAt(
 		if borrowInfo.Mutable {
 			state = "mutable borrow"
 		}
-		diag.Note = strfmt.Format("where borrowed: active {state} of '{varName}' starts here", struct {
-			State   any
-			VarName any
-		}{state, varName})
-		diag.NoteLoc = strfmt.Format("line {Line}:{Column}", borrowInfo)
+		diag.Note = strfmt.Named("where borrowed: active {state} of '{varName}' starts here", "State", state, "VarName", varName)
+		diag.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", borrowInfo.Line, "Column", borrowInfo.Column)
 	}
 	tc.addFatalError(diag)
 }
@@ -143,10 +130,7 @@ func (tc *TypeChecker) errorMutabilityRequiredAt(
 		Tier:   TierFatal,
 		Line:   pos.Line,
 		Column: pos.Column,
-		Message: strfmt.Format("cannot {operation} on immutable variable '{varName}'", struct {
-			Operation any
-			VarName   any
-		}{operation, varName}),
+		Message: strfmt.Named("cannot {operation} on immutable variable '{varName}'", "Operation", operation, "VarName", varName),
 		Help: helpMsg,
 	})
 }

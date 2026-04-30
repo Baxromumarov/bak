@@ -377,7 +377,7 @@ func (s *Server) handleHover(req Request) *Hover {
 					return &Hover{
 						Contents: MarkupContent{
 							Kind:  "markdown",
-							Value: strfmt.Format("```bak\n{Signature}\n```\n{Doc}", info),
+							Value: strfmt.Named("```bak\n{Signature}\n```\n{Doc}", "Signature", info.Signature, "Doc", info.Doc),
 						},
 					}
 				}
@@ -389,7 +389,7 @@ func (s *Server) handleHover(req Request) *Hover {
 				return &Hover{
 					Contents: MarkupContent{
 						Kind:  "markdown",
-						Value: strfmt.Format("```bak\n{Signature}\n```\n{Doc}", info),
+						Value: strfmt.Named("```bak\n{Signature}\n```\n{Doc}", "Signature", info.Signature, "Doc", info.Doc),
 					},
 				}
 			}
@@ -413,7 +413,7 @@ func (s *Server) handleHover(req Request) *Hover {
 		return &Hover{
 			Contents: MarkupContent{
 				Kind:  "markdown",
-				Value: strfmt.Format("```bak\n{Signature}\n```\n{Doc}", builtinInfo),
+				Value: strfmt.Named("```bak\n{Signature}\n```\n{Doc}", "Signature", builtinInfo.Signature, "Doc", builtinInfo.Doc),
 			},
 		}
 	}
@@ -450,7 +450,7 @@ func (s *Server) handleHover(req Request) *Hover {
 			// Check for constants
 			if sig == "" && result.Index.Consts != nil {
 				if c, ok := result.Index.Consts[n.Value]; ok {
-					sig = strfmt.Format("const {Name}: {Type} = {Value}", c)
+					sig = strfmt.Named("const {Name}: {Type} = {Value}", "Name", c.Name, "Type", c.Type, "Value", c.Value)
 					if doc == "" {
 						doc = c.Doc
 					}
@@ -459,7 +459,7 @@ func (s *Server) handleHover(req Request) *Hover {
 			// Check for type declarations
 			if sig == "" && result.Index.Types != nil {
 				if t, ok := result.Index.Types[n.Value]; ok {
-					sig = strfmt.Format("type {Name} = {Underlying}", t)
+					sig = strfmt.Named("type {Name} = {Underlying}", "Name", t.Name, "Underlying", t.Underlying)
 					if doc == "" {
 						doc = t.Doc
 					}
@@ -468,7 +468,7 @@ func (s *Server) handleHover(req Request) *Hover {
 			// Check for aliases
 			if sig == "" && result.Index.Aliases != nil {
 				if a, ok := result.Index.Aliases[n.Value]; ok {
-					sig = strfmt.Format("alias {Name} = {Underlying}", a)
+					sig = strfmt.Named("alias {Name} = {Underlying}", "Name", a.Name, "Underlying", a.Underlying)
 					if doc == "" {
 						doc = a.Doc
 					}
@@ -484,10 +484,7 @@ func (s *Server) handleHover(req Request) *Hover {
 			if sig == "" && !hasStructInfo && result.Index.Enums != nil {
 				if e, ok := result.Index.Enums[n.Value]; ok {
 					variants := strings.Join(e.Variants, ", ")
-					sig = strfmt.Format("enum {Name} {{ {variants} }}", struct {
-						Name     any
-						Variants any
-					}{e.Name, variants})
+					sig = strfmt.Named("enum {Name} {{ {variants} }}", "Name", e.Name, "Variants", variants)
 					if doc == "" {
 						doc = e.Doc
 					}
@@ -500,7 +497,7 @@ func (s *Server) handleHover(req Request) *Hover {
 					if path != "" {
 						pkgName, pkgDoc := s.packageDoc(path)
 						if sig == "" && pkgName != "" {
-							sig = strfmt.Format("package {pkgName}", struct{ PkgName any }{pkgName})
+							sig = strfmt.Named("package {pkgName}", "PkgName", pkgName)
 						}
 						if doc == "" && pkgDoc != "" {
 							doc = pkgDoc
@@ -515,11 +512,7 @@ func (s *Server) handleHover(req Request) *Hover {
 					if v.Mutable {
 						mutPrefix = "mut "
 					}
-					sig = strfmt.Format("{mutPrefix}var {Name}: {Type}", struct {
-						MutPrefix any
-						Name      any
-						Type      any
-					}{mutPrefix, v.Name, v.Type})
+					sig = strfmt.Named("{mutPrefix}var {Name}: {Type}", "MutPrefix", mutPrefix, "Name", v.Name, "Type", v.Type)
 					if doc == "" {
 						doc = v.Doc
 					}
@@ -588,7 +581,7 @@ func (s *Server) handleHover(req Request) *Hover {
 							// Check for constants in imported module
 							if sig == "" && modIndex.Consts != nil {
 								if c, ok := modIndex.Consts[n.Field.Value]; ok {
-									sig = strfmt.Format("const {Name}: {Type} = {Value}", c)
+									sig = strfmt.Named("const {Name}: {Type} = {Value}", "Name", c.Name, "Type", c.Type, "Value", c.Value)
 									if doc == "" {
 										doc = c.Doc
 									}
@@ -597,7 +590,7 @@ func (s *Server) handleHover(req Request) *Hover {
 							// Check for types in imported module
 							if sig == "" && modIndex.Types != nil {
 								if t, ok := modIndex.Types[n.Field.Value]; ok {
-									sig = strfmt.Format("type {Name} = {Underlying}", t)
+									sig = strfmt.Named("type {Name} = {Underlying}", "Name", t.Name, "Underlying", t.Underlying)
 									if doc == "" {
 										doc = t.Doc
 									}
@@ -606,7 +599,7 @@ func (s *Server) handleHover(req Request) *Hover {
 							// Check for aliases in imported module
 							if sig == "" && modIndex.Aliases != nil {
 								if a, ok := modIndex.Aliases[n.Field.Value]; ok {
-									sig = strfmt.Format("alias {Name} = {Underlying}", a)
+									sig = strfmt.Named("alias {Name} = {Underlying}", "Name", a.Name, "Underlying", a.Underlying)
 									if doc == "" {
 										doc = a.Doc
 									}
@@ -616,10 +609,7 @@ func (s *Server) handleHover(req Request) *Hover {
 							if sig == "" && !hasStructInfo && modIndex.Enums != nil {
 								if e, ok := modIndex.Enums[n.Field.Value]; ok {
 									variants := strings.Join(e.Variants, ", ")
-									sig = strfmt.Format("enum {Name} {{ {variants} }}", struct {
-										Name     any
-										Variants any
-									}{e.Name, variants})
+									sig = strfmt.Named("enum {Name} {{ {variants} }}", "Name", e.Name, "Variants", variants)
 									if doc == "" {
 										doc = e.Doc
 									}
@@ -862,10 +852,7 @@ func (s *Server) handleHover(req Request) *Hover {
 							if sig == "" && !hasStructInfo && modIndex.Enums != nil {
 								if e, ok := modIndex.Enums[word]; ok {
 									variants := strings.Join(e.Variants, ", ")
-									sig = strfmt.Format("enum {Name} {{ {variants} }}", struct {
-										Name     any
-										Variants any
-									}{e.Name, variants})
+									sig = strfmt.Named("enum {Name} {{ {variants} }}", "Name", e.Name, "Variants", variants)
 									if doc == "" {
 										doc = e.Doc
 									}
@@ -886,7 +873,7 @@ func (s *Server) handleHover(req Request) *Hover {
 	if typeStr != "" || doc != "" || sig != "" || hasStructInfo {
 		var body string
 		if sig != "" {
-			body = strfmt.Format("```bak\n{sig}\n```", struct{ Sig any }{sig})
+			body = strfmt.Named("```bak\n{sig}\n```", "Sig", sig)
 		} else if hasStructInfo {
 			lines := []string{"struct " + structInfo.Name}
 			for _, f := range structInfo.Fields {
@@ -894,10 +881,7 @@ func (s *Server) handleHover(req Request) *Hover {
 			}
 			body = "```bak\n" + strings.Join(lines, "\n") + "\n```"
 		} else if typeStr != "" {
-			body = strfmt.Format("```bak\n{tokenLiteral}: {hoverType}\n```", struct {
-				TokenLiteral any
-				HoverType    any
-			}{node.TokenLiteral(), hoverType})
+			body = strfmt.Named("```bak\n{tokenLiteral}: {hoverType}\n```", "TokenLiteral", node.TokenLiteral(), "HoverType", hoverType)
 		}
 		if doc != "" {
 			if body != "" {
@@ -1547,12 +1531,9 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 		}
 		insertPos := findImportInsertPosition(result)
 		for _, candidate := range candidates {
-			importLine := strfmt.Format("import \"{ImportPath}\" as {Alias}\n", candidate)
+			importLine := strfmt.Named("import \"{ImportPath}\" as {Alias}\n", "ImportPath", candidate.ImportPath, "Alias", candidate.Alias)
 			actions = append(actions, CodeAction{
-				Title: strfmt.Format("Import '{symbolName}' from {Alias}", struct {
-					SymbolName any
-					Alias      any
-				}{symbolName, candidate.Alias}),
+				Title: strfmt.Named("Import '{symbolName}' from {Alias}", "SymbolName", symbolName, "Alias", candidate.Alias),
 				Kind:        "quickfix",
 				Diagnostics: []Diagnostic{diag},
 				Edit: &WorkspaceEdit{
@@ -2260,11 +2241,7 @@ func methodDetail(sig *typechecker.FunctionSig) string {
 	if sig.Mutable {
 		mut = "mut "
 	}
-	return strfmt.Format("{mut}func({params}) -> ({ret})", struct {
-		Mut    any
-		Params any
-		Ret    any
-	}{mut, strings.Join(params, ", "), ret})
+	return strfmt.Named("{mut}func({params}) -> ({ret})", "Mut", mut, "Params", strings.Join(params, ", "), "Ret", ret)
 }
 
 func hasBuiltinStaticCompletionType(typeName string) bool {
@@ -2664,16 +2641,11 @@ func locationFromToken(uri string, tok token.Token, name string) Location {
 }
 
 func symbolID(kind string, loc Location) string {
-	return strfmt.Format("{kind}:{URI}:{Line}:{Character}", struct {
-		Kind      any
-		URI       any
-		Line      any
-		Character any
-	}{kind, loc.URI, loc.Range.Start.Line, loc.Range.Start.Character})
+	return strfmt.Named("{kind}:{URI}:{Line}:{Character}", "Kind", kind, "URI", loc.URI, "Line", loc.Range.Start.Line, "Character", loc.Range.Start.Character)
 }
 
 func tokenKey(tok token.Token) string {
-	return strfmt.Format("{Line}:{Column}", tok)
+	return strfmt.Named("{Line}:{Column}", "Line", tok.Line, "Column", tok.Column)
 }
 
 func symbolDefFromInfo(sym SymbolInfo, name, container string) *symbolDef {
@@ -3379,7 +3351,7 @@ func formatFuncDetail(params []*ast.Parameter, ret ast.TypeExpression, mutable b
 		if p == nil {
 			continue
 		}
-		paramName := strfmt.Format("arg{expr}", struct{ Expr any }{i + 1})
+		paramName := strfmt.Named("arg{expr}", "Expr", i + 1)
 		if p.Name != nil && p.Name.Value != "" {
 			paramName = p.Name.Value
 		}
@@ -3390,10 +3362,7 @@ func formatFuncDetail(params []*ast.Parameter, ret ast.TypeExpression, mutable b
 		if p.Type != nil {
 			typ = p.Type.String()
 		}
-		paramLabels = append(paramLabels, strfmt.Format("{paramName}: {typ}", struct {
-			ParamName any
-			Typ       any
-		}{paramName, typ}))
+		paramLabels = append(paramLabels, strfmt.Named("{paramName}: {typ}", "ParamName", paramName, "Typ", typ))
 	}
 	retType := "void"
 	if ret != nil {
@@ -3403,11 +3372,7 @@ func formatFuncDetail(params []*ast.Parameter, ret ast.TypeExpression, mutable b
 	if mutable {
 		mut = "mut "
 	}
-	return strfmt.Format("{mut}func({paramLabels}) -> ({retType})", struct {
-		Mut         any
-		ParamLabels any
-		RetType     any
-	}{mut, strings.Join(paramLabels, ", "), retType})
+	return strfmt.Named("{mut}func({paramLabels}) -> ({retType})", "Mut", mut, "ParamLabels", strings.Join(paramLabels, ", "), "RetType", retType)
 }
 
 func (s *Server) ensureWorkspaceIndexes() {
@@ -5197,10 +5162,7 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 					}
 					// Only add public fields to the display list when not including private
 					if includePrivate || f.Visibility == ast.Public {
-						fields = append(fields, strfmt.Format("{Value}: {string}", struct {
-							Value  any
-							String any
-						}{f.Name.Value, f.Type.String()}))
+						fields = append(fields, strfmt.Named("{Value}: {string}", "Value", f.Name.Value, "String", f.Type.String()))
 						fieldName := s.Name.Value + "." + f.Name.Value
 						addSymbol(index, fieldName, "field", uri, f.Name.Token.Line, f.Name.Token.Column, len(f.Name.Value), f.Visibility == ast.Public)
 					}
@@ -5328,7 +5290,7 @@ func buildFuncSignature(name string, params []*ast.Parameter, ret ast.TypeExpres
 		if p == nil {
 			continue
 		}
-		paramName := strfmt.Format("arg{expr}", struct{ Expr any }{i + 1})
+		paramName := strfmt.Named("arg{expr}", "Expr", i + 1)
 		if p.Name != nil && p.Name.Value != "" {
 			paramName = p.Name.Value
 		}
@@ -5339,20 +5301,13 @@ func buildFuncSignature(name string, params []*ast.Parameter, ret ast.TypeExpres
 		if p.Type != nil {
 			typ = p.Type.String()
 		}
-		paramLabels = append(paramLabels, strfmt.Format("{paramName}: {typ}", struct {
-			ParamName any
-			Typ       any
-		}{paramName, typ}))
+		paramLabels = append(paramLabels, strfmt.Named("{paramName}: {typ}", "ParamName", paramName, "Typ", typ))
 	}
 	retType := "void"
 	if ret != nil {
 		retType = ret.String()
 	}
-	label := strfmt.Format("{name}({paramLabels}) -> ({retType})", struct {
-		Name        any
-		ParamLabels any
-		RetType     any
-	}{name, strings.Join(paramLabels, ", "), retType})
+	label := strfmt.Named("{name}({paramLabels}) -> ({retType})", "Name", name, "ParamLabels", strings.Join(paramLabels, ", "), "RetType", retType)
 	return SignatureInfo{Label: label, Params: paramLabels, Doc: doc}
 }
 

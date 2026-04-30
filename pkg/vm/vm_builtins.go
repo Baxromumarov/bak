@@ -154,7 +154,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if !isOk {
 			// Ensure error values are strings for consistency
 			if val.Type != compiler.VAL_STRING {
-				result.Value = compiler.NewString(strfmt.Format("{val}", struct{ Val any }{val}))
+				result.Value = compiler.NewString(strfmt.Named("{val}", "Val", val))
 			}
 		}
 		return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
@@ -562,7 +562,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if len(args) != 1 || args[0].Type != compiler.VAL_INT {
 			argType := "none"
 			if len(args) > 0 {
-				argType = strfmt.Format("{Type}", struct{ Type any }{args[0].Type})
+				argType = strfmt.Named("{Type}", "Type", args[0].Type)
 			}
 			return compiler.NewNil(), fmt.Errorf("__builtin_exit() requires an int argument, got length=%d type=%s", len(args), argType)
 		}
@@ -1002,10 +1002,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect() requires string host and int port")
 		}
 
-		conn, err := net.DialTimeout("tcp", strfmt.Format("{AsString}:{portVal}", struct {
-			AsString any
-			PortVal  any
-		}{args[0].AsString, portVal}), 10*time.Second)
+		conn, err := net.DialTimeout("tcp", strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal), 10*time.Second)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -1161,10 +1158,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires string host and int port")
 		}
 
-		conn, err := tls.Dial("tcp", strfmt.Format("{AsString}:{portVal}", struct {
-			AsString any
-			PortVal  any
-		}{args[0].AsString, portVal}), nil)
+		conn, err := tls.Dial("tcp", strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal), nil)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil
 		}
@@ -1235,10 +1229,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_bind() requires string host and int port")
 		}
 
-		addr := strfmt.Format("{AsString}:{portVal}", struct {
-			AsString any
-			PortVal  any
-		}{args[0].AsString, portVal})
+		addr := strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal)
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
 			return makeResult(false, compiler.NewString(err.Error())), nil

@@ -12,9 +12,9 @@ import (
 func argumentCountHelp(expected, got int) string {
 	switch {
 	case got < expected:
-		return strfmt.Format("add {expr} more argument(s)", struct{ Expr any }{expected - got})
+		return strfmt.Named("add {expr} more argument(s)", "Expr", expected - got)
 	case got > expected:
-		return strfmt.Format("remove {expr} argument(s)", struct{ Expr any }{got - expected})
+		return strfmt.Named("remove {expr} argument(s)", "Expr", got - expected)
 	default:
 		return ""
 	}
@@ -53,12 +53,9 @@ func suggestionsHelp(suggestions []string, fallback string) string {
 	if len(suggestions) == 0 {
 		return fallback
 	}
-	help := strfmt.Format("did you mean '{suggestionsItem}'?", struct{ SuggestionsItem any }{suggestions[0]})
+	help := strfmt.Named("did you mean '{suggestionsItem}'?", "SuggestionsItem", suggestions[0])
 	if len(suggestions) > 1 {
-		help = strfmt.Format("{help} alternatives: {value}", struct {
-			Help  any
-			Value any
-		}{help, strings.Join(suggestions[1:], ", ")})
+		help = strfmt.Named("{help} alternatives: {value}", "Help", help, "Value", strings.Join(suggestions[1:], ", "))
 	}
 	return help
 }
@@ -70,7 +67,7 @@ func suggestionFixes(fromText string, suggestions []string, line, col int) []dia
 	fixes := make([]diagnostics.Fix, 0, len(suggestions))
 	for _, suggestion := range suggestions {
 		fixes = append(fixes, replacementFix(
-			strfmt.Format("Replace with '{suggestion}'", struct{ Suggestion any }{suggestion}),
+			strfmt.Named("Replace with '{suggestion}'", "Suggestion", suggestion),
 			fromText,
 			suggestion,
 			line,
@@ -152,11 +149,8 @@ func (tc *TypeChecker) typeMismatchFixes(
 		(got == "int" || strings.HasPrefix(got, "int")) {
 		fixes = addFix(
 			fixes,
-			strfmt.Format("Convert to {expected}(...)", struct{ Expected any }{expected}),
-			strfmt.Format("{expected}({expr})", struct {
-				Expected any
-				Expr     any
-			}{expected, expr}),
+			strfmt.Named("Convert to {expected}(...)", "Expected", expected),
+			strfmt.Named("{expected}({expr})", "Expected", expected, "Expr", expr),
 		)
 	}
 
@@ -165,7 +159,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 		fixes = addFix(
 			fixes,
 			"Convert to int(...)",
-			strfmt.Format("int({expr})", struct{ Expr any }{expr}),
+			strfmt.Named("int({expr})", "Expr", expr),
 		)
 	}
 
@@ -178,7 +172,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 		fixes = addFix(
 			fixes,
 			"Convert to string",
-			strfmt.Format("{expr}.toString()", struct{ Expr any }{expr}),
+			strfmt.Named("{expr}.toString()", "Expr", expr),
 		)
 	}
 

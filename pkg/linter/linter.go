@@ -258,10 +258,7 @@ func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Fi
 			findings = append(findings, Finding{
 				Rule:  "style/line-length",
 				Level: "style",
-				Message: strfmt.Format("line exceeds {MaxLineLength} characters ({lineCount})", struct {
-					MaxLineLength any
-					LineCount     any
-				}{config.MaxLineLength, len(line)}),
+				Message: strfmt.Named("line exceeds {MaxLineLength} characters ({lineCount})", "MaxLineLength", config.MaxLineLength, "LineCount", len(line)),
 				Line:   i + 1,
 				Column: config.MaxLineLength + 1,
 			})
@@ -394,11 +391,7 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 				findings = append(findings, Finding{
 					Rule:  "complexity/too-many-params",
 					Level: "warning",
-					Message: strfmt.Format("function '{Value}' has {ParametersCount} parameters (max {MaxFuncParams})", struct {
-						Value           any
-						ParametersCount any
-						MaxFuncParams   any
-					}{fd.Name.Value, len(fd.Parameters), config.MaxFuncParams}),
+					Message: strfmt.Named("function '{Value}' has {ParametersCount} parameters (max {MaxFuncParams})", "Value", fd.Name.Value, "ParametersCount", len(fd.Parameters), "MaxFuncParams", config.MaxFuncParams),
 					Line:   fd.Name.Token.Line,
 					Column: fd.Name.Token.Column,
 				})
@@ -410,11 +403,7 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 					findings = append(findings, Finding{
 						Rule:  "complexity/deep-nesting",
 						Level: "warning",
-						Message: strfmt.Format("function '{Value}' has nesting depth {depth} (max {MaxNestingDepth})", struct {
-							Value           any
-							Depth           any
-							MaxNestingDepth any
-						}{fd.Name.Value, depth, config.MaxNestingDepth}),
+						Message: strfmt.Named("function '{Value}' has nesting depth {depth} (max {MaxNestingDepth})", "Value", fd.Name.Value, "Depth", depth, "MaxNestingDepth", config.MaxNestingDepth),
 						Line:   fd.Name.Token.Line,
 						Column: fd.Name.Token.Column,
 					})

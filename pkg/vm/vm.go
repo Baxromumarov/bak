@@ -114,11 +114,7 @@ func (e *RuntimeError) Error() string {
 		return "runtime error"
 	}
 	if e.Line > 0 {
-		return strfmt.Format("runtime error at {Line}:{Column}: {error}", struct {
-			Line   any
-			Column any
-			Error  any
-		}{e.Line, e.Column, e.Err.Error()})
+		return strfmt.Named("runtime error at {Line}:{Column}: {error}", "Line", e.Line, "Column", e.Column, "Error", e.Err.Error())
 	}
 	return e.Err.Error()
 }
@@ -1398,7 +1394,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 func (vm *VM) push(v compiler.Value) {
 	if vm.sp >= StackMax {
-		panic(strfmt.Format("stack overflow: exceeded maximum stack depth of {StackMax}", struct{ StackMax any }{StackMax}))
+		panic(strfmt.Named("stack overflow: exceeded maximum stack depth of {StackMax}", "StackMax", StackMax))
 	}
 	vm.stack[vm.sp] = v
 	vm.sp++
@@ -1414,7 +1410,7 @@ func (vm *VM) pop() compiler.Value {
 
 func (vm *VM) popN(count int) []compiler.Value {
 	if count < 0 {
-		panic(strfmt.Format("invalid pop count: {count}", struct{ Count any }{count}))
+		panic(strfmt.Named("invalid pop count: {count}", "Count", count))
 	}
 	args := make([]compiler.Value, count)
 	for i := count - 1; i >= 0; i-- {
@@ -1548,7 +1544,7 @@ func (vm *VM) derefAll(v compiler.Value) compiler.Value {
 func (vm *VM) peek(distance int) compiler.Value {
 	idx := vm.sp - 1 - distance
 	if idx < 0 {
-		panic(strfmt.Format("stack underflow on peek({distance})", struct{ Distance any }{distance}))
+		panic(strfmt.Named("stack underflow on peek({distance})", "Distance", distance))
 	}
 	return vm.stack[idx]
 }

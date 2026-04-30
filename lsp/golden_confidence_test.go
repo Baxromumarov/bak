@@ -173,10 +173,7 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 		if hint.Position.Line >= 0 && hint.Position.Line < len(lines) {
 			lineText = strings.TrimSpace(lines[hint.Position.Line])
 		}
-		snapshot = append(snapshot, strfmt.Format("{lineText} => {Label}", struct {
-			LineText any
-			Label    any
-		}{lineText, hint.Label}))
+		snapshot = append(snapshot, strfmt.Named("{lineText} => {Label}", "LineText", lineText, "Label", hint.Label))
 	}
 	sort.Strings(snapshot)
 

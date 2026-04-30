@@ -1,0 +1,32 @@
+package main
+
+import "dyn_arr.bak" as dyn
+import "std/test"
+
+struct input{
+    a: int,
+    b: int,
+    expected: int,
+}
+
+
+func test_sum_function() -> (void) {
+    mut var t: test.T = test.new("test_sum_function")
+
+    var inputs: Vec<input,_> = Vec.from([
+        input{a: 1, b: 2, expected: 3},
+        input{a: -1, b: -2, expected: -3},
+        input{a: 0, b: 0, expected: 0},
+    ])
+
+    for i in 0..inputs.len() {
+        var input: input = inputs[i]
+        var result: int = dyn.sum(input.a, input.b)
+        if result != input.expected {
+            t.fail("Test case {i} failed: sum({input.a}, {input.b}) = {result}, expected {input.expected}")
+        }
+    }
+
+    t.finish()
+    return void
+}

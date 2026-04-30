@@ -85,7 +85,7 @@ func InjectStructPrelude(program *ast.Program, path string, structName string) s
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return strfmt.Format("prelude parse errors in {path}", struct{ Path any }{path})
+		return strfmt.Named("prelude parse errors in {path}", "Path", path)
 	}
 
 	startIdx := 0
@@ -139,7 +139,7 @@ func InjectImplPrelude(program *ast.Program, path string, typeName string) strin
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return strfmt.Format("prelude parse errors in {path}", struct{ Path any }{path})
+		return strfmt.Named("prelude parse errors in {path}", "Path", path)
 	}
 
 	startIdx := 0

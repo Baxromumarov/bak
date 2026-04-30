@@ -65,7 +65,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Recursive loading: If package not found, load and check it
 		modProg, err := packages.ParseProgram(importPath)
 		if err != nil {
-			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check the import path exists and is accessible", strfmt.Format("cannot read import file: {err}", struct{ Err any }{err}))
+			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check the import path exists and is accessible", strfmt.Named("cannot read import file: {err}", "Err", err))
 			return
 		}
 
@@ -87,10 +87,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
 			for _, modErr := range modErrors {
-				tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "fix errors in the imported module before running this program", strfmt.Format("error in module {importPath}: {modErr}", struct {
-					ImportPath any
-					ModErr     any
-				}{importPath, modErr}))
+				tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "fix errors in the imported module before running this program", strfmt.Named("error in module {importPath}: {modErr}", "ImportPath", importPath, "ModErr", modErr))
 			}
 			return
 		}

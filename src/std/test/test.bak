@@ -63,23 +63,28 @@ func format_value<T>(val: T) -> (string) {
     if typeName == "STRING" || typeName == "string" {
         return string(val)
     }
-    if typeName == "CHAR" || typeName == "char" {
+    if typeName == "CHAR" || 
+        typeName == "char" {
         return string(char(val))
     }
+    
     if typeName == "INTEGER" ||
-        typeName == "int" || 
-        typeName == "int8" || 
+        typeName == "int" ||
+        typeName == "int8" ||
         typeName == "int16" ||
-        typeName == "int32" || 
-        typeName == "int64" || 
+        typeName == "int32" ||
+        typeName == "int64" ||
         typeName == "uint" ||
-        typeName == "uint8" || 
-        typeName == "uint16" || 
+        typeName == "uint8" ||
+        typeName == "uint16" ||
         typeName == "uint32" ||
         typeName == "uint64" {
         return strconv.intToString(int(val))
     }
-    if typeName == "FLOAT" || typeName == "float" || typeName == "float32" || typeName == "float64" {
+    if typeName == "FLOAT" ||
+        typeName == "float" ||
+        typeName == "float32" ||
+        typeName == "float64" {
         return strconv.formatFloat(float64(val), 6)
     }
     if typeName == "BOOLEAN" || typeName == "bool" {

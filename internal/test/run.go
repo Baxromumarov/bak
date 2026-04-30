@@ -34,17 +34,27 @@ type testFileRunResult struct {
 
 // Run discovers test files, builds an AST-based test runner for each file,
 // and executes the result on the VM.
-func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []string, opts Options) error {
+func Run(
+	targets []string,
+	permissions runtimecap.Permissions,
+	cliFeatures []string,
+	opts Options,
+) error {
+
 	permissions = config.LoadProjectRuntimePermissions(permissions, cliFeatures)
 	files, pathErrors := collectTestFilesForTargets(targets)
 	if len(opts.PackageFilters) > 0 {
 		filteredFiles, filterErrors := filterTestFilesByPackage(files, opts.PackageFilters)
+
 		files = filteredFiles
+
 		pathErrors = append(pathErrors, filterErrors...)
 	}
+
 	for _, err := range pathErrors {
 		_, _ = strfmt.Fprintln(os.Stderr, "Error: ", err)
 	}
+
 	if len(files) == 0 {
 		fmt.Fprintln(os.Stderr, "No test files discovered")
 		return errors.New("no test files discovered")
@@ -54,13 +64,16 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 	skipped := 0
 	passed := 0
 	failed := 0
+
 	for _, file := range files {
 		result := runTestFile(file, permissions, opts.RunPattern)
 		if !result.Executed {
 			skipped++
 			continue
 		}
+
 		executed++
+
 		if result.Passed {
 			passed++
 		} else {
@@ -77,7 +90,11 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 		"failed", failed,
 	))
 	if len(pathErrors) > 0 {
-		_, _ = strfmt.Fprintln(os.Stdout, "Target resolution failures: ", len(pathErrors))
+		_, _ = strfmt.Fprintln(
+			os.Stdout,
+			"Target resolution failures: ",
+			len(pathErrors),
+		)
 	}
 
 	if failed != 0 || len(pathErrors) != 0 {
@@ -86,12 +103,21 @@ func Run(targets []string, permissions runtimecap.Permissions, cliFeatures []str
 	return nil
 }
 
+var (
+	testExecutedTrue  = testFileRunResult{Executed: true, Passed: true}
+	testExecutedFalse = testFileRunResult{Executed: false, Passed: true}
+)
+
 // runTestFile compiles a single .bak file and executes a generated AST runner.
-func runTestFile(filename string, permissions runtimecap.Permissions, runPattern string) testFileRunResult {
+func runTestFile(
+	filename string,
+	permissions runtimecap.Permissions,
+	runPattern string,
+) testFileRunResult {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		_, _ = strfmt.Fprintln(os.Stderr, "Error reading file: ", err)
-		return testFileRunResult{Executed: true, Passed: false}
+		return testExecutedTrue
 	}
 
 	src := string(data)
@@ -106,33 +132,44 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 		for _, msg := range p.Errors() {
 			_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
 		}
-		return testFileRunResult{Executed: true, Passed: false}
+		return testExecutedTrue
 	}
 
 	tests := discoverTestFunctions(origProgram)
 	tests = filterTestsByNamePattern(tests, runPattern)
 	if len(tests) == 0 {
 		if runPattern != "" {
-			_, _ = strfmt.Fprintln(os.Stdout, "Skipping ", filename, ": no tests match --run=", fmt.Sprintf("%q", runPattern))
-			return testFileRunResult{Executed: false, Passed: true}
+			_, _ = strfmt.Fprintln(
+				os.Stdout,
+				"Skipping ",
+				filename,
+				": no tests match --run=",
+				fmt.Sprintf("%q", runPattern),
+			)
+
+			return testExecutedFalse
 		}
 		_, _ = strfmt.Fprintln(os.Stderr, "No test functions found in ", filename)
-		return testFileRunResult{Executed: true, Passed: false}
+		return testExecutedTrue
 	}
 
 	combined := cloneProgram(origProgram)
 	combined.Statements = append(combined.Statements, buildTestRunner(filename, tests))
+
 	combined.SourcePath = filename
 
 	// Reuse the shared pipeline for typecheck+compile so all commands keep
 	// consistent parse/typecheck/compile behavior.
 	pipe := pipeline.New(filename, src)
 	pipe.AST = combined
+
 	if err := pipe.Compile(); err != nil {
 		_, _ = strfmt.Fprintln(os.Stderr, "Compilation pipeline failed for ", filename, ":")
 		_, _ = strfmt.Fprintln(os.Stderr, "  ", err)
-		return testFileRunResult{Executed: true, Passed: false}
+
+		return testExecutedTrue
 	}
+
 	module := pipe.Module
 
 	runIndex := -1
@@ -144,7 +181,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 	}
 	if runIndex < 0 {
 		_, _ = strfmt.Fprintln(os.Stderr, "Error: run_all_tests not found in ", filename)
-		return testFileRunResult{Executed: true, Passed: false}
+		return testExecutedTrue
 	}
 
 	initIndex := -1
@@ -153,6 +190,7 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 			initIndex = i
 		}
 	}
+
 	if initIndex >= 0 {
 		entryFn := &compiler.FunctionObj{
 			Name:      "__bak_test_entry",
@@ -161,12 +199,15 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 			Constants: []compiler.Value{},
 			SourceMap: make(map[int]compiler.SourcePos),
 		}
+
 		emit := func(op compiler.Opcode) {
 			entryFn.Code = append(entryFn.Code, byte(op))
 		}
+
 		emitShort := func(val int) {
 			entryFn.Code = append(entryFn.Code, byte(val>>8), byte(val))
 		}
+
 		emit(compiler.OP_GET_FUNC)
 		emitShort(initIndex)
 		emit(compiler.OP_CALL)
@@ -180,15 +221,23 @@ func runTestFile(filename string, permissions runtimecap.Permissions, runPattern
 		entryFn.NumLocals = 0
 		entryIndex := module.AddFunction(entryFn)
 		module.EntryPoint = entryIndex
+
 	} else {
 		module.EntryPoint = runIndex
 	}
 
 	v := vm.NewWithPermissions(module, permissions)
 	if _, err := v.Run(); err != nil {
-		_, _ = strfmt.Fprintln(os.Stderr, "Test failure in ", filename, ": ", err)
-		return testFileRunResult{Executed: true, Passed: false}
+		_, _ = strfmt.Fprintln(
+			os.Stderr,
+			"Test failure in ",
+			filename,
+			": ",
+			err,
+		)
+
+		return testExecutedTrue
 	}
 
-	return testFileRunResult{Executed: true, Passed: true}
+	return testExecutedTrue
 }

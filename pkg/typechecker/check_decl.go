@@ -206,7 +206,7 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 				diagnostics.ErrUnusedVariable,
 				info.Name.Token.Line,
 				info.Name.Token.Column,
-				strfmt.Format("unused parameter: '{name}'", struct{ Name any }{name}),
+				strfmt.Named("unused parameter: '{name}'", "Name", name),
 				"prefix with _ to ignore",
 			)
 		}
@@ -228,7 +228,7 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 				diagnostics.ErrUnusedVariable,
 				info.Line,
 				info.Column,
-				strfmt.Format("unused variable: '{name}'", struct{ Name any }{name}),
+				strfmt.Named("unused variable: '{name}'", "Name", name),
 				"prefix with _ to ignore or remove the variable",
 			)
 		}
@@ -356,10 +356,7 @@ func (tc *TypeChecker) warnIfUnused(
 	tc.emitWarningAt(
 		spec.code,
 		pos,
-		strfmt.Format("unused {label}: '{name}'", struct {
-			Label any
-			Name  any
-		}{spec.label, name}),
+		strfmt.Named("unused {label}: '{name}'", "Label", spec.label, "Name", name),
 		spec.help,
 	)
 }

@@ -185,10 +185,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 				if !tc.typesMatch(fieldTypes[i], argType) {
 					tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
 						typeToString(fieldTypes[i]), typeToString(argType),
-						strfmt.Format("argument {expr} to enum variant '{Value}'", struct {
-							Expr  any
-							Value any
-						}{i + 1, mc.Method.Value}),
+						strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i + 1, "Value", mc.Method.Value),
 						arg)
 				}
 			}
@@ -466,10 +463,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 	}
 
 	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Format("method '{Value}' of struct '{structName}' is private", struct {
-			Value      any
-			StructName any
-		}{mc.Method.Value, structName}))
+		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named("method '{Value}' of struct '{structName}' is private", "Value", mc.Method.Value, "StructName", structName))
 	}
 
 	if len(mc.Arguments) != len(methodSig.Parameters) {
@@ -492,12 +486,9 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 		if !tc.checkMutableReceiver(mc.Object) {
 			name := "expression"
 			if id, ok := mc.Object.(*ast.Identifier); ok {
-				name = strfmt.Format("variable '{Value}'", struct{ Value any }{id.Value})
+				name = strfmt.Named("variable '{Value}'", "Value", id.Value)
 			}
-			tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Format("cannot call mutable method '{Value}' on immutable {name}", struct {
-				Value any
-				Name  any
-			}{mc.Method.Value, name}))
+			tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named("cannot call mutable method '{Value}' on immutable {name}", "Value", mc.Method.Value, "Name", name))
 		}
 	}
 

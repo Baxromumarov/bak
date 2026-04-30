@@ -48,7 +48,7 @@ func (tc *TypeChecker) fitsInType(expected ast.TypeExpression, expr ast.Expressi
 				return true
 			}
 		}
-		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Format("struct literal cannot be inferred from type {typeToString}", struct{ TypeToString any }{typeToString(expected)}))
+		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named("struct literal cannot be inferred from type {typeToString}", "TypeToString", typeToString(expected)))
 		return false
 	}
 	actual := tc.inferType(expr)

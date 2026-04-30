@@ -104,10 +104,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			}
 
 			if idx < 0 || idx >= len(tt.Elements) {
-				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("tuple index {idx} out of bounds (len: {ElementsCount})", struct {
-					Idx           any
-					ElementsCount any
-				}{idx, len(tt.Elements)}))
+				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Named("tuple index {idx} out of bounds (len: {ElementsCount})", "Idx", idx, "ElementsCount", len(tt.Elements)))
 				return nil
 			}
 
@@ -122,10 +119,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			// Check visibility
 			if fieldDef.Visibility != ast.Public &&
 				structDef.Package != tc.currentPkgName {
-				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("field '{Value}' of struct '{structName}' is private", struct {
-					Value      any
-					StructName any
-				}{fa.Field.Value, structName}))
+				tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Named("field '{Value}' of struct '{structName}' is private", "Value", fa.Field.Value, "StructName", structName))
 			}
 
 			// If the struct is from an imported package, we MUST qualify its field's type
@@ -167,10 +161,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 			}
 			return objType
 		}
-		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Format("enum '{structName}' has no variant '{Value}'", struct {
-			StructName any
-			Value      any
-		}{structName, fa.Field.Value}))
+		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Named("enum '{structName}' has no variant '{Value}'", "StructName", structName, "Value", fa.Field.Value))
 		return nil
 	}
 

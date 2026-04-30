@@ -1,36 +1,10 @@
 package main
 
-func sum(a: int, b: int) -> (int) {
+pub func sum(a: int, b: int) -> (int) {
     return a + b
 }
 
-func main() -> (void) {
-    mut var mp: HashMap<string, int> = HashMap.new()
-
-    mp.insert(
-        "a",
-        1,
-    )
-    mp.insert(
-        "b",
-        2,
-    )
-    println(mp)
-    println(
-        sum(
-            mp.get("a").unwrap(),
-            mp.get("b").unwrap(),
-        ),
-    )
-    mp.remove("a")
-    mp.insert(
-       " 1",
-        3,
-    )
-
-    println(mp)
-    
-    println(mp.len())
-    
+pub func demo() -> (void) {
+    println(sum(1, 2))
     return void
 }

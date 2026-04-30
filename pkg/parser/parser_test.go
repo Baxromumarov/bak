@@ -94,6 +94,37 @@ pub func foo(handler func(name string count string) -> (void)) -> (void) {
 	}
 }
 
+func TestStringLiteralInterpolation(t *testing.T) {
+	input := `
+package main
+func main() -> (void) {
+	var i: int = 7
+	println("case {i}: {i + 1} | literal {{ok}}")
+}
+`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	fn := program.Statements[1].(*ast.FunctionDecl)
+	callStmt := fn.Body.Statements[1].(*ast.ExpressionStatement)
+	call := callStmt.Expression.(*ast.CallExpression)
+	fstr, ok := call.Arguments[0].(*ast.FStringLiteral)
+	if !ok {
+		t.Fatalf("expected interpolated string argument, got %T", call.Arguments[0])
+	}
+	if len(fstr.Elements) != 5 {
+		t.Fatalf("expected 5 interpolated string elements, got %d", len(fstr.Elements))
+	}
+	if _, ok := fstr.Elements[1].(*ast.Identifier); !ok {
+		t.Fatalf("expected first interpolation to be identifier, got %T", fstr.Elements[1])
+	}
+	if _, ok := fstr.Elements[3].(*ast.InfixExpression); !ok {
+		t.Fatalf("expected second interpolation to be infix expression, got %T", fstr.Elements[3])
+	}
+}
+
 func TestStructLiteralFieldRequiresValue(t *testing.T) {
 	input := `
 package main

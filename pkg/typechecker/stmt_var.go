@@ -16,7 +16,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		if vs.Value == nil {
 			tc.errorMissingTypeAt(
 				varPos,
-				strfmt.Format("variable '{Value}' requires a type annotation or an initial value", struct{ Value any }{vs.Name.Value}),
+				strfmt.Named("variable '{Value}' requires a type annotation or an initial value", "Value", vs.Name.Value),
 				"add an explicit type or initialize the variable from a function or method call",
 			)
 			return
@@ -32,7 +32,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		if !canInfer {
 			tc.errorMissingTypeAt(
 				varPos,
-				strfmt.Format("missing type annotation for variable '{Value}'", struct{ Value any }{vs.Name.Value}),
+				strfmt.Named("missing type annotation for variable '{Value}'", "Value", vs.Name.Value),
 				"every variable type must be written explicitly unless getting value from function",
 			)
 		}
@@ -119,10 +119,7 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 	if tt, ok := valueType.(*ast.TupleType); ok {
 		if len(mvs.Names) != len(tt.Elements) {
 
-			tc.addError(mvs.Token.Line, mvs.Token.Column, strfmt.Format("wrong number of variables in destructuring: expected {ElementsCount}, got {NamesCount}", struct {
-				ElementsCount any
-				NamesCount    any
-			}{len(tt.Elements), len(mvs.Names)}))
+			tc.addError(mvs.Token.Line, mvs.Token.Column, strfmt.Named("wrong number of variables in destructuring: expected {ElementsCount}, got {NamesCount}", "ElementsCount", len(tt.Elements), "NamesCount", len(mvs.Names)))
 			return
 		}
 		// Define each variable with its corresponding type from the tuple

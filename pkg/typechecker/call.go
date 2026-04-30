@@ -24,15 +24,9 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		if enumDef, ok := tc.lookupQualifiedEnum(st.Name); ok {
 			if variant, ok := enumDef.Variants[fa2.Field.Value]; ok {
 				if variant.HasPayload && len(ce.Arguments) == 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Format("variant '{Name}.{Value}' requires arguments", struct {
-						Name  any
-						Value any
-					}{st.Name, fa2.Field.Value}))
+					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Named("variant '{Name}.{Value}' requires arguments", "Name", st.Name, "Value", fa2.Field.Value))
 				} else if !variant.HasPayload && len(ce.Arguments) > 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Format("variant '{Name}.{Value}' does not accept arguments", struct {
-						Name  any
-						Value any
-					}{st.Name, fa2.Field.Value}))
+					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Named("variant '{Name}.{Value}' does not accept arguments", "Name", st.Name, "Value", fa2.Field.Value))
 				}
 				for _, arg := range ce.Arguments {
 					tc.inferType(arg)
@@ -104,22 +98,13 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		if !tc.checkMutableReceiver(fa2.Object) {
 			name := "expression"
 			if id, ok := fa2.Object.(*ast.Identifier); ok {
-				name = strfmt.Format("variable '{Value}'", struct{ Value any }{id.Value})
+				name = strfmt.Named("variable '{Value}'", "Value", id.Value)
 			}
 
 			tc.addError(
 				ce.Token.Line,
 				ce.Token.Column,
-				strfmt.Format(
-					"cannot call mutable method '{Value}' on immutable {name}",
-					struct {
-						Value any
-						Name  any
-					}{
-						fa2.Field.Value,
-						name,
-					},
-				),
+				strfmt.Named("cannot call mutable method '{Value}' on immutable {name}", "Value", fa2.Field.Value, "Name", name),
 			)
 		}
 	}
@@ -195,10 +180,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							if !tc.typesMatch(variant.Fields[i], argType) {
 								tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 									typeToString(variant.Fields[i]), typeToString(argType),
-									strfmt.Format("argument {expr} to enum variant '{funcName}'", struct {
-										Expr     any
-										FuncName any
-									}{i + 1, funcName}),
+									strfmt.Named("argument {expr} to enum variant '{funcName}'", "Expr", i + 1, "FuncName", funcName),
 									arg)
 							}
 						}
@@ -213,16 +195,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			// Check if it's a type definition constructor (e.g., UserId(42))
 			if underlyingType, ok := tc.env.LookupTypeDef(funcName); ok {
 				if len(ce.Arguments) != 1 {
-					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Format("type constructor '{funcName}' expects exactly 1 argument, got {ArgumentsCount}", struct {
-						FuncName       any
-						ArgumentsCount any
-					}{funcName, len(ce.Arguments)}))
+					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Named("type constructor '{funcName}' expects exactly 1 argument, got {ArgumentsCount}", "FuncName", funcName, "ArgumentsCount", len(ce.Arguments)))
 				} else {
 					argType := tc.inferType(ce.Arguments[0])
 					if !tc.typesMatch(underlyingType, argType) {
 						tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 							typeToString(underlyingType), typeToString(argType),
-							strfmt.Format("argument to type constructor '{funcName}'", struct{ FuncName any }{funcName}),
+							strfmt.Named("argument to type constructor '{funcName}'", "FuncName", funcName),
 							ce.Arguments[0])
 					}
 				}
@@ -349,10 +328,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						if !tc.typesMatch(fieldTypes[i], argType) {
 							tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 								typeToString(fieldTypes[i]), typeToString(argType),
-								strfmt.Format("argument {expr} to enum variant '{Value}'", struct {
-									Expr  any
-									Value any
-								}{i + 1, fa.Field.Value}),
+								strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i + 1, "Value", fa.Field.Value),
 								arg)
 						}
 					}
@@ -446,10 +422,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				if sig.Parameters[i] != nil && !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
 					tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 						typeToString(sig.Parameters[i]), typeToString(argType),
-						strfmt.Format("argument {expr} to '{funcName}'", struct {
-							Expr     any
-							FuncName any
-						}{i + 1, funcName}),
+						strfmt.Named("argument {expr} to '{funcName}'", "Expr", i + 1, "FuncName", funcName),
 						arg)
 				}
 

@@ -8,13 +8,13 @@ import (
 func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 	// Require explicit type for constants
 	if cs.Type == nil {
-		tc.addError(cs.Token.Line, cs.Token.Column, strfmt.Format("constant '{Value}' requires an explicit type annotation", struct{ Value any }{cs.Name.Value}))
+		tc.addError(cs.Token.Line, cs.Token.Column, strfmt.Named("constant '{Value}' requires an explicit type annotation", "Value", cs.Name.Value))
 		return
 	}
 
 	// Check if value is compile-time evaluable
 	if !tc.isCompileTimeConstant(cs.Value) {
-		tc.addError(cs.Token.Line, cs.Token.Column, strfmt.Format("constant '{Value}' value must be a compile-time constant", struct{ Value any }{cs.Name.Value}))
+		tc.addError(cs.Token.Line, cs.Token.Column, strfmt.Named("constant '{Value}' value must be a compile-time constant", "Value", cs.Name.Value))
 		return
 	}
 

@@ -3623,7 +3623,7 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		s.emitDataAddr(tmpIdx)
 		return true, nil
 	case "__builtin_user_home_dir", "__builtin_hostname", "__builtin_executable":
-		return true, s.emitResultErrStr(strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}))
+		return true, s.emitResultErrStr(strfmt.Named("{funcName} is not supported in native backend", "FuncName", funcName))
 	case "__builtin_join":
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
@@ -3716,7 +3716,7 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 			}
 		}
 		return true, s.emitResultErrStr(
-			strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}),
+			strfmt.Named("{funcName} is not supported in native backend", "FuncName", funcName),
 		)
 	}
 
@@ -3748,7 +3748,7 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		}
 
 		return true, s.emitResultErrStr(
-			strfmt.Format("{funcName} is not supported in native backend", struct{ FuncName any }{funcName}),
+			strfmt.Named("{funcName} is not supported in native backend", "FuncName", funcName),
 		)
 	}
 
