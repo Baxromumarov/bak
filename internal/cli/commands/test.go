@@ -46,6 +46,8 @@ func (c *TestCommand) Run(ctx *cli.Context, args []string) error {
 			appendPackageFilters(&opts.PackageFilters, strings.TrimPrefix(arg, "--package="))
 		case strings.HasPrefix(arg, "--pkg="):
 			appendPackageFilters(&opts.PackageFilters, strings.TrimPrefix(arg, "--pkg="))
+		case arg == "--quiet" || arg == "-q":
+			opts.Quiet = true
 		case strings.HasPrefix(arg, "-"):
 			return fmt.Errorf("unknown test flag: %s", arg)
 		default:

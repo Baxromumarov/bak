@@ -1,6 +1,8 @@
 package test
 
+import "src/std/path/path.bak" as path
 import "src/std/strconv/strconv.bak" as strconv
+import "src/std/strings/strings.bak" as strings
 
 // =============================================================================
 // Test Framework for Bak
@@ -30,12 +32,19 @@ pub struct T {
     failures: Vec<string, _>
     name: string
     case_desc: string
+    started_ns: int
 }
 
 mut var name_prefix: string = ""
+mut var quiet_mode: bool = false
 
 pub func setPrefix(prefix: string) -> (void) {
     name_prefix = prefix
+    return void
+}
+
+pub func setQuiet(quiet: bool) -> (void) {
+    quiet_mode = quiet
     return void
 }
 
@@ -54,11 +63,12 @@ pub func new(name: string) -> (T) {
         failed: false,
         failures: Vec.new(),
         name: full_name,
-        case_desc: ""
+        case_desc: "",
+        started_ns: __builtin_monotonic_now()
     }
 }
 
-func format_value<T>(val: T) -> (string) {
+func formatValue<T>(val: T) -> (string) {
     var typeName: string = typeof(val)
     if typeName == "STRING" || typeName == "string" {
         return string(val)
@@ -164,13 +174,13 @@ impl T as t {
 
     pub mut func eq<U>(got: U, want: U) -> (void) {
         if got != want {
-            t.fail("  expected: " + format_value(want) + "\n  actual:   " + format_value(got))
+            t.fail("  expected: " + formatValue(want) + "\n  actual:   " + formatValue(got))
         }
     }
 
     pub mut func ne<U>(got: U, want: U) -> (void) {
         if got == want {
-            t.fail("  expected: not " + format_value(want) + "\n  actual:   " + format_value(got))
+            t.fail("  expected: not " + formatValue(want) + "\n  actual:   " + formatValue(got))
         }
     }
 
@@ -235,7 +245,7 @@ impl T as t {
     pub mut func isErr<U>(res: Result<U, string>) -> (void) {
         switch res {
             case Ok(v) {
-                t.fail("  expected: Err\n  actual:   Ok(" + format_value(v) + ")")
+                t.fail("  expected: Err\n  actual:   Ok(" + formatValue(v) + ")")
             }
             case Err(_) {}
         }
@@ -268,6 +278,7 @@ pub struct TestResult {
     name: string
     passed: bool
     failures: Vec<string, _>
+    duration_ns: int
 }
 
 // finish converts a test context into a TestResult after the test body runs.
@@ -276,14 +287,18 @@ pub struct TestResult {
 //   // ... run test code with &mut t ...
 //   var result TestResult = test.finish(&t)
 pub func finish(t: &T) -> (TestResult) {
-    if !t.failed {
-        return TestResult{name: t.name, passed: true, failures: Vec.new()}
+    mut var elapsed: int = __builtin_monotonic_now() - t.started_ns
+    if elapsed < 0 {
+        elapsed = 0
     }
-    return TestResult{name: t.name, passed: false, failures: t.failures}
+    if !t.failed {
+        return TestResult{name: t.name, passed: true, failures: Vec.new(), duration_ns: elapsed}
+    }
+    return TestResult{name: t.name, passed: false, failures: t.failures, duration_ns: elapsed}
 }
 
 mut var has_last_result: bool = false
-mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new()}
+mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new(), duration_ns: 0}
 
 pub func takeLastResult() -> (Result<TestResult, string>) {
     if has_last_result {
@@ -296,7 +311,7 @@ pub func takeLastResult() -> (Result<TestResult, string>) {
 pub func failResult(name: string, msg: string) -> (TestResult) {
     mut var failures: Vec<string, _> = Vec.new()
     failures.push(msg)
-    return TestResult{name: name, passed: false, failures: failures}
+    return TestResult{name: name, passed: false, failures: failures, duration_ns: 0}
 }
 
 // =============================================================================
@@ -304,50 +319,262 @@ pub func failResult(name: string, msg: string) -> (TestResult) {
 // =============================================================================
 
 func esc() -> (string) { return string(char(27)) }
+func bold() -> (string) { return esc() + "[1m" }
 func red() -> (string) { return esc() + "[31m" }
 func green() -> (string) { return esc() + "[32m" }
+func yellow() -> (string) { return esc() + "[33m" }
+func cyan() -> (string) { return esc() + "[36m" }
 func reset() -> (string) { return esc() + "[0m" }
 
-// runTests takes a list of results and prints the UI
-pub func runTests(results: Vec<TestResult, _>) -> (void) {
-    println("running ", results.len(), " tests")
-    
+func repeatText(unit: string, count: int) -> (string) {
+    if count <= 0 {
+        return ""
+    }
+    mut var out: string = ""
+    mut var i: int = 0
+    while i < count {
+        out = out + unit
+        i = i + 1
+    }
+    return out
+}
+
+func padRight(s: string, width: int) -> (string) {
+    if s.len() >= width {
+        return s
+    }
+    return s + repeatText(" ", width - s.len())
+}
+
+func plural(n: int, one: string, many: string) -> (string) {
+    if n == 1 {
+        return one
+    }
+    return many
+}
+
+func fileLabel() -> (string) {
+    if name_prefix == "" {
+        return ""
+    }
+    var split: path.Split = path.split(&name_prefix)
+    if split.Base == "" || split.Base == "." {
+        return name_prefix
+    }
+    return split.Base
+}
+
+func displayTestName(full: string) -> (string) {
+    var sep: string = ":"
+    var idx: int = strings.lastIndexOf(&full, &sep)
+    if idx < 0 || idx + 1 >= full.len() {
+        return full
+    }
+    return strings.substring(
+        &full,
+        idx + 1,
+        full.len(),
+    )
+}
+
+func displayLocation(full: string) -> (string) {
+    var sep: string = ":"
+    var idx: int = strings.lastIndexOf(&full, &sep)
+    if idx <= 0 {
+        return full
+    }
+    return strings.substring(&full, 0, idx)
+}
+
+func formatDurationMs(ns: int) -> (string) {
+    if ns <= 0 {
+        return "0.0ms"
+    }
+    var tenths_ms: int = (ns + 50000) / 100000
+    var whole: int = tenths_ms / 10
+    var frac: int = tenths_ms % 10
+    return strconv.intToString(whole) + "." + strconv.intToString(frac) + "ms"
+}
+
+func failureHint() -> (string) {
+    return "re-run this test with --run to isolate the failing case"
+}
+
+func splitFailureMessage(raw: string) -> (string, string) {
+    var newline: string = "\n"
+    var lines: Vec<string, _> = strings.split(&raw, &newline)
+    if lines.len() == 0 {
+        return "", raw
+    }
+
+    var first: string = lines.get(0).unwrap()
+    var case_prefix: string = "  case: "
+    if !strings.startsWith(&first, &case_prefix) {
+        return "", raw
+    }
+
+    var case_name: string = strings.trim(&strings.substring(
+        &first,
+        case_prefix.len(),
+        first.len(),
+    ))
+
+    mut var body: string = ""
+    mut var i: int = 1
+    while i < lines.len() {
+        if i > 1 {
+            body = body + "\n"
+        }
+        body = body + lines.get(i).unwrap()
+        i = i + 1
+    }
+
+    return case_name, body
+}
+
+func indentBlock(text: string, prefix: string) -> (string) {
+    var newline: string = "\n"
+    var indented_newline: string = "\n" + prefix
+    return strings.replace(&text, &newline, &indented_newline)
+}
+
+func printFailureDetails(r: TestResult) -> (void) {
+    var location: string = displayLocation(r.name)
+    var testName: string = displayTestName(r.name)
+
+    println("")
+    println(bold() + red() + "FAIL" + reset() + "  " + cyan() + location + reset() + "  " + yellow() + "->" + reset() + "  " + cyan() + testName + reset())
+    println("  " + yellow() + "result" + reset() + "    " + red() + "failed" + reset())
+    println("  " + yellow() + "details" + reset())
+
+    mut var j: int = 0
+    while j < r.failures.len() {
+        var failure: string = r.failures.get(j).unwrap()
+        var (caseName, message) = splitFailureMessage(failure)
+
+        println("    " + bold() + yellow() + "#" + strconv.intToString(j + 1) + reset())
+        if caseName != "" {
+            println("      " + cyan() + "case" + reset() + "    " + caseName)
+        }
+
+        if message != "" {
+            println("      " + red() + "message" + reset())
+            println("        " + indentBlock(message, "        "))
+        }
+
+        if j + 1 < r.failures.len() {
+            println("")
+        }
+        j = j + 1
+    }
+
+    println("  " + yellow() + "hint" + reset() + "     " + cyan() + failureHint() + reset())
+}
+
+func runQuiet(results: Vec<TestResult, _>) -> (bool) {
+    mut var failed_count: int = 0
+    mut var failed_names: Vec<string, _> = Vec.new()
     mut var i: int = 0
     while i < results.len() {
         var r: TestResult = results.get(i).unwrap()
         if r.passed {
-            println(green(), "PASS", reset(), " ", r.name)
+            print(".")
         } else {
-            println(red(), "FAIL", reset(), " ", r.name)
+            print("F")
+            failed_count = failed_count + 1
+            failed_names.push(r.name)
         }
         i = i + 1
     }
     println("")
-    println("")
+    if failed_count == 0 {
+        println(strconv.intToString(results.len()) + " ok")
+        return true
+    }
 
+    if failed_count == 1 {
+        println("1 failed  " + failed_names.get(0).unwrap())
+        return false
+    }
+
+    println(strconv.intToString(failed_count) + " failed")
+    i = 0
+    while i < failed_names.len() {
+        println("  " + failed_names.get(i).unwrap())
+        i = i + 1
+    }
+    return false
+}
+
+// runTests takes a list of results and prints the UI
+pub func runTests(results: Vec<TestResult, _>) -> (bool) {
+    if quiet_mode {
+        return runQuiet(results)
+    }
+
+    mut var name_width: int = 0
+    mut var i: int = 0
+    while i < results.len() {
+        var current: TestResult = results.get(i).unwrap()
+        var n: string = displayTestName(current.name)
+        if n.len() > name_width {
+            name_width = n.len()
+        }
+        i = i + 1
+    }
+    if name_width < 28 {
+        name_width = 28
+    }
+
+    println("")
+    println(cyan() + "━━ Running " + strconv.intToString(results.len()) + " " + plural(results.len(), "test", "tests") + " ━━" + reset())
+    if name_prefix != "" {
+        println("")
+        println("📁 " + fileLabel())
+        println("")
+    }
+
+    mut var passed_count: int = 0
     mut var failed_count: int = 0
     i = 0
     while i < results.len() {
-        var r2: TestResult = results.get(i).unwrap()
-        if !r2.passed {
-            failed_count = failed_count + 1
-            println(red(), "FAILURES:", reset())
-            println("")
-            println(red(), r2.name, reset())
-            mut var j: int = 0
-            while j < r2.failures.len() {
-                println("  failure #", j + 1)
-                println(r2.failures.get(j).unwrap())
-                j = j + 1
-            }
-            println("")
+        var r: TestResult = results.get(i).unwrap()
+        mut var icon: string = green() + "✓" + reset()
+        if !r.passed {
+            icon = red() + "✗" + reset()
         }
+        mut var row: string = "  " + icon + " " + padRight(displayTestName(r.name), name_width) + "  " + formatDurationMs(r.duration_ns)
+        if r.passed {
+            passed_count = passed_count + 1
+        } else {
+            failed_count = failed_count + 1
+            row = row + "  " + red() + "FAIL" + reset()
+        }
+        println(row)
         i = i + 1
     }
+    println("")
+
+    if failed_count > 0 {
+        i = 0
+        while i < results.len() {
+            var r2: TestResult = results.get(i).unwrap()
+            if !r2.passed {
+                printFailureDetails(r2)
+            }
+            i = i + 1
+        }
+    }
+
+    println(cyan() + "━━ Summary ━━" + reset())
+    println(green() + "✔" + reset() + " Passed   " + strconv.intToString(passed_count))
+    println(red() + "✖" + reset() + " Failed   " + strconv.intToString(failed_count))
+    println(yellow() + "↷" + reset() + " Skipped  0")
+    println("──────────────")
+    println("Total      " + strconv.intToString(results.len()))
 
     if failed_count == 0 {
-        println(green(), "ok (", results.len(), " tests)", reset())
-    } else {
-        println(red(), "test result: FAILED. ", results.len() - failed_count, " passed; ", failed_count, " failed", reset())
+        return true
     }
+    return false
 }

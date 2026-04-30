@@ -40,8 +40,8 @@ func TestBuildTestRunnerIncludesExpectedCalls(t *testing.T) {
 
 import "src/std/test/test.bak" as test
 
-func test_alpha() -> (void) {
-	mut var t: test.T = test.new("test_alpha")
+func testAlpha() -> (void) {
+	mut var t: test.T = test.new("testAlpha")
 	t.finish()
 }
 
@@ -60,16 +60,16 @@ func test_beta(t: test.T) -> (void) {
 	if len(tests) != 2 {
 		t.Fatalf("expected two discovered tests, got %d", len(tests))
 	}
-	if tests[0].name != "test_alpha" || tests[0].arity != 0 {
+	if tests[0].name != "testAlpha" || tests[0].arity != 0 {
 		t.Fatalf("unexpected first test info: %+v", tests[0])
 	}
 	if tests[1].name != "test_beta" || tests[1].arity != 1 {
 		t.Fatalf("unexpected second test info: %+v", tests[1])
 	}
 
-	runner := buildTestRunner("sample.bak", tests)
+	runner := buildTestRunner("sample.bak", tests, false)
 	runnerText := runner.String()
-	for _, want := range []string{"test.setPrefix", "test.takeLastResult", "test.failResult", "test.runTests", "test.clearPrefix", "&mut t2"} {
+	for _, want := range []string{"test.setPrefix", "test.setQuiet", "test.takeLastResult", "test.failResult", "test.runTests", "&mut t2"} {
 		if !strings.Contains(runnerText, want) {
 			t.Fatalf("runner AST string missing %q: %s", want, runnerText)
 		}

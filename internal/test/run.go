@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/baxromumarov/bak/internal/config"
 	"github.com/baxromumarov/bak/internal/pipeline"
@@ -20,11 +22,13 @@ type Options struct {
 	Targets        []string
 	RunPattern     string
 	PackageFilters []string
+	Quiet          bool
 }
 
 type testFunctionInfo struct {
 	name  string
 	arity int
+	line  int
 }
 
 type testFileRunResult struct {
@@ -65,8 +69,16 @@ func Run(
 	passed := 0
 	failed := 0
 
-	for _, file := range files {
-		result := runTestFile(file, permissions, opts.RunPattern)
+	if !opts.Quiet && len(files) > 1 {
+		printSuiteProgress(0, len(files), "")
+	}
+
+	for i, file := range files {
+		if !opts.Quiet && len(files) > 1 {
+			printSuiteProgress(i+1, len(files), filepath.Base(file))
+		}
+
+		result := runTestFile(file, permissions, opts.RunPattern, opts.Quiet)
 		if !result.Executed {
 			skipped++
 			continue
@@ -81,14 +93,17 @@ func Run(
 		}
 	}
 
-	_, _ = strfmt.Fprintln(os.Stdout, strfmt.Named(
-		"\nTest file summary: total={total} executed={executed} skipped={skipped} passed={passed} failed={failed}",
-		"total", len(files),
-		"executed", executed,
-		"skipped", skipped,
-		"passed", passed,
-		"failed", failed,
-	))
+	shouldPrintFileSummary := len(files) > 1 || skipped > 0 || len(pathErrors) > 0
+	if !opts.Quiet && shouldPrintFileSummary {
+		_, _ = strfmt.Fprintln(os.Stdout, strfmt.Named(
+			"\nFile summary: total={total} executed={executed} skipped={skipped} passed={passed} failed={failed}",
+			"total", len(files),
+			"executed", executed,
+			"skipped", skipped,
+			"passed", passed,
+			"failed", failed,
+		))
+	}
 	if len(pathErrors) > 0 {
 		_, _ = strfmt.Fprintln(
 			os.Stdout,
@@ -98,12 +113,35 @@ func Run(
 	}
 
 	if failed != 0 || len(pathErrors) != 0 {
-		return errors.New("test run failed")
+		return ErrTestsFailed
 	}
 	return nil
 }
 
+func printSuiteProgress(done, total int, current string) {
+	if total <= 0 {
+		return
+	}
+	barWidth := 20
+	filled := done * barWidth / total
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > barWidth {
+		filled = barWidth
+	}
+
+	bar := "[" + strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled) + "]"
+	if current == "" {
+		_, _ = strfmt.Fprintln(os.Stdout, bar, " ", done, "/", total)
+		return
+	}
+
+	_, _ = strfmt.Fprintln(os.Stdout, bar, " ", done, "/", total, " ", current)
+}
+
 var (
+	ErrTestsFailed    = errors.New("test run failed")
 	testExecutedTrue  = testFileRunResult{Executed: true, Passed: true}
 	testExecutedFalse = testFileRunResult{Executed: false, Passed: true}
 )
@@ -113,6 +151,7 @@ func runTestFile(
 	filename string,
 	permissions runtimecap.Permissions,
 	runPattern string,
+	quiet bool,
 ) testFileRunResult {
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -136,6 +175,7 @@ func runTestFile(
 	}
 
 	tests := discoverTestFunctions(origProgram)
+	tests = fillTestFunctionLines(src, tests)
 	tests = filterTestsByNamePattern(tests, runPattern)
 	if len(tests) == 0 {
 		if runPattern != "" {
@@ -154,7 +194,7 @@ func runTestFile(
 	}
 
 	combined := cloneProgram(origProgram)
-	combined.Statements = append(combined.Statements, buildTestRunner(filename, tests))
+	combined.Statements = append(combined.Statements, buildTestRunner(filename, tests, quiet))
 
 	combined.SourcePath = filename
 
@@ -227,7 +267,8 @@ func runTestFile(
 	}
 
 	v := vm.NewWithPermissions(module, permissions)
-	if _, err := v.Run(); err != nil {
+	result, err := v.Run()
+	if err != nil {
 		_, _ = strfmt.Fprintln(
 			os.Stderr,
 			"Test failure in ",
@@ -236,8 +277,32 @@ func runTestFile(
 			err,
 		)
 
-		return testExecutedTrue
+		return testFileRunResult{Executed: true, Passed: false}
+	}
+
+	if result.Type == compiler.VAL_BOOL {
+		return testFileRunResult{Executed: true, Passed: result.AsBool}
 	}
 
 	return testExecutedTrue
+}
+
+func fillTestFunctionLines(src string, tests []testFunctionInfo) []testFunctionInfo {
+	if len(tests) == 0 {
+		return tests
+	}
+	lines := strings.Split(src, "\n")
+	for i := range tests {
+		if tests[i].line > 0 {
+			continue
+		}
+		needle := "func " + tests[i].name + "("
+		for lineIndex, line := range lines {
+			if strings.Contains(line, needle) {
+				tests[i].line = lineIndex + 1
+				break
+			}
+		}
+	}
+	return tests
 }

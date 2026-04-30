@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -56,8 +57,11 @@ func test_one() -> (void) {
 	if err != nil {
 		t.Fatalf("Run returned error: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "Test file summary") {
-		t.Fatalf("expected summary in output, got:\n%s", out)
+	if !strings.Contains(out, "━━ Summary ━━") {
+		t.Fatalf("expected test summary block in output, got:\n%s", out)
+	}
+	if strings.Contains(out, "File summary:") {
+		t.Fatalf("did not expect file summary for a single fully-executed file, got:\n%s", out)
 	}
 }
 
@@ -98,10 +102,13 @@ func test_bad() -> (void) {
 	io.Copy(&buf, rErr)
 	out := buf.String()
 
-	if err != nil {
-		t.Fatalf("Run returned unexpected error: %v\nOutput:\n%s", err, out)
+	if err == nil {
+		t.Fatalf("Run returned nil error for failing test\nOutput:\n%s", out)
 	}
-	if !strings.Contains(out, "test result: FAILED") && !strings.Contains(out, "FAIL") {
+	if !errors.Is(err, ErrTestsFailed) {
+		t.Fatalf("expected ErrTestsFailed, got: %v", err)
+	}
+	if !strings.Contains(out, "FAIL") {
 		t.Fatalf("expected test failure markers in output, got:\n%s", out)
 	}
 }
@@ -151,8 +158,8 @@ func test_beta() -> (void) {
 	if err != nil {
 		t.Fatalf("Run returned error: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "executed=1") {
-		t.Fatalf("expected executed=1 in output, got:\n%s", out)
+	if !strings.Contains(out, "test_alpha") || strings.Contains(out, "test_beta") {
+		t.Fatalf("expected only test_alpha to run, got:\n%s", out)
 	}
 }
 
@@ -216,7 +223,7 @@ func test_b() -> (void) {
 	if err != nil {
 		t.Fatalf("Run returned error: %v\nOutput:\n%s", err, out)
 	}
-	if !strings.Contains(out, "executed=1") {
-		t.Fatalf("expected executed=1 in output, got:\n%s", out)
+	if !strings.Contains(out, "test_a") || strings.Contains(out, "test_b") {
+		t.Fatalf("expected only package a tests to run, got:\n%s", out)
 	}
 }

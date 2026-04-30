@@ -4,7 +4,7 @@ import "src/std/test/test.bak" as test
 
 // Tests for the standard test package helpers.
 
-func test_fail_and_fail_now() -> (void) {
+func testFailAndFailNow() -> (void) {
     mut var t: test.T = test.new("test_fail_and_fail_now")
 
     mut var inner: test.T = test.new("inner")
@@ -38,7 +38,7 @@ func test_fail_and_fail_now() -> (void) {
     t.finish()
 }
 
-func test_case_desc_prefix() -> (void) {
+func testCaseDescPrefix() -> (void) {
     mut var t: test.T = test.new("test_case_desc_prefix")
 
     mut var inner: test.T = test.new("inner")
@@ -66,7 +66,7 @@ func test_case_desc_prefix() -> (void) {
     t.finish()
 }
 
-func test_eq_and_ne() -> (void) {
+func testEqAndNe() -> (void) {
     mut var t: test.T = test.new("test_eq_and_ne")
 
     mut var inner: test.T = test.new("inner")
@@ -102,7 +102,7 @@ func test_eq_and_ne() -> (void) {
     t.finish()
 }
 
-func test_eq_string_and_char() -> (void) {
+func testEqStringAndChar() -> (void) {
     mut var t: test.T = test.new("test_eq_string_and_char")
 
     mut var s: test.T = test.new("string")
@@ -130,7 +130,7 @@ func test_eq_string_and_char() -> (void) {
     t.finish()
 }
 
-func test_eq_float() -> (void) {
+func testEqFloat() -> (void) {
     mut var t: test.T = test.new("test_eq_float")
 
     mut var f: test.T = test.new("float")
@@ -146,7 +146,7 @@ func test_eq_float() -> (void) {
     t.finish()
 }
 
-func test_bool_helpers() -> (void) {
+func testBoolHelpers() -> (void) {
     mut var t: test.T = test.new("test_bool_helpers")
 
     mut var a: test.T = test.new("a")
@@ -172,7 +172,7 @@ func test_bool_helpers() -> (void) {
     t.finish()
 }
 
-func test_compare_helpers() -> (void) {
+func testCompareHelpers() -> (void) {
     mut var t: test.T = test.new("test_compare_helpers")
 
     mut var a: test.T = test.new("a")
@@ -218,7 +218,7 @@ func test_compare_helpers() -> (void) {
     t.finish()
 }
 
-func test_result_helpers() -> (void) {
+func testResultHelpers() -> (void) {
     mut var t: test.T = test.new("test_result_helpers")
 
     mut var a: test.T = test.new("a")
@@ -248,7 +248,7 @@ func test_result_helpers() -> (void) {
     t.finish()
 }
 
-func test_contains() -> (void) {
+func testContains() -> (void) {
     mut var t: test.T = test.new("test_contains")
 
     mut var inner: test.T = test.new("inner")
@@ -264,7 +264,7 @@ func test_contains() -> (void) {
     t.finish()
 }
 
-func test_prefix_and_results() -> (void) {
+func testPrefixAndResults() -> (void) {
     mut var t: test.T = test.new("test_prefix_and_results")
 
     test.clearPrefix()
@@ -294,5 +294,28 @@ func test_prefix_and_results() -> (void) {
 
     test.failResult("oops", "bad")
 
+    t.finish()
+}
+
+func testQuietModeRunTests() -> (void) {
+    mut var t: test.T = test.new("test_quiet_mode_run_tests")
+
+    test.setQuiet(true)
+
+    mut var passing: test.T = test.new("passing")
+    var passing_result: test.TestResult = test.finish(&passing)
+    var failing_result: test.TestResult = test.failResult("failing", "boom")
+
+    var results: Vec<test.TestResult, _> = Vec.from([
+        passing_result,
+        failing_result,
+    ])
+
+    var passed: bool = test.runTests(results)
+    if passed {
+        t.fail("quiet runTests should report failure when any test fails")
+    }
+
+    test.setQuiet(false)
     t.finish()
 }

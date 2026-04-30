@@ -98,6 +98,7 @@ func (s *commandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) err
 		Targets:        opts.Targets,
 		RunPattern:     opts.RunPattern,
 		PackageFilters: opts.PackageFilters,
+		Quiet:          opts.Quiet,
 	})
 }
 

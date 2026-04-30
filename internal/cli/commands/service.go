@@ -9,6 +9,7 @@ type TestOptions struct {
 	Targets        []string
 	RunPattern     string
 	PackageFilters []string
+	Quiet          bool
 }
 
 // ExplainOptions configures the diagnostic explanation command.

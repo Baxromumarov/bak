@@ -1,6 +1,8 @@
 package test
 
 import (
+	"strconv"
+
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
@@ -9,6 +11,7 @@ import (
 func buildTestRunner(
 	filename string,
 	tests []testFunctionInfo,
+	quiet bool,
 ) *ast.FunctionDecl {
 
 	statements := make([]ast.Statement, 0, len(tests)*4+4)
@@ -17,6 +20,12 @@ func buildTestRunner(
 			identifier("test"),
 			"setPrefix",
 			stringLiteral(filename),
+		)),
+
+		makeExpressionStatement(methodCall(
+			identifier("test"),
+			"setQuiet",
+			boolLiteral(quiet),
 		)),
 
 		makeVarStatementWithType(
@@ -33,6 +42,20 @@ func buildTestRunner(
 	for i, testFn := range tests {
 		index := i + 1
 		label := filename + ":" + testFn.name
+		prefix := filename
+		if testFn.line > 0 {
+			line := strconv.Itoa(testFn.line)
+			label = filename + ":" + line + ":" + testFn.name
+			prefix = filename + ":" + line
+		}
+
+		statements = append(statements,
+			makeExpressionStatement(methodCall(
+				identifier("test"),
+				"setPrefix",
+				stringLiteral(prefix),
+			)),
+		)
 
 		if testFn.arity == 0 {
 			lrName := strfmt.Named("lr{index}",
@@ -131,13 +154,14 @@ func buildTestRunner(
 	statements = append(statements,
 		makeExpressionStatement(methodCall(
 			identifier("test"),
-			"runTests",
-			identifier("results"),
+			"setPrefix",
+			stringLiteral(filename),
 		)),
 
-		makeExpressionStatement(methodCall(
+		makeReturnStatement(methodCall(
 			identifier("test"),
-			"clearPrefix",
+			"runTests",
+			identifier("results"),
 		)),
 	)
 
@@ -147,11 +171,12 @@ func buildTestRunner(
 			Literal: "func",
 		},
 		Name: identifier("run_all_tests"),
-		ReturnType: &ast.VoidType{
+		ReturnType: &ast.SimpleType{
 			Token: token.Token{
-				Type:    token.VOID,
-				Literal: "void",
+				Type:    token.IDENT,
+				Literal: "bool",
 			},
+			Name: "bool",
 		},
 		Body: makeBlockStatement(statements),
 	}
@@ -232,6 +257,16 @@ func makeExpressionStatement(expr ast.Expression) *ast.ExpressionStatement {
 			Literal: expr.TokenLiteral(),
 		},
 		Expression: expr,
+	}
+}
+
+func makeReturnStatement(expr ast.Expression) *ast.ReturnStatement {
+	return &ast.ReturnStatement{
+		Token: token.Token{
+			Type:    token.RETURN,
+			Literal: "return",
+		},
+		ReturnValue: expr,
 	}
 }
 
@@ -317,6 +352,22 @@ func stringLiteral(value string) ast.Expression {
 		Token: token.Token{
 			Type:    token.STRING,
 			Literal: value,
+		},
+		Value: value,
+	}
+}
+
+func boolLiteral(value bool) ast.Expression {
+	literal := "false"
+	tok := token.FALSE
+	if value {
+		literal = "true"
+		tok = token.TRUE
+	}
+	return &ast.BooleanLiteral{
+		Token: token.Token{
+			Type:    tok,
+			Literal: literal,
 		},
 		Value: value,
 	}

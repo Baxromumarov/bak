@@ -134,11 +134,26 @@ func packageNameFromFile(path string) (string, error) {
 func discoverTestFunctions(program *ast.Program) []testFunctionInfo {
 	tests := make([]testFunctionInfo, 0)
 	for _, stmt := range program.Statements {
-		if fn, ok := stmt.(*ast.FunctionDecl); ok && strings.HasPrefix(fn.Name.Value, "test_") {
-			tests = append(tests, testFunctionInfo{name: fn.Name.Value, arity: len(fn.Parameters)})
+		if fn, ok := stmt.(*ast.FunctionDecl); ok && isDiscoverableTestFunction(fn.Name.Value) {
+			line := fn.Name.Token.Line
+			if line == 0 {
+				line = fn.Token.Line
+			}
+			tests = append(tests, testFunctionInfo{name: fn.Name.Value, arity: len(fn.Parameters), line: line})
 		}
 	}
 	return tests
+}
+
+func isDiscoverableTestFunction(name string) bool {
+	if strings.HasPrefix(name, "test_") {
+		return true
+	}
+	if len(name) <= 4 || !strings.HasPrefix(name, "test") {
+		return false
+	}
+	ch := name[4]
+	return ch >= 'A' && ch <= 'Z'
 }
 
 func filterTestsByNamePattern(tests []testFunctionInfo, runPattern string) []testFunctionInfo {
