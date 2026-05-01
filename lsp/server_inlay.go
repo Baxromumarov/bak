@@ -2,8 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"log"
-	"runtime/debug"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -279,11 +277,7 @@ func (s *Server) handleInlayHint(req Request) []InlayHint {
 		return nil
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("panic during inlayHint(%s): %v\nStack Trace:\n%s", params.TextDocument.URI, r, debug.Stack())
-		}
-	}()
+	defer recoverAndLog("textDocument/inlayHint")
 
 	text, ok := s.Documents[params.TextDocument.URI]
 	if !ok {

@@ -16,8 +16,10 @@ type BytecodeModule struct {
 	EntryPoint int
 
 	// Type definitions
-	StructDefs map[string]*StructDef
-	EnumDefs   map[string]*EnumDef
+	StructDefs      map[string]*StructDef
+	EnumDefs        map[string]*EnumDef
+	StructDefByID   map[int]*StructDef // reverse lookup for VM
+	EnumDefByID     map[int]*EnumDef   // reverse lookup for VM
 
 	// Method table: "TypeName.methodName" -> function index
 	Methods map[string]int
@@ -68,6 +70,8 @@ func NewBytecodeModule() *BytecodeModule {
 		EntryPoint:      -1,
 		StructDefs:      make(map[string]*StructDef),
 		EnumDefs:        make(map[string]*EnumDef),
+		StructDefByID:   make(map[int]*StructDef),
+		EnumDefByID:     make(map[int]*EnumDef),
 		Methods:         make(map[string]int),
 		Globals:         make(map[string]int),
 		FunctionIndices: make(map[string]int),
@@ -93,12 +97,14 @@ func (m *BytecodeModule) AddStruct(name string, fields []FieldDef) int {
 	for i, f := range fields {
 		fieldIndex[f.Name] = i
 	}
-	m.StructDefs[name] = &StructDef{
+	def := &StructDef{
 		Name:       name,
 		TypeID:     typeID,
 		Fields:     fields,
 		FieldIndex: fieldIndex,
 	}
+	m.StructDefs[name] = def
+	m.StructDefByID[typeID] = def
 	return typeID
 }
 
@@ -109,12 +115,14 @@ func (m *BytecodeModule) AddEnum(name string, variants []VariantDef) int {
 	for i, v := range variants {
 		variantIndex[v.Name] = i
 	}
-	m.EnumDefs[name] = &EnumDef{
+	def := &EnumDef{
 		Name:         name,
 		EnumID:       enumID,
 		Variants:     variants,
 		VariantIndex: variantIndex,
 	}
+	m.EnumDefs[name] = def
+	m.EnumDefByID[enumID] = def
 	return enumID
 }
 

@@ -1,0 +1,11 @@
+package main
+
+enum Status {
+    Active
+    Inactive
+}
+
+func main() -> (void) {
+    var s: Status = Active
+    return void
+}

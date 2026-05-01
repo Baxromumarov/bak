@@ -405,7 +405,7 @@ func main() -> (void) {
 	buildNativeProgram(t, source, runtimecap.Permissions{AllowFSMutate: true})
 }
 
-func TestBuildExecutableAllowsNetworkAccessWithPermission(t *testing.T) {
+func TestBuildExecutableRejectsDatabaseInNativeBackend(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)
 
@@ -416,7 +416,13 @@ func main() -> (void) {
 }
 `
 
-	buildNativeProgram(t, source, runtimecap.Permissions{AllowNet: true})
+	err := buildNativeProgramError(t, source, runtimecap.Permissions{AllowNet: true})
+	if err == nil {
+		t.Fatalf("expected BuildExecutable to reject __builtin_pg_connect in native backend")
+	}
+	if !strings.Contains(err.Error(), "does not support") {
+		t.Fatalf("expected unsupported error, got %v", err)
+	}
 }
 
 func TestBuildExecutableRejectsFileMutationWithoutPermission(t *testing.T) {
@@ -439,7 +445,7 @@ func main() -> (void) {
 	}
 }
 
-func TestBuildExecutableRejectsNetworkWithoutPermission(t *testing.T) {
+func TestBuildExecutableRejectsSocketsInNativeBackend(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)
 
@@ -450,12 +456,12 @@ func main() -> (void) {
 }
 `
 
-	err := buildNativeProgramError(t, source, runtimecap.Permissions{})
+	err := buildNativeProgramError(t, source, runtimecap.Permissions{AllowNet: true})
 	if err == nil {
-		t.Fatalf("expected BuildExecutable to reject __builtin_socket_connect without permission")
+		t.Fatalf("expected BuildExecutable to reject __builtin_socket_connect in native backend")
 	}
-	if !strings.Contains(err.Error(), runtimecap.FlagAllowNet) {
-		t.Fatalf("expected network permission error, got %v", err)
+	if !strings.Contains(err.Error(), "does not support") {
+		t.Fatalf("expected unsupported error, got %v", err)
 	}
 }
 

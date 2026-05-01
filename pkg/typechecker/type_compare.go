@@ -6,6 +6,22 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 )
 
+// isWildcardType reports whether t is the underscore wildcard type.
+func isWildcardType(t ast.TypeExpression) bool {
+	st, ok := t.(*ast.SimpleType)
+	return ok && st.Name == "_"
+}
+
+// isGenericParamType reports whether t is a generic type parameter (single uppercase letter).
+func isGenericParamType(t ast.TypeExpression) bool {
+	st, ok := t.(*ast.SimpleType)
+	if !ok {
+		return false
+	}
+	name := st.Name
+	return len(name) == 1 && name[0] >= 'A' && name[0] <= 'Z'
+}
+
 // typesMatch checks if two types are compatible
 func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 	if expected == nil || actual == nil {
@@ -15,19 +31,26 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 	expected = tc.resolveAlias(expected)
 	actual = tc.resolveAlias(actual)
 
-	expectedStr := typeToString(expected)
-	actualStr := typeToString(actual)
-
-	if expectedStr == "_" || actualStr == "_" || isGenericTypeParam(expectedStr) || isGenericTypeParam(actualStr) {
+	// Fast path: wildcard or generic param matches anything
+	if isWildcardType(expected) || isWildcardType(actual) ||
+		isGenericParamType(expected) || isGenericParamType(actual) {
 		return true
 	}
 
-	if strings.HasPrefix(expectedStr, "Result<") && strings.HasPrefix(actualStr, "Result<") {
-		eg, ok1 := expected.(*ast.GenericType)
-		ag, ok2 := actual.(*ast.GenericType)
-		if ok1 && ok2 && len(eg.TypeParams) == len(ag.TypeParams) {
-			for i := range eg.TypeParams {
-				if !tc.typesMatch(eg.TypeParams[i], ag.TypeParams[i]) {
+	// Fast path for SimpleType: avoid stringification
+	expSimple, expIsSimple := expected.(*ast.SimpleType)
+	actSimple, actIsSimple := actual.(*ast.SimpleType)
+	if expIsSimple && actIsSimple {
+		return tc.baseNamesMatch(expSimple.Name, actSimple.Name)
+	}
+
+	// Result<T, E> compatibility: compare type params directly
+	expResult, expIsResult := expected.(*ast.GenericType)
+	actResult, actIsResult := actual.(*ast.GenericType)
+	if expIsResult && actIsResult && expResult.Name == "Result" && actResult.Name == "Result" {
+		if len(expResult.TypeParams) == len(actResult.TypeParams) {
+			for i := range expResult.TypeParams {
+				if !tc.typesMatch(expResult.TypeParams[i], actResult.TypeParams[i]) {
 					return false
 				}
 			}
@@ -49,9 +72,6 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 		}
 		return exp.Size == act.Size
 	case *ast.SimpleType:
-		if act, ok := actual.(*ast.SimpleType); ok {
-			return tc.baseNamesMatch(exp.Name, act.Name)
-		}
 		if act, ok := actual.(*ast.GenericType); ok {
 			return tc.baseNamesMatch(exp.Name, act.Name)
 		}
@@ -124,6 +144,10 @@ func (tc *TypeChecker) typesMatch(expected, actual ast.TypeExpression) bool {
 		}
 		return tc.typesMatch(exp.ReturnType, act.ReturnType)
 	}
+
+	// Slow path: stringify for Vec<> dynamic size fallback and final equality
+	expectedStr := typeToString(expected)
+	actualStr := typeToString(actual)
 
 	if strings.Contains(expectedStr, "Vec<") && actualStr == "Vec<>" {
 		return true

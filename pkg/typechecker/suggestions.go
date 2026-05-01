@@ -5,16 +5,30 @@ import (
 	"strings"
 )
 
+const maxSuggestionCandidates = 100
+
 func (tc *TypeChecker) suggestIdentifiers(name string, limit int) []string {
-	return bestSuggestions(name, tc.collectIdentifierCandidates(), limit)
+	cands := tc.collectIdentifierCandidates()
+	if len(cands) > maxSuggestionCandidates {
+		cands = cands[:maxSuggestionCandidates]
+	}
+	return bestSuggestions(name, cands, limit)
 }
 
 func (tc *TypeChecker) suggestTypeNames(name string, limit int) []string {
-	return bestSuggestions(name, tc.collectTypeCandidates(), limit)
+	cands := tc.collectTypeCandidates()
+	if len(cands) > maxSuggestionCandidates {
+		cands = cands[:maxSuggestionCandidates]
+	}
+	return bestSuggestions(name, cands, limit)
 }
 
 func (tc *TypeChecker) suggestFunctionNames(name string, limit int) []string {
-	return bestSuggestions(name, tc.collectFunctionCandidates(), limit)
+	cands := tc.collectFunctionCandidates()
+	if len(cands) > maxSuggestionCandidates {
+		cands = cands[:maxSuggestionCandidates]
+	}
+	return bestSuggestions(name, cands, limit)
 }
 
 func (tc *TypeChecker) suggestTypeFix(expected, got string) string {

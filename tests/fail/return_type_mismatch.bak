@@ -1,0 +1,6 @@
+package main
+
+// expect: E0300 type mismatch
+func main() -> (int) {
+    return "hello"
+}

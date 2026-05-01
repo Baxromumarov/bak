@@ -7,6 +7,7 @@ import (
 )
 
 func TestNextToken_BasicTokens(t *testing.T) {
+	t.Parallel()
 	input := `=+(){},;`
 
 	tests := []struct {
@@ -37,6 +38,7 @@ func TestNextToken_BasicTokens(t *testing.T) {
 }
 
 func TestNextToken_Operators(t *testing.T) {
+	t.Parallel()
 	input := `== != <= >= && || << >> .. -> + - * / % < > & | ^ ~ ! ?`
 
 	tests := []struct {
@@ -82,6 +84,7 @@ func TestNextToken_Operators(t *testing.T) {
 }
 
 func TestNextToken_Keywords(t *testing.T) {
+	t.Parallel()
 	input := `var const mut func return struct enum impl if else while for in switch case default import unsafe defer panic void as break continue type alias true false pub`
 
 	tests := []struct {
@@ -130,6 +133,7 @@ func TestNextToken_Keywords(t *testing.T) {
 }
 
 func TestNextToken_TypeKeywords(t *testing.T) {
+	t.Parallel()
 	input := `int int8 int16 int32 int64 uint uint8 uint16 uint32 uint64 float32 float64 bool char string`
 
 	tests := []struct {
@@ -163,6 +167,7 @@ func TestNextToken_TypeKeywords(t *testing.T) {
 }
 
 func TestNextToken_Integers(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		input    string
 		expected string
@@ -190,6 +195,7 @@ func TestNextToken_Integers(t *testing.T) {
 }
 
 func TestNextToken_StringLiteral(t *testing.T) {
+	t.Parallel()
 	input := `"hello world"`
 	l := New(input)
 	tok := l.NextToken()
@@ -202,6 +208,7 @@ func TestNextToken_StringLiteral(t *testing.T) {
 }
 
 func TestNextToken_StringEscapeSequences(t *testing.T) {
+	t.Parallel()
 	input := `"hello\nworld"`
 	l := New(input)
 	tok := l.NextToken()
@@ -214,6 +221,7 @@ func TestNextToken_StringEscapeSequences(t *testing.T) {
 }
 
 func TestNextToken_CharLiteral(t *testing.T) {
+	t.Parallel()
 	input := `'a'`
 	l := New(input)
 	tok := l.NextToken()
@@ -226,6 +234,7 @@ func TestNextToken_CharLiteral(t *testing.T) {
 }
 
 func TestNextToken_CharEscape(t *testing.T) {
+	t.Parallel()
 	input := `'\n'`
 	l := New(input)
 	tok := l.NextToken()
@@ -238,6 +247,7 @@ func TestNextToken_CharEscape(t *testing.T) {
 }
 
 func TestNextToken_RawString(t *testing.T) {
+	t.Parallel()
 	l := New("`raw string`")
 	tok := l.NextToken()
 	if tok.Type != token.RAW_STRING {
@@ -249,6 +259,7 @@ func TestNextToken_RawString(t *testing.T) {
 }
 
 func TestNextToken_Underscore(t *testing.T) {
+	t.Parallel()
 	l := New("_")
 	tok := l.NextToken()
 	if tok.Type != token.UNDERSCORE {
@@ -266,6 +277,7 @@ func TestNextToken_Underscore(t *testing.T) {
 }
 
 func TestNextToken_SingleLineComment(t *testing.T) {
+	t.Parallel()
 	input := "// this is a comment\n42"
 	l := New(input)
 	tok := l.NextToken()
@@ -275,6 +287,7 @@ func TestNextToken_SingleLineComment(t *testing.T) {
 }
 
 func TestNextToken_MultiLineComment(t *testing.T) {
+	t.Parallel()
 	input := "/* multi\nline\ncomment */ 42"
 	l := New(input)
 	tok := l.NextToken()
@@ -284,6 +297,7 @@ func TestNextToken_MultiLineComment(t *testing.T) {
 }
 
 func TestNextToken_LineColumnTracking(t *testing.T) {
+	t.Parallel()
 	input := "var x = 10\nvar y = 20"
 	l := New(input)
 
@@ -319,6 +333,7 @@ func TestNextToken_LineColumnTracking(t *testing.T) {
 }
 
 func TestNextToken_ContainerTypes(t *testing.T) {
+	t.Parallel()
 	input := `Result Option Ok Err Some None`
 	tests := []token.TokenType{
 		token.RESULT, token.IDENT, token.OK, token.ERR, token.IDENT, token.IDENT,
@@ -335,6 +350,7 @@ func TestNextToken_ContainerTypes(t *testing.T) {
 // Error reporting tests
 
 func TestLexerError_UnterminatedString(t *testing.T) {
+	t.Parallel()
 	l := New(`"hello`)
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -343,6 +359,7 @@ func TestLexerError_UnterminatedString(t *testing.T) {
 }
 
 func TestLexerError_UnterminatedChar(t *testing.T) {
+	t.Parallel()
 	l := New(`'a`)
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -351,6 +368,7 @@ func TestLexerError_UnterminatedChar(t *testing.T) {
 }
 
 func TestLexerError_UnterminatedRawString(t *testing.T) {
+	t.Parallel()
 	l := New("`unterminated")
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -359,6 +377,7 @@ func TestLexerError_UnterminatedRawString(t *testing.T) {
 }
 
 func TestLexerError_UnterminatedMultiLineComment(t *testing.T) {
+	t.Parallel()
 	l := New("/* unterminated")
 	l.NextToken() // triggers skipComments then returns EOF
 	if len(l.Errors()) == 0 {
@@ -367,6 +386,7 @@ func TestLexerError_UnterminatedMultiLineComment(t *testing.T) {
 }
 
 func TestLexerError_BinaryNoDigits(t *testing.T) {
+	t.Parallel()
 	l := New("0b ")
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -375,6 +395,7 @@ func TestLexerError_BinaryNoDigits(t *testing.T) {
 }
 
 func TestLexerError_OctalNoDigits(t *testing.T) {
+	t.Parallel()
 	l := New("0o ")
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -383,6 +404,7 @@ func TestLexerError_OctalNoDigits(t *testing.T) {
 }
 
 func TestLexerError_HexNoDigits(t *testing.T) {
+	t.Parallel()
 	l := New("0x ")
 	l.NextToken()
 	if len(l.Errors()) == 0 {
@@ -391,6 +413,7 @@ func TestLexerError_HexNoDigits(t *testing.T) {
 }
 
 func TestNextToken_FullFunction(t *testing.T) {
+	t.Parallel()
 	input := `pub func main() -> (void) {
 	var x: int = 42
 	println(x)

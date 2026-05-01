@@ -149,7 +149,7 @@ func LoadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []st
 	if err != nil {
 		runtimecap.SetCurrentFeatures(nil)
 		_, _ = strfmt.Fprintln(os.Stderr, "Error resolving runtime feature flags: ", err)
-		os.Exit(1)
+		return base
 	}
 	runtimecap.SetCurrentFeatures(features)
 	return base

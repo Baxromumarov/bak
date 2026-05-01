@@ -839,6 +839,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 }
 
 func stringIndexOfRunes(haystack, needle string) int {
+	if isASCII(haystack) && isASCII(needle) {
+		return strings.Index(haystack, needle)
+	}
 	h := []rune(haystack)
 	n := []rune(needle)
 	if len(n) == 0 {
@@ -863,6 +866,9 @@ func stringIndexOfRunes(haystack, needle string) int {
 }
 
 func stringLastIndexOfRunes(haystack, needle string) int {
+	if isASCII(haystack) && isASCII(needle) {
+		return strings.LastIndex(haystack, needle)
+	}
 	h := []rune(haystack)
 	n := []rune(needle)
 	if len(n) == 0 {

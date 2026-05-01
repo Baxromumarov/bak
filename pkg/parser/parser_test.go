@@ -10,6 +10,7 @@ import (
 )
 
 func TestFunctionTypeAsParameter(t *testing.T) {
+	t.Parallel()
 	input := `
 	pub func listenAndServe(addr string, handler func(request.Request) -> (response.Response)) -> (Result<void, string>) {
 		return Ok(void)
@@ -22,6 +23,7 @@ func TestFunctionTypeAsParameter(t *testing.T) {
 }
 
 func TestParserShorthandVarDeclaration(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -35,6 +37,7 @@ func main() -> (void) {
 }
 
 func TestParserShorthandConstBlock(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 const (
@@ -49,6 +52,7 @@ const (
 }
 
 func TestParserErrorHintForFunctionParameter(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 pub func foo(handler func(name string count string) -> (void)) -> (void) {
@@ -72,6 +76,7 @@ pub func foo(handler func(name string count string) -> (void)) -> (void) {
 }
 
 func TestParserPeekErrorShowsExpectedAndGot(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 pub func foo(handler func(name string count string) -> (void)) -> (void) {
@@ -95,6 +100,7 @@ pub func foo(handler func(name string count string) -> (void)) -> (void) {
 }
 
 func TestStringLiteralInterpolation(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -126,6 +132,7 @@ func main() -> (void) {
 }
 
 func TestStringLiteralBracesAreLiteral(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -150,6 +157,7 @@ func main() -> (void) {
 }
 
 func TestStructLiteralFieldRequiresValue(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 
@@ -181,6 +189,7 @@ func main() -> (void) {
 // --- New parser tests ---
 
 func TestParseStructDecl(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 struct Point {
@@ -210,6 +219,7 @@ struct Point {
 }
 
 func TestParseTraceFunctionDecl(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 
@@ -235,6 +245,7 @@ trace func work(value int) -> (int) {
 }
 
 func TestParsePubTraceFunctionDecl(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 
@@ -260,6 +271,7 @@ pub trace func work() -> (void) {
 }
 
 func TestParserCanonicalizesVecShorthandToDynamic(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -302,6 +314,7 @@ func main() -> (void) {
 }
 
 func TestParseEnumDecl(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 enum Color {
@@ -331,6 +344,7 @@ enum Color {
 }
 
 func TestParseEnumWithPayload(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 enum Shape {
@@ -359,6 +373,7 @@ enum Shape {
 }
 
 func TestParseImplDecl(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 struct Counter {
@@ -393,6 +408,7 @@ impl Counter as c {
 }
 
 func TestParseIfElse(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -410,6 +426,7 @@ func main() -> (void) {
 }
 
 func TestParseWhileLoop(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -426,6 +443,7 @@ func main() -> (void) {
 }
 
 func TestParseForInLoop(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -441,6 +459,7 @@ func main() -> (void) {
 }
 
 func TestParseSwitchStatement(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -464,6 +483,7 @@ func main() -> (void) {
 }
 
 func TestParseGenericFunction(t *testing.T) {
+	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
 	t.Cleanup(restore)
 
@@ -493,6 +513,7 @@ func identity<T>(x T) -> (T) {
 }
 
 func TestParseGenericStruct(t *testing.T) {
+	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
 	t.Cleanup(restore)
 
@@ -523,6 +544,7 @@ struct Pair<A, B> {
 }
 
 func TestParseVecLiteral(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -536,6 +558,7 @@ func main() -> (void) {
 }
 
 func TestParseMultipleReturnValues(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func divide(a int, b int) -> (int, int) {
@@ -549,6 +572,7 @@ func divide(a int, b int) -> (int, int) {
 }
 
 func TestParseDeferStatement(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -564,6 +588,7 @@ func main() -> (void) {
 }
 
 func TestParseImportBlock(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 import (
@@ -588,6 +613,7 @@ import (
 }
 
 func TestParseBorrowExpression(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -603,6 +629,7 @@ func main() -> (void) {
 }
 
 func TestParseTypeAlias(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 type UserID = int
@@ -627,6 +654,7 @@ type UserID = int
 }
 
 func TestParseFunctionLiteral(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -642,6 +670,7 @@ func main() -> (void) {
 }
 
 func TestParseResultTypes(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func readFile(path string) -> (Result<string, string>) {
@@ -655,6 +684,7 @@ func readFile(path string) -> (Result<string, string>) {
 }
 
 func TestParseOptionTypesRejected(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func find(items int) -> (Option<int>) {
@@ -670,6 +700,7 @@ func find(items int) -> (Option<int>) {
 }
 
 func TestParseNestedGenericTypeWithOptionRejected(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func process() -> (Result<Option<int>, string>) {
@@ -685,6 +716,7 @@ func process() -> (Result<Option<int>, string>) {
 }
 
 func TestParseUnsafeBlock(t *testing.T) {
+	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUnsafe})
 	t.Cleanup(restore)
 
@@ -703,6 +735,7 @@ func main() -> (void) {
 }
 
 func TestParseBreakContinue(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 func main() -> (void) {
@@ -721,6 +754,7 @@ func main() -> (void) {
 }
 
 func TestParsePubVisibility(t *testing.T) {
+	t.Parallel()
 	input := `
 package main
 pub struct Config {

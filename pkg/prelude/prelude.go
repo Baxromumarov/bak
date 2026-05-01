@@ -57,33 +57,20 @@ func GetStdLibPath() string {
 // InjectPrelude injects standard library prelude components into the given
 // program. Returns non-fatal warnings (parse errors in prelude files).
 func InjectPrelude(program *ast.Program) []string {
-	stdLibPath := GetStdLibPath()
 	var warnings []string
 
 	preludes := []struct {
 		inject func(*ast.Program, string, string) string
-		path   string
+		src    string
 		name   string
 	}{
-		{
-			InjectStructPrelude,
-			filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-			"HashMap",
-		},
-		{
-			InjectStructPrelude,
-			filepath.Join(stdLibPath, "collections", "vec.bak"),
-			"Vec",
-		},
-		{
-			InjectImplPrelude,
-			filepath.Join(stdLibPath, "result.bak"),
-			"Result",
-		},
+		{InjectStructPrelude, hashmapPrelude, "HashMap"},
+		{InjectStructPrelude, vecPrelude, "Vec"},
+		{InjectImplPrelude, resultPrelude, "Result"},
 	}
 
 	for _, p := range preludes {
-		if w := p.inject(program, p.path, p.name); w != "" {
+		if w := p.inject(program, p.src, p.name); w != "" {
 			warnings = append(warnings, w)
 		}
 	}
@@ -91,22 +78,19 @@ func InjectPrelude(program *ast.Program) []string {
 	return warnings
 }
 
-// InjectStructPrelude injects a struct declaration from a prelude file.
-// Returns a warning string if the file exists but cannot be parsed, or ""
-// on success/missing file.
-func InjectStructPrelude(program *ast.Program, path string, structName string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "" // missing file is OK
+// InjectStructPrelude injects a struct declaration from a prelude source.
+// Returns a warning string if the source cannot be parsed, or "" on success.
+func InjectStructPrelude(program *ast.Program, src string, structName string) string {
+	if src == "" {
+		return ""
 	}
-	src := string(data)
 	l := lexer.New(src)
 	p := parser.New(l)
-	p.SetFilename(path)
+	p.SetFilename("<prelude:" + structName + ">")
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return strfmt.Named("prelude parse errors in {path}", "Path", path)
+		return strfmt.Named("prelude parse errors in {name}", "Name", structName)
 	}
 
 	startIdx := 0
@@ -145,22 +129,19 @@ func InjectStructPrelude(program *ast.Program, path string, structName string) s
 	return ""
 }
 
-// InjectImplPrelude injects an impl block from a prelude file.
-// Returns a warning string if the file exists but cannot be parsed, or ""
-// on success/missing file.
-func InjectImplPrelude(program *ast.Program, path string, typeName string) string {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "" // missing file is OK
+// InjectImplPrelude injects an impl block from a prelude source.
+// Returns a warning string if the source cannot be parsed, or "" on success.
+func InjectImplPrelude(program *ast.Program, src string, typeName string) string {
+	if src == "" {
+		return ""
 	}
-	src := string(data)
 	l := lexer.New(src)
 	p := parser.New(l)
-	p.SetFilename(path)
+	p.SetFilename("<prelude:" + typeName + ">")
 	prog := p.ParseProgram()
 
 	if len(p.Errors()) != 0 {
-		return strfmt.Named("prelude parse errors in {path}", "Path", path)
+		return strfmt.Named("prelude parse errors in {name}", "Name", typeName)
 	}
 
 	startIdx := 0

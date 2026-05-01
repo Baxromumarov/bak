@@ -1,0 +1,8 @@
+package main
+
+// expect: E0501 duplicate variable
+func main() -> (void) {
+    var x: int = 1
+    var x: int = 2
+    return void
+}

@@ -95,12 +95,13 @@ Stable composite/value forms:
 - structs
 - enums
 - tuples for multi-value returns and destructuring
-- `Option<T>`
 - `Result<T, E>`
 - `Vec<T, _>` as a standard-library collection type
 - borrows: `&T` and `&mut T`
 
-Note: `Option<T>`, `Result<T, E>`, and `Vec<T, _>` are part of the frozen user-facing language surface. That does not imply that general user-defined generics are frozen.
+Note: `Result<T, E>` and `Vec<T, _>` are part of the frozen user-facing language surface. That does not imply that general user-defined generics are frozen.
+
+> **Deprecation:** `Option<T>` (and `Some`/`None`) are legacy constructs. The v0.1 surface prefers `Result<T, string>` with `Ok(...)` and `Err(...)` for optional-value patterns. `Option<T>` syntax is still parsed for backward compatibility but is rejected by the typechecker; migrate existing `Option` code to `Result`. `Option<T>` may be removed in a future version bump.
 
 ### Expressions
 

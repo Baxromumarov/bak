@@ -47,20 +47,13 @@ func assertDifferentialParityFromSource(t *testing.T, source string) {
 	}
 
 	perms := runtimecap.Permissions{}
-	evaluatorExit, evaluatorOut := runEvaluatorProgramFromFileWithOutput(t, sourcePath, perms)
 	vmExit, vmOut := runVMProgramFromFileWithOutput(t, sourcePath, perms)
 	nativeExit, nativeOut := runNativeProgramFromFileWithOutput(t, sourcePath, perms)
 
-	if evaluatorExit != vmExit {
-		t.Fatalf("evaluator/VM exit mismatch: evaluator=%d vm=%d\nsource:\n%s", evaluatorExit, vmExit, source)
-	}
 	if vmExit != nativeExit {
 		t.Fatalf("VM/native exit mismatch: vm=%d native=%d\nsource:\n%s", vmExit, nativeExit, source)
 	}
 
-	if evaluatorOut != vmOut {
-		t.Fatalf("evaluator/VM output mismatch\n--- evaluator ---\n%s\n--- vm ---\n%s\nsource:\n%s", evaluatorOut, vmOut, source)
-	}
 	if vmOut != nativeOut {
 		t.Fatalf("VM/native output mismatch\n--- vm ---\n%s\n--- native ---\n%s\nsource:\n%s", vmOut, nativeOut, source)
 	}

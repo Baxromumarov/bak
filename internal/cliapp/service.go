@@ -120,9 +120,9 @@ func (s *commandService) Explain(opts commandpkg.ExplainOptions, _ *cli.Context)
 	return nil
 }
 
-func (s *commandService) REPL(_ *cli.Context) error {
-	fmt.Fprintln(s.stdout, "bak REPL (stub) — not implemented in test environment")
-	return nil
+func (s *commandService) REPL(ctx *cli.Context) error {
+	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions, ctx.Features)
+	return runREPL(s.stdout, permissions)
 }
 
 func findMainBak(dir string) string {

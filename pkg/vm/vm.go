@@ -1065,11 +1065,25 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				vm.push(vec.Elements[i])
 			case compiler.VAL_STRING:
 				i := int(idx.AsInt)
-				runes := []rune(obj.AsString)
-				if i < 0 || i >= len(runes) {
+				str := obj.AsString
+				var r rune
+				var ok bool
+				if isASCII(str) {
+					if i >= 0 && i < len(str) {
+						r = rune(str[i])
+						ok = true
+					}
+				} else {
+					runes := []rune(str)
+					if i >= 0 && i < len(runes) {
+						r = runes[i]
+						ok = true
+					}
+				}
+				if !ok {
 					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "string index out of bounds: %d", i)
 				}
-				vm.push(compiler.NewChar(runes[i]))
+				vm.push(compiler.NewChar(r))
 			case compiler.VAL_STRUCT:
 				inst := obj.AsObject.(*compiler.StructInstance)
 				if vecArr, vecLen, ok := vecDataAndLengthFromStruct(inst); ok {
@@ -1412,7 +1426,13 @@ func (vm *VM) popN(count int) []compiler.Value {
 	if count < 0 {
 		panic(strfmt.Named("invalid pop count: {count}", "Count", count))
 	}
-	args := make([]compiler.Value, count)
+	var args []compiler.Value
+	if count <= 8 {
+		var buf [8]compiler.Value
+		args = buf[:count]
+	} else {
+		args = make([]compiler.Value, count)
+	}
 	for i := count - 1; i >= 0; i-- {
 		args[i] = vm.pop()
 	}
@@ -1527,6 +1547,16 @@ func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
 	for ci := 0; ci < len(fn.Constants) && ci < 40; ci++ {
 		fmt.Fprintf(os.Stderr, "  [%d] = %#v\n", ci, fn.Constants[ci])
 	}
+}
+
+// isASCII reports whether s contains only ASCII characters.
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return false
+		}
+	}
+	return true
 }
 
 func (vm *VM) derefAll(v compiler.Value) compiler.Value {

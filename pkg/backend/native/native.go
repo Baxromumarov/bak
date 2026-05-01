@@ -16,6 +16,7 @@ type BuildOptions struct {
 	TraceEnabled bool
 	MainPath     string
 	OnIR         func(*IRProgramSet)
+	Registry     *packages.Registry // optional; defaults to packages.GlobalRegistry
 }
 
 // ProgramWithPath holds a program along with its path-derived name
@@ -52,7 +53,12 @@ func BuildExecutableWithOptions(
 		mainPath = program.SourcePath
 	}
 
-	if err := ensureImportGraphLoaded(program, mainPath); err != nil {
+	registry := options.Registry
+	if registry == nil {
+		registry = packages.GlobalRegistry
+	}
+
+	if err := ensureImportGraphLoaded(program, mainPath, registry); err != nil {
 		return nil, err
 	}
 
@@ -68,7 +74,7 @@ func BuildExecutableWithOptions(
 
 	// Get all packages from registry and add their programs in stable order.
 	// Registry iteration is map-backed and otherwise nondeterministic.
-	allPkgs := packages.GlobalRegistry.GetAllPackages()
+	allPkgs := registry.GetAllPackages()
 	sort.Slice(allPkgs, func(i, j int) bool {
 		return allPkgs[i].Path < allPkgs[j].Path
 	})
@@ -92,14 +98,15 @@ func BuildExecutableWithOptions(
 	return CompilePrograms(allPrograms, program, options)
 }
 
-func ensureImportGraphLoaded(program *ast.Program, mainPath string) error {
-	return loadProgramImports(program, mainPath, make(map[string]bool))
+func ensureImportGraphLoaded(program *ast.Program, mainPath string, registry *packages.Registry) error {
+	return loadProgramImports(program, mainPath, make(map[string]bool), registry)
 }
 
 func loadProgramImports(
 	program *ast.Program,
 	currentPath string,
 	visited map[string]bool,
+	registry *packages.Registry,
 ) error {
 
 	for _, stmt := range program.Statements {
@@ -109,6 +116,7 @@ func loadProgramImports(
 				s.Path,
 				currentPath,
 				visited,
+				registry,
 			); err != nil {
 				return err
 			}
@@ -119,6 +127,7 @@ func loadProgramImports(
 					imp.Path,
 					currentPath,
 					visited,
+					registry,
 				); err != nil {
 					return err
 				}
@@ -132,6 +141,7 @@ func loadImportedProgram(
 	importPath string,
 	currentPath string,
 	visited map[string]bool,
+	registry *packages.Registry,
 ) error {
 
 	resolvedPath := packages.ResolveImportPathFrom(importPath, currentPath)
@@ -139,13 +149,9 @@ func loadImportedProgram(
 		return fmt.Errorf("cannot resolve import path %q", importPath)
 	}
 
-	if visited[resolvedPath] {
-		return nil
-	}
-
 	visited[resolvedPath] = true
 
-	if _, exists := packages.GlobalRegistry.GetPackage(resolvedPath); exists {
+	if _, exists := registry.GetPackage(resolvedPath); exists {
 		return nil
 	}
 
@@ -155,13 +161,13 @@ func loadImportedProgram(
 	}
 
 	pkgName := packageNameForProgram(program, resolvedPath)
-	packages.GlobalRegistry.RegisterPackage(packages.NewPackage(
+	registry.RegisterPackage(packages.NewPackage(
 		pkgName,
 		resolvedPath,
 		program,
 	))
 
-	return loadProgramImports(program, resolvedPath, visited)
+	return loadProgramImports(program, resolvedPath, visited, registry)
 }
 
 func packageNameForProgram(

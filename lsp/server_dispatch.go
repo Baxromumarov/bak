@@ -11,6 +11,14 @@ import (
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
+// recoverAndLog recovers from panics and logs them with a method name.
+// Use with defer: defer recoverAndLog("methodName")
+func recoverAndLog(method string) {
+	if r := recover(); r != nil {
+		log.Printf("PANIC handling method %s: %v\nStack Trace:\n%s", method, r, debug.Stack())
+	}
+}
+
 func NewServer() *Server {
 	lintConfig := linter.DefaultConfig()
 	linter.ApplyDisabledRulesCSV(lintConfig, os.Getenv("BAK_LSP_DISABLE_RULES"))
@@ -71,7 +79,6 @@ func (s *Server) Handle(req Request) any {
 	case "shutdown":
 		return nil
 	case "exit":
-		os.Exit(0)
 		return nil
 	}
 	return nil
@@ -127,11 +134,7 @@ func (s *Server) handleDidOpen(req Request) {
 		return
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("PANIC handling method textDocument/didOpen: %v\nStack Trace:\n%s", r, debug.Stack())
-		}
-	}()
+	defer recoverAndLog("textDocument/didOpen")
 
 	s.Documents[params.TextDocument.URI] = params.TextDocument.Text
 
@@ -146,11 +149,7 @@ func (s *Server) handleDidChange(req Request) {
 		return
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("PANIC handling method textDocument/didChange: %v\nStack Trace:\n%s", r, debug.Stack())
-		}
-	}()
+	defer recoverAndLog("textDocument/didChange")
 
 	if len(params.ContentChanges) > 0 {
 		text := params.ContentChanges[0].Text
