@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -26,7 +27,7 @@ func RunFileVM(filename string, scriptArgs []string, traceEnabled bool, permissi
 	if err != nil {
 		return err
 	}
-	return runner.RunVM(p, scriptArgs, permissions, traceEnabled)
+	return runner.RunVM(context.Background(), p, scriptArgs, permissions, traceEnabled)
 }
 
 // CheckFile typechecks a file and returns an error on failure.
@@ -36,7 +37,7 @@ func CheckFile(filename string, cliFeatures []string) error {
 	if err != nil {
 		return err
 	}
-	return p.Typecheck()
+	return p.Typecheck(context.Background())
 }
 
 // BuildFile builds either native or bytecode output and returns errors.
@@ -48,7 +49,7 @@ func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 	}
 
 	if nativeBuild {
-		builtOutput, err := runner.BuildNative(p, outputFile, permissions, traceEnabled)
+		builtOutput, err := runner.BuildNative(context.Background(), p, outputFile, permissions, traceEnabled)
 		if err != nil {
 			return err
 		}
@@ -56,7 +57,7 @@ func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 		return nil
 	}
 
-	if err := p.Compile(); err != nil {
+	if err := p.Compile(context.Background()); err != nil {
 		return err
 	}
 

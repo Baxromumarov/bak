@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"slices"
 	"sort"
 	"strings"
@@ -27,7 +28,7 @@ func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	vecLabels := completionLabelsAt(t, s, uri, src, "v.")
@@ -71,7 +72,7 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	sigs := map[string]string{
@@ -116,7 +117,7 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	hoverVec := hoverAt(t, s, uri, src, "push(")
@@ -154,7 +155,7 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	params := InlayHintParams{
@@ -205,7 +206,7 @@ func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "x.isSome(")
@@ -235,7 +236,7 @@ func TestCompletionDoesNotAdvertiseOptionMethods(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	labels := completionLabelsAt(t, s, uri, src, "x.")

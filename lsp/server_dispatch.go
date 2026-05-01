@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os"
@@ -28,6 +29,7 @@ func NewServer() *Server {
 		Indexes:       make(map[string]*FileIndex),
 		PublicIndexes: make(map[string]*FileIndex),
 		pendingLocks:  make(map[string]*time.Timer),
+		pendingCancel: make(map[string]context.CancelFunc),
 		lintConfig:    lintConfig,
 	}
 }
@@ -138,7 +140,12 @@ func (s *Server) handleDidOpen(req Request) {
 
 	s.Documents[params.TextDocument.URI] = params.TextDocument.Text
 
-	s.analyzeAndPublish(params.TextDocument.URI, params.TextDocument.Text)
+	if cancel, ok := s.pendingCancel[params.TextDocument.URI]; ok {
+		cancel()
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	s.pendingCancel[params.TextDocument.URI] = cancel
+	s.analyzeAndPublish(ctx, params.TextDocument.URI, params.TextDocument.Text)
 }
 
 func (s *Server) handleDidChange(req Request) {
@@ -157,13 +164,18 @@ func (s *Server) handleDidChange(req Request) {
 
 		typechecker.InvalidatePackage(uriToPath(params.TextDocument.URI))
 
-		// Debounce analysis
+		// Debounce analysis: cancel any in-flight analysis for this URI
+		if cancel, ok := s.pendingCancel[params.TextDocument.URI]; ok {
+			cancel()
+		}
 		if timer, ok := s.pendingLocks[params.TextDocument.URI]; ok {
 			timer.Stop()
 		}
 
+		ctx, cancel := context.WithCancel(context.Background())
+		s.pendingCancel[params.TextDocument.URI] = cancel
 		s.pendingLocks[params.TextDocument.URI] = time.AfterFunc(200*time.Millisecond, func() {
-			s.analyzeAndPublish(params.TextDocument.URI, text)
+			s.analyzeAndPublish(ctx, params.TextDocument.URI, text)
 		})
 	}
 }

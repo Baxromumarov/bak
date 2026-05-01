@@ -2,6 +2,7 @@ package cliapp
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -56,10 +57,11 @@ func evalREPLLine(line string, permissions runtimecap.Permissions) (compiler.Val
 	}
 
 	p := pipeline.New("<repl>", source)
-	if err := p.Compile(); err != nil {
+	if err := p.Compile(context.Background()); err != nil {
 		return compiler.Value{}, err
 	}
 
 	v := vm.NewWithPermissions(p.Module, permissions)
+	v.SetContext(context.Background())
 	return v.Run()
 }

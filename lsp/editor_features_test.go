@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func TestHoverShowsIdentifierType(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "value)")
@@ -83,7 +84,7 @@ func TestHoverShowsDynamicVecLengthHint(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "nums)")
@@ -123,7 +124,7 @@ func TestHoverTracksVecLengthAcrossAssignmentAndAppend(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "nums)")
@@ -162,7 +163,7 @@ func TestHoverTracksVecLengthInsideIfBranch(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "nums)")
@@ -203,7 +204,7 @@ func TestHoverMergesVecLengthAfterIfElseWhenBranchesAgree(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "println(nums)")
@@ -244,7 +245,7 @@ func TestHoverDropsVecLengthAfterIfElseWhenBranchesDiffer(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "println(nums)")
@@ -282,7 +283,7 @@ func TestInlayHintShowsFullGenericVecType(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	params := InlayHintParams{
@@ -355,7 +356,7 @@ func TestCompletionSuggestsVecStaticMethodsAfterDot(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "Vec.")
@@ -409,7 +410,7 @@ func TestCompletionSuggestsVecInstanceMethodsForVariable(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "arr.")
@@ -453,7 +454,7 @@ func TestCompletionSuggestsHashMapStaticMethodsAfterDot(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "HashMap.")
@@ -497,7 +498,7 @@ func TestCompletionSuggestsImportedPackageMembersAfterTypedPrefix(t *testing.T) 
 	s.RootPath = repoRoot(t)
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	dotLine, dotCol := findLineCol(src, "    strconv.")
@@ -552,7 +553,7 @@ func TestCompletionIncludesPrimitiveAndBuiltinTypes(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "    ")
@@ -592,7 +593,7 @@ func TestCompletionSkipsCommentContext(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	line, col := findLineCol(src, "Vec.")
@@ -652,7 +653,7 @@ func TestCodeActionSuggestsStdlibAutoImport(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	params := CodeActionParams{
@@ -710,7 +711,7 @@ func TestCodeActionOffersStructuredMethodRenameFix(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -793,7 +794,7 @@ func TestCodeActionOffersMultipleFunctionRenameFixes(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -854,7 +855,7 @@ func TestCodeActionOffersTypeCoercionFix(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))

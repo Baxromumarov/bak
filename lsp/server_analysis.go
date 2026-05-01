@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"os"
@@ -20,7 +21,7 @@ import (
 
 var lineColRegex = regexp.MustCompile(`line (\d+):(\d+): (.*)`)
 
-func (s *Server) analyzeAndPublish(uri string, text string) {
+func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string) {
 	filePath := uriToPath(uri)
 
 	// 0. Update Registry
@@ -32,6 +33,12 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 	p := parser.New(l)
 	p.SetFilename(filePath)
 	prog := p.ParseProgram()
+
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 
 	// 2. Type Check with Registry
 	// We need to clear/reload the package in registry?
@@ -72,11 +79,23 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 		}
 	}
 
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
 	comments := formatter.ScanComments(text)
 	index := indexProgram(prog, uri, comments, true)
 	imports := collectImports(prog)
 	s.Indexes[uri] = index
 	refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, index, s)
+
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 
 	// Update Cache
 	s.Cache[uri] = &AnalysisResult{

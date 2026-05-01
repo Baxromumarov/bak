@@ -2,6 +2,7 @@
 package vm
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -63,6 +64,7 @@ type VM struct {
 	fp      int // Frame pointer (current frame index)
 	globals []compiler.Value
 	lastPos compiler.SourcePos
+	ctx     context.Context
 
 	// Networking support
 	conns          map[int]net.Conn
@@ -156,6 +158,7 @@ func NewWithProfileAndPermissions(module *compiler.BytecodeModule, profile bool,
 		listeners:      make(map[int]net.Listener),
 		nextConnID:     1,
 		nextListenerID: 1000000, // Start at 1M to avoid collision with connection IDs
+		ctx:            context.Background(),
 
 		mutexes:      make(map[int]*sync.Mutex),
 		mutexMu:      &sync.Mutex{},
@@ -184,6 +187,11 @@ func NewWithProfileAndPermissions(module *compiler.BytecodeModule, profile bool,
 
 func (vm *VM) SetTracer(tracer *trace.Runtime) {
 	vm.tracer = tracer
+}
+
+// SetContext sets the context used for cancellable operations (DB, network).
+func (vm *VM) SetContext(ctx context.Context) {
+	vm.ctx = ctx
 }
 
 // PrintProfile outputs profiling statistics.

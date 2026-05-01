@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -48,9 +49,12 @@ func LoadFile(filename string) (*Pipeline, error) {
 }
 
 // Parse builds the AST once and caches it on the pipeline.
-func (p *Pipeline) Parse() error {
+func (p *Pipeline) Parse(ctx context.Context) error {
 	if p.AST != nil {
 		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	parser := parser.New(lexer.New(p.Source))
@@ -70,8 +74,8 @@ func (p *Pipeline) Parse() error {
 }
 
 // Typecheck validates the AST using the existing typechecker.
-func (p *Pipeline) Typecheck() error {
-	if err := p.Parse(); err != nil {
+func (p *Pipeline) Typecheck(ctx context.Context) error {
+	if err := p.Parse(ctx); err != nil {
 		return err
 	}
 
@@ -97,9 +101,21 @@ func (p *Pipeline) Typecheck() error {
 	return nil
 }
 
+func contextErr(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
+}
+
 // Compile emits bytecode and caches the compiled module.
-func (p *Pipeline) Compile() error {
-	if err := p.Typecheck(); err != nil {
+func (p *Pipeline) Compile(ctx context.Context) error {
+	if err := p.Typecheck(ctx); err != nil {
+		return err
+	}
+	if err := contextErr(ctx); err != nil {
 		return err
 	}
 
@@ -121,11 +137,12 @@ func (p *Pipeline) Compile() error {
 
 // RunVM executes the compiled module in the VM.
 func (p *Pipeline) RunVM(
+	ctx context.Context,
 	scriptArgs []string,
 	permissions runtimecap.Permissions,
 	traceEnabled bool,
 ) error {
-	if err := p.Compile(); err != nil {
+	if err := p.Compile(ctx); err != nil {
 		return err
 	}
 
@@ -145,6 +162,7 @@ func (p *Pipeline) RunVM(
 
 	vmRuntime := vm.NewWithPermissions(p.Module, permissions)
 	vmRuntime.SetTracer(trace.New(traceEnabled, os.Stderr))
+	vmRuntime.SetContext(ctx)
 	if _, err := vmRuntime.Run(); err != nil {
 		return fmt.Errorf("runtime error: %w", err)
 	}
@@ -153,6 +171,7 @@ func (p *Pipeline) RunVM(
 
 // BuildNative builds a native executable from the AST.
 func (p *Pipeline) BuildNative(
+	ctx context.Context,
 	outputFile string,
 	permissions runtimecap.Permissions,
 	traceEnabled bool,
@@ -160,7 +179,7 @@ func (p *Pipeline) BuildNative(
 	string,
 	error,
 ) {
-	if err := p.Typecheck(); err != nil {
+	if err := p.Typecheck(ctx); err != nil {
 		return "", err
 	}
 

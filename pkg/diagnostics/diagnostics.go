@@ -281,13 +281,7 @@ func computeBreakWidth(d *Diagnostic, file string) int {
 		}
 	}
 
-	width := maxLen + 8
-	if width < 40 {
-		width = 40
-	}
-	if width > 120 {
-		width = 120
-	}
+	width := min(max(maxLen+8, 40), 120)
 	return width
 }
 
@@ -382,10 +376,7 @@ func (d *Diagnostic) Format() string {
 		if nextLine != "" && d.Line+1 > maxLine {
 			maxLine = d.Line + 1
 		}
-		lineWidth := len(strconv.Itoa(maxLine))
-		if lineWidth < 1 {
-			lineWidth = 1
-		}
+		lineWidth := max(len(strconv.Itoa(maxLine)), 1)
 
 		formatLineNum := func(n int) string {
 			s := strconv.Itoa(n)
@@ -394,6 +385,7 @@ func (d *Diagnostic) Format() string {
 			}
 			return strings.Repeat(" ", lineWidth-len(s)) + s
 		}
+
 		padding := strings.Repeat(" ", lineWidth)
 
 		sb.WriteString(strfmt.S(
@@ -434,10 +426,7 @@ func (d *Diagnostic) Format() string {
 		))
 
 		// Underline
-		column := d.Column
-		if column < 1 {
-			column = 1
-		}
+		column := max(d.Column, 1)
 		underline := strings.Repeat(" ", column-1) + "^"
 
 		sb.WriteString(strfmt.S(
@@ -481,7 +470,14 @@ func (d *Diagnostic) Format() string {
 		}
 	} else if d.Help != "" {
 		helpText := normalizeHelpText(d.Help)
-		sb.WriteString(formatMetaBlock("    ", ColorYellow, "help", ColorGray, helpText, breakWidth))
+		sb.WriteString(formatMetaBlock(
+			"    ",
+			ColorYellow,
+			"help",
+			ColorGray,
+			helpText,
+			breakWidth,
+		))
 	}
 	sb.WriteString(sectionBreak("    ", breakWidth))
 
@@ -492,7 +488,14 @@ func (d *Diagnostic) Format() string {
 		seenNoteContext[primaryKey] = struct{}{}
 	}
 	for _, note := range d.Notes {
-		sb.WriteString(formatMetaBlock("    ", ColorCyan, "note", ColorGray, note.Message, breakWidth))
+		sb.WriteString(formatMetaBlock(
+			"    ",
+			ColorCyan,
+			"note",
+			ColorGray,
+			note.Message,
+			breakWidth,
+		))
 
 		if note.Line > 0 {
 			noteFile := note.File
@@ -539,10 +542,7 @@ func (d *Diagnostic) Format() string {
 					"\n",
 				))
 				if note.Column > 0 {
-					noteCol := note.Column
-					if noteCol < 1 {
-						noteCol = 1
-					}
+					noteCol := max(note.Column, 1)
 					noteUnderline := strings.Repeat(" ", noteCol-1) + "^"
 					sb.WriteString(strfmt.S(
 						"  ",
@@ -663,19 +663,28 @@ func UseAfterMove(
 	moveReason string,
 ) Diagnostic {
 	d := Diagnostic{
-		Code:    ErrUseAfterMove,
-		Level:   LevelError,
-		Message: strfmt.Named("use of moved value '{varName}'", "VarName", varName),
-		Line:    line,
-		Column:  col,
-		Help:    strfmt.Named("consider borrowing instead: &{varName}", "VarName", varName),
+		Code:  ErrUseAfterMove,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"use of moved value '{varName}'",
+			"VarName", varName,
+		),
+		Line:   line,
+		Column: col,
+		Help: strfmt.Named(
+			"consider borrowing instead: &{varName}",
+			"VarName", varName,
+		),
 	}
 
 	if moveLine > 0 {
 		d.Notes = append(d.Notes, Note{
-			Message: strfmt.Named("value was {moveReason}", "MoveReason", moveReason),
-			Line:    moveLine,
-			Column:  moveCol,
+			Message: strfmt.Named(
+				"value was {moveReason}",
+				"MoveReason", moveReason,
+			),
+			Line:   moveLine,
+			Column: moveCol,
 		})
 	}
 
@@ -690,11 +699,15 @@ func CannotMove(
 	reason string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:    ErrMoveWhileBorrowed,
-		Level:   LevelError,
-		Message: strfmt.Named("cannot move '{varName}' because it is {reason}", "VarName", varName, "Reason", reason),
-		Line:    line,
-		Column:  col,
+		Code:  ErrMoveWhileBorrowed,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"cannot move '{varName}' because it is {reason}",
+			"VarName", varName,
+			"Reason", reason,
+		),
+		Line:   line,
+		Column: col,
 	}
 }
 
@@ -707,11 +720,16 @@ func BorrowConflict(
 	existingState string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:    ErrBorrowConflict,
-		Level:   LevelError,
-		Message: strfmt.Named("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", "VarName", varName, "AttemptedBorrow", attemptedBorrow, "ExistingState", existingState),
-		Line:    line,
-		Column:  col,
+		Code:  ErrBorrowConflict,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}",
+			"VarName", varName,
+			"AttemptedBorrow", attemptedBorrow,
+			"ExistingState", existingState,
+		),
+		Line:   line,
+		Column: col,
 	}
 }
 
@@ -723,12 +741,16 @@ func MutabilityRequired(
 	operation string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:    ErrMutabilityRequired,
-		Level:   LevelError,
-		Message: strfmt.Named("cannot {operation} on immutable variable '{varName}'", "Operation", operation, "VarName", varName),
-		Line:    line,
-		Column:  col,
-		Help:    "declare the variable as 'mut var'",
+		Code:  ErrMutabilityRequired,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"cannot {operation} on immutable variable '{varName}'",
+			"Operation", operation,
+			"VarName", varName,
+		),
+		Line:   line,
+		Column: col,
+		Help:   "declare the variable as 'mut var'",
 	}
 }
 
@@ -741,9 +763,18 @@ func TypeMismatch(
 	context string,
 ) Diagnostic {
 
-	msg := strfmt.Named("type mismatch: expected {expected}, got {got}", "Expected", expected, "Got", got)
+	msg := strfmt.Named(
+		"type mismatch: expected {expected}, got {got}",
+		"Expected", expected,
+		"Got", got,
+	)
+
 	if context != "" {
-		msg = strfmt.Named("{msg} in {context}", "Msg", msg, "Context", context)
+		msg = strfmt.Named(
+			"{msg} in {context}",
+			"Msg", msg,
+			"Context", context,
+		)
 	}
 
 	return Diagnostic{
@@ -762,47 +793,61 @@ func VecMutatingMethodOnImmutable(
 	pos ast.Position,
 ) Diagnostic {
 	return Diagnostic{
-		Code:    ErrMutabilityRequired,
-		Level:   LevelError,
-		Message: strfmt.Named("cannot call '{method}' on immutable variable '{varName}'", "Method", method, "VarName", varName),
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Help:    "declare the variable as 'mut var'",
+		Code:  ErrMutabilityRequired,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"cannot call '{method}' on immutable variable '{varName}'",
+			"Method", method,
+			"VarName", varName,
+		),
+		Line:   pos.Line,
+		Column: pos.Column,
+		Help:   "declare the variable as 'mut var'",
 	}
 }
 
 // VecDynamicOnlyMethod creates a diagnostic for dynamic-only Vec methods
 func VecDynamicOnlyMethod(method, vecType string, pos ast.Position) Diagnostic {
 	return Diagnostic{
-		Code:    ErrVecDynamicOnly,
-		Level:   LevelError,
-		Message: strfmt.Named("cannot call '{method}' on fixed-size {vecType}", "Method", method, "VecType", vecType),
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Help:    "use Vec<T, _> for dynamic arrays",
+		Code:  ErrVecDynamicOnly,
+		Level: LevelError,
+		Message: strfmt.Named(
+			"cannot call '{method}' on fixed-size {vecType}",
+			"Method", method,
+			"VecType", vecType,
+		),
+		Line:   pos.Line,
+		Column: pos.Column,
+		Help:   "use Vec<T, _> for dynamic arrays",
 	}
 }
 
 // UnusedImport creates a diagnostic for unused imports
 func UnusedImport(importPath string, pos ast.Position) Diagnostic {
 	return Diagnostic{
-		Code:    ErrUnusedImport,
-		Level:   LevelWarning,
-		Message: strfmt.Named("unused import: '{importPath}'", "ImportPath", importPath),
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Help:    "remove this import if it's not used",
+		Code:  ErrUnusedImport,
+		Level: LevelWarning,
+		Message: strfmt.Named(
+			"unused import: '{importPath}'",
+			"ImportPath", importPath,
+		),
+		Line:   pos.Line,
+		Column: pos.Column,
+		Help:   "remove this import if it's not used",
 	}
 }
 
 // UnusedVariable creates a diagnostic for unused variables (Warning)
 func UnusedVariable(varName string, pos ast.Position) Diagnostic {
 	return Diagnostic{
-		Code:    ErrUnusedVariable,
-		Level:   LevelWarning,
-		Message: strfmt.Named("unused variable: '{varName}'", "VarName", varName),
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Help:    "prefix with _ to ignore: '_" + varName + "'",
+		Code:  ErrUnusedVariable,
+		Level: LevelWarning,
+		Message: strfmt.Named(
+			"unused variable: '{varName}'",
+			"VarName", varName,
+		),
+		Line:   pos.Line,
+		Column: pos.Column,
+		Help:   "prefix with _ to ignore: '_" + varName + "'",
 	}
 }

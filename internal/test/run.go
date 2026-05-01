@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -123,10 +124,7 @@ func printSuiteProgress(done, total int, current string) {
 		return
 	}
 	barWidth := 20
-	filled := done * barWidth / total
-	if filled < 0 {
-		filled = 0
-	}
+	filled := max(done*barWidth/total, 0)
 	if filled > barWidth {
 		filled = barWidth
 	}
@@ -203,7 +201,7 @@ func runTestFile(
 	pipe := pipeline.New(filename, src)
 	pipe.AST = combined
 
-	if err := pipe.Compile(); err != nil {
+	if err := pipe.Compile(context.Background()); err != nil {
 		_, _ = strfmt.Fprintln(os.Stderr, "Compilation pipeline failed for ", filename, ":")
 		_, _ = strfmt.Fprintln(os.Stderr, "  ", err)
 

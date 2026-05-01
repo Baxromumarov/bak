@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -97,5 +98,6 @@ type Server struct {
 	stdImportPaths []string
 	stdPackages    []string
 	pendingLocks   map[string]*time.Timer
+	pendingCancel  map[string]context.CancelFunc
 	lintConfig     *linter.Config
 }

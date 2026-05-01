@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -24,7 +25,7 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 	switch name {
 	case "pg_connect":
 		connStr := args[0].AsString
-		db, err := dbConnect("postgres", connStr)
+		db, err := dbConnect(vm.ctx, "postgres", connStr)
 		if err != nil {
 			return makeResultErr(err.Error()), nil
 		}
@@ -52,7 +53,7 @@ func (vm *VM) callBuiltinDB(name string, args []compiler.Value) (compiler.Value,
 
 	case "mysql_connect":
 		connStr := args[0].AsString
-		db, err := dbConnect("mysql", connStr)
+		db, err := dbConnect(vm.ctx, "mysql", connStr)
 		if err != nil {
 			return makeResultErr(err.Error()), nil
 		}
@@ -100,12 +101,12 @@ var (
 	vmNextDBID = 1
 )
 
-func dbConnect(driver, connStr string) (int, error) {
+func dbConnect(ctx context.Context, driver, connStr string) (int, error) {
 	db, err := sql.Open(driver, connStr)
 	if err != nil {
 		return 0, err
 	}
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return 0, err
 	}
@@ -138,7 +139,7 @@ func dbQuery(vm *VM, handle int, sqlStr string, queryArgs []any) (compiler.Value
 		return compiler.NewNil(), fmt.Errorf("invalid database handle")
 	}
 
-	rows, err := db.Query(sqlStr, queryArgs...)
+	rows, err := db.QueryContext(vm.ctx, sqlStr, queryArgs...)
 	if err != nil {
 		return compiler.NewNil(), err
 	}

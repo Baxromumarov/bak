@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -74,7 +75,7 @@ func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -134,7 +135,7 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -187,7 +188,7 @@ func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -233,7 +234,7 @@ func TestAnalyzeAndPublish_StdCollectionsSetHasNoFatalTypeErrors(t *testing.T) {
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -279,7 +280,7 @@ func TestAnalyzeAndPublish_StdCollectionsHashMapHasNoFatalTypeErrors(t *testing.
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -325,7 +326,7 @@ func TestAnalyzeAndPublish_HashMapInsertKeyTypeMismatchDiagnostic(t *testing.T) 
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
@@ -389,7 +390,7 @@ func TestAnalyzeAndPublish_HashMapGetAllowsImplicitBorrow(t *testing.T) {
 	s.Documents[uri] = src
 
 	output := captureStdout(t, func() {
-		s.analyzeAndPublish(uri, src)
+		s.analyzeAndPublish(context.Background(), uri, src)
 	})
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))

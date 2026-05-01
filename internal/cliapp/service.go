@@ -1,6 +1,7 @@
 package cliapp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -40,7 +41,7 @@ func (s *commandService) Run(path string, ctx *cli.Context) error {
 		return err
 	}
 	p.DebugEscapes = ctx.DebugEscapes
-	return runner.RunVM(p, ctx.ScriptArgs, permissions, ctx.Trace)
+	return runner.RunVM(context.Background(), p, ctx.ScriptArgs, permissions, ctx.Trace)
 }
 
 func (s *commandService) Build(path, output string, ctx *cli.Context) error {
@@ -66,7 +67,7 @@ func (s *commandService) Build(path, output string, ctx *cli.Context) error {
 		return fmt.Errorf("invalid output path: %q", output)
 	}
 
-	builtOutput, err := runner.BuildNative(p, output, permissions, ctx.Trace)
+	builtOutput, err := runner.BuildNative(context.Background(), p, output, permissions, ctx.Trace)
 	if err != nil {
 		return err
 	}
@@ -83,7 +84,7 @@ func (s *commandService) Check(path string, ctx *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := p.Typecheck(); err != nil {
+	if err := p.Typecheck(context.Background()); err != nil {
 		return err
 	}
 	fmt.Fprintln(s.stdout, "Typecheck: OK")

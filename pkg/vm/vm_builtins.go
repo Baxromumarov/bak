@@ -1305,6 +1305,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		newVM.cancelTokens = vm.cancelTokens
 		newVM.cancelMu = vm.cancelMu
 		newVM.nextCancelID = vm.nextCancelID
+		newVM.ctx = vm.ctx
 
 		// Push arguments onto new VM stack
 		for _, arg := range spawnArgs {

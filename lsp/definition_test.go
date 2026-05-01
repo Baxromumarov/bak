@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -70,7 +71,7 @@ func TestDefinitionMethodCallInPattern(t *testing.T) {
 
 	s := NewServer()
 	s.Documents[uri] = src
-	s.analyzeAndPublish(uri, src)
+	s.analyzeAndPublish(context.Background(), uri, src)
 
 	callLine, callCol := findLineCol(src, "found.id()")
 	if callLine < 0 {

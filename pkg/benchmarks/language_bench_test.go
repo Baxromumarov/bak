@@ -25,9 +25,9 @@ func BenchmarkParseCorpus(b *testing.B) {
 	totalBytes := corpusSize(corpus)
 	b.ReportAllocs()
 	b.SetBytes(totalBytes)
-	b.ResetTimer()
+	
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, source := range corpus {
 			parseSource(b, source.path, source.src)
 		}
@@ -39,9 +39,9 @@ func BenchmarkTypecheckCorpus(b *testing.B) {
 	totalBytes := corpusSize(corpus)
 	b.ReportAllocs()
 	b.SetBytes(totalBytes)
-	b.ResetTimer()
+	
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		for _, source := range corpus {
 			program := parseSource(b, source.path, source.src)
 			tc := typechecker.NewWithPath(source.path)
@@ -58,9 +58,9 @@ func BenchmarkCompileBytecode(b *testing.B) {
 	program := checkedProgram(b, source)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	b.ResetTimer()
+	
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		c := compiler.New()
 		if _, err := c.Compile(program); err != nil {
 			b.Fatalf("compile failed: %v", err)
@@ -79,9 +79,9 @@ func BenchmarkVMRun(b *testing.B) {
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	b.ResetTimer()
+	
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		runtime := vm.New(module)
 		if _, err := runtime.Run(); err != nil {
 			b.Fatalf("vm run failed: %v", err)
@@ -94,9 +94,9 @@ func BenchmarkNativeBuild(b *testing.B) {
 	program := checkedProgram(b, source)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	b.ResetTimer()
+	
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if _, err := native.BuildExecutableWithOptions(program, native.BuildOptions{
 			MainPath: source.path,
 		}); err != nil {

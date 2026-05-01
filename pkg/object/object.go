@@ -25,7 +25,6 @@ const (
 	CHAR_OBJ             ObjectType = "CHAR"
 	VOID_OBJ             ObjectType = "VOID"
 	NULL_OBJ             ObjectType = "NULL"
-	RETURN_VALUE_OBJ     ObjectType = "RETURN_VALUE"
 	ERROR_OBJ            ObjectType = "ERROR"
 	FUNCTION_OBJ         ObjectType = "FUNCTION"
 	BUILTIN_OBJ          ObjectType = "BUILTIN"
@@ -33,7 +32,6 @@ const (
 	STRUCT_OBJ           ObjectType = "STRUCT"
 	ENUM_OBJ             ObjectType = "ENUM"
 	RESULT_OBJ           ObjectType = "RESULT"
-	OPTION_OBJ           ObjectType = "OPTION"
 	BORROW_OBJ           ObjectType = "BORROW"
 	RANGE_OBJ            ObjectType = "RANGE"
 	BREAK_OBJ            ObjectType = "BREAK"
@@ -41,13 +39,9 @@ const (
 	MODULE_OBJ           ObjectType = "MODULE"
 	DIR_ENTRY_OBJ        ObjectType = "DIR_ENTRY"
 	FILE_INFO_OBJ        ObjectType = "FILE_INFO"
-	TUPLE_OBJ            ObjectType = "TUPLE"
 	TYPEDEF_OBJ          ObjectType = "TYPEDEF"
 	ALIAS_OBJ            ObjectType = "ALIAS"
 	TYPE_CONSTRUCTOR_OBJ ObjectType = "TYPE_CONSTRUCTOR"
-	THREAD_OBJ           ObjectType = "THREAD"
-	PANIC_OBJ            ObjectType = "PANIC"
-	DEFERRED_CALL_OBJ    ObjectType = "DEFERRED_CALL"
 )
 
 // Object is the interface that all objects implement
@@ -97,31 +91,6 @@ func (b *Boolean) Inspect() string {
 	)
 }
 
-type Panic struct {
-	Message string
-}
-
-func (p *Panic) Type() ObjectType { return PANIC_OBJ }
-func (p *Panic) Inspect() string  { return "panic: " + p.Message }
-
-type DeferredKind int
-
-const (
-	DeferredFunc DeferredKind = iota
-	DeferredMethod
-)
-
-type DeferredCall struct {
-	Kind       DeferredKind
-	Fn         Object
-	Receiver   Object
-	MethodName string
-	Args       []Object
-}
-
-func (d *DeferredCall) Type() ObjectType { return DEFERRED_CALL_OBJ }
-func (d *DeferredCall) Inspect() string  { return "<defer>" }
-
 // String represents a string value
 type String struct {
 	Value string
@@ -154,14 +123,6 @@ type Null struct{}
 
 func (n *Null) Type() ObjectType { return NULL_OBJ }
 func (n *Null) Inspect() string  { return "null" }
-
-// ReturnValue wraps the value being returned
-type ReturnValue struct {
-	Value Object
-}
-
-func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
-func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
 
 // Error represents a runtime error
 type Error struct {
@@ -256,27 +217,6 @@ func (v *Vec) Inspect() string {
 	out.WriteString("[")
 	out.WriteString(strings.Join(elements, ", "))
 	out.WriteString("]")
-	return out.String()
-}
-
-// Tuple represents a tuple of values for multiple returns
-type Tuple struct {
-	Elements []Object
-}
-
-func (t *Tuple) Type() ObjectType { return TUPLE_OBJ }
-func (t *Tuple) Inspect() string {
-	var out bytes.Buffer
-	elements := []string{}
-
-	for _, e := range t.Elements {
-		elements = append(elements, e.Inspect())
-	}
-
-	out.WriteString("(")
-	out.WriteString(strings.Join(elements, ", "))
-	out.WriteString(")")
-
 	return out.String()
 }
 
@@ -547,25 +487,6 @@ func (r *Result) Inspect() string {
 	return out.String()
 }
 
-// Option represents an Option<T> value
-type Option struct {
-	IsSome bool
-	Value  Object
-}
-
-func (o *Option) Type() ObjectType { return OPTION_OBJ }
-func (o *Option) Inspect() string {
-
-	if o.IsSome {
-		return strfmt.Named(
-			"Some({inspect})",
-			"inspect", o.Value.Inspect(),
-		)
-	}
-
-	return "None"
-}
-
 // Borrow represents a borrowed reference
 type Borrow struct {
 	Value   Object
@@ -730,19 +651,6 @@ func (tc *TypeConstructor) Inspect() string {
 	)
 }
 
-// Thread represents a reference to a background thread
-type Thread struct {
-	ID int64
-}
-
-func (t *Thread) Type() ObjectType { return THREAD_OBJ }
-func (t *Thread) Inspect() string {
-	return strfmt.Named(
-		"Thread({ID})",
-		"ID", t.ID,
-	)
-}
-
 // Constructors
 
 func NewInteger(v int64) *Integer {
@@ -767,53 +675,4 @@ func NewBool(v bool) *Boolean {
 
 func NewVoid() *Void {
 	return &Void{}
-}
-
-func NewNull() *Null {
-	return &Null{}
-}
-
-func NewResult(isOk bool, value Object) *Result {
-	return &Result{
-		IsOk:  isOk,
-		Value: value,
-	}
-}
-
-func NewResultOk(value Object) *Result {
-	return &Result{
-		IsOk:  true,
-		Value: value,
-	}
-}
-
-func NewResultErr(msg string) *Result {
-	return &Result{
-		IsOk:  false,
-		Value: &String{Value: msg},
-	}
-}
-
-func NewOption(isSome bool, value Object) *Option {
-	return &Option{
-		IsSome: isSome,
-		Value:  value,
-	}
-}
-
-func NewVec(elements []Object, elemType string) *Vec {
-	return &Vec{
-		Elements: elements,
-		ElemType: elemType,
-		Size:     -1,
-		Mutable:  true,
-	}
-}
-
-func NewReturnValue(value Object) *ReturnValue {
-	return &ReturnValue{Value: value}
-}
-
-func NewError(msg string) *Error {
-	return &Error{Message: msg}
 }
