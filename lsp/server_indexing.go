@@ -11,6 +11,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/formatter"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
@@ -24,36 +25,7 @@ func pathToURI(path string) string {
 }
 
 func (s *Server) resolveImportPath(baseFile, importPath string) string {
-	root := s.RootPath
-	if root == "" {
-		root = filepath.Dir(baseFile)
-	}
-	searchPath := importPath
-	if strings.HasPrefix(importPath, "std/") {
-		searchPath = filepath.Join(root, "src", importPath)
-	} else if strings.HasPrefix(importPath, "src/std/") {
-		searchPath = filepath.Join(root, importPath)
-	} else if !filepath.IsAbs(importPath) {
-		searchPath = filepath.Join(root, importPath)
-	}
-
-	candidates := []string{searchPath}
-	if !strings.HasSuffix(searchPath, ".bak") {
-		candidates = append(candidates, searchPath+".bak")
-		base := filepath.Base(searchPath)
-		candidates = append(candidates, filepath.Join(searchPath, base+".bak"))
-	}
-
-	for _, path := range candidates {
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path
-		}
-	}
-	// Check if searchPath is a directory (multi-file package like std/http)
-	if info, err := os.Stat(searchPath); err == nil && info.IsDir() {
-		return searchPath
-	}
-	return ""
+	return packages.ResolveImportPathFrom(importPath, baseFile)
 }
 
 func (s *Server) getStdPackages() []string {

@@ -101,7 +101,7 @@ func (tc *TypeChecker) resolveImportedEnumVariant(pkgAlias, enumName, variantNam
 	if !ok {
 		return "", nil, EnumVariantDef{}, false
 	}
-	modTC, ok := loadedPackageCheckers[pkgPath]
+	modTC, ok := tc.packageCheckers[pkgPath]
 	if !ok {
 		return "", nil, EnumVariantDef{}, false
 	}
@@ -282,7 +282,7 @@ func (tc *TypeChecker) lookupQualifiedStruct(name string) (*StructDef, bool) {
 		// Find the package path for this alias
 		if pkgPath, ok := tc.importedPkgPaths[pkgAlias]; ok {
 			// Find the checker for this package
-			if modTC, ok := loadedPackageCheckers[pkgPath]; ok {
+			if modTC, ok := tc.packageCheckers[pkgPath]; ok {
 				// Search in the package's environment
 				if sd, ok := modTC.env.LookupStruct(typeName); ok {
 					return sd, true
@@ -294,7 +294,7 @@ func (tc *TypeChecker) lookupQualifiedStruct(name string) (*StructDef, bool) {
 	// 3. Fallback: search all imported modules for unqualified struct names
 	// This handles cases where the same package imports multiple files
 	for _, pkgPath := range tc.importedPkgPaths {
-		if modTC, ok := loadedPackageCheckers[pkgPath]; ok {
+		if modTC, ok := tc.packageCheckers[pkgPath]; ok {
 			if sd, ok := modTC.env.LookupStruct(name); ok {
 				return sd, true
 			}
@@ -318,7 +318,7 @@ func (tc *TypeChecker) lookupQualifiedEnum(name string) (*EnumDef, bool) {
 		// Find the package path for this alias
 		if pkgPath, ok := tc.importedPkgPaths[pkgAlias]; ok {
 			// Find the checker for this package
-			if modTC, ok := loadedPackageCheckers[pkgPath]; ok {
+			if modTC, ok := tc.packageCheckers[pkgPath]; ok {
 				// Search in the package's environment
 				if ed, ok := modTC.env.LookupEnum(typeName); ok {
 					return ed, true
@@ -329,7 +329,7 @@ func (tc *TypeChecker) lookupQualifiedEnum(name string) (*EnumDef, bool) {
 
 	// 3. Fallback: search all imported modules for unqualified enum names
 	for _, pkgPath := range tc.importedPkgPaths {
-		if modTC, ok := loadedPackageCheckers[pkgPath]; ok {
+		if modTC, ok := tc.packageCheckers[pkgPath]; ok {
 			if ed, ok := modTC.env.LookupEnum(name); ok {
 				return ed, true
 			}
@@ -353,7 +353,7 @@ func (tc *TypeChecker) findEnumByVariant(variantName string) (string, *EnumDef, 
 
 	// Search imported modules
 	for _, pkgPath := range tc.importedPkgPaths {
-		if modTC, ok := loadedPackageCheckers[pkgPath]; ok {
+		if modTC, ok := tc.packageCheckers[pkgPath]; ok {
 			for enumName, enumDef := range modTC.env.enums {
 				if variant, found := enumDef.Variants[variantName]; found {
 					return enumName, enumDef, variant

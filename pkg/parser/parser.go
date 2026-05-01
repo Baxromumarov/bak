@@ -2374,10 +2374,6 @@ func (p *Parser) parseStringLiteral() ast.Expression {
 		return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	if containsStringInterpolation(p.curToken.Literal) {
-		return p.parseInterpolatedStringLiteral(p.curToken.Literal, true)
-	}
-
 	// Process escape sequences in string literals
 	value := p.processStringEscapes(p.curToken.Literal)
 	return &ast.StringLiteral{Token: p.curToken, Value: value}
@@ -2430,26 +2426,6 @@ func interpolationStart(s string, i int, allowBareBraces bool) (literalEnd int, 
 		return i, i + 1, true
 	}
 	return i, 0, false
-}
-
-func containsStringInterpolation(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\\' {
-			i++
-			continue
-		}
-		if s[i] == '$' && i+1 < len(s) && s[i+1] == '{' {
-			return true
-		}
-		if s[i] == '{' {
-			if i+1 < len(s) && s[i+1] == '{' {
-				i++
-				continue
-			}
-			return true
-		}
-	}
-	return false
 }
 
 func findInterpolationEnd(s string, start int) (int, bool) {

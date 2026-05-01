@@ -18,7 +18,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	importPath := tc.resolveImportPath(is.Path)
 
 	if tc.currentPkgPath != "" {
-		packages.GlobalRegistry.RecordResolvedImport(tc.currentPkgPath, importPath)
+		tc.registry.RecordResolvedImport(tc.currentPkgPath, importPath)
 	}
 
 	// Check for cyclic imports
@@ -26,7 +26,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		visited := make(map[string]bool)
 		visited[tc.currentPkgPath] = true
 
-		if err := packages.GlobalRegistry.CheckCyclicImport(
+		if err := tc.registry.CheckCyclicImport(
 			tc.currentPkgPath,
 			importPath,
 			visited,
@@ -60,7 +60,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	}
 
 	// Try to get symbols from the package registry
-	pkg, exists := packages.GlobalRegistry.GetPackage(importPath)
+	pkg, exists := tc.registry.GetPackage(importPath)
 	if !exists {
 		// Recursive loading: If package not found, load and check it
 		modProg, err := packages.ParseProgram(importPath)
@@ -72,17 +72,16 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Register the package
 		pkgName := extractPackageName(importPath)
 		pkg = packages.NewPackage(pkgName, importPath, modProg)
-		packages.GlobalRegistry.RegisterPackage(pkg)
+		tc.registry.RegisterPackage(pkg)
 
 		// Type check the imported module recursively
 		// We use a new TypeChecker for the module and suppress its unused-symbol warnings
-		modTC := NewWithPath(importPath)
+		modTC := NewWithPathAndRegistry(importPath, tc.registry)
+		modTC.packageCheckers = tc.packageCheckers
 		modTC.suppressUnused = true
 		modErrors := modTC.Check(modProg)
-		// Store the module TypeChecker so we can finalize unused checks later
-		packageCheckersMu.Lock()
-		loadedPackageCheckers[importPath] = modTC
-		packageCheckersMu.Unlock()
+		// Store the module TypeChecker so we can finalize unused checks later.
+		tc.packageCheckers[importPath] = modTC
 
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
@@ -100,7 +99,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	}
 
 	// Retrieve potentially newly created package
-	pkg, exists = packages.GlobalRegistry.GetPackage(importPath)
+	pkg, exists = tc.registry.GetPackage(importPath)
 	if exists {
 		// Store the public symbols for this import
 		publicSymbols := pkg.GetPublicSymbols()

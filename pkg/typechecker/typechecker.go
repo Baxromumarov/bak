@@ -13,14 +13,6 @@ import (
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
-// loadedPackageCheckers stores TypeChecker instances for imported modules
-// keyed by their resolved import path. This allows marking used symbols
-// in the module checker after importers reference them, and to finalize
-// unused checks once importers have had a chance to run.
-
-// InvalidatePackage clears cached typechecker and package registry entries.
-// Call this between runs or in tests to ensure a clean state.
-
 // =============================================================================
 // Error Handling System
 // =============================================================================
@@ -139,6 +131,8 @@ type TypeChecker struct {
 	suppressUnused    bool                                   // when true, skip emitting unused-symbol warnings
 	finalized         bool                                   // whether finalization (unused checks) ran for this checker
 	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from isOk/isErr guards
+	registry          *packages.Registry                     // package state scoped to this checker run
+	packageCheckers   map[string]*TypeChecker                // imported module checkers scoped to this checker run
 }
 
 func stableFrozenGenericTypeName(name string) bool {
@@ -235,6 +229,8 @@ func New() *TypeChecker {
 		switchExhaustive: make(map[*ast.SwitchStatement]bool),
 		resultGuardFacts: make(map[string]resultGuardState),
 		emitter:          diagnostics.NewEmitter(""), // File will be set later
+		registry:         packages.NewRegistry(),
+		packageCheckers:  make(map[string]*TypeChecker),
 	}
 
 	// Register __Array as a builtin primitive struct (fixed size)
@@ -273,6 +269,15 @@ func NewWithPath(filePath string) *TypeChecker {
 	tc := New()
 	tc.currentPkgPath = filePath
 	tc.emitter = diagnostics.NewEmitter(filePath)
+	return tc
+}
+
+// NewWithPathAndRegistry creates a TypeChecker using caller-owned package state.
+func NewWithPathAndRegistry(filePath string, registry *packages.Registry) *TypeChecker {
+	tc := NewWithPath(filePath)
+	if registry != nil {
+		tc.registry = registry
+	}
 	return tc
 }
 
@@ -353,6 +358,14 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 
 	if !tc.ensurePackageDeclaration(program) || !tc.checkPackagePlacement(program) {
 		return tc.Errors()
+	}
+
+	if tc.currentPkgPath != "" {
+		tc.registry.RegisterPackage(packages.NewPackage(
+			tc.currentPkgName,
+			tc.currentPkgPath,
+			program,
+		))
 	}
 
 	// First pass: collect all type definitions (structs, functions)

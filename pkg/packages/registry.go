@@ -106,10 +106,16 @@ func (p *Package) extractSymbols() {
 	}
 }
 
-func (p *Package) registerNamedSymbol(nameNode *ast.Identifier, visibility ast.Visibility, kind SymbolKind, node ast.Node) {
+func (p *Package) registerNamedSymbol(
+	nameNode *ast.Identifier,
+	visibility ast.Visibility,
+	kind SymbolKind,
+	node ast.Node,
+) {
 	if nameNode == nil || nameNode.Value == "" {
 		return
 	}
+
 	p.Symbols[nameNode.Value] = &Symbol{
 		Name:       nameNode.Value,
 		Visibility: visibility,
@@ -289,13 +295,24 @@ func (r *Registry) RecordResolvedImport(pkgPath, importPath string) {
 }
 
 // CheckCyclicImport checks for cyclic imports starting from a package
-func (r *Registry) CheckCyclicImport(startPath string, importPath string, visited map[string]bool) error {
+func (r *Registry) CheckCyclicImport(
+	startPath string,
+	importPath string,
+	visited map[string]bool,
+) error {
+
 	startPath = normalizePath(startPath)
 	importPath = normalizePath(importPath)
+
 	return r.checkCyclicImport(startPath, importPath, visited, []string{startPath})
 }
 
-func (r *Registry) checkCyclicImport(startPath string, importPath string, visited map[string]bool, chain []string) error {
+func (r *Registry) checkCyclicImport(
+	startPath string,
+	importPath string,
+	visited map[string]bool,
+	chain []string,
+) error {
 	// Normalize paths
 	startPath = normalizePath(startPath)
 	importPath = normalizePath(importPath)
@@ -334,7 +351,13 @@ func (r *Registry) checkCyclicImport(startPath string, importPath string, visite
 		imports = pkg.Imports
 	}
 	for _, imp := range imports {
-		if err := r.checkCyclicImport(startPath, imp, visited, append(chain, importPath)); err != nil {
+
+		if err := r.checkCyclicImport(
+			startPath,
+			imp,
+			visited,
+			append(chain, importPath),
+		); err != nil {
 			return err
 		}
 	}
@@ -371,15 +394,25 @@ func formatSymbolList(symbols map[string]*Symbol, limit int) string {
 		if sym == nil || sym.Visibility != ast.Public {
 			continue
 		}
-		entries = append(entries, strfmt.Named("{name} ({Kind})", "Name", name, "Kind", sym.Kind))
+		entries = append(entries, strfmt.Named(
+			"{name} ({Kind})",
+			"name", name,
+			"Kind", sym.Kind),
+		)
 	}
 	sort.Strings(entries)
 	if len(entries) == 0 {
 		return ""
 	}
+
 	if limit > 0 && len(entries) > limit {
-		return strfmt.Named("{value}, and {expr} more", "Value", strings.Join(entries[:limit], ", "), "Expr", len(entries) - limit)
+		return strfmt.Named(
+			"{value}, and {expr} more",
+			"value", strings.Join(entries[:limit], ", "),
+			"expr", len(entries)-limit,
+		)
 	}
+
 	return strings.Join(entries, ", ")
 }
 
@@ -519,10 +552,12 @@ func (r *Registry) GetAllSymbolsFromPackage(pkgPath string, callerPkgPath string
 func (r *Registry) GetAllPackages() []*Package {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+
 	result := make([]*Package, 0, len(r.packages))
 	for _, pkg := range r.packages {
 		result = append(result, pkg)
 	}
+	
 	return result
 }
 
@@ -530,6 +565,7 @@ func (r *Registry) GetAllPackages() []*Package {
 func (r *Registry) Reset() {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	r.packages = make(map[string]*Package)
 	r.loading = make(map[string]bool)
 }

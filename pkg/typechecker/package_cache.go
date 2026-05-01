@@ -5,15 +5,9 @@ package typechecker
 import (
 	"maps"
 	"path/filepath"
-	"sync"
 
 	"github.com/baxromumarov/bak/pkg/packages"
 )
-
-var loadedPackageCheckers = make(map[string]*TypeChecker)
-
-// packageCheckersMu guards concurrent access to loadedPackageCheckers.
-var packageCheckersMu sync.RWMutex
 
 func InvalidatePackage(path string) {
 	if path == "" {
@@ -23,18 +17,15 @@ func InvalidatePackage(path string) {
 	if err != nil {
 		absPath = path
 	}
-	packageCheckersMu.Lock()
-	delete(loadedPackageCheckers, absPath)
-	packageCheckersMu.Unlock()
 	packages.GlobalRegistry.RemovePackage(absPath)
 }
 
-// ResetCache clears all cached typechecker instances.
+// ResetCache clears legacy package registry state. TypeChecker import caches
+// are now scoped to each checker instance.
 func ResetCache() {
-	packageCheckersMu.Lock()
-	clear(loadedPackageCheckers)
-	packageCheckersMu.Unlock()
+	packages.GlobalRegistry.Reset()
 }
+
 func (tc *TypeChecker) markImportedSymbolUsed(alias, name string) {
 	if alias == "" || name == "" {
 		return
@@ -55,14 +46,11 @@ func (tc *TypeChecker) markImportedSymbolUsed(alias, name string) {
 		return
 	}
 
-	if pkg, exists := packages.GlobalRegistry.GetPackage(importPath); exists {
+	if pkg, exists := tc.registry.GetPackage(importPath); exists {
 		pkg.MarkUsed(name)
 	}
 
-	packageCheckersMu.RLock()
-	modTC, ok := loadedPackageCheckers[importPath]
-	packageCheckersMu.RUnlock()
-	if ok {
+	if modTC, ok := tc.packageCheckers[importPath]; ok {
 		if modTC.env != nil {
 			modTC.env.MarkUsed(name)
 		}
@@ -78,10 +66,8 @@ func (tc *TypeChecker) finalizeImportedModules() {
 	// Finalize unused checks for any imported modules we've loaded.
 	// This runs their unused-element checks now that importers have had
 	// a chance to mark used exported symbols.
-	packageCheckersMu.RLock()
-	packageCheckersSnapshot := make(map[string]*TypeChecker, len(loadedPackageCheckers))
-	maps.Copy(packageCheckersSnapshot, loadedPackageCheckers)
-	packageCheckersMu.RUnlock()
+	packageCheckersSnapshot := make(map[string]*TypeChecker, len(tc.packageCheckers))
+	maps.Copy(packageCheckersSnapshot, tc.packageCheckers)
 	for importPath, modTC := range packageCheckersSnapshot {
 		if modTC == nil || modTC.finalized {
 			continue
@@ -89,7 +75,7 @@ func (tc *TypeChecker) finalizeImportedModules() {
 		modTC.checkUnusedElements()
 		modTC.finalized = true
 		// Seed back any used marks into the package registry as well.
-		if pkg, exists := packages.GlobalRegistry.GetPackage(importPath); exists {
+		if pkg, exists := tc.registry.GetPackage(importPath); exists {
 			for name := range modTC.env.used {
 				pkg.MarkUsed(name)
 			}

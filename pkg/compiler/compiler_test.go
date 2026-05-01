@@ -453,7 +453,7 @@ func TestCompileStringInterpolation(t *testing.T) {
 package main
 func main() -> (void) {
 	var i: int = 7
-	println("case {i}: {i + 1} | literal {{ok}}")
+	println(f"case {i}: {i + 1} | literal {{ok}}")
 }
 `)
 }

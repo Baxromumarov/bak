@@ -53,13 +53,10 @@ func Collect(paths []string, skipDirs ...string) ([]string, error) {
 		}
 
 		if info.IsDir() {
-			err := filepath.WalkDir(
-				path,
-				collector.walkAction,
-			)
-			if err != nil {
+			if err := filepath.WalkDir(path, collector.walkAction); err != nil {
 				return nil, err
 			}
+
 			continue
 		}
 

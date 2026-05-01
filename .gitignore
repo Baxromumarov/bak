@@ -5,7 +5,7 @@
 .antigravity
 .claude
 .codex
-
+*.zip
 # Build artifacts
 bakc-stage0
 bakc-stage1

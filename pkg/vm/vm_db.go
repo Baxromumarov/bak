@@ -7,6 +7,9 @@ import (
 	"sync"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"

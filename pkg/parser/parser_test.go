@@ -99,7 +99,7 @@ func TestStringLiteralInterpolation(t *testing.T) {
 package main
 func main() -> (void) {
 	var i: int = 7
-	println("case {i}: {i + 1} | literal {{ok}}")
+	println(f"case {i}: {i + 1} | literal {{ok}}")
 }
 `
 	l := lexer.New(input)
@@ -122,6 +122,30 @@ func main() -> (void) {
 	}
 	if _, ok := fstr.Elements[3].(*ast.InfixExpression); !ok {
 		t.Fatalf("expected second interpolation to be infix expression, got %T", fstr.Elements[3])
+	}
+}
+
+func TestStringLiteralBracesAreLiteral(t *testing.T) {
+	input := `
+package main
+func main() -> (void) {
+	println("POST /tasks body: {\"title\":\"ship bak\"}")
+}
+`
+	l := lexer.New(input)
+	p := New(l)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+
+	fn := program.Statements[1].(*ast.FunctionDecl)
+	callStmt := fn.Body.Statements[0].(*ast.ExpressionStatement)
+	call := callStmt.Expression.(*ast.CallExpression)
+	lit, ok := call.Arguments[0].(*ast.StringLiteral)
+	if !ok {
+		t.Fatalf("expected string literal argument, got %T", call.Arguments[0])
+	}
+	if lit.Value != `POST /tasks body: {"title":"ship bak"}` {
+		t.Fatalf("unexpected string literal value: %q", lit.Value)
 	}
 }
 

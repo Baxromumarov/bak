@@ -79,10 +79,7 @@ func connectToDb() -> (TasksDB) {
 }
 
 func ensureSchema(conn: &db.Connection) -> (Result<void, string>) {
-    var sql: string = "CREATE TABLE IF NOT EXISTS tasks (
-                            id SERIAL PRIMARY KEY,
-                            title TEXT NOT NULL,
-                            completed BOOLEAN NOT NULL DEFAULT FALSE)"
+    var sql: string = "CREATE TABLE IF NOT EXISTS tasks (\n                            id SERIAL PRIMARY KEY,\n                            title TEXT NOT NULL,\n                            completed BOOLEAN NOT NULL DEFAULT FALSE)"
     var q = postgres.query(
         conn,
         sql,
@@ -98,14 +95,18 @@ func ensureSchema(conn: &db.Connection) -> (Result<void, string>) {
 func healthHandler(_req: http.Request) -> (http.Response) {
     mut var entries: Vec<json.JsonEntry, _> = Vec.new()
 
-    entries.push(json.entry(
-        "status",
-        json.Json.String("ok"),
-    ))
-    entries.push(json.entry(
-        "db_ready",
-        json.Json.Boolean(tasks_db.ready),
-    ))
+    entries.push(
+        json.entry(
+            "status",
+            json.Json.String("ok"),
+        ),
+    )
+    entries.push(
+        json.entry(
+            "db_ready",
+            json.Json.Boolean(tasks_db.ready),
+        ),
+    )
 
     return http.json(
         200,
@@ -493,12 +494,14 @@ func main() -> (void) {
         "/tasks/:id/toggle",
         toggleTaskHandler,
     )
+
     router.delete(
         "/tasks/:id",
         deleteTaskHandler,
     )
+    
     println("API listening on 0.0.0.0:8080")
-    println("POST /tasks body: {\"title\":\"ship bak\"}")
+    println()
     println("PUT /tasks/:id/toggle")
 
     var serve = http.listenAndServe(
