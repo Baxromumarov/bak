@@ -855,6 +855,8 @@ func (p *Parameter) String() string {
 	out.WriteString(p.Type.String())
 	return out.String()
 }
+func (p *Parameter) GetToken() token.Token { return p.Token }
+func (p *Parameter) TokenLiteral() string  { return p.Token.Literal }
 
 // StructDecl represents struct declarations
 type StructDecl struct {

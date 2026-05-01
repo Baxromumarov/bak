@@ -12,5 +12,6 @@ pub func demo() -> (void) {
 
 func main() -> (void) {
     println(sum(1,2))
+    println("hello world", sum(1,2))
     return void
 }

@@ -36,8 +36,7 @@ func rangeFromToken(tok token.Token, name string) (out Range) {
 }
 
 func rangeFromSpan(span ast.Span) (Range, bool) {
-	if span.Start.Line == 0 ||
-		span.End.Line == 0 {
+	if span.Start.Line == 0 || span.End.Line == 0 {
 		return Range{}, false
 	}
 
@@ -104,11 +103,7 @@ func tokenKey(tok token.Token) string {
 	)
 }
 
-func symbolDefFromInfo(
-	sym SymbolInfo,
-	name,
-	container string,
-) *symbolDef {
+func symbolDefFromInfo(sym SymbolInfo, name, container string) *symbolDef {
 	if name == "" {
 		name = sym.Name
 	}
@@ -137,7 +132,22 @@ func nodeRefKey(node ast.Node) string {
 	return ""
 }
 
-func (s *Server) ensureWorkspaceRefIndex() {
+// makeLocation builds an LSP Location from 1-based line/col and a name length.
+func makeLocation(uri string, line, col, length int) Location {
+	if line <= 0 || col <= 0 {
+		return Location{}
+	}
+	return Location{
+		URI: uri,
+		Range: Range{
+			Start: Position{Line: line - 1, Character: col - 1},
+			End:   Position{Line: line - 1, Character: col - 1 + length},
+		},
+	}
+}
+
+// forEachBakFile walks the workspace and calls fn for every .bak file.
+func (s *Server) forEachBakFile(fn func(path, uri string)) {
 	if s.RootPath == "" {
 		return
 	}
@@ -155,10 +165,16 @@ func (s *Server) ensureWorkspaceRefIndex() {
 		if !strings.HasSuffix(path, ".bak") {
 			return nil
 		}
-		uri := pathToURI(path)
+		fn(path, pathToURI(path))
+		return nil
+	})
+}
+
+func (s *Server) ensureWorkspaceRefIndex() {
+	s.forEachBakFile(func(path, uri string) {
 		res := s.Cache[uri]
 		if res != nil && res.RefIndex != nil && res.Defs != nil {
-			return nil
+			return
 		}
 
 		var prog *ast.Program
@@ -174,7 +190,7 @@ func (s *Server) ensureWorkspaceRefIndex() {
 		} else {
 			data, err := os.ReadFile(path)
 			if err != nil {
-				return nil
+				return
 			}
 			text := string(data)
 			l := lexer.New(text)
@@ -206,21 +222,27 @@ func (s *Server) ensureWorkspaceRefIndex() {
 		res.RefIndex = refIndex
 		res.RefByPos = refByPos
 		res.Defs = defs
-		return nil
 	})
 }
 
-func formatFuncDetail(
-	params []*ast.Parameter,
-	ret ast.TypeExpression,
-	mutable bool,
-) string {
+func (s *Server) ensureWorkspaceIndexes() {
+	s.forEachBakFile(func(path, uri string) {
+		if _, ok := s.Indexes[uri]; ok {
+			return
+		}
+		if idx := s.getOrIndexFile(path); idx != nil {
+			s.Indexes[uri] = idx
+		}
+	})
+}
+
+func formatFuncDetail(params []*ast.Parameter, ret ast.TypeExpression, mutable bool) string {
 	paramLabels := make([]string, 0, len(params))
 	for i, p := range params {
 		if p == nil {
 			continue
 		}
-		paramName := strfmt.Named("arg{expr}", "Expr", i+1)
+		paramName := strfmt.Named("arg{Expr}", "Expr", i+1)
 		if p.Name != nil && p.Name.Value != "" {
 			paramName = p.Name.Value
 		}
@@ -247,177 +269,19 @@ func formatFuncDetail(
 	}
 	return strfmt.Named(
 		"{mut}func({paramLabels}) -> ({retType})",
-		"Mut", mut,
-		"ParamLabels", strings.Join(paramLabels, ", "),
-		"RetType", retType,
+		"mut", mut,
+		"paramLabels", strings.Join(paramLabels, ", "),
+		"retType", retType,
 	)
 }
 
-func (s *Server) ensureWorkspaceIndexes() {
-	if s.RootPath == "" {
-		return
-	}
-	_ = filepath.WalkDir(s.RootPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
+func collectReferences(prog *ast.Program, uri string, name string) []Location {
+	var locs []Location
+	ast.Walk(prog, func(node ast.Node) {
+		if n, ok := node.(*ast.Identifier); ok && n.Value == name {
+			locs = append(locs, makeLocation(uri, n.Token.Line, n.Token.Column, len(n.Value)))
 		}
-		if d.IsDir() {
-			name := d.Name()
-			if strings.HasPrefix(name, ".") || name == "bin" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if strings.HasSuffix(path, ".bak") {
-			uri := pathToURI(path)
-			if _, ok := s.Indexes[uri]; !ok {
-				if idx := s.getOrIndexFile(path); idx != nil {
-					s.Indexes[uri] = idx
-				}
-			}
-		}
-		return nil
 	})
-}
-
-func collectReferences(
-	prog *ast.Program,
-	uri string,
-	name string,
-) []Location {
-	locs := []Location{}
-	add := func(line, col, length int) {
-		if line <= 0 || col <= 0 {
-			return
-		}
-		locs = append(locs, Location{
-			URI: uri,
-			Range: Range{
-				Start: Position{
-					Line:      line - 1,
-					Character: col - 1,
-				},
-				End: Position{
-					Line:      line - 1,
-					Character: col - 1 + length,
-				},
-			},
-		})
-	}
-	var walk func(node ast.Node)
-	walk = func(node ast.Node) {
-		if node == nil {
-			return
-		}
-		switch n := node.(type) {
-		case *ast.Identifier:
-			if n.Value == name {
-				add(n.Token.Line, n.Token.Column, len(n.Value))
-			}
-		case *ast.MethodCallExpression:
-			if n.Method != nil && n.Method.Value == name {
-				add(
-					n.Method.Token.Line,
-					n.Method.Token.Column,
-					len(n.Method.Value),
-				)
-			}
-			walk(n.Object)
-			for _, arg := range n.Arguments {
-				walk(arg)
-			}
-		case *ast.Program:
-			for _, stmt := range n.Statements {
-				walk(stmt)
-			}
-		case *ast.ExpressionStatement:
-			walk(n.Expression)
-		case *ast.VarStatement:
-			walk(n.Name)
-			walk(n.Value)
-		case *ast.ConstStatement:
-			walk(n.Name)
-			walk(n.Value)
-		case *ast.ReturnStatement:
-			walk(n.ReturnValue)
-		case *ast.InfixExpression:
-			walk(n.Left)
-			walk(n.Right)
-		case *ast.PrefixExpression:
-			walk(n.Right)
-		case *ast.CallExpression:
-			walk(n.Function)
-			for _, arg := range n.Arguments {
-				walk(arg)
-			}
-		case *ast.BlockStatement:
-			for _, stmt := range n.Statements {
-				walk(stmt)
-			}
-		case *ast.IfStatement:
-			walk(n.Condition)
-			walk(n.Consequence)
-			walk(n.Alternative)
-		case *ast.WhileStatement:
-			walk(n.Condition)
-			walk(n.Body)
-		case *ast.ForStatement:
-			walk(n.Iterable)
-			walk(n.Body)
-		case *ast.SwitchStatement:
-			walk(n.Value)
-			for _, c := range n.Cases {
-				for _, expr := range c.Values {
-					walk(expr)
-				}
-				if c.Body != nil {
-					walk(c.Body)
-				}
-			}
-		case *ast.FunctionDecl:
-			if n == nil || n.Body == nil {
-				return
-			}
-			walk(n.Body)
-		case *ast.ImplDecl:
-			if n == nil {
-				return
-			}
-			walk(n.TypeName)
-			for _, m := range n.Methods {
-				if m == nil || m.Body == nil {
-					continue
-				}
-				walk(m.Body)
-			}
-		case *ast.StructDecl:
-			if n == nil {
-				return
-			}
-			walk(n.Name)
-			for _, f := range n.Fields {
-				walk(f.Type)
-			}
-		case *ast.EnumDecl:
-			if n == nil {
-				return
-			}
-			walk(n.Name)
-		case *ast.TypeDecl:
-			if n == nil {
-				return
-			}
-			walk(n.Name)
-			walk(n.Underlying)
-		case *ast.AliasDecl:
-			if n == nil {
-				return
-			}
-			walk(n.Name)
-			walk(n.Underlying)
-		}
-	}
-	walk(prog)
 	return locs
 }
 
@@ -466,7 +330,7 @@ func collectReferencesWorkspace(s *Server, uri string, node ast.Node) []Location
 		return nil
 	}
 
-	refs := []Location{}
+	var refs []Location
 	for fileURI, res := range s.Cache {
 		if res == nil || res.AST == nil {
 			continue
@@ -522,128 +386,184 @@ func (s *scope) lookup(name string) *symbolDef {
 	return nil
 }
 
-func buildReferenceIndex(
-	prog *ast.Program,
-	tc *typechecker.TypeChecker,
-	uri string,
-	idxImports map[string]string,
-	_ *FileIndex,
-	srv *Server,
-) (
-	map[string][]Location,
-	map[string]string,
-	map[string]Location,
-) {
-	refs := make(map[string][]Location)
-	refByPos := make(map[string]string)
-	defs := make(map[string]Location)
+type refBuilder struct {
+	uri           string
+	imports       map[string]string
+	srv           *Server
+	tc            *typechecker.TypeChecker
+	refs          map[string][]Location
+	refByPos      map[string]string
+	defs          map[string]Location
+	structFields  map[string]map[string]*symbolDef
+	structMethods map[string]map[string]*symbolDef
+	typeDefs      map[string]*symbolDef
+	global        *scope
+}
 
-	if prog == nil {
-		return refs, refByPos, defs
+func (b *refBuilder) newDef(name, kind string, tok token.Token, container string) *symbolDef {
+	loc := locationFromToken(b.uri, tok, name)
+	def := &symbolDef{
+		ID:        symbolID(kind, loc),
+		Name:      name,
+		Kind:      kind,
+		Location:  loc,
+		Container: container,
 	}
+	b.defs[def.ID] = def.Location
+	b.refByPos[tokenKey(tok)] = def.ID
+	return def
+}
 
-	if srv != nil {
-		srv.ensureWorkspaceIndexes()
+func (b *refBuilder) defineStructField(structName, fieldName string, tok token.Token) {
+	if b.structFields[structName] == nil {
+		b.structFields[structName] = make(map[string]*symbolDef)
 	}
+	b.structFields[structName][fieldName] = b.newDef(fieldName, "field", tok, structName)
+}
 
-	structFields := make(map[string]map[string]*symbolDef)
-	structMethods := make(map[string]map[string]*symbolDef)
-	typeDefs := make(map[string]*symbolDef)
+func (b *refBuilder) defineStructMethod(structName, methodName string, tok token.Token) {
+	if b.structMethods[structName] == nil {
+		b.structMethods[structName] = make(map[string]*symbolDef)
+	}
+	b.structMethods[structName][methodName] = b.newDef(methodName, "method", tok, structName)
+}
 
-	global := newScope(nil)
-
-	newDef := func(name, kind string, tok token.Token, container string) *symbolDef {
-		loc := locationFromToken(uri, tok, name)
-		def := &symbolDef{
-			ID:        symbolID(kind, loc),
-			Name:      name,
-			Kind:      kind,
-			Location:  loc,
-			Container: container,
+func (b *refBuilder) recordRef(def *symbolDef, node ast.Node, tok token.Token) {
+	if def == nil {
+		return
+	}
+	loc := locationFromToken(b.uri, tok, tok.Literal)
+	if node != nil {
+		if r, ok := rangeFromSpan(ast.SpanOf(node)); ok {
+			loc = Location{URI: b.uri, Range: r}
 		}
-		defs[def.ID] = def.Location
-		refByPos[tokenKey(tok)] = def.ID
-		return def
 	}
+	b.refs[def.ID] = append(b.refs[def.ID], loc)
+	b.refByPos[tokenKey(tok)] = def.ID
+}
 
-	defineStructField := func(structName, fieldName string, tok token.Token) {
-		if structFields[structName] == nil {
-			structFields[structName] = make(map[string]*symbolDef)
+func (b *refBuilder) recordRefTok(def *symbolDef, tok token.Token) {
+	b.recordRef(def, nil, tok)
+}
+
+func (b *refBuilder) resolveModuleSymbol(alias, name string) *symbolDef {
+	if b.srv == nil {
+		return nil
+	}
+	importPath, ok := b.imports[alias]
+	if !ok {
+		return nil
+	}
+	path := b.srv.resolveImportPath(uriToPath(b.uri), importPath)
+	if path == "" {
+		return nil
+	}
+	modIndex := b.srv.getOrIndexFile(path)
+	if modIndex == nil {
+		return nil
+	}
+	if sym, ok := modIndex.Symbols[name]; ok {
+		return symbolDefFromInfo(sym, name, "")
+	}
+	return nil
+}
+
+func (b *refBuilder) resolveStructMember(structName, memberName, kind string) *symbolDef {
+	if structName == "" || memberName == "" {
+		return nil
+	}
+	if kind == "field" {
+		if fields := b.structFields[structName]; fields != nil {
+			if def, ok := fields[memberName]; ok {
+				return def
+			}
 		}
-		structFields[structName][fieldName] = newDef(
-			fieldName,
-			"field",
-			tok,
-			structName,
-		)
 	}
-
-	defineStructMethod := func(structName, methodName string, tok token.Token) {
-		if structMethods[structName] == nil {
-			structMethods[structName] = make(map[string]*symbolDef)
+	if kind == "method" {
+		if methods := b.structMethods[structName]; methods != nil {
+			if def, ok := methods[memberName]; ok {
+				return def
+			}
 		}
-		structMethods[structName][methodName] = newDef(
-			methodName,
-			"method",
-			tok,
-			structName,
-			)
 	}
+	if b.srv == nil {
+		return nil
+	}
+	key := structName + "." + memberName
+	for _, index := range b.srv.Indexes {
+		if index == nil {
+			continue
+		}
+		if sym, ok := index.Symbols[key]; ok {
+			return symbolDefFromInfo(sym, memberName, structName)
+		}
+	}
+	return nil
+}
 
+func (b *refBuilder) resolveTypeRef(name string, tok token.Token) {
+	if def, ok := b.typeDefs[name]; ok {
+		b.recordRefTok(def, tok)
+	} else if def := b.global.lookup(name); def != nil && (def.Kind == "struct" || def.Kind == "enum" || def.Kind == "type" || def.Kind == "alias") {
+		b.recordRefTok(def, tok)
+	}
+}
+
+func (b *refBuilder) indexGlobals(prog *ast.Program) {
 	for _, stmt := range prog.Statements {
 		switch s := stmt.(type) {
 		case *ast.FunctionDecl:
 			if s != nil && s.Name != nil {
-				global.define(newDef(s.Name.Value, "func", s.Name.Token, ""))
+				b.global.define(b.newDef(s.Name.Value, "func", s.Name.Token, ""))
 			}
 		case *ast.StructDecl:
 			if s != nil && s.Name != nil {
-				def := newDef(s.Name.Value, "struct", s.Name.Token, "")
-				global.define(def)
-				typeDefs[s.Name.Value] = def
+				def := b.newDef(s.Name.Value, "struct", s.Name.Token, "")
+				b.global.define(def)
+				b.typeDefs[s.Name.Value] = def
 				for _, f := range s.Fields {
 					if f == nil || f.Name == nil {
 						continue
 					}
-					defineStructField(s.Name.Value, f.Name.Value, f.Name.Token)
+					b.defineStructField(s.Name.Value, f.Name.Value, f.Name.Token)
 				}
 			}
 		case *ast.EnumDecl:
 			if s != nil && s.Name != nil {
-				def := newDef(s.Name.Value, "enum", s.Name.Token, "")
-				global.define(def)
-				typeDefs[s.Name.Value] = def
+				def := b.newDef(s.Name.Value, "enum", s.Name.Token, "")
+				b.global.define(def)
+				b.typeDefs[s.Name.Value] = def
 			}
 		case *ast.TypeDecl:
 			if s != nil && s.Name != nil {
-				def := newDef(s.Name.Value, "type", s.Name.Token, "")
-				global.define(def)
-				typeDefs[s.Name.Value] = def
+				def := b.newDef(s.Name.Value, "type", s.Name.Token, "")
+				b.global.define(def)
+				b.typeDefs[s.Name.Value] = def
 			}
 		case *ast.AliasDecl:
 			if s != nil && s.Name != nil {
-				def := newDef(s.Name.Value, "alias", s.Name.Token, "")
-				global.define(def)
-				typeDefs[s.Name.Value] = def
+				def := b.newDef(s.Name.Value, "alias", s.Name.Token, "")
+				b.global.define(def)
+				b.typeDefs[s.Name.Value] = def
 			}
 		case *ast.ConstStatement:
 			if s != nil && s.Name != nil {
-				global.define(newDef(s.Name.Value, "const", s.Name.Token, ""))
+				b.global.define(b.newDef(s.Name.Value, "const", s.Name.Token, ""))
 			}
 		case *ast.VarStatement:
 			if s != nil && s.Name != nil {
-				global.define(newDef(s.Name.Value, "var", s.Name.Token, ""))
+				b.global.define(b.newDef(s.Name.Value, "var", s.Name.Token, ""))
 			}
 		case *ast.ConstBlock:
 			for _, c := range s.Constants {
 				if c != nil && c.Name != nil {
-					global.define(newDef(c.Name.Value, "const", c.Name.Token, ""))
+					b.global.define(b.newDef(c.Name.Value, "const", c.Name.Token, ""))
 				}
 			}
 		case *ast.VarBlock:
 			for _, v := range s.Variables {
 				if v != nil && v.Name != nil {
-					global.define(newDef(v.Name.Value, "var", v.Name.Token, ""))
+					b.global.define(b.newDef(v.Name.Value, "var", v.Name.Token, ""))
 				}
 			}
 		case *ast.ImplDecl:
@@ -655,502 +575,391 @@ func buildReferenceIndex(
 				if m == nil || m.Name == nil {
 					continue
 				}
-				defineStructMethod(typeName, m.Name.Value, m.Name.Token)
+				b.defineStructMethod(typeName, m.Name.Value, m.Name.Token)
 			}
 		}
 	}
+}
 
-	recordRef := func(def *symbolDef, node ast.Node, tok token.Token) {
-		if def == nil {
-			return
+func (b *refBuilder) walkType(t ast.TypeExpression, sc *scope) {
+	if t == nil {
+		return
+	}
+	switch tt := t.(type) {
+	case *ast.SimpleType:
+		if tt != nil && !token.IsType(tt.Token.Type) && tt.Name != "" {
+			b.resolveTypeRef(tt.Name, tt.Token)
 		}
-		loc := locationFromToken(uri, tok, tok.Literal)
-		if node != nil {
-			if r, ok := rangeFromSpan(ast.SpanOf(node)); ok {
-				loc = Location{URI: uri, Range: r}
+	case *ast.GenericType:
+		if tt != nil {
+			if !token.IsType(tt.Token.Type) && tt.Name != "" {
+				b.resolveTypeRef(tt.Name, tt.Token)
+			}
+			for _, param := range tt.TypeParams {
+				b.walkType(param, sc)
 			}
 		}
-		refs[def.ID] = append(refs[def.ID], loc)
-		refByPos[tokenKey(tok)] = def.ID
+	case *ast.BorrowType:
+		if tt != nil {
+			b.walkType(tt.Inner, sc)
+		}
+	case *ast.TupleType:
+		if tt != nil {
+			for _, el := range tt.Elements {
+				b.walkType(el, sc)
+			}
+		}
+	case *ast.FunctionType:
+		if tt != nil {
+			for _, p := range tt.Params {
+				b.walkType(p, sc)
+			}
+			b.walkType(tt.ReturnType, sc)
+		}
+	case *ast.NamedType:
+		if tt != nil {
+			b.walkType(tt.Type, sc)
+		}
 	}
+}
 
-	recordRefTok := func(def *symbolDef, tok token.Token) {
-		recordRef(def, nil, tok)
+func (b *refBuilder) walkExpr(expr ast.Expression, sc *scope) {
+	if expr == nil {
+		return
 	}
-
-	resolveModuleSymbol := func(alias, name string) *symbolDef {
-		if srv == nil {
-			return nil
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		if def := sc.lookup(e.Value); def != nil {
+			b.recordRef(def, e, e.Token)
 		}
-		importPath, ok := idxImports[alias]
-		if !ok {
-			return nil
-		}
-		path := srv.resolveImportPath(uriToPath(uri), importPath)
-		if path == "" {
-			return nil
-		}
-		modIndex := srv.getOrIndexFile(path)
-		if modIndex == nil {
-			return nil
-		}
-		if sym, ok := modIndex.Symbols[name]; ok {
-			return symbolDefFromInfo(sym, name, "")
-		}
-		return nil
-	}
-
-	resolveStructMember := func(structName, memberName string, kind string) *symbolDef {
-		if structName == "" || memberName == "" {
-			return nil
-		}
-		if kind == "field" {
-			if fields := structFields[structName]; fields != nil {
-				if def, ok := fields[memberName]; ok {
-					return def
+	case *ast.MutableIdentifier:
+		// Mutable identifiers don't store the name token; skip precise ref tracking.
+	case *ast.FieldAccessExpression:
+		if e != nil {
+			b.walkExpr(e.Object, sc)
+			if objIdent, ok := e.Object.(*ast.Identifier); ok {
+				if def := b.resolveModuleSymbol(objIdent.Value, e.Field.Value); def != nil {
+					b.recordRef(def, e.Field, e.Field.Token)
+					return
 				}
 			}
-		}
-		if kind == "method" {
-			if methods := structMethods[structName]; methods != nil {
-				if def, ok := methods[memberName]; ok {
-					return def
-				}
-			}
-		}
-		if srv == nil {
-			return nil
-		}
-		key := structName + "." + memberName
-		for _, index := range srv.Indexes {
-			if index == nil {
-				continue
-			}
-			if sym, ok := index.Symbols[key]; ok {
-				return symbolDefFromInfo(sym, memberName, structName)
-			}
-		}
-		return nil
-	}
-
-	resolveTypeRef := func(name string, tok token.Token) {
-		if def, ok := typeDefs[name]; ok {
-			recordRefTok(def, tok)
-		} else if def := global.lookup(name); def != nil && (def.Kind == "struct" || def.Kind == "enum" || def.Kind == "type" || def.Kind == "alias") {
-			recordRefTok(def, tok)
-		}
-	}
-
-	var walkExpr func(expr ast.Expression, scope *scope)
-	var walkType func(t ast.TypeExpression, scope *scope)
-	var walkStmt func(stmt ast.Statement, scope *scope)
-
-	walkType = func(t ast.TypeExpression, scope *scope) {
-		switch tt := t.(type) {
-		case *ast.SimpleType:
-			if tt != nil && !token.IsType(tt.Token.Type) && tt.Name != "" {
-				resolveTypeRef(tt.Name, tt.Token)
-			}
-		case *ast.GenericType:
-			if tt != nil {
-				if !token.IsType(tt.Token.Type) && tt.Name != "" {
-					resolveTypeRef(tt.Name, tt.Token)
-				}
-				for _, param := range tt.TypeParams {
-					walkType(param, scope)
-				}
-			}
-		case *ast.BorrowType:
-			if tt != nil {
-				walkType(tt.Inner, scope)
-			}
-		case *ast.TupleType:
-			if tt != nil {
-				for _, el := range tt.Elements {
-					walkType(el, scope)
-				}
-			}
-		case *ast.FunctionType:
-			if tt != nil {
-				for _, p := range tt.Params {
-					walkType(p, scope)
-				}
-				walkType(tt.ReturnType, scope)
-			}
-		case *ast.NamedType:
-			if tt != nil {
-				walkType(tt.Type, scope)
-			}
-		}
-	}
-
-	walkExpr = func(expr ast.Expression, scope *scope) {
-		switch e := expr.(type) {
-		case *ast.Identifier:
-			if def := scope.lookup(e.Value); def != nil {
-				recordRef(def, e, e.Token)
-			}
-		case *ast.MutableIdentifier:
-			// Mutable identifiers don't store the name token; skip precise ref tracking.
-		case *ast.FieldAccessExpression:
-			if e != nil {
-				walkExpr(e.Object, scope)
-				if objIdent, ok := e.Object.(*ast.Identifier); ok {
-					if def := resolveModuleSymbol(objIdent.Value, e.Field.Value); def != nil {
-						recordRef(def, e.Field, e.Field.Token)
+			if b.tc != nil {
+				if t := b.tc.GetNodeType(e.Object); t != "" {
+					base := baseTypeName(t)
+					if def := b.resolveStructMember(base, e.Field.Value, "field"); def != nil {
+						b.recordRef(def, e.Field, e.Field.Token)
 						return
 					}
 				}
-				if tc != nil {
-					if t := tc.GetNodeType(e.Object); t != "" {
-						base := baseTypeName(t)
-						if def := resolveStructMember(base, e.Field.Value, "field"); def != nil {
-							recordRef(def, e.Field, e.Field.Token)
-							return
-						}
-					}
+			}
+		}
+	case *ast.MethodCallExpression:
+		if e != nil {
+			b.walkExpr(e.Object, sc)
+			for _, arg := range e.Arguments {
+				b.walkExpr(arg, sc)
+			}
+			if objIdent, ok := e.Object.(*ast.Identifier); ok {
+				if def := b.resolveModuleSymbol(objIdent.Value, e.Method.Value); def != nil {
+					b.recordRef(def, e.Method, e.Method.Token)
+					return
 				}
 			}
-		case *ast.MethodCallExpression:
-			if e != nil {
-				walkExpr(e.Object, scope)
-				for _, arg := range e.Arguments {
-					walkExpr(arg, scope)
-				}
-				if objIdent, ok := e.Object.(*ast.Identifier); ok {
-					if def := resolveModuleSymbol(objIdent.Value, e.Method.Value); def != nil {
-						recordRef(def, e.Method, e.Method.Token)
+			if b.tc != nil {
+				if t := b.tc.GetNodeType(e.Object); t != "" {
+					base := baseTypeName(t)
+					if def := b.resolveStructMember(base, e.Method.Value, "method"); def != nil {
+						b.recordRef(def, e.Method, e.Method.Token)
 						return
 					}
 				}
-				if tc != nil {
-					if t := tc.GetNodeType(e.Object); t != "" {
-						base := baseTypeName(t)
-						if def := resolveStructMember(base, e.Method.Value, "method"); def != nil {
-							recordRef(def, e.Method, e.Method.Token)
-							return
-						}
-					}
-				}
-			}
-		case *ast.CallExpression:
-			if e != nil {
-				walkExpr(e.Function, scope)
-				for _, arg := range e.Arguments {
-					walkExpr(arg, scope)
-				}
-			}
-		case *ast.IndexExpression:
-			if e != nil {
-				walkExpr(e.Left, scope)
-				walkExpr(e.Index, scope)
-			}
-		case *ast.InfixExpression:
-			if e != nil {
-				walkExpr(e.Left, scope)
-				walkExpr(e.Right, scope)
-			}
-		case *ast.PrefixExpression:
-			if e != nil {
-				walkExpr(e.Right, scope)
-			}
-		case *ast.StructLiteral:
-			if e != nil {
-				if e.Name != nil {
-					resolveTypeRef(e.Name.Value, e.Name.Token)
-				}
-				for _, val := range e.Fields {
-					walkExpr(val, scope)
-				}
-			}
-		case *ast.VecLiteral:
-			if e != nil {
-				for _, el := range e.Elements {
-					walkExpr(el, scope)
-				}
-			}
-		case *ast.RangeExpression:
-			if e != nil {
-				walkExpr(e.Start, scope)
-				walkExpr(e.End, scope)
-			}
-		case *ast.TupleExpression:
-			if e != nil {
-				for _, el := range e.Elements {
-					walkExpr(el, scope)
-				}
-			}
-		case *ast.FunctionLiteral:
-			if e != nil {
-				fnScope := newScope(scope)
-				for _, p := range e.Parameters {
-					if p != nil && p.Name != nil {
-						fnScope.define(newDef(p.Name.Value, "param", p.Name.Token, ""))
-						walkType(p.Type, scope)
-					}
-				}
-				walkStmt(e.Body, fnScope)
-			}
-		case *ast.TypeConversion:
-			if e != nil {
-				walkExpr(e.Value, scope)
-			}
-		case *ast.EnumVariantExpression:
-			if e != nil {
-				for _, v := range e.Values {
-					walkExpr(v, scope)
-				}
-			}
-		case *ast.BorrowExpression:
-			if e != nil {
-				walkExpr(e.Value, scope)
-			}
-		case *ast.DerefExpression:
-			if e != nil {
-				walkExpr(e.Value, scope)
 			}
 		}
-	}
-
-	walkStmt = func(stmt ast.Statement, scope *scope) {
-		switch s := stmt.(type) {
-		case *ast.VarStatement:
-			if s != nil {
-				walkExpr(s.Value, scope)
-				walkType(s.Type, scope)
-				if s.Name != nil {
-					scope.define(newDef(s.Name.Value, "var", s.Name.Token, ""))
-				}
-			}
-		case *ast.ConstStatement:
-			if s != nil {
-				walkExpr(s.Value, scope)
-				walkType(s.Type, scope)
-				if s.Name != nil {
-					scope.define(newDef(s.Name.Value, "const", s.Name.Token, ""))
-				}
-			}
-		case *ast.MultiVarStatement:
-			if s != nil {
-				walkExpr(s.Value, scope)
-				for _, n := range s.Names {
-					if n != nil {
-						scope.define(newDef(n.Value, "var", n.Token, ""))
-					}
-				}
-				for _, t := range s.Types {
-					walkType(t, scope)
-				}
-			}
-		case *ast.VarBlock:
-			if s != nil {
-				for _, v := range s.Variables {
-					walkStmt(v, scope)
-				}
-			}
-		case *ast.ConstBlock:
-			if s != nil {
-				for _, c := range s.Constants {
-					walkStmt(c, scope)
-				}
-			}
-		case *ast.AssignmentStatement:
-			if s != nil {
-				walkExpr(s.Left, scope)
-				walkExpr(s.Value, scope)
-			}
-		case *ast.ExpressionStatement:
-			if s != nil {
-				walkExpr(s.Expression, scope)
-			}
-		case *ast.ReturnStatement:
-			if s != nil {
-				walkExpr(s.ReturnValue, scope)
-			}
-		case *ast.BlockStatement:
-			if s != nil {
-				blockScope := newScope(scope)
-				for _, st := range s.Statements {
-					walkStmt(st, blockScope)
-				}
-			}
-		case *ast.FunctionDecl:
-			if s != nil && s.Body != nil {
-				fnScope := newScope(scope)
-				for _, p := range s.Parameters {
-					if p != nil && p.Name != nil {
-						fnScope.define(newDef(p.Name.Value, "param", p.Name.Token, ""))
-						walkType(p.Type, scope)
-					}
-				}
-				walkType(s.ReturnType, scope)
-				walkStmt(s.Body, fnScope)
-			}
-		case *ast.WhileStatement:
-			if s != nil {
-				walkExpr(s.Condition, scope)
-				walkStmt(s.Body, newScope(scope))
-			}
-		case *ast.ForStatement:
-			if s != nil {
-				walkExpr(s.Iterable, scope)
-				loopScope := newScope(scope)
-				if s.Variable != nil {
-					loopScope.define(newDef(s.Variable.Value, "var", s.Variable.Token, ""))
-				}
-				walkStmt(s.Body, loopScope)
-			}
-		case *ast.IfStatement:
-			if s != nil {
-				walkExpr(s.Condition, scope)
-				walkStmt(s.Consequence, newScope(scope))
-				if s.Alternative != nil {
-					walkStmt(s.Alternative, newScope(scope))
-				}
-			}
-		case *ast.SwitchStatement:
-			if s != nil {
-				walkExpr(s.Value, scope)
-				for _, c := range s.Cases {
-					if c == nil {
-						continue
-					}
-					caseScope := newScope(scope)
-					for _, v := range c.Values {
-						walkExpr(v, caseScope)
-					}
-					walkStmt(c.Body, caseScope)
-				}
-			}
-		case *ast.DeferStatement:
-			if s != nil {
-				walkStmt(s.Body, newScope(scope))
-			}
-		case *ast.ImplDecl:
-			if s != nil {
-				for _, m := range s.Methods {
-					if m == nil {
-						continue
-					}
-					methodScope := newScope(scope)
-					if s.Receiver != nil {
-						methodScope.define(newDef(s.Receiver.Value, "var", s.Receiver.Token, ""))
-					}
-					for _, p := range m.Parameters {
-						if p != nil && p.Name != nil {
-							methodScope.define(newDef(p.Name.Value, "param", p.Name.Token, ""))
-							walkType(p.Type, scope)
-						}
-					}
-					walkType(m.ReturnType, scope)
-					walkStmt(m.Body, methodScope)
-				}
-			}
-		case *ast.PanicStatement:
-			if s != nil {
-				walkExpr(s.Message, scope)
-			}
-		case *ast.UnsafeBlock:
-			if s != nil {
-				walkStmt(s.Body, newScope(scope))
+	case *ast.CallExpression:
+		if e != nil {
+			b.walkExpr(e.Function, sc)
+			for _, arg := range e.Arguments {
+				b.walkExpr(arg, sc)
 			}
 		}
+	case *ast.IndexExpression:
+		if e != nil {
+			b.walkExpr(e.Left, sc)
+			b.walkExpr(e.Index, sc)
+		}
+	case *ast.InfixExpression:
+		if e != nil {
+			b.walkExpr(e.Left, sc)
+			b.walkExpr(e.Right, sc)
+		}
+	case *ast.PrefixExpression:
+		if e != nil {
+			b.walkExpr(e.Right, sc)
+		}
+	case *ast.StructLiteral:
+		if e != nil {
+			if e.Name != nil {
+				b.resolveTypeRef(e.Name.Value, e.Name.Token)
+			}
+			for _, val := range e.Fields {
+				b.walkExpr(val, sc)
+			}
+		}
+	case *ast.VecLiteral:
+		if e != nil {
+			for _, el := range e.Elements {
+				b.walkExpr(el, sc)
+			}
+		}
+	case *ast.RangeExpression:
+		if e != nil {
+			b.walkExpr(e.Start, sc)
+			b.walkExpr(e.End, sc)
+		}
+	case *ast.TupleExpression:
+		if e != nil {
+			for _, el := range e.Elements {
+				b.walkExpr(el, sc)
+			}
+		}
+	case *ast.FunctionLiteral:
+		if e != nil {
+			fnScope := newScope(sc)
+			for _, p := range e.Parameters {
+				if p != nil && p.Name != nil {
+					fnScope.define(b.newDef(p.Name.Value, "param", p.Name.Token, ""))
+					b.walkType(p.Type, sc)
+				}
+			}
+			b.walkStmt(e.Body, fnScope)
+		}
+	case *ast.TypeConversion:
+		if e != nil {
+			b.walkExpr(e.Value, sc)
+		}
+	case *ast.EnumVariantExpression:
+		if e != nil {
+			for _, v := range e.Values {
+				b.walkExpr(v, sc)
+			}
+		}
+	case *ast.BorrowExpression:
+		if e != nil {
+			b.walkExpr(e.Value, sc)
+		}
+	case *ast.DerefExpression:
+		if e != nil {
+			b.walkExpr(e.Value, sc)
+		}
+	}
+}
+
+func (b *refBuilder) walkStmt(stmt ast.Statement, sc *scope) {
+	if stmt == nil {
+		return
+	}
+	switch s := stmt.(type) {
+	case *ast.VarStatement:
+		if s != nil {
+			b.walkExpr(s.Value, sc)
+			b.walkType(s.Type, sc)
+			if s.Name != nil {
+				sc.define(b.newDef(s.Name.Value, "var", s.Name.Token, ""))
+			}
+		}
+	case *ast.ConstStatement:
+		if s != nil {
+			b.walkExpr(s.Value, sc)
+			b.walkType(s.Type, sc)
+			if s.Name != nil {
+				sc.define(b.newDef(s.Name.Value, "const", s.Name.Token, ""))
+			}
+		}
+	case *ast.MultiVarStatement:
+		if s != nil {
+			b.walkExpr(s.Value, sc)
+			for _, n := range s.Names {
+				if n != nil {
+					sc.define(b.newDef(n.Value, "var", n.Token, ""))
+				}
+			}
+			for _, t := range s.Types {
+				b.walkType(t, sc)
+			}
+		}
+	case *ast.VarBlock:
+		if s != nil {
+			for _, v := range s.Variables {
+				b.walkStmt(v, sc)
+			}
+		}
+	case *ast.ConstBlock:
+		if s != nil {
+			for _, c := range s.Constants {
+				b.walkStmt(c, sc)
+			}
+		}
+	case *ast.AssignmentStatement:
+		if s != nil {
+			b.walkExpr(s.Left, sc)
+			b.walkExpr(s.Value, sc)
+		}
+	case *ast.ExpressionStatement:
+		if s != nil {
+			b.walkExpr(s.Expression, sc)
+		}
+	case *ast.ReturnStatement:
+		if s != nil {
+			b.walkExpr(s.ReturnValue, sc)
+		}
+	case *ast.BlockStatement:
+		if s != nil {
+			blockScope := newScope(sc)
+			for _, st := range s.Statements {
+				b.walkStmt(st, blockScope)
+			}
+		}
+	case *ast.FunctionDecl:
+		if s != nil && s.Body != nil {
+			fnScope := newScope(sc)
+			for _, p := range s.Parameters {
+				if p != nil && p.Name != nil {
+					fnScope.define(b.newDef(p.Name.Value, "param", p.Name.Token, ""))
+					b.walkType(p.Type, sc)
+				}
+			}
+			b.walkType(s.ReturnType, sc)
+			b.walkStmt(s.Body, fnScope)
+		}
+	case *ast.WhileStatement:
+		if s != nil {
+			b.walkExpr(s.Condition, sc)
+			b.walkStmt(s.Body, newScope(sc))
+		}
+	case *ast.ForStatement:
+		if s != nil {
+			b.walkExpr(s.Iterable, sc)
+			loopScope := newScope(sc)
+			if s.Variable != nil {
+				loopScope.define(b.newDef(s.Variable.Value, "var", s.Variable.Token, ""))
+			}
+			b.walkStmt(s.Body, loopScope)
+		}
+	case *ast.IfStatement:
+		if s != nil {
+			b.walkExpr(s.Condition, sc)
+			b.walkStmt(s.Consequence, newScope(sc))
+			if s.Alternative != nil {
+				b.walkStmt(s.Alternative, newScope(sc))
+			}
+		}
+	case *ast.SwitchStatement:
+		if s != nil {
+			b.walkExpr(s.Value, sc)
+			for _, c := range s.Cases {
+				if c == nil {
+					continue
+				}
+				caseScope := newScope(sc)
+				for _, v := range c.Values {
+					b.walkExpr(v, caseScope)
+				}
+				b.walkStmt(c.Body, caseScope)
+			}
+		}
+	case *ast.DeferStatement:
+		if s != nil {
+			b.walkStmt(s.Body, newScope(sc))
+		}
+	case *ast.ImplDecl:
+		if s != nil {
+			for _, m := range s.Methods {
+				if m == nil {
+					continue
+				}
+				methodScope := newScope(sc)
+				if s.Receiver != nil {
+					methodScope.define(b.newDef(s.Receiver.Value, "var", s.Receiver.Token, ""))
+				}
+				for _, p := range m.Parameters {
+					if p != nil && p.Name != nil {
+						methodScope.define(b.newDef(p.Name.Value, "param", p.Name.Token, ""))
+						b.walkType(p.Type, sc)
+					}
+				}
+				b.walkType(m.ReturnType, sc)
+				b.walkStmt(m.Body, methodScope)
+			}
+		}
+	case *ast.PanicStatement:
+		if s != nil {
+			b.walkExpr(s.Message, sc)
+		}
+	case *ast.UnsafeBlock:
+		if s != nil {
+			b.walkStmt(s.Body, newScope(sc))
+		}
+	}
+}
+
+func buildReferenceIndex(
+	prog *ast.Program,
+	tc *typechecker.TypeChecker,
+	uri string,
+	imports map[string]string,
+	_ *FileIndex,
+	srv *Server,
+) (
+	map[string][]Location,
+	map[string]string,
+	map[string]Location,
+) {
+	b := &refBuilder{
+		uri:           uri,
+		imports:       imports,
+		srv:           srv,
+		tc:            tc,
+		refs:          make(map[string][]Location),
+		refByPos:      make(map[string]string),
+		defs:          make(map[string]Location),
+		structFields:  make(map[string]map[string]*symbolDef),
+		structMethods: make(map[string]map[string]*symbolDef),
+		typeDefs:      make(map[string]*symbolDef),
+		global:        newScope(nil),
 	}
 
-	fileScope := newScope(global)
+	if prog == nil {
+		return b.refs, b.refByPos, b.defs
+	}
+
+	if srv != nil {
+		srv.ensureWorkspaceIndexes()
+	}
+
+	b.indexGlobals(prog)
+
+	fileScope := newScope(b.global)
 	for _, stmt := range prog.Statements {
-		walkStmt(stmt, fileScope)
+		b.walkStmt(stmt, fileScope)
 	}
 
-	return refs, refByPos, defs
+	return b.refs, b.refByPos, b.defs
 }
 
 func collectQualifiedMethodRefs(prog *ast.Program, uri string, qualifier string, name string) []Location {
-	locs := []Location{}
-	add := func(line, col, length int) {
-		if line <= 0 || col <= 0 {
+	var locs []Location
+	ast.Walk(prog, func(node ast.Node) {
+		n, ok := node.(*ast.MethodCallExpression)
+		if !ok {
 			return
 		}
-		locs = append(locs, Location{
-			URI: uri,
-			Range: Range{
-				Start: Position{Line: line - 1, Character: col - 1},
-				End:   Position{Line: line - 1, Character: col - 1 + length},
-			},
-		})
-	}
-	var walk func(node ast.Node)
-	walk = func(node ast.Node) {
-		if node == nil {
+		ident, ok := n.Object.(*ast.Identifier)
+		if !ok || ident.Value != qualifier {
 			return
 		}
-		switch n := node.(type) {
-		case *ast.MethodCallExpression:
-			if ident, ok := n.Object.(*ast.Identifier); ok && ident.Value == qualifier {
-				if n.Method != nil && n.Method.Value == name {
-					add(n.Method.Token.Line, n.Method.Token.Column, len(n.Method.Value))
-				}
-			}
-			walk(n.Object)
-			for _, arg := range n.Arguments {
-				walk(arg)
-			}
-		case *ast.Program:
-			for _, stmt := range n.Statements {
-				walk(stmt)
-			}
-		case *ast.ExpressionStatement:
-			walk(n.Expression)
-		case *ast.VarStatement:
-			walk(n.Name)
-			walk(n.Value)
-		case *ast.ConstStatement:
-			walk(n.Name)
-			walk(n.Value)
-		case *ast.ReturnStatement:
-			walk(n.ReturnValue)
-		case *ast.InfixExpression:
-			walk(n.Left)
-			walk(n.Right)
-		case *ast.PrefixExpression:
-			walk(n.Right)
-		case *ast.CallExpression:
-			walk(n.Function)
-			for _, arg := range n.Arguments {
-				walk(arg)
-			}
-		case *ast.BlockStatement:
-			for _, stmt := range n.Statements {
-				walk(stmt)
-			}
-		case *ast.IfStatement:
-			walk(n.Condition)
-			walk(n.Consequence)
-			walk(n.Alternative)
-		case *ast.WhileStatement:
-			walk(n.Condition)
-			walk(n.Body)
-		case *ast.ForStatement:
-			walk(n.Iterable)
-			walk(n.Body)
-		case *ast.SwitchStatement:
-			walk(n.Value)
-			for _, c := range n.Cases {
-				for _, expr := range c.Values {
-					walk(expr)
-				}
-				walk(c.Body)
-			}
-		case *ast.FunctionDecl:
-			walk(n.Body)
-		case *ast.ImplDecl:
-			for _, m := range n.Methods {
-				if m != nil {
-					walk(m.Body)
-				}
-			}
+		if n.Method != nil && n.Method.Value == name {
+			locs = append(locs, makeLocation(uri, n.Method.Token.Line, n.Method.Token.Column, len(n.Method.Value)))
 		}
-	}
-	walk(prog)
+	})
 	return locs
 }

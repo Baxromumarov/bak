@@ -36,6 +36,7 @@ func getStdlibIndex() map[string][]StdlibSymbol {
 func buildStdlibIndex() map[string][]StdlibSymbol {
 	index := make(map[string][]StdlibSymbol)
 	stdPath := prelude.GetStdLibPath()
+	baseDir := filepath.Dir(stdPath)
 
 	// Map of module directory -> alias name
 	modules := map[string]string{
@@ -102,38 +103,36 @@ func buildStdlibIndex() map[string][]StdlibSymbol {
 			}
 
 			relPath := bakFile
-			if rel, err := filepath.Rel(filepath.Dir(stdPath), bakFile); err == nil {
+			if rel, err := filepath.Rel(baseDir, bakFile); err == nil {
 				relPath = rel
+			}
+
+			// Helper to avoid repeating the append logic for every declaration kind.
+			record := func(name, kind string) {
+				if name == "" {
+					return
+				}
+				index[name] = append(index[name], StdlibSymbol{
+					Name:       name,
+					ImportPath: relPath,
+					Alias:      alias,
+					Kind:       kind,
+				})
 			}
 
 			for _, stmt := range prog.Statements {
 				switch s := stmt.(type) {
 				case *ast.FunctionDecl:
 					if s.Visibility == ast.Public && s.Name != nil {
-						index[s.Name.Value] = append(index[s.Name.Value], StdlibSymbol{
-							Name:       s.Name.Value,
-							ImportPath: relPath,
-							Alias:      alias,
-							Kind:       "func",
-						})
+						record(s.Name.Value, "func")
 					}
 				case *ast.StructDecl:
 					if s.Visibility == ast.Public && s.Name != nil {
-						index[s.Name.Value] = append(index[s.Name.Value], StdlibSymbol{
-							Name:       s.Name.Value,
-							ImportPath: relPath,
-							Alias:      alias,
-							Kind:       "struct",
-						})
+						record(s.Name.Value, "struct")
 					}
 				case *ast.EnumDecl:
 					if s.Visibility == ast.Public && s.Name != nil {
-						index[s.Name.Value] = append(index[s.Name.Value], StdlibSymbol{
-							Name:       s.Name.Value,
-							ImportPath: relPath,
-							Alias:      alias,
-							Kind:       "enum",
-						})
+						record(s.Name.Value, "enum")
 					}
 				}
 			}
