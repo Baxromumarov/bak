@@ -85,13 +85,17 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 	var toInject []ast.Statement
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || name == base || !strings.HasSuffix(name, ".bak") {
+		if entry.IsDir() ||
+			name == base ||
+			!strings.HasSuffix(name, ".bak") {
 			continue
 		}
 		// Skip test files — they are standalone and should not be merged.
-		if strings.HasSuffix(name, "_test.bak") || strings.HasPrefix(name, "test_") {
+		if strings.HasSuffix(name, "_test.bak") ||
+			strings.HasPrefix(name, "test_") {
 			continue
 		}
+		
 		siblingPath := filepath.Join(dir, name)
 		data, err := os.ReadFile(siblingPath)
 		if err != nil {

@@ -8,14 +8,43 @@ import (
 	"strings"
 )
 
-func Collect(paths []string, skipDirs ...string) ([]string, error) {
-	seen := make(map[string]bool)
+type Collector struct {
+	seen  map[string]bool
+	skip  map[string]bool
+	files []string
+}
+
+func NewCollector(skipDirs ...string) *Collector {
 	skip := make(map[string]bool, len(skipDirs))
 	for _, dir := range skipDirs {
 		skip[dir] = true
 	}
+	return &Collector{
+		seen:  make(map[string]bool),
+		skip:  skip,
+		files: []string{},
+	}
+}
 
-	var files []string
+func (c *Collector) walkAction(p string, d fs.DirEntry, walkErr error) error {
+	if walkErr != nil {
+		return walkErr
+	}
+	if d.IsDir() {
+		if c.skip[d.Name()] {
+			return filepath.SkipDir
+		}
+		return nil
+	}
+	if strings.HasSuffix(p, ".bak") && !c.seen[p] {
+		c.seen[p] = true
+		c.files = append(c.files, p)
+	}
+	return nil
+}
+
+func Collect(paths []string, skipDirs ...string) ([]string, error) {
+	collector := NewCollector(skipDirs...)
 
 	for _, path := range paths {
 		info, err := os.Stat(path)
@@ -26,22 +55,7 @@ func Collect(paths []string, skipDirs ...string) ([]string, error) {
 		if info.IsDir() {
 			err := filepath.WalkDir(
 				path,
-				func(p string, d fs.DirEntry, walkErr error) error {
-					if walkErr != nil {
-						return walkErr
-					}
-					if d.IsDir() {
-						if skip[d.Name()] {
-							return filepath.SkipDir
-						}
-						return nil
-					}
-					if strings.HasSuffix(p, ".bak") && !seen[p] {
-						seen[p] = true
-						files = append(files, p)
-					}
-					return nil
-				},
+				collector.walkAction,
 			)
 			if err != nil {
 				return nil, err
@@ -49,12 +63,13 @@ func Collect(paths []string, skipDirs ...string) ([]string, error) {
 			continue
 		}
 
-		if strings.HasSuffix(path, ".bak") && !seen[path] {
-			seen[path] = true
-			files = append(files, path)
+		if strings.HasSuffix(path, ".bak") && !collector.seen[path] {
+			collector.seen[path] = true
+			collector.files = append(collector.files, path)
 		}
 	}
 
-	sort.Strings(files)
-	return files, nil
+	sort.Strings(collector.files)
+
+	return collector.files, nil
 }

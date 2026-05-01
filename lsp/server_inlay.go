@@ -49,7 +49,7 @@ func collectInlayHints(text string, result *AnalysisResult, _ *Server) []InlayHi
 							label = strings.TrimSpace(label[:idx]) + ":"
 						}
 						hints = append(hints, InlayHint{
-							Position:     Position{Line: pos.Line - 1, Character: pos.Col - 1},
+							Position:     positionFromLineCol(pos.Line, pos.Col),
 							Label:        label,
 							Kind:         1,
 							PaddingRight: true,
@@ -72,14 +72,16 @@ func collectInlayHints(text string, result *AnalysisResult, _ *Server) []InlayHi
 				// Add type hint if type is implicit (check for presence of colon in source)
 				if n.Name != nil && n.Value != nil && result.TC != nil {
 					// Check if explicit type annotation exists by looking for colon after var name
-					nameEndLine := n.Name.Token.Line - 1
-					nameEndCol := n.Name.Token.Column - 1 + len(n.Name.Value)
+					nameStart := positionFromLineCol(n.Name.Token.Line, n.Name.Token.Column)
+					nameEndLine := nameStart.Line
+					nameEndCol := nameStart.Character + len(n.Name.Value)
 
 					// Find start of value
 					valPos := exprStartPosition(n.Value)
 					if valPos.Line > 0 {
-						valStartLine := valPos.Line - 1
-						valStartCol := valPos.Col - 1
+						valStart := positionFromLineCol(valPos.Line, valPos.Col)
+						valStartLine := valStart.Line
+						valStartCol := valStart.Character
 
 						isExplicit := false
 
@@ -103,7 +105,7 @@ func collectInlayHints(text string, result *AnalysisResult, _ *Server) []InlayHi
 						if !isExplicit {
 							if t := strings.TrimSpace(result.TC.GetNodeType(n.Name)); t != "" && t != "void" {
 								hints = append(hints, InlayHint{
-									Position:     Position{Line: n.Name.Token.Line - 1, Character: n.Name.Token.Column + len(n.Name.Value) - 1},
+									Position:     positionFromLineCol(n.Name.Token.Line, n.Name.Token.Column+len(n.Name.Value)),
 									Label:        ": " + t,
 									Kind:         2,
 									PaddingLeft:  false,
@@ -214,56 +216,8 @@ func exprStartPosition(expr ast.Expression) exprPos {
 	if expr == nil {
 		return exprPos{}
 	}
-	switch e := expr.(type) {
-	case *ast.Identifier:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprPos{Line: e.Token.Line, Col: e.Token.Column}
-	case *ast.IntegerLiteral:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprPos{Line: e.Token.Line, Col: e.Token.Column}
-	case *ast.FloatLiteral:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprPos{Line: e.Token.Line, Col: e.Token.Column}
-	case *ast.StringLiteral:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprPos{Line: e.Token.Line, Col: e.Token.Column}
-	case *ast.BooleanLiteral:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprPos{Line: e.Token.Line, Col: e.Token.Column}
-	case *ast.PrefixExpression:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprStartPosition(e.Right)
-	case *ast.InfixExpression:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprStartPosition(e.Left)
-	case *ast.CallExpression:
-		if e == nil {
-			return exprPos{}
-		}
-		return exprStartPosition(e.Function)
-	case *ast.MethodCallExpression:
-		if e == nil {
-			return exprPos{}
-		}
-		if e.Method != nil {
-			return exprPos{Line: e.Method.Token.Line, Col: e.Method.Token.Column}
-		}
-	}
-	return exprPos{}
+	pos := expr.Pos()
+	return exprPos{Line: pos.Line, Col: pos.Column}
 }
 
 func (s *Server) handleSignatureHelp(req Request) *SignatureHelp {
@@ -271,15 +225,24 @@ func (s *Server) handleSignatureHelp(req Request) *SignatureHelp {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
+
 	text, ok := s.Documents[params.TextDocument.URI]
 	if !ok {
 		return nil
 	}
+
 	result, ok := s.Cache[params.TextDocument.URI]
 	if !ok || result == nil {
 		return nil
 	}
-	return buildSignatureHelp(params.TextDocument.URI, text, params.Position, result, s)
+
+	return buildSignatureHelp(
+		params.TextDocument.URI,
+		text,
+		params.Position,
+		result,
+		s,
+	)
 }
 
 func (s *Server) handleFormatting(req Request) []TextEdit {
@@ -315,18 +278,25 @@ func (s *Server) handleInlayHint(req Request) []InlayHint {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("panic during inlayHint(%s): %v\nStack Trace:\n%s", params.TextDocument.URI, r, debug.Stack())
 		}
 	}()
+
 	text, ok := s.Documents[params.TextDocument.URI]
 	if !ok {
 		return nil
 	}
+
 	result, ok := s.Cache[params.TextDocument.URI]
-	if !ok || result == nil || result.AST == nil || result.Index == nil {
+	if !ok ||
+		result == nil ||
+		result.AST == nil ||
+		result.Index == nil {
 		return nil
 	}
+
 	return collectInlayHints(text, result, s)
 }

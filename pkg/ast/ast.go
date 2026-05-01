@@ -40,6 +40,7 @@ type Expression interface {
 	Node
 	expressionNode()
 	GetToken() token.Token
+	Pos() Position
 }
 
 // Program is the root node of every AST

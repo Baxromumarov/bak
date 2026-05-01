@@ -309,7 +309,12 @@ func collectImports(prog *ast.Program) map[string]string {
 	return out
 }
 
-func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, includePrivate bool) *FileIndex {
+func indexProgram(
+	prog *ast.Program,
+	uri string,
+	comments []formatter.Comment,
+	includePrivate bool,
+) *FileIndex {
 	index := &FileIndex{
 		Symbols: make(map[string]SymbolInfo),
 		Sigs:    make(map[string]SignatureInfo),
@@ -360,7 +365,13 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 				continue
 			}
 			if includePrivate || s.Visibility == ast.Public {
-				symbolWriter.addSymbol(symbolParamsFromToken(s.Name.Value, "struct", s.Name.Token, s.Visibility == ast.Public))
+				symbolWriter.addSymbol(symbolParamsFromToken(
+					s.Name.Value,
+					"struct",
+					s.Name.Token,
+					s.Visibility == ast.Public,
+				))
+
 				fields := make([]string, 0, len(s.Fields))
 				for _, f := range s.Fields {
 					if f == nil || f.Name == nil || f.Type == nil {
@@ -368,7 +379,11 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 					}
 					// Only add public fields to the display list when not including private
 					if includePrivate || f.Visibility == ast.Public {
-						fields = append(fields, strfmt.Named("{Value}: {string}", "Value", f.Name.Value, "String", f.Type.String()))
+						fields = append(fields, strfmt.Named(
+							"{Value}: {string}",
+							"Value", f.Name.Value,
+							"string", f.Type.String(),
+						))
 						fieldName := s.Name.Value + "." + f.Name.Value
 						symbolWriter.addSymbol(
 							symbolParamsFromTokenWithLength(
@@ -446,7 +461,12 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 				continue
 			}
 			if includePrivate || s.Visibility == ast.Public {
-				symbolWriter.addSymbol(symbolParamsFromToken(s.Name.Value, "alias", s.Name.Token, s.Visibility == ast.Public))
+				symbolWriter.addSymbol(symbolParamsFromToken(
+					s.Name.Value,
+					"alias",
+					s.Name.Token,
+					s.Visibility == ast.Public,
+				))
 				underlying := ""
 				if s.Underlying != nil {
 					underlying = s.Underlying.String()
@@ -461,7 +481,12 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 			if s == nil || s.Name == nil {
 				continue
 			}
-			symbolWriter.addSymbol(symbolParamsFromToken(s.Name.Value, "var", s.Name.Token, false))
+			symbolWriter.addSymbol(symbolParamsFromToken(
+				s.Name.Value,
+				"var",
+				s.Name.Token,
+				false,
+			))
 			typeStr := ""
 			if s.Type != nil {
 				typeStr = s.Type.String()
@@ -477,7 +502,12 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 				continue
 			}
 			if includePrivate || s.Visibility == ast.Public {
-				symbolWriter.addSymbol(symbolParamsFromToken(s.Name.Value, "const", s.Name.Token, s.Visibility == ast.Public))
+				symbolWriter.addSymbol(symbolParamsFromToken(
+					s.Name.Value,
+					"const",
+					s.Name.Token,
+					s.Visibility == ast.Public,
+				))
 				typeStr := ""
 				if s.Type != nil {
 					typeStr = s.Type.String()
@@ -514,7 +544,13 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 						m.Visibility == ast.Public,
 					),
 				)
-				if sig := buildFuncSignature(name, m.Parameters, m.ReturnType, index.Docs[name]); sig.Label != "" {
+
+				if sig := buildFuncSignature(
+					name,
+					m.Parameters,
+					m.ReturnType,
+					index.Docs[name],
+				); sig.Label != "" {
 					index.Sigs[name] = sig
 				}
 			}
@@ -523,7 +559,12 @@ func indexProgram(prog *ast.Program, uri string, comments []formatter.Comment, i
 	return index
 }
 
-func buildFuncSignature(name string, params []*ast.Parameter, ret ast.TypeExpression, doc string) SignatureInfo {
+func buildFuncSignature(
+	name string,
+	params []*ast.Parameter,
+	ret ast.TypeExpression,
+	doc string,
+) SignatureInfo {
 	if name == "" {
 		return SignatureInfo{}
 	}
@@ -543,17 +584,37 @@ func buildFuncSignature(name string, params []*ast.Parameter, ret ast.TypeExpres
 		if p.Type != nil {
 			typ = p.Type.String()
 		}
-		paramLabels = append(paramLabels, strfmt.Named("{paramName}: {typ}", "ParamName", paramName, "Typ", typ))
+		paramLabels = append(paramLabels, strfmt.Named(
+			"{paramName}: {typ}",
+			"paramName", paramName,
+			"typ", typ,
+		))
 	}
+
 	retType := "void"
 	if ret != nil {
 		retType = ret.String()
 	}
-	label := strfmt.Named("{name}({paramLabels}) -> ({retType})", "Name", name, "ParamLabels", strings.Join(paramLabels, ", "), "RetType", retType)
-	return SignatureInfo{Label: label, Params: paramLabels, Doc: doc}
+
+	label := strfmt.Named(
+		"{name}({paramLabels}) -> ({retType})",
+		"name", name,
+		"paramLabels", strings.Join(paramLabels, ", "),
+		"retType", retType,
+	)
+
+	return SignatureInfo{
+		Label:  label,
+		Params: paramLabels,
+		Doc:    doc,
+	}
 }
 
-func buildDocIndex(prog *ast.Program, comments []formatter.Comment, includePrivate bool) map[string]string {
+func buildDocIndex(
+	prog *ast.Program,
+	comments []formatter.Comment,
+	includePrivate bool,
+) map[string]string {
 	docByLine := make(map[int]string)
 	lineComment := make(map[int]string)
 	for _, c := range comments {
@@ -568,11 +629,15 @@ func buildDocIndex(prog *ast.Program, comments []formatter.Comment, includePriva
 		}
 		switch s := stmt.(type) {
 		case *ast.FunctionDecl:
-			if s != nil && s.Name != nil && (includePrivate || s.Visibility == ast.Public) {
+			if s != nil && s.Name != nil &&
+				(includePrivate || s.Visibility == ast.Public) {
+
 				docByLine[s.Name.Token.Line] = collectDoc(lineComment, s.Name.Token.Line)
 			}
+
 		case *ast.StructDecl:
-			if s != nil && s.Name != nil && (includePrivate || s.Visibility == ast.Public) {
+			if s != nil && s.Name != nil &&
+				(includePrivate || s.Visibility == ast.Public) {
 				docByLine[s.Name.Token.Line] = collectDoc(lineComment, s.Name.Token.Line)
 			}
 		case *ast.EnumDecl:
@@ -670,8 +735,6 @@ func collectDoc(lineComment map[int]string, declLine int) string {
 	return strings.TrimSpace(strings.Join(lines, "\n"))
 }
 
-// ... existing code ...
-
 type addSymbolParams struct {
 	Name     string
 	Kind     string
@@ -681,11 +744,28 @@ type addSymbolParams struct {
 	Exported bool
 }
 
-func symbolParamsFromToken(name, kind string, tok token.Token, exported bool) addSymbolParams {
-	return symbolParamsFromTokenWithLength(name, kind, tok, len(name), exported)
+func symbolParamsFromToken(
+	name,
+	kind string,
+	tok token.Token,
+	exported bool,
+) addSymbolParams {
+	return symbolParamsFromTokenWithLength(
+		name,
+		kind,
+		tok,
+		len(name),
+		exported,
+	)
 }
 
-func symbolParamsFromTokenWithLength(name, kind string, tok token.Token, length int, exported bool) addSymbolParams {
+func symbolParamsFromTokenWithLength(
+	name,
+	kind string,
+	tok token.Token,
+	length int,
+	exported bool,
+) addSymbolParams {
 	return addSymbolParams{
 		Name:     name,
 		Kind:     kind,
@@ -716,15 +796,9 @@ func (w indexSymbolWriter) addSymbol(p addSymbolParams) {
 		p.Length = len(p.Name)
 	}
 	w.index.Symbols[p.Name] = SymbolInfo{
-		Name: p.Name,
-		Kind: p.Kind,
-		Location: Location{
-			URI: w.uri,
-			Range: Range{
-				Start: Position{Line: p.Line - 1, Character: p.Column - 1},
-				End:   Position{Line: p.Line - 1, Character: p.Column - 1 + p.Length},
-			},
-		},
+		Name:     p.Name,
+		Kind:     p.Kind,
+		Location: makeLocation(w.uri, p.Line, p.Column, p.Length),
 		Exported: p.Exported,
 	}
 }

@@ -389,13 +389,7 @@ func (s *Server) handleImplementation(req Request) []Location {
 		for _, stmt := range res.AST.Statements {
 			if impl, ok := stmt.(*ast.ImplDecl); ok {
 				if impl.TypeName != nil && (impl.TypeName.Value == typeName || strings.HasSuffix(impl.TypeName.Value, "."+typeName)) {
-					locs = append(locs, Location{
-						URI: uri,
-						Range: Range{
-							Start: Position{Line: impl.Token.Line - 1, Character: impl.Token.Column - 1},
-							End:   Position{Line: impl.Token.Line - 1, Character: impl.Token.Column - 1 + 4}, // length of "impl"
-						},
-					})
+					locs = append(locs, locationFromToken(uri, impl.Token, impl.Token.Literal))
 				}
 			}
 		}
@@ -656,7 +650,10 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 					Changes: map[string][]TextEdit{
 						params.TextDocument.URI: {
 							{
-								Range:   Range{Start: insertPos, End: insertPos},
+								Range: Range{
+									Start: insertPos,
+									End:   insertPos,
+								},
 								NewText: importLine,
 							},
 						},

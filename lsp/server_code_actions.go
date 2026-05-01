@@ -122,24 +122,15 @@ func (s *Server) getOrganizeImportsEdit(uri string) *WorkspaceEdit {
 		sb.WriteString("\"\n")
 	}
 
-	start := Position{
-		Line:      firstImport.Token.Line - 1,
-		Character: firstImport.Token.Column - 1,
-	}
-
-	end := Position{
-		Line:      lastImport.Token.Line - 1,
-		Character: 1000,
-	}
+	start := positionFromLineCol(firstImport.Token.Line, firstImport.Token.Column)
+	end := positionFromLineCol(lastImport.Token.Line, 1)
+	end.Character = 1000
 
 	return &WorkspaceEdit{
 		Changes: map[string][]TextEdit{
 			uri: {
 				{
-					Range: Range{
-						Start: start,
-						End:   end,
-					},
+					Range:   rangeFromPositions(start, end),
 					NewText: sb.String(),
 				},
 			},

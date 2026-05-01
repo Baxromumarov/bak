@@ -24,15 +24,49 @@ func rangeFromToken(tok token.Token, name string) (out Range) {
 	if length == 0 {
 		length = 1
 	}
-	startLine := tok.Line - 1
-	startCol := tok.Column - 1
+	return rangeFromLineCol(tok.Line, tok.Column, length)
+}
 
-	out.Start.Line = startLine
-	out.Start.Character = startCol
-	out.End.Line = startLine
-	out.End.Character = startCol + length
+func positionFromLineCol(line, col int) Position {
+	return Position{
+		Line:      max(line-1, 0),
+		Character: max(col-1, 0),
+	}
+}
 
-	return out
+func rangeFromLineCol(line, col, length int) Range {
+	if length <= 0 {
+		length = 1
+	}
+	start := positionFromLineCol(line, col)
+	return Range{
+		Start: start,
+		End: Position{
+			Line:      start.Line,
+			Character: start.Character + length,
+		},
+	}
+}
+
+func rangeFromLineColBounds(startLine, startCol, endLine, endCol int) Range {
+	start := positionFromLineCol(startLine, startCol)
+	endLine = endLine - 1
+	endCharacter := endCol - 1
+	if endLine < start.Line {
+		endLine = start.Line
+	}
+	if endCharacter < 0 {
+		endCharacter = start.Character + 1
+	}
+	if endLine == start.Line && endCharacter <= start.Character {
+		endCharacter = start.Character + 1
+	}
+	end := Position{Line: endLine, Character: endCharacter}
+	return rangeFromPositions(start, end)
+}
+
+func rangeFromPositions(start, end Position) Range {
+	return Range{Start: start, End: end}
 }
 
 func rangeFromSpan(span ast.Span) (Range, bool) {
@@ -40,16 +74,10 @@ func rangeFromSpan(span ast.Span) (Range, bool) {
 		return Range{}, false
 	}
 
-	return Range{
-		Start: Position{
-			Line:      span.Start.Line - 1,
-			Character: span.Start.Column - 1,
-		},
-		End: Position{
-			Line:      span.End.Line - 1,
-			Character: span.End.Column - 1,
-		},
-	}, true
+	return rangeFromPositions(
+		positionFromLineCol(span.Start.Line, span.Start.Column),
+		positionFromLineCol(span.End.Line, span.End.Column),
+	), true
 }
 
 func positionInSpan(span ast.Span, line, col int) bool {
@@ -138,11 +166,8 @@ func makeLocation(uri string, line, col, length int) Location {
 		return Location{}
 	}
 	return Location{
-		URI: uri,
-		Range: Range{
-			Start: Position{Line: line - 1, Character: col - 1},
-			End:   Position{Line: line - 1, Character: col - 1 + length},
-		},
+		URI:   uri,
+		Range: rangeFromLineCol(line, col, length),
 	}
 }
 
@@ -279,7 +304,7 @@ func collectReferences(prog *ast.Program, uri string, name string) []Location {
 	var locs []Location
 	ast.Walk(prog, func(node ast.Node) {
 		if n, ok := node.(*ast.Identifier); ok && n.Value == name {
-			locs = append(locs, makeLocation(uri, n.Token.Line, n.Token.Column, len(n.Value)))
+			locs = append(locs, locationFromToken(uri, n.Token, n.Value))
 		}
 	})
 	return locs
@@ -958,7 +983,7 @@ func collectQualifiedMethodRefs(prog *ast.Program, uri string, qualifier string,
 			return
 		}
 		if n.Method != nil && n.Method.Value == name {
-			locs = append(locs, makeLocation(uri, n.Method.Token.Line, n.Method.Token.Column, len(n.Method.Value)))
+			locs = append(locs, locationFromToken(uri, n.Method.Token, n.Method.Value))
 		}
 	})
 	return locs

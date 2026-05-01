@@ -101,16 +101,7 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 			m := matches[3]
 
 			diagnostics = append(diagnostics, Diagnostic{
-				Range: Range{
-					Start: Position{
-						Line:      l - 1,
-						Character: c - 1,
-					},
-					End: Position{
-						Line:      l - 1,
-						Character: c,
-					},
-				},
+				Range:    rangeFromLineCol(l, c, 1),
 				Severity: 1,
 				Source:   "bak-parser",
 				Message:  m,
@@ -130,16 +121,7 @@ func (s *Server) analyzeAndPublish(uri string, text string) {
 				severity = 2
 			}
 			diag := Diagnostic{
-				Range: Range{
-					Start: Position{
-						Line:      typeErr.Line - 1,
-						Character: typeErr.Column - 1,
-					},
-					End: Position{
-						Line:      typeErr.Line - 1,
-						Character: typeErr.Column,
-					},
-				},
+				Range:    rangeFromLineCol(typeErr.Line, typeErr.Column, 1),
 				Severity: severity,
 				Source:   "bak-typechecker",
 				Message:  typeErr.Message,
@@ -211,39 +193,16 @@ func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {
 	}
 
 	fixes := make([]DiagnosticFix, 0, len(typeErr.Fixes))
-	
+
 	for _, fix := range typeErr.Fixes {
-		startLine := fix.StartLine - 1
-		startCharacter := fix.StartColumn - 1
-		endLine := fix.EndLine - 1
-		endCharacter := fix.EndColumn - 1
-		if startLine < 0 {
-			startLine = 0
-		}
-		if startCharacter < 0 {
-			startCharacter = 0
-		}
-		if endLine < startLine {
-			endLine = startLine
-		}
-		if endCharacter < 0 {
-			endCharacter = startCharacter + 1
-		}
-		if endLine == startLine && endCharacter <= startCharacter {
-			endCharacter = startCharacter + 1
-		}
 		fixes = append(fixes, DiagnosticFix{
 			Title: fix.Title,
-			Range: Range{
-				Start: Position{
-					Line:      startLine,
-					Character: startCharacter,
-				},
-				End: Position{
-					Line:      endLine,
-					Character: endCharacter,
-				},
-			},
+			Range: rangeFromLineColBounds(
+				fix.StartLine,
+				fix.StartColumn,
+				fix.EndLine,
+				fix.EndColumn,
+			),
 			NewText: fix.Replacement,
 		})
 	}
@@ -261,20 +220,8 @@ func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
 		severity = 4
 	}
 
-	line := max(finding.Line-1, 0)
-	column := max(finding.Column-1, 0)
-
 	return Diagnostic{
-		Range: Range{
-			Start: Position{
-				Line:      line,
-				Character: column,
-			},
-			End: Position{
-				Line:      line,
-				Character: column + 1,
-			},
-		},
+		Range:    rangeFromLineCol(finding.Line, finding.Column, 1),
 		Severity: severity,
 		Source:   "bak-linter",
 		Message:  finding.Message,

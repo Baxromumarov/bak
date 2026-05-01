@@ -51,7 +51,13 @@ func EncodeMessage(msg any) []byte {
 		// Never panic the LSP process on malformed payloads.
 		content = []byte(`{"jsonrpc":"2.0","error":{"code":-32603,"message":"failed to encode message"}}`)
 	}
-	return fmt.Appendf(nil, "Content-Length: %d\r\n\r\n%s", len(content), content)
+
+	return fmt.Appendf(
+		nil,
+		"Content-Length: %d\r\n\r\n%s",
+		len(content),
+		content,
+	)
 }
 
 func DecodeMessage(reader io.Reader) ([]byte, int, error) {
@@ -63,11 +69,14 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
+
 		header = append(header, b...)
 		if len(header) > maxHeaderBytes {
 			return nil, 0, fmt.Errorf("message header too large")
 		}
-		if len(header) >= 4 && string(header[len(header)-4:]) == "\r\n\r\n" {
+
+		if len(header) >= 4 &&
+			string(header[len(header)-4:]) == "\r\n\r\n" {
 			break
 		}
 	}
@@ -79,11 +88,14 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 
 	// Simple parsing for Content-Length
 	for _, line := range splitLines(headerStr) {
-		if len(line) >= 16 && line[:16] == "Content-Length: " {
+		if len(line) >= 16 &&
+			line[:16] == "Content-Length: " {
+
 			contentLength, err = strconv.Atoi(line[16:])
 			if err != nil {
 				return nil, 0, fmt.Errorf("invalid content length: %v", err)
 			}
+
 			break
 		}
 	}
@@ -91,6 +103,7 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 	if contentLength <= 0 {
 		return nil, 0, fmt.Errorf("missing content length")
 	}
+
 	if contentLength > maxContentBytes {
 		return nil, 0, fmt.Errorf("content length exceeds max size: %d", contentLength)
 	}
@@ -110,7 +123,8 @@ func splitLines(s string) []string {
 	var current []rune
 	for _, r := range s {
 		if r == '\n' {
-			if len(current) > 0 && current[len(current)-1] == '\r' {
+			if len(current) > 0 &&
+				current[len(current)-1] == '\r' {
 				lines = append(lines, string(current[:len(current)-1]))
 			} else {
 				lines = append(lines, string(current))
