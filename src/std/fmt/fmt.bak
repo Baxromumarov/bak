@@ -101,7 +101,7 @@ pub func formatArgs(template: string, args: &Vec<string, _>) -> (string) {
                 sb.write(args[arg_idx])
                 arg_idx = arg_idx + 1
             } else {
-                sb.write("{}")
+                sb.write("{{}}")
             }
             i = i + 2
         } else {

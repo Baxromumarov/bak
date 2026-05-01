@@ -1,0 +1,260 @@
+{
+	"instance": {
+		"string": {
+			"len": {
+				"signature": "func len() -> (int)",
+				"doc": "Returns the length of the string in bytes."
+			},
+			"bytes": {
+				"signature": "func bytes() -> (Vec<int, _>)",
+				"doc": "Returns the byte representation of the string as a vector of integers."
+			},
+			"chars": {
+				"signature": "func chars() -> (Vec<char, _>)",
+				"doc": "Returns the characters of the string as a vector of chars."
+			},
+			"lines": {
+				"signature": "func lines() -> (Vec<string, _>)",
+				"doc": "Returns the lines of the string."
+			},
+			"split": {
+				"signature": "func split(sep: string) -> (Vec<string, _>)",
+				"doc": "Splits the string by the given separator."
+			},
+			"replace": {
+				"signature": "func replace(old: string, new: string) -> (string)",
+				"doc": "Replaces all occurrences of old with new."
+			},
+			"substring": {
+				"signature": "func substring(start: int, end: int) -> (string)",
+				"doc": "Returns a substring from start (inclusive) to end (exclusive)."
+			},
+			"trim": {
+				"signature": "func trim() -> (string)",
+				"doc": "Returns the string with leading and trailing whitespace removed."
+			},
+			"contains": {
+				"signature": "func contains(substr: string) -> (bool)",
+				"doc": "Returns true if the string contains the substring."
+			},
+			"hash": {
+				"signature": "func hash() -> (int)",
+				"doc": "Returns the hash code of the string."
+			},
+			"indexOf": {
+				"signature": "func indexOf(substr: string) -> (Result<int, string>)",
+				"doc": "Returns the index of the first occurrence of the substring, or Err if not found."
+			},
+			"lastIndexOf": {
+				"signature": "func lastIndexOf(substr: string) -> (Result<int, string>)",
+				"doc": "Returns the index of the last occurrence of the substring, or Err if not found."
+			},
+			"startsWith": {
+				"signature": "func startsWith(prefix: string) -> (bool)",
+				"doc": "Returns true if the string starts with prefix."
+			},
+			"endsWith": {
+				"signature": "func endsWith(suffix: string) -> (bool)",
+				"doc": "Returns true if the string ends with suffix."
+			},
+			"parseInt": {
+				"signature": "func parseInt() -> (Result<int, string>)",
+				"doc": "Parses the string as an integer."
+			},
+			"parseFloat": {
+				"signature": "func parseFloat() -> (Result<float64, string>)",
+				"doc": "Parses the string as a float."
+			},
+			"toString": {
+				"signature": "func toString() -> (string)",
+				"doc": "Returns this string value."
+			},
+			"get": {
+				"signature": "func get(index: int) -> (Result<char, string>)",
+				"doc": "Returns the character at index, or Err if out of bounds."
+			}
+		},
+		"Vec": {
+			"push": {
+				"signature": "func push(value: T) -> (void)",
+				"doc": "Pushes an element to the end of the vector."
+			},
+			"append": {
+				"signature": "func append(other: Vec<T, _>) -> (void)",
+				"doc": "Appends all elements from another vector."
+			},
+			"pop": {
+				"signature": "func pop() -> (Result<T, string>)",
+				"doc": "Removes and returns the last element of the vector, or Err if empty."
+			},
+			"remove": {
+				"signature": "func remove(index: int) -> (Result<T, string>)",
+				"doc": "Removes and returns the element at the given index."
+			},
+			"first": {
+				"signature": "func first() -> (Result<T, string>)",
+				"doc": "Returns the first element, or Err if empty."
+			},
+			"last": {
+				"signature": "func last() -> (Result<T, string>)",
+				"doc": "Returns the last element, or Err if empty."
+			},
+			"get": {
+				"signature": "func get(index: int) -> (Result<T, string>)",
+				"doc": "Returns the element at index, or Err if out of bounds."
+			},
+			"len": {
+				"signature": "func len() -> (int)",
+				"doc": "Returns the number of elements in the vector."
+			},
+			"cap": {
+				"signature": "func cap() -> (int)",
+				"doc": "Returns the vector capacity."
+			},
+			"isEmpty": {
+				"signature": "func isEmpty() -> (bool)",
+				"doc": "Returns true if the vector has no elements."
+			},
+			"clear": {
+				"signature": "func clear() -> (void)",
+				"doc": "Removes all elements from the vector."
+			},
+			"reverse": {
+				"signature": "func reverse() -> (void)",
+				"doc": "Reverses elements in place."
+			},
+			"contains": {
+				"signature": "func contains(value: T) -> (bool)",
+				"doc": "Returns true if the vector contains the value."
+			},
+			"join": {
+				"signature": "func join(separator: string) -> (string)",
+				"doc": "Concatenates elements using a separator."
+			},
+			"slice": {
+				"signature": "func slice(start: int, end: int) -> (Vec<T, _>)",
+				"doc": "Returns a sub-vector between start and end."
+			},
+			"toVec": {
+				"signature": "func toVec() -> (Vec<T, _>)",
+				"doc": "Returns a dynamic Vec copy."
+			},
+			"set": {
+				"signature": "func set(index: int, value: T) -> (void)",
+				"doc": "Sets the element at index."
+			}
+		},
+		"HashMap": {
+			"insert": {
+				"signature": "func insert(key: K, value: V) -> (void)",
+				"doc": "Inserts or updates a key-value pair."
+			},
+			"get": {
+				"signature": "func get(key: &K) -> (Result<V, string>)",
+				"doc": "Looks up a key and returns Result<V, string>."
+			},
+			"len": {
+				"signature": "func len() -> (int)",
+				"doc": "Returns the number of key-value pairs in the map."
+			},
+			"isEmpty": {
+				"signature": "func isEmpty() -> (bool)",
+				"doc": "Returns true if the map has no entries."
+			},
+			"keys": {
+				"signature": "func keys() -> (Vec<K, _>)",
+				"doc": "Returns a vector of all keys in the map."
+			},
+			"values": {
+				"signature": "func values() -> (Vec<V, _>)",
+				"doc": "Returns a vector of all values in the map."
+			},
+			"clear": {
+				"signature": "func clear() -> (void)",
+				"doc": "Removes all entries from the map."
+			},
+			"remove": {
+				"signature": "func remove(key: &K) -> (Result<V, string>)",
+				"doc": "Removes and returns the value for the given key."
+			},
+			"contains": {
+				"signature": "func contains(key: &K) -> (bool)",
+				"doc": "Returns true if the map contains the given key."
+			}
+		},
+		"Map": {
+			"len": {
+				"signature": "func len() -> (int)",
+				"doc": "Returns the number of key-value pairs in the map."
+			},
+			"keys": {
+				"signature": "func keys() -> (Vec<K, _>)",
+				"doc": "Returns a vector of all keys in the map."
+			},
+			"values": {
+				"signature": "func values() -> (Vec<V, _>)",
+				"doc": "Returns a vector of all values in the map."
+			},
+			"clear": {
+				"signature": "func clear() -> (void)",
+				"doc": "Removes all entries from the map."
+			},
+			"remove": {
+				"signature": "func remove(key: K) -> (void)",
+				"doc": "Removes the entry with the given key."
+			},
+			"contains": {
+				"signature": "func contains(key: K) -> (bool)",
+				"doc": "Returns true if the map contains the given key."
+			}
+		},
+		"Result": {
+			"isOk": {
+				"signature": "func isOk() -> (bool)",
+				"doc": "Returns true if the result is Ok."
+			},
+			"isErr": {
+				"signature": "func isErr() -> (bool)",
+				"doc": "Returns true if the result is Err."
+			},
+			"unwrap": {
+				"signature": "func unwrap() -> (T)",
+				"doc": "Returns the Ok value. Panics if Err."
+			},
+			"unwrapErr": {
+				"signature": "func unwrapErr() -> (E)",
+				"doc": "Returns the Err value. Panics if Ok."
+			},
+			"toString": {
+				"signature": "func toString() -> (string)",
+				"doc": "Returns a string representation of the Result."
+			}
+		}
+	},
+	"static": {
+		"Vec": {
+			"new": {
+				"signature": "func new() -> (Vec<T, _>)",
+				"doc": "Creates an empty vector."
+			},
+			"withCap": {
+				"signature": "func withCap(cap: int) -> (Vec<T, _>)",
+				"doc": "Creates an empty vector with reserved capacity."
+			},
+			"from": {
+				"signature": "func from<N>(arr: Vec<T, N>) -> (Vec<T, _>)",
+				"doc": "Creates a dynamic vector from a fixed-size vector."
+			}
+		},
+		"HashMap": {
+			"new": {
+				"signature": "func new() -> (HashMap<K, V>)",
+				"doc": "Creates an empty hash map."
+			},
+			"withCap": {
+				"signature": "func withCap(c: int) -> (HashMap<K, V>)",
+				"doc": "Creates an empty hash map with reserved capacity."
+			}
+		}
+	}
+}

@@ -479,6 +479,65 @@ func TestCompletionSuggestsHashMapStaticMethodsAfterDot(t *testing.T) {
 	}
 }
 
+func TestCompletionSuggestsImportedPackageMembersAfterTypedPrefix(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"import \"std/strconv/strconv.bak\" as strconv",
+		"",
+		"func main() -> (void) {",
+		"    strconv.",
+		"    strconv.par",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.RootPath = repoRoot(t)
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(uri, src)
+	})
+
+	dotLine, dotCol := findLineCol(src, "    strconv.")
+	if dotLine < 0 {
+		t.Fatalf("dot completion target not found")
+	}
+	dotParams := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: dotLine, Character: dotCol + len("    strconv.")},
+	}
+	dotCompletion := s.handleCompletion(mustRequest(t, dotParams))
+	dotLabels := map[string]bool{}
+	for _, item := range dotCompletion.Items {
+		dotLabels[item.Label] = true
+	}
+	if !dotLabels["atoi"] {
+		t.Fatalf("expected imported symbol completion atoi after dot, got %#v", dotCompletion.Items)
+	}
+
+	line, col := findLineCol(src, "strconv.par")
+	if line < 0 {
+		t.Fatalf("prefix completion target not found")
+	}
+
+	params := CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("strconv.par")},
+	}
+	completion := s.handleCompletion(mustRequest(t, params))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+
+	if !labels["parseInt"] {
+		t.Fatalf("expected imported symbol completion parseInt, got %#v", completion.Items)
+	}
+}
+
 func TestCompletionIncludesPrimitiveAndBuiltinTypes(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

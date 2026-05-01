@@ -16,6 +16,7 @@ import (
 // ANSI Color Codes
 const (
 	ColorReset   = "\033[0m"
+	ColorDim     = "\033[2m"
 	ColorRed     = "\033[31m"
 	ColorGreen   = "\033[32m"
 	ColorYellow  = "\033[33m"
@@ -172,25 +173,177 @@ func readLine(filename string, lineNum int) string {
 	return ""
 }
 
+func normalizeHelpText(help string) string {
+	trimmed := strings.TrimSpace(help)
+	lower := strings.ToLower(trimmed)
+	if strings.HasPrefix(lower, "how to fix:") {
+		return "how to fix: " + strings.TrimSpace(trimmed[len("how to fix:"):])
+	}
+	return trimmed
+}
+
+func padLabel(label string, width int) string {
+	if len(label) >= width {
+		return label
+	}
+	return label + strings.Repeat(" ", width-len(label))
+}
+
+func wrapText(text string, width int) []string {
+	if width <= 8 {
+		return []string{text}
+	}
+
+	paragraphs := strings.Split(text, "\n")
+	wrapped := make([]string, 0, len(paragraphs))
+	for _, p := range paragraphs {
+		line := strings.TrimSpace(p)
+		if line == "" {
+			wrapped = append(wrapped, "")
+			continue
+		}
+
+		for len(line) > width {
+			split := width
+			for split > 0 && line[split-1] != ' ' {
+				split = split - 1
+			}
+			if split <= 0 {
+				split = width
+			}
+			wrapped = append(wrapped, strings.TrimSpace(line[0:split]))
+			line = strings.TrimSpace(line[split:])
+		}
+		if line != "" {
+			wrapped = append(wrapped, line)
+		}
+	}
+
+	if len(wrapped) == 0 {
+		return []string{""}
+	}
+	return wrapped
+}
+
+func formatMetaBlock(indent string, labelColor string, label string, textColor string, text string, width int) string {
+	labelPad := padLabel(label, 5)
+	contPad := strings.Repeat(" ", 6)
+	lines := wrapText(text, width)
+
+	var sb strings.Builder
+	for i, line := range lines {
+		sb.WriteString(indent)
+		if i == 0 {
+			sb.WriteString(labelColor)
+			sb.WriteString(labelPad)
+			sb.WriteString(ColorReset)
+		} else {
+			sb.WriteString(contPad)
+		}
+		sb.WriteString(" ")
+		sb.WriteString(textColor)
+		sb.WriteString(line)
+		sb.WriteString(ColorReset)
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+func sectionBreak(indent string, width int) string {
+	if width < 28 {
+		width = 28
+	}
+	return strfmt.S(
+		indent,
+		ColorDim,
+		ColorGray,
+		strings.Repeat("-", width),
+		ColorReset,
+		"\n",
+	)
+}
+
+func computeBreakWidth(d *Diagnostic, file string) int {
+	maxLen := len(d.Message)
+	location := strfmt.S(file, ":", d.Line, ":", d.Column)
+	if len(location) > maxLen {
+		maxLen = len(location)
+	}
+	if d.Help != "" {
+		helpText := normalizeHelpText(d.Help)
+		if len(helpText) > maxLen {
+			maxLen = len(helpText)
+		}
+	}
+	for _, note := range d.Notes {
+		if len(note.Message) > maxLen {
+			maxLen = len(note.Message)
+		}
+	}
+
+	width := maxLen + 8
+	if width < 40 {
+		width = 40
+	}
+	if width > 120 {
+		width = 120
+	}
+	return width
+}
+
+func severityMarker(level DiagnosticLevel) string {
+	switch level {
+	case LevelError:
+		return "[!]"
+	case LevelWarning:
+		return "[~]"
+	case LevelHint:
+		return "[i]"
+	default:
+		return "[?]"
+	}
+}
+
+func severityLabel(level DiagnosticLevel) string {
+	switch level {
+	case LevelError:
+		return "ERROR"
+	case LevelWarning:
+		return "WARN"
+	case LevelHint:
+		return "HINT"
+	default:
+		return "UNKNOWN"
+	}
+}
+
 // Format returns the formatted diagnostic message with colors
 func (d *Diagnostic) Format() string {
 	var sb strings.Builder
 
-	// Header: ERROR [E0100]: message
+	// Header: compact modern title + location
 	levelColor := d.Level.Color()
-	levelStr := strings.ToUpper(d.Level.String())
+	levelStr := severityLabel(d.Level)
+	marker := severityMarker(d.Level)
 	sb.WriteString(strfmt.S(
+		"  ",
+		ColorBold,
+		levelColor,
+		marker,
+		" ",
+		ColorReset,
 		ColorBold,
 		levelColor,
 		levelStr,
 		ColorReset,
-		" ",
-		ColorMagenta,
+		ColorGray,
 		"[",
+		ColorMagenta,
 		d.Code,
+		ColorGray,
 		"]",
 		ColorReset,
-		": ",
+		"  ",
 		ColorWhite,
 		d.Message,
 		ColorReset,
@@ -202,20 +355,17 @@ func (d *Diagnostic) Format() string {
 	if file == "" {
 		file = "<input>"
 	}
+	breakWidth := computeBreakWidth(d, file)
 
-	sb.WriteString(strfmt.S(
-		"  ",
+	sb.WriteString(formatMetaBlock(
+		"    ",
 		ColorBlue,
-		"-->",
-		ColorReset,
-		" ",
-		file,
-		":",
-		d.Line,
-		":",
-		d.Column,
-		"\n",
+		"at",
+		ColorWhite,
+		strfmt.S(file, ":", d.Line, ":", d.Column),
+		breakWidth,
 	))
+	sb.WriteString(sectionBreak("    ", breakWidth))
 
 	// Code snippet
 	codeLine := readLine(file, d.Line)
@@ -263,7 +413,9 @@ func (d *Diagnostic) Format() string {
 				" |",
 				ColorReset,
 				" ",
+				ColorGray,
 				prevLine,
+				ColorReset,
 				"\n",
 			))
 		}
@@ -275,12 +427,18 @@ func (d *Diagnostic) Format() string {
 			" |",
 			ColorReset,
 			" ",
+			ColorGray,
 			codeLine,
+			ColorReset,
 			"\n",
 		))
 
 		// Underline
-		underline := strings.Repeat(" ", d.Column-1) + "^"
+		column := d.Column
+		if column < 1 {
+			column = 1
+		}
+		underline := strings.Repeat(" ", column-1) + "^"
 
 		sb.WriteString(strfmt.S(
 			"  ",
@@ -303,50 +461,49 @@ func (d *Diagnostic) Format() string {
 				" |",
 				ColorReset,
 				" ",
+				ColorGray,
 				nextLine,
+				ColorReset,
 				"\n",
 			))
 		}
 
 		if d.Help != "" {
-			sb.WriteString(strfmt.S(
-				"  ",
-				padding,
-				ColorBlue,
-				" = help: ",
-				ColorReset,
-				d.Help,
-				"\n",
+			helpText := normalizeHelpText(d.Help)
+			sb.WriteString(formatMetaBlock(
+				"  "+padding+" ",
+				ColorYellow,
+				"help",
+				ColorGray,
+				helpText,
+				breakWidth,
 			))
 		}
 	} else if d.Help != "" {
-		// Fallback if no code snippet
-		sb.WriteString(strfmt.S(
-			"  ",
-			ColorBlue,
-			"= help: ",
-			ColorReset,
-			d.Help,
-			"\n",
-		))
+		helpText := normalizeHelpText(d.Help)
+		sb.WriteString(formatMetaBlock("    ", ColorYellow, "help", ColorGray, helpText, breakWidth))
 	}
+	sb.WriteString(sectionBreak("    ", breakWidth))
 
 	// Notes
+	seenNoteContext := make(map[string]struct{})
+	if d.Line > 0 {
+		primaryKey := strfmt.S(file, ":", d.Line)
+		seenNoteContext[primaryKey] = struct{}{}
+	}
 	for _, note := range d.Notes {
-		sb.WriteString(strfmt.S(
-			"  ",
-			ColorCyan,
-			"= note: ",
-			note.Message,
-			ColorReset,
-			"\n",
-		))
+		sb.WriteString(formatMetaBlock("    ", ColorCyan, "note", ColorGray, note.Message, breakWidth))
 
 		if note.Line > 0 {
 			noteFile := note.File
 			if noteFile == "" {
 				noteFile = file
 			}
+			noteKey := strfmt.S(noteFile, ":", note.Line)
+			if _, alreadyShown := seenNoteContext[noteKey]; alreadyShown {
+				continue
+			}
+			seenNoteContext[noteKey] = struct{}{}
 			// Recursive snippet could be added here, but keeping it simple for now
 			// fmt.Fprintf(&sb, "  --> %s:%d:%d\n", noteFile, note.Line, note.Column)
 
@@ -359,6 +516,7 @@ func (d *Diagnostic) Format() string {
 					"  ",
 					ColorBlue,
 					"--> ",
+					ColorWhite,
 					noteFile,
 					":",
 					note.Line,
@@ -375,11 +533,17 @@ func (d *Diagnostic) Format() string {
 					" |",
 					ColorReset,
 					" ",
+					ColorGray,
 					noteCodeLine,
+					ColorReset,
 					"\n",
 				))
 				if note.Column > 0 {
-					noteUnderline := strings.Repeat(" ", note.Column-1) + "^"
+					noteCol := note.Column
+					if noteCol < 1 {
+						noteCol = 1
+					}
+					noteUnderline := strings.Repeat(" ", noteCol-1) + "^"
 					sb.WriteString(strfmt.S(
 						"  ",
 						notePad,
@@ -526,11 +690,11 @@ func CannotMove(
 	reason string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:  ErrMoveWhileBorrowed,
-		Level: LevelError,
+		Code:    ErrMoveWhileBorrowed,
+		Level:   LevelError,
 		Message: strfmt.Named("cannot move '{varName}' because it is {reason}", "VarName", varName, "Reason", reason),
-		Line:   line,
-		Column: col,
+		Line:    line,
+		Column:  col,
 	}
 }
 
@@ -543,11 +707,11 @@ func BorrowConflict(
 	existingState string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:  ErrBorrowConflict,
-		Level: LevelError,
+		Code:    ErrBorrowConflict,
+		Level:   LevelError,
 		Message: strfmt.Named("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", "VarName", varName, "AttemptedBorrow", attemptedBorrow, "ExistingState", existingState),
-		Line:   line,
-		Column: col,
+		Line:    line,
+		Column:  col,
 	}
 }
 
@@ -559,12 +723,12 @@ func MutabilityRequired(
 	operation string,
 ) Diagnostic {
 	return Diagnostic{
-		Code:  ErrMutabilityRequired,
-		Level: LevelError,
+		Code:    ErrMutabilityRequired,
+		Level:   LevelError,
 		Message: strfmt.Named("cannot {operation} on immutable variable '{varName}'", "Operation", operation, "VarName", varName),
-		Line:   line,
-		Column: col,
-		Help:   "declare the variable as 'mut var'",
+		Line:    line,
+		Column:  col,
+		Help:    "declare the variable as 'mut var'",
 	}
 }
 
@@ -598,24 +762,24 @@ func VecMutatingMethodOnImmutable(
 	pos ast.Position,
 ) Diagnostic {
 	return Diagnostic{
-		Code:  ErrMutabilityRequired,
-		Level: LevelError,
+		Code:    ErrMutabilityRequired,
+		Level:   LevelError,
 		Message: strfmt.Named("cannot call '{method}' on immutable variable '{varName}'", "Method", method, "VarName", varName),
-		Line:   pos.Line,
-		Column: pos.Column,
-		Help:   "declare the variable as 'mut var'",
+		Line:    pos.Line,
+		Column:  pos.Column,
+		Help:    "declare the variable as 'mut var'",
 	}
 }
 
 // VecDynamicOnlyMethod creates a diagnostic for dynamic-only Vec methods
 func VecDynamicOnlyMethod(method, vecType string, pos ast.Position) Diagnostic {
 	return Diagnostic{
-		Code:  ErrVecDynamicOnly,
-		Level: LevelError,
+		Code:    ErrVecDynamicOnly,
+		Level:   LevelError,
 		Message: strfmt.Named("cannot call '{method}' on fixed-size {vecType}", "Method", method, "VecType", vecType),
-		Line:   pos.Line,
-		Column: pos.Column,
-		Help:   "use Vec<T, _> for dynamic arrays",
+		Line:    pos.Line,
+		Column:  pos.Column,
+		Help:    "use Vec<T, _> for dynamic arrays",
 	}
 }
 

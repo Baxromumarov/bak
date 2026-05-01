@@ -5,6 +5,12 @@ pub func sum(a: int, b: int) -> (int) {
 }
 
 pub func demo() -> (void) {
-    println(sum(1, 2))
+
+    return void
+}
+
+
+func main() -> (void) {
+    println(sum(1,2))
     return void
 }

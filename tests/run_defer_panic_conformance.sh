@@ -16,11 +16,20 @@ echo "Interpreter pass:"
 "$BAK" check "$PASS_TEST"
 
 echo "VM pass:"
-"$BAK" --vm "$PASS_TEST"
+"$BAK" run "$PASS_TEST"
 
 echo "VM panic:"
-if "$BAK" --vm "$FAIL_TEST"; then
-  echo "Expected failure, but VM succeeded"
+panic_output=""
+if panic_output=$("$BAK" run "$FAIL_TEST" 2>&1); then
+  echo "Expected panic, but VM succeeded"
+  exit 1
+fi
+
+if [[ "$panic_output" == *"panic: boom"* ]]; then
+  echo "Expected panic observed: panic: boom"
+else
+  echo "Expected panic output to include 'panic: boom', got:"
+  echo "$panic_output"
   exit 1
 fi
 

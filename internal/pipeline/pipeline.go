@@ -79,9 +79,13 @@ func (p *Pipeline) Typecheck() error {
 	typeErrors := tc.Check(p.AST)
 	p.Warnings = append(p.Warnings[:0], typeErrors...)
 	if len(typeErrors) > 0 {
-		fmt.Fprintln(os.Stderr, "Type errors:")
+		fmt.Fprintln(os.Stderr, strfmt.Named("Type errors ({count}):", "Count", len(typeErrors)))
 		for _, msg := range typeErrors {
-			_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
+			if strings.HasSuffix(msg, "\n") {
+				_, _ = strfmt.Fprint(os.Stderr, msg)
+			} else {
+				_, _ = strfmt.Fprintln(os.Stderr, msg)
+			}
 		}
 	}
 	if len(typeErrors) == 0 {
@@ -105,7 +109,10 @@ func (p *Pipeline) Compile() error {
 		return fmt.Errorf("compilation error: %w", err)
 	}
 	if p.DebugEscapes {
-		fmt.Fprintln(os.Stderr, compiler.FormatEscapeReports(compilerBackend.EscapeReports()))
+		fmt.Fprintln(
+			os.Stderr,
+			compiler.FormatEscapeReports(compilerBackend.EscapeReports()),
+		)
 	}
 
 	p.Module = module
@@ -126,6 +133,7 @@ func (p *Pipeline) RunVM(
 	defer func() {
 		os.Args = oldArgs
 	}()
+
 	if len(scriptArgs) > 0 {
 		os.Args = append([]string{p.Filename}, scriptArgs...)
 	} else {

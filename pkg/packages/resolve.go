@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var fileExtn = ".bak"
+
 // ResolveImportPath resolves an import path to an absolute file path.
 // It handles "std/" prefix expansion, .bak extension appending, directory
 // imports, and legacy github.com path resolution.
@@ -33,10 +35,10 @@ func ResolveImportPathFrom(importPath, fromPath string) string {
 	// c) The path + "/" + basename + .bak (directory import)
 	candidates := []string{searchPath}
 
-	if !strings.HasSuffix(searchPath, ".bak") {
-		candidates = append(candidates, searchPath+".bak")
+	if !strings.HasSuffix(searchPath, fileExtn) {
+		candidates = append(candidates, searchPath+fileExtn)
 		base := filepath.Base(searchPath)
-		candidates = append(candidates, filepath.Join(searchPath, base+".bak"))
+		candidates = append(candidates, filepath.Join(searchPath, base+fileExtn))
 	}
 
 	// 3. Resolution
@@ -77,7 +79,7 @@ func ResolveImportPathFrom(importPath, fromPath string) string {
 
 	// Fallback for legacy "simple" imports (e.g. import "fmt")
 	if !strings.Contains(importPath, "/") {
-		legacyPath := filepath.Join("src", "std", importPath, importPath+".bak")
+		legacyPath := filepath.Join("src", "std", importPath, importPath+fileExtn)
 		if baseDir != "" {
 			if resolved := existingFilePath(filepath.Join(baseDir, legacyPath)); resolved != "" {
 				return resolved
@@ -93,7 +95,7 @@ func ResolveImportPathFrom(importPath, fromPath string) string {
 		rest := after
 		if rest != "" {
 			base := filepath.Base(rest)
-			legacyPath := filepath.Join("src", rest, base+".bak")
+			legacyPath := filepath.Join("src", rest, base+fileExtn)
 			if baseDir != "" {
 				if resolved := existingFilePath(filepath.Join(baseDir, legacyPath)); resolved != "" {
 					return resolved
@@ -127,7 +129,7 @@ func importBaseDir(fromPath string) string {
 		}
 		return filepath.Dir(fromPath)
 	}
-	if strings.HasSuffix(fromPath, ".bak") {
+	if strings.HasSuffix(fromPath, fileExtn) {
 		abs, absErr := filepath.Abs(filepath.Dir(fromPath))
 		if absErr == nil {
 			return abs

@@ -426,7 +426,7 @@ func TestCLIRunWarningOnlyDoesNotFail(t *testing.T) {
 		t.Fatalf("expected warning-only run to succeed, got error %v and output:\n%s", err, string(out))
 	}
 	text := string(out)
-	if !strings.Contains(text, "WARNING") {
+	if !strings.Contains(text, "WARNING") && !strings.Contains(text, "WARN") {
 		t.Fatalf("expected warning in output, got: %s", text)
 	}
 	if !strings.Contains(text, "ok") {

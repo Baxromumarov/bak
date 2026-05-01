@@ -290,7 +290,7 @@ func format_fields(fields: &Vec<Field, _>) -> (string) {
     if fields.len() == 0 {
         return ""
     }
-    mut var out: string = " {"
+    mut var out: string = " {{"
     mut var i: int = 0
     while i < fields.len() {
         if i > 0 {
@@ -299,7 +299,7 @@ func format_fields(fields: &Vec<Field, _>) -> (string) {
         out = out + (fields[i]).key + "=" + (fields[i]).value
         i = i + 1
     }
-    return out + "}"
+    return out + "}}"
 }
 // =============================================================================
 // HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)

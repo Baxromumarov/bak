@@ -1,6 +1,7 @@
 package main
 
 import "tests/typelib/typelib.bak" as types
+import "tests/mathlib.bak" as math
 
 // =============================================================================
 // Test: Alias for Imported PUBLIC Structs  
@@ -81,7 +82,7 @@ func testFunctionsWithImportedTypes() -> (void) {
     
     var p: Point = Point{X: 10, Y: 20}
     var sum: int = processPoint(&p)
-    println("  processPoint({X: 10, Y: 20}) =", sum)
+    println("  processPoint({{X: 10, Y: 20}}) =", sum)
     
     var person: Person = createPerson("Dave", 40)
     println("  createPerson(Dave, 40) =", person)
@@ -93,9 +94,6 @@ func testFunctionsWithImportedTypes() -> (void) {
 // =============================================================================
 // Test: Multiple Imports with Aliases
 // =============================================================================
-
-// Use both the mathlib and typelib
-import "tests/mathlib.bak" as math
 
 alias Calculator = math.Calc
 

@@ -10,18 +10,36 @@ import (
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
+func findStdLibPathFrom(start string) (string, bool) {
+	dir := filepath.Clean(start)
+	for {
+		candidate := filepath.Join(dir, "src", "std")
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", false
+}
+
 // GetStdLibPath locates the repository's src/std directory using the same
 // heuristic used elsewhere in the project.
 func GetStdLibPath() string {
 	if home := os.Getenv("BAK_HOME"); home != "" {
+		if stdPath, ok := findStdLibPathFrom(home); ok {
+			return stdPath
+		}
 		return filepath.Join(home, "src", "std")
 	}
 
 	exe, err := os.Executable()
 	if err == nil {
 		rootDir := filepath.Dir(filepath.Dir(exe))
-		stdPath := filepath.Join(rootDir, "src", "std")
-		if _, statErr := os.Stat(stdPath); statErr == nil {
+		if stdPath, ok := findStdLibPathFrom(rootDir); ok {
 			return stdPath
 		}
 	}
@@ -29,6 +47,9 @@ func GetStdLibPath() string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return filepath.Join(".", "src", "std")
+	}
+	if stdPath, ok := findStdLibPathFrom(cwd); ok {
+		return stdPath
 	}
 	return filepath.Join(cwd, "src", "std")
 }

@@ -142,8 +142,8 @@ func TestFormatIdempotent(t *testing.T) {
 }
 
 func TestFormatPreservesStringEscapes(t *testing.T) {
-	input := "package main\nfunc main()->(void){println(\"POST /tasks body: {\\\"title\\\":\\\"ship bak\\\"}\")\nprintln(\"C:\\\\tmp\\\\x\")}"
-	want := "package main\n\nfunc main() -> (void) {\n    println(\"POST /tasks body: {\\\"title\\\":\\\"ship bak\\\"}\")\n    println(\"C:\\\\tmp\\\\x\")\n}\n"
+	input := "package main\nfunc main()->(void){println(\"POST /tasks body: {{\\\"title\\\":\\\"ship bak\\\"}}\")\nprintln(\"C:\\\\tmp\\\\x\")}"
+	want := "package main\n\nfunc main() -> (void) {\n    println(\"POST /tasks body: {{\\\"title\\\":\\\"ship bak\\\"}}\")\n    println(\"C:\\\\tmp\\\\x\")\n}\n"
 
 	got, errs := Format(input)
 	if len(errs) > 0 {

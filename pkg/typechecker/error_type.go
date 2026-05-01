@@ -20,9 +20,6 @@ func (tc *TypeChecker) errorTypeMismatch(
 	if context != "" {
 		msg = strfmt.Named("{msg} in {context}", "Msg", msg, "Context", context)
 	}
-	if desc := describeNodeToken(node); desc != "" {
-		msg = strfmt.Named("{msg} (token: {desc})", "Msg", msg, "Desc", desc)
-	}
 
 	help := tc.suggestTypeFix(expected, got)
 	if help == "" {
@@ -52,9 +49,9 @@ func (tc *TypeChecker) errorTypeMismatch(
 		if info, found := tc.lookupSymbolWithoutMark(ident); found && info.Line > 0 {
 			diag.Notes = append(diag.Notes, diagnostics.Note{
 				Message: strfmt.Named("where inferred: '{ident}' has declared type {typeToString}", "Ident", ident, "TypeToString", typeToString(info.Type)),
-				Line:   info.Line,
-				Column: info.Column,
-				File:   tc.currentPkgPath,
+				Line:    info.Line,
+				Column:  info.Column,
+				File:    tc.currentPkgPath,
 			})
 		}
 	}
@@ -105,9 +102,9 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 	if line > 0 && (line != diagLine || col != diagCol) {
 		diag.Notes = append(diag.Notes, diagnostics.Note{
 			Message: strfmt.Named("in call: method '{receiverType}.{methodName}' invoked here", "ReceiverType", receiverType, "MethodName", methodName),
-			Line:   line,
-			Column: col,
-			File:   tc.currentPkgPath,
+			Line:    line,
+			Column:  col,
+			File:    tc.currentPkgPath,
 		})
 	}
 	if sig != nil {
