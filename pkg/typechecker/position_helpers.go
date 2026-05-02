@@ -23,10 +23,19 @@ func (tc *TypeChecker) addErrorAt(pos ast.Position, message string) {
 	tc.addError(pos.Line, pos.Column, message)
 }
 
-func (tc *TypeChecker) addErrorWithHelpAt(pos ast.Position, help, message string) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, help, message)
-}
-
-func (tc *TypeChecker) errorTypeMismatchAt(pos ast.Position, expected, got, context string, node ast.Node) {
-	tc.errorTypeMismatch(pos.Line, pos.Column, expected, got, context, node)
+func (tc *TypeChecker) errorTypeMismatchAt(
+	pos ast.Position,
+	expected,
+	got,
+	context string,
+	node ast.Node,
+) {
+	tc.errorTypeMismatch(
+		pos.Line,
+		pos.Column,
+		expected,
+		got,
+		context,
+		node,
+	)
 }

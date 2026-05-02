@@ -6,24 +6,22 @@ import (
 )
 
 func (tc *TypeChecker) fitsInIntegerType(val int64, t ast.TypeExpression) bool {
-	t = tc.resolveType(t)
-	name := typeToString(t)
-	switch name {
-	case "int8":
+	switch tc.typeKind(t) {
+	case KindInt8:
 		return val >= -128 && val <= 127
-	case "int16":
+	case KindInt16:
 		return val >= -32768 && val <= 32767
-	case "int32":
+	case KindInt32:
 		return val >= -2147483648 && val <= 2147483647
-	case "int64", "int":
+	case KindInt64, KindInt:
 		return true
-	case "uint8":
+	case KindUint8:
 		return val >= 0 && val <= 255
-	case "uint16":
+	case KindUint16:
 		return val >= 0 && val <= 65535
-	case "uint32":
+	case KindUint32:
 		return val >= 0 && val <= 4294967295
-	case "uint64", "uint":
+	case KindUint64, KindUint:
 		return val >= 0
 	}
 	return false

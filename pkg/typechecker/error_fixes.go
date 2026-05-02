@@ -12,9 +12,17 @@ import (
 func argumentCountHelp(expected, got int) string {
 	switch {
 	case got < expected:
-		return strfmt.Named("add {expr} more argument(s)", "Expr", expected - got)
+		return strfmt.Named(
+			"add {expr} more argument(s)",
+			"Expr", expected-got,
+		)
+
 	case got > expected:
-		return strfmt.Named("remove {expr} argument(s)", "Expr", got - expected)
+		return strfmt.Named(
+			"remove {expr} argument(s)",
+			"Expr", got-expected,
+		)
+
 	default:
 		return ""
 	}
@@ -35,10 +43,12 @@ func replacementFix(
 	if startLine <= 0 {
 		startLine = 1
 	}
+
 	startColumn := col
 	if startColumn <= 0 {
 		startColumn = 1
 	}
+
 	return diagnostics.Fix{
 		Title:       title,
 		Replacement: toText,
@@ -53,27 +63,48 @@ func suggestionsHelp(suggestions []string, fallback string) string {
 	if len(suggestions) == 0 {
 		return fallback
 	}
-	help := strfmt.Named("did you mean '{suggestionsItem}'?", "SuggestionsItem", suggestions[0])
+
+	help := strfmt.Named(
+		"did you mean '{suggestionsItem}'?",
+		"SuggestionsItem", suggestions[0],
+	)
+
 	if len(suggestions) > 1 {
-		help = strfmt.Named("{help} alternatives: {value}", "Help", help, "Value", strings.Join(suggestions[1:], ", "))
+		help = strfmt.Named(
+			"{help} alternatives: {value}",
+			"Help", help,
+			"Value", strings.Join(suggestions[1:], ", "),
+		)
 	}
+
 	return help
 }
 
-func suggestionFixes(fromText string, suggestions []string, line, col int) []diagnostics.Fix {
+func suggestionFixes(
+	fromText string,
+	suggestions []string,
+	line,
+	col int,
+) []diagnostics.Fix {
 	if len(suggestions) == 0 {
 		return nil
 	}
+
 	fixes := make([]diagnostics.Fix, 0, len(suggestions))
+
 	for _, suggestion := range suggestions {
 		fixes = append(fixes, replacementFix(
-			strfmt.Named("Replace with '{suggestion}'", "Suggestion", suggestion),
+			strfmt.Named(
+				"Replace with '{suggestion}'",
+				"Suggestion", suggestion,
+			),
 			fromText,
 			suggestion,
 			line,
 			col,
 		))
 	}
+
 	return fixes
 }
 
@@ -104,7 +135,13 @@ func fixFromNodeReplacement(
 		col = tok.Column
 	}
 
-	return replacementFix(title, textProvider.String(), replacement, line, col), true
+	return replacementFix(
+		title,
+		textProvider.String(),
+		replacement,
+		line,
+		col,
+	), true
 }
 
 func (tc *TypeChecker) typeMismatchFixes(
@@ -117,11 +154,13 @@ func (tc *TypeChecker) typeMismatchFixes(
 	if node == nil {
 		return nil
 	}
+
 	addFix := func(
 		fixes []diagnostics.Fix,
 		title,
 		replacement string,
 	) []diagnostics.Fix {
+
 		fix, ok := fixFromNodeReplacement(title, replacement, node, line, col)
 		if !ok {
 			return fixes
@@ -145,8 +184,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 
 	fixes := make([]diagnostics.Fix, 0, 2)
 
-	if strings.HasPrefix(expected, "float") &&
-		(got == "int" || strings.HasPrefix(got, "int")) {
+	if strings.HasPrefix(expected, "float") && (got == "int" || strings.HasPrefix(got, "int")) {
 		fixes = addFix(
 			fixes,
 			strfmt.Named("Convert to {expected}(...)", "Expected", expected),
@@ -169,6 +207,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 			strings.HasPrefix(got, "float") ||
 			got == "bool" ||
 			got == "char") {
+
 		fixes = addFix(
 			fixes,
 			"Convert to string",

@@ -223,7 +223,13 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	case "slice", "toVec", "reverse":
 		// Returns Vec<T, _> (dynamic)
 		if elemType != nil {
-			return &ast.GenericType{Name: "Vec", TypeParams: []ast.TypeExpression{elemType, &ast.SizeExpression{IsDynamic: true}}}
+			return &ast.GenericType{
+				Name: "Vec",
+				TypeParams: []ast.TypeExpression{
+					elemType,
+					&ast.SizeExpression{IsDynamic: true},
+				},
+			}
 		}
 		return &ast.GenericType{Name: "Vec"}
 	case "set":
@@ -231,7 +237,7 @@ func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType 
 	case "new", "withCap":
 		return vecType
 	case "from":
-		return tc.checkVecFrom(mc, vecType, callPos)
+		return tc.checkVecFrom(mc, vecType)
 	default:
 		tc.errorUndefinedMethodAt("Vec", method, callPos, vecMethodCandidates)
 		return nil
@@ -334,7 +340,10 @@ func (tc *TypeChecker) checkVecSet(mc *ast.MethodCallExpression, elemType ast.Ty
 	return &ast.VoidType{}
 }
 
-func (tc *TypeChecker) checkVecFrom(mc *ast.MethodCallExpression, vecType *ast.GenericType, callPos ast.Position) ast.TypeExpression {
+func (tc *TypeChecker) checkVecFrom(
+	mc *ast.MethodCallExpression,
+	vecType *ast.GenericType,
+) ast.TypeExpression {
 	if len(mc.Arguments) == 1 {
 		argType := tc.inferType(mc.Arguments[0])
 		if at, ok := argType.(*ast.ArrayType); ok {

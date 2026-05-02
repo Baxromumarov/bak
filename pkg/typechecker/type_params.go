@@ -2,13 +2,6 @@ package typechecker
 
 import "github.com/baxromumarov/bak/pkg/ast"
 
-func isGenericTypeParam(typeName string) bool {
-	if len(typeName) == 1 && typeName[0] >= 'A' && typeName[0] <= 'Z' {
-		return true
-	}
-	return false
-}
-
 func typeParamNames(params []*ast.TypeParameter) []string {
 	if len(params) == 0 {
 		return nil
