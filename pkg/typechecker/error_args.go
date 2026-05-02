@@ -6,6 +6,21 @@ import (
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
+// list-format of errors
+var (
+	expectedGotFormat        = "function '{name}' expects {expected} argument(s), but got {got}"
+	funcDecl                 = "function '{name}' declared here"
+	methodDecl               = "method '{typeName}.{method}' declared here"
+	addLessMoreFormat        = "add at least {expr} more argument(s)"
+	removeFormat             = "remove {expr} argument(s)"
+	rangeFormat              = "between {minExpected} and {maxExpected}"
+	atLeastFormat            = "at least {minExpected}"
+	funcNameExpectedFormat   = "function '{name}' expects {rangeHint} argument(s), but got {got}"
+	methodNameExpectedFormat = "method '{typeName}.{method}' expects {expected} argument(s), but got {got}"
+	helpAddReturn            = "add `return ...` of type {expectedName} or change the return type to void"
+	missingReturnFormat      = "missing return of type {expectedName}"
+)
+
 func (tc *TypeChecker) errorArgumentCountMismatchAt(
 	name string,
 	expected,
@@ -16,10 +31,20 @@ func (tc *TypeChecker) errorArgumentCountMismatchAt(
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos,
-		strfmt.Named("function '{name}' expects {expected} argument(s), but got {got}", "Name", name, "Expected", expected, "Got", got),
+		strfmt.Named(
+			expectedGotFormat,
+			"Name", name,
+			"Expected", expected,
+			"Got", got,
+		),
 	)
+
 	diag.Help = argumentCountHelp(expected, got)
-	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Named("function '{name}' declared here", "Name", name))...)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(
+		sig,
+		strfmt.Named(funcDecl, "Name", name),
+	)...)
+
 	tc.emitError(diag)
 }
 
@@ -33,21 +58,32 @@ func (tc *TypeChecker) errorArgumentCountRangeMismatchAt(
 	help := ""
 	switch {
 	case got < minExpected:
-		help = strfmt.Named("add at least {expr} more argument(s)", "Expr", minExpected - got)
+		help = strfmt.Named(addLessMoreFormat, "Expr", minExpected-got)
 	case maxExpected >= 0 && got > maxExpected:
-		help = strfmt.Named("remove {expr} argument(s)", "Expr", got - maxExpected)
+		help = strfmt.Named(removeFormat, "Expr", got-maxExpected)
 	}
 
-	rangeHint := strfmt.Named("between {minExpected} and {maxExpected}", "MinExpected", minExpected, "MaxExpected", maxExpected)
+	rangeHint := strfmt.Named(
+		rangeFormat,
+		"MinExpected", minExpected,
+		"MaxExpected", maxExpected,
+	)
+
 	if maxExpected < 0 {
-		rangeHint = strfmt.Named("at least {minExpected}", "MinExpected", minExpected)
+		rangeHint = strfmt.Named(atLeastFormat, "MinExpected", minExpected)
 	}
 
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos,
-		strfmt.Named("function '{name}' expects {rangeHint} argument(s), but got {got}", "Name", name, "RangeHint", rangeHint, "Got", got),
+		strfmt.Named(
+			funcNameExpectedFormat,
+			"Name", name,
+			"RangeHint", rangeHint,
+			"Got", got,
+		),
 	)
+
 	diag.Help = help
 	tc.emitError(diag)
 }
@@ -63,10 +99,24 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatchAt(
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
 		pos,
-		strfmt.Named("method '{typeName}.{method}' expects {expected} argument(s), but got {got}", "TypeName", typeName, "Method", method, "Expected", expected, "Got", got),
+		strfmt.Named(
+			methodNameExpectedFormat,
+			"TypeName", typeName,
+			"Method", method,
+			"Expected", expected,
+			"Got", got,
+		),
 	)
 	diag.Help = argumentCountHelp(expected, got)
-	diag.Notes = append(diag.Notes, tc.signatureDeclNote(sig, strfmt.Named("method '{typeName}.{method}' declared here", "TypeName", typeName, "Method", method))...)
+	diag.Notes = append(diag.Notes, tc.signatureDeclNote(
+		sig,
+		strfmt.Named(
+			methodDecl,
+			"TypeName", typeName,
+			"Method", method,
+		),
+	)...)
+
 	tc.emitError(diag)
 }
 
@@ -74,12 +124,15 @@ func (tc *TypeChecker) errorMissingReturnAt(pos ast.Position, expected ast.TypeE
 	expectedName := typeToString(expected)
 	help := "add a return statement"
 	if expectedName != "" && expectedName != "void" {
-		help = strfmt.Named("add `return ...` of type {expectedName} or change the return type to void", "ExpectedName", expectedName)
+		help = strfmt.Named(helpAddReturn, "ExpectedName", expectedName)
 	}
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrMissingReturn,
 		pos,
-		strfmt.Named("missing return of type {expectedName}", "ExpectedName", expectedName),
+		strfmt.Named(
+			missingReturnFormat,
+			"ExpectedName", expectedName,
+		),
 	)
 	diag.Help = help
 	tc.emitError(diag)

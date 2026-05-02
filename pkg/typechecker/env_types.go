@@ -62,6 +62,7 @@ func (e *TypeEnv) LookupTypeDef(name string) (ast.TypeExpression, bool) {
 		}
 		return e.parent.LookupTypeDef(name)
 	}
+
 	return nil, false
 }
 
@@ -76,11 +77,13 @@ func (e *TypeEnv) LookupEnum(name string) (*EnumDef, bool) {
 		e.MarkUsed(name)
 		return ed, true
 	}
+
 	if e.parent != nil {
 		if e.nonCapturing {
 			return e.root().LookupEnum(name)
 		}
 		return e.parent.LookupEnum(name)
 	}
+
 	return nil, false
 }
