@@ -7,7 +7,7 @@ pub struct Vault {
 }
 
 impl Vault as v {
-    pub func Add(mut product: items.Product) -> (void) {
+    pub mut func Add(mut product: items.Product) -> (void) {
         v.Products.push(product)
     }
 
