@@ -52,6 +52,7 @@ func (tc *TypeChecker) iterableElementType(iterType ast.TypeExpression) (ast.Typ
 			}
 			return nil, true
 		}
+
 	case *ast.SimpleType:
 		switch t.Name {
 		case "string":
@@ -80,25 +81,17 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 	if node == nil {
 		return false
 	}
+	
 	switch n := node.(type) {
 	case *ast.BlockStatement:
-		if n == nil {
-			return false
-		}
 		for _, s := range n.Statements {
 			if tc.identifierOccursInNode(s, name) {
 				return true
 			}
 		}
 	case *ast.ExpressionStatement:
-		if n == nil {
-			return false
-		}
 		return tc.identifierOccursInNode(n.Expression, name)
 	case *ast.CallExpression:
-		if n == nil {
-			return false
-		}
 		for _, a := range n.Arguments {
 			if tc.identifierOccursInNode(a, name) {
 				return true
@@ -106,9 +99,6 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 		}
 		return tc.identifierOccursInNode(n.Function, name)
 	case *ast.MethodCallExpression:
-		if n == nil {
-			return false
-		}
 		for _, a := range n.Arguments {
 			if tc.identifierOccursInNode(a, name) {
 				return true
@@ -116,69 +106,43 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 		}
 		return tc.identifierOccursInNode(n.Object, name)
 	case *ast.VarStatement:
-		if n == nil {
-			return false
-		}
 		return tc.identifierOccursInNode(n.Value, name)
 	case *ast.MultiVarStatement:
-		if n == nil {
-			return false
-		}
 		return tc.identifierOccursInNode(n.Value, name)
 	case *ast.ConstStatement:
-		if n == nil {
-			return false
-		}
 		return tc.identifierOccursInNode(n.Value, name)
 	case *ast.VarBlock:
-		if n == nil {
-			return false
-		}
 		for _, s := range n.Variables {
 			if tc.identifierOccursInNode(s, name) {
 				return true
 			}
 		}
 	case *ast.ConstBlock:
-		if n == nil {
-			return false
-		}
 		for _, s := range n.Constants {
 			if tc.identifierOccursInNode(s, name) {
 				return true
 			}
 		}
 	case *ast.IfStatement:
-		if n == nil {
-			return false
-		}
 		if tc.identifierOccursInNode(n.Condition, name) {
 			return true
 		}
+		
 		if tc.identifierOccursInNode(n.Consequence, name) {
 			return true
 		}
 		return tc.identifierOccursInNode(n.Alternative, name)
 	case *ast.WhileStatement:
-		if n == nil {
-			return false
-		}
 		if tc.identifierOccursInNode(n.Condition, name) {
 			return true
 		}
 		return tc.identifierOccursInNode(n.Body, name)
 	case *ast.ForStatement:
-		if n == nil {
-			return false
-		}
 		if tc.identifierOccursInNode(n.Iterable, name) {
 			return true
 		}
 		return tc.identifierOccursInNode(n.Body, name)
 	case *ast.AssignmentStatement:
-		if n == nil {
-			return false
-		}
 		return tc.identifierOccursInNode(n.Left, name) || tc.identifierOccursInNode(n.Value, name)
 	case *ast.DeferStatement:
 		return tc.identifierOccursInNode(n.Body, name)

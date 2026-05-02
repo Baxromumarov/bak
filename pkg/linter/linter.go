@@ -237,26 +237,37 @@ func (r *NamingConventionRule) extractNamedNodes(stmt ast.Statement) []NamedNode
 		return list
 
 	case *ast.StructDecl:
-		if s == nil || s.Name == nil {
+		if s == nil {
 			return nil
 		}
-		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "struct"}}
+		return r.extractIdentifierAsNode(s.Name, "struct")
 
 	case *ast.EnumDecl:
-		if s == nil || s.Name == nil {
+		if s == nil {
 			return nil
 		}
-		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "enum"}}
+		return r.extractIdentifierAsNode(s.Name, "enum")
 
 	case *ast.ConstStatement:
-		if s == nil || s.Name == nil {
+		if s == nil {
 			return nil
 		}
-		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "constant"}}
+		return r.extractIdentifierAsNode(s.Name, "constant")
 
 	default:
 		return nil
 	}
+}
+
+func (r *NamingConventionRule) extractIdentifierAsNode(name *ast.Identifier, kind string) []NamedNode {
+	if name == nil {
+		return nil
+	}
+	return []NamedNode{namedNodeAdapter{
+		name: name.Value,
+		tok:  name.Token,
+		kind: kind,
+	}}
 }
 
 type Validator func(string) bool

@@ -24,7 +24,7 @@ TEST_SCRIPTS := \
 
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-comprehensive test-frozen test-parity test-lanes test-all clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-comprehensive test-parity test-lanes test-all test-all-go clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -52,10 +52,11 @@ help:
 	@echo "  make test-unit        Run go test ./..."
 	@echo "  make test-scripts     Run executable test scripts under tests/"
 	@echo "  make test-comprehensive Run legacy broad-pattern comprehensive script"
-	@echo "  make test-frozen      Run frozen-surface language and docs guardrails"
+	@echo "  make      Run frozen-surface language and docs guardrails"
 	@echo "  make test-parity      Run evaluator/vm/native parity matrix"
 	@echo "  make test-lanes       Run frozen + parity lanes"
 	@echo "  make test-all         Run unit tests + test scripts"
+	@echo "  make test-all-go      Run all Go tests (unit + frozen + parity)"
 	@echo ""
 	@echo "Cleanup targets:"
 	@echo "  make clean            Remove binaries and local build artifacts"
@@ -109,16 +110,15 @@ test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"
 	@bash $(COMPREHENSIVE_SCRIPT)
 
-test-frozen:
-	$(GO) test ./pkg/typechecker -run 'TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags|TestExperimentalUnsafeRequiresOptIn|TestExperimentalUserGenericsRequireOptIn|TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint'
-	$(GO) test ./cmd/bak -run 'TestPublicDocsAndExamplesLabelExperimentalSurface|TestPublicConformanceTestsLabelExperimentalSurface|TestResolveProjectFeaturesByLanguageMode'
 
 test-parity:
 	$(GO) test ./pkg/backend/native -run TestEvaluatorVMNativeParityMatrix
 
-test-lanes: test-frozen test-parity
+test-lanes: test-parity
 
 test-all: test-unit test-scripts
+
+test-all-go: test-unit test-parity
 
 clean: clean-binaries
 	@rm -f coverage.out *.prof *.cov

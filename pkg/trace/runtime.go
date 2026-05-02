@@ -57,11 +57,13 @@ func (s *Scope) Exit(status string, err error) {
 	if s == nil || s.runtime == nil || !s.active {
 		return
 	}
+	
 	duration := s.runtime.now().Sub(s.start).Nanoseconds()
 	errText := ""
 	if err != nil {
 		errText = err.Error()
 	}
+
 	s.runtime.emit("exit", s.fn, s.depth, s.thread, status, duration, errText)
 	s.active = false
 }

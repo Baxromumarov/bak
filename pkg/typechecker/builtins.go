@@ -37,15 +37,21 @@ func builtinResultVoidError(err string) *ast.GenericType {
 
 func builtinResultValueError(val ast.TypeExpression, err string) *ast.GenericType {
 	return &ast.GenericType{
-		Name:       "Result",
-		TypeParams: []ast.TypeExpression{val, ast.NewSimpleType(err)},
+		Name: "Result",
+		TypeParams: []ast.TypeExpression{
+			val,
+			ast.NewSimpleType(err),
+		},
 	}
 }
 
 func builtinVecDynamic(elem ast.TypeExpression) *ast.GenericType {
 	return &ast.GenericType{
-		Name:       "Vec",
-		TypeParams: []ast.TypeExpression{elem, &ast.SizeExpression{IsDynamic: true}},
+		Name: "Vec",
+		TypeParams: []ast.TypeExpression{
+			elem,
+			&ast.SizeExpression{IsDynamic: true},
+		},
 	}
 }
 
@@ -58,7 +64,9 @@ func buildBuiltinCallSpec(sig *ast.FunctionType) builtinCallSpec {
 			CheckArgTypes: false,
 		}
 	}
+
 	n := len(sig.Params)
+
 	return builtinCallSpec{
 		Signature:     sig,
 		MinArgs:       n,
@@ -71,9 +79,11 @@ func (tc *TypeChecker) isBuiltin(name string) bool {
 	if name == "Vec" {
 		return true
 	}
+
 	if _, ok := compiler.LookupBuiltinID(name); ok {
 		return true
 	}
+
 	return strings.HasPrefix(name, "__builtin_")
 }
 
@@ -82,6 +92,7 @@ func (tc *TypeChecker) getBuiltinCallSpec(name string) (builtinCallSpec, bool) {
 	if sig == nil {
 		return builtinCallSpec{}, false
 	}
+	
 	spec := buildBuiltinCallSpec(sig)
 	if contract, ok := compiler.BuiltinContractByName(name); ok {
 		spec.MinArgs = contract.MinArgs
@@ -93,34 +104,7 @@ func (tc *TypeChecker) getBuiltinCallSpec(name string) (builtinCallSpec, bool) {
 }
 
 func (tc *TypeChecker) getBuiltinType(name string) *ast.FunctionType {
-	if sig := builtinTypeCastSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinFileIOSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinFileSystemSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinDatabaseSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinNetworkSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinVecPrimitiveSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinThreadingSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinTimeSyncSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinInputOutputSig(name); sig != nil {
-		return sig
-	}
-	if sig := builtinMiscSig(name); sig != nil {
+	if sig := GetBuiltinSignature(name); sig != nil {
 		return sig
 	}
 
