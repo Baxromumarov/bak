@@ -19,7 +19,7 @@ If `README.md`, design notes, experiments, examples, or parser behavior disagree
   - migration notes,
   - updated docs, examples, and tests.
 - Additive changes may be accepted only if they do not change the meaning of existing valid programs.
-- Experimental features must be documented as experimental and are not covered by the frozen compatibility promise.
+- Any syntax or behavior not listed here is outside the frozen compatibility promise.
 
 ## Backend Conformance
 

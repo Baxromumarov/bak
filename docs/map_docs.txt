@@ -2,7 +2,7 @@ dynamic dispatch
 
 Status note:
 - This file is a design note, not the frozen language contract.
-- Generic declarations shown here describe experimental user-defined generics, not frozen `v0.1` syntax.
+- Generic declarations shown here describe the supported user-defined generics syntax.
 - The normative contract is `docs/CORE_LANGUAGE_SPEC.md`.
 
 # Map<K, V> in bak

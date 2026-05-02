@@ -14,23 +14,46 @@ func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 
 	// Check if value is compile-time evaluable
 	if !tc.isCompileTimeConstant(cs.Value) {
-		tc.addError(cs.Token.Line, cs.Token.Column, strfmt.Named("constant '{Value}' value must be a compile-time constant", "Value", cs.Name.Value))
+		tc.addError(
+			cs.Token.Line,
+			cs.Token.Column,
+			strfmt.Named(
+				"constant '{Value}' value must be a compile-time constant",
+				"Value", cs.Name.Value,
+			),
+		)
+
 		return
 	}
 
 	if !tc.fitsInType(cs.Type, cs.Value) {
 		valueType := tc.inferType(cs.Value)
-		tc.addErrorWithHelp(cs.Token.Line, cs.Token.Column, tc.suggestTypeFix(typeToString(cs.Type), typeToString(valueType)), strfmt.Named(
-			"cannot assign {valueType} to constant '{name}' of type {constType}",
-			"valueType", typeToString(valueType),
-			"name", cs.Name.Value,
-			"constType", typeToString(cs.Type),
-		))
+		tc.addErrorWithHelp(
+			cs.Token.Line,
+			cs.Token.Column,
+			tc.suggestTypeFix(
+				typeToString(cs.Type),
+				typeToString(valueType),
+			),
+			strfmt.Named(
+				"cannot assign {valueType} to constant '{name}' of type {constType}",
+				"valueType", typeToString(valueType),
+				"name", cs.Name.Value,
+				"constType", typeToString(cs.Type),
+			),
+		)
 	}
 
 	// Validate the constant's type annotation for deprecated/ambiguous names
 	tc.validateTypeUsage(cs.Type, cs.Name.Pos())
-	tc.env.DefineSymbolAt(cs.Name.Value, cs.Type, false, cs.Visibility, cs.Name.Pos())
+	
+	tc.env.DefineSymbolAt(
+		cs.Name.Value,
+		cs.Type,
+		false,
+		cs.Visibility,
+		cs.Name.Pos(),
+	)
 }
 
 func (tc *TypeChecker) checkConstBlock(cb *ast.ConstBlock) {

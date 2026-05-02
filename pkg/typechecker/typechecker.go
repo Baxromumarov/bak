@@ -3,13 +3,11 @@
 package typechecker
 
 import (
-	"path/filepath"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -147,20 +145,6 @@ func stableFrozenGenericTypeName(name string) bool {
 	}
 }
 
-func experimentalFeatureHelp(feature string) string {
-	short := strings.TrimPrefix(feature, "experimental-")
-
-	return strfmt.Named("enable it by passing --experimental={short}", "Short", short)
-}
-
-func isStdlibSourcePath(path string) bool {
-	if path == "" {
-		return false
-	}
-	normalized := filepath.ToSlash(path)
-	return strings.Contains(normalized, "src/std/")
-}
-
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
 	tc.addErrorWithHelp(
 		pos.Line,
@@ -168,25 +152,6 @@ func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
 		"Option<T> is not supported; use Result<T, string>",
 		"replace Option/Some/None flows with Result using Ok(...) and Err(...)",
 	)
-}
-
-func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
-	return runtimecap.CurrentFeatureEnabled(feature)
-}
-
-func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, feature string) {
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:  diagnostics.ErrExperimentalFeature,
-		Level: diagnostics.LevelError,
-		Message: strfmt.Named(
-			"{syntax} is experimental and disabled by default",
-			"Syntax", syntax,
-		),
-		Line:   pos.Line,
-		Column: pos.Column,
-		File:   tc.currentPkgPath,
-		Help:   experimentalFeatureHelp(feature),
-	})
 }
 
 func parameterTypes(params []*ast.Parameter) []ast.TypeExpression {
@@ -197,31 +162,6 @@ func parameterTypes(params []*ast.Parameter) []ast.TypeExpression {
 		}
 	}
 	return types
-}
-
-func (tc *TypeChecker) userGenericsAllowedForDecl(filename string) bool {
-	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) || isStdlibSourcePath(filename)
-}
-
-func (tc *TypeChecker) reportUserGenericDeclIfDisabled(
-	typeParamCount int,
-	pos ast.Position,
-	filename,
-	syntax string,
-) {
-
-	if typeParamCount == 0 || tc.userGenericsAllowedForDecl(filename) {
-		return
-	}
-
-	tc.addExperimentalFeatureError(pos, syntax, runtimecap.ExperimentalFeatureUserGenerics)
-}
-
-func (tc *TypeChecker) userGenericsAllowedForTypeContext(filename string) bool {
-
-	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) ||
-		isStdlibSourcePath(filename) ||
-		isStdlibSourcePath(tc.currentPkgPath)
 }
 
 // IsSymbolUsed checks if a symbol was used during type checking. Used by linter.

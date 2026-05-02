@@ -37,20 +37,11 @@ Stable means:
 - incompatible changes require a version bump,
 - examples, tests, and tooling should treat it as supported surface.
 
-### Experimental
+### Outside the Core Spec
 
-A feature is experimental when it exists in code or docs but is not listed in the core spec.
+Any syntax or behavior not listed in `docs/CORE_LANGUAGE_SPEC.md` is outside the frozen contract.
 
-Experimental means:
-
-- it may change or be removed without a language version bump,
-- parser support alone does not make it stable,
-- examples using it should say so clearly.
-
-The current experimental language set is:
-
-- `unsafe`
-- user-defined generics
+Those areas are implementation details or historical notes only until they are added to the core spec.
 
 ### Internal
 
@@ -76,11 +67,11 @@ A proposed language change must answer all of the following before it lands as s
 4. What diagnostics, formatter behavior, linter behavior, and LSP behavior are required?
 5. What tests, docs, and examples will lock the behavior down?
 
-If those answers are not ready, the change should stay experimental or not land yet.
+If those answers are not ready, the change should not land yet.
 
 ## Promotion checklist
 
-Before an experimental feature becomes stable, the repo should have all of the following:
+Before a new language feature becomes part of the stable contract, the repo should have all of the following:
 
 - a spec update in `docs/CORE_LANGUAGE_SPEC.md`,
 - parser/typechecker/compiler/runtime tests as applicable,
@@ -119,4 +110,4 @@ As of 2026-04-19:
 - the frozen language line is `Bak v0.1`,
 - the Go implementation in `pkg/` and `cmd/` is the supported compiler,
 - `src/std` contains the Bak standard library sources,
-- features not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as experimental or internal.
+- features not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as internal.

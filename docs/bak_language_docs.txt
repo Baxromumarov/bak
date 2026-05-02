@@ -3,7 +3,7 @@ BAK LANGUAGE SPECIFICATION (v1.0)
 
 Status note:
 - This file is a broad design/reference document, not the frozen language contract.
-- It may describe experimental or historical surface area.
+- It may describe historical or implementation detail surface area.
 - The normative frozen contract is `docs/CORE_LANGUAGE_SPEC.md`.
 - The language freeze and promotion rules are in `docs/LANGUAGE_STABILITY_POLICY.md`.
 

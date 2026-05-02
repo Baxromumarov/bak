@@ -6,7 +6,6 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 func source(input string) string {
@@ -433,9 +432,6 @@ func TestParseSwitchStatement(t *testing.T) {
 }
 
 func TestParseGenericFunction(t *testing.T) {
-	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
-	t.Cleanup(restore)
-
 	program := parseValidSource(t, source(`
 		package main
 		func identity<T>(x T) -> (T) {
@@ -458,9 +454,6 @@ func TestParseGenericFunction(t *testing.T) {
 }
 
 func TestParseGenericStruct(t *testing.T) {
-	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
-	t.Cleanup(restore)
-
 	program := parseValidSource(t, source(`
 		package main
 		struct Pair<A, B> {
@@ -591,36 +584,27 @@ func TestParseResultTypes(t *testing.T) {
 	`))
 }
 
-func TestParseOptionTypesRejected(t *testing.T) {
+func TestParseOptionTypes(t *testing.T) {
 	t.Parallel()
-	p := parseSourceWithErrors(source(`
+	parseValidSource(t, source(`
 		package main
 		func find(items int) -> (Option<int>) {
 			return None
 		}
 	`))
-	if len(p.Errors()) == 0 {
-		t.Fatalf("expected parser errors for Option type usage")
-	}
 }
 
-func TestParseNestedGenericTypeWithOptionRejected(t *testing.T) {
+func TestParseNestedGenericTypeWithOption(t *testing.T) {
 	t.Parallel()
-	p := parseSourceWithErrors(source(`
+	parseValidSource(t, source(`
 		package main
 		func process() -> (Result<Option<int>, string>) {
 			return Ok(Some(42))
 		}
 	`))
-	if len(p.Errors()) == 0 {
-		t.Fatalf("expected parser errors for nested Option type usage")
-	}
 }
 
 func TestParseUnsafeBlock(t *testing.T) {
-	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUnsafe})
-	t.Cleanup(restore)
-
 	parseValidSource(t, source(`
 		package main
 		func main() -> (void) {

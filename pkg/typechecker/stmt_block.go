@@ -56,6 +56,7 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 		if expectedName == "void" {
 			help = "remove the return value or change the function return type"
 		}
+		
 		tc.addErrorWithHelp(rs.Token.Line, rs.Token.Column, help, strfmt.Named("cannot return {typeToString} from function expecting {expectedName}", "TypeToString", typeToString(returnType), "ExpectedName", expectedName))
 	}
 

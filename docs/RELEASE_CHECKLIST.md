@@ -13,12 +13,10 @@ Use this together with:
 
 ## Language and Compatibility
 
-- [ ] The change is classified correctly: stable, experimental, or internal.
+- [ ] The change is classified correctly: stable or internal.
 - [ ] `docs/CORE_LANGUAGE_SPEC.md` was updated if the stable language contract changed.
 - [ ] Migration notes were added if any existing valid program changes meaning or stops compiling.
 - [ ] If Result-oriented stdlib/runtime API behavior changed, `docs/RESULT_MIGRATION_NOTES.md` was updated.
-- [ ] Experimental features remain out of the frozen contract unless explicitly promoted.
-- [ ] If `language_mode` defaults or experimental opt-in behavior changed, release notes include a concrete `bak.toml` migration snippet.
 
 ## Tests
 
@@ -37,7 +35,7 @@ Use this together with:
 ## Docs and Examples
 
 - [ ] User-facing docs were updated.
-- [ ] Examples were updated or labeled experimental when they use non-frozen features.
+- [ ] Examples were updated or clearly marked historical when they use removed or unsupported surface.
 - [ ] Contradictory or stale docs were removed, rewritten, or demoted.
 
 ## Runtime and Package Safety
@@ -49,5 +47,5 @@ Use this together with:
 ## Release Notes
 
 - [ ] Release notes summarize what changed.
-- [ ] Known limitations and experimental areas are called out explicitly.
+- [ ] Known limitations are called out explicitly.
 - [ ] Any required user action is stated plainly.

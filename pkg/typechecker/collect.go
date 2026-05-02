@@ -81,13 +81,6 @@ func (tc *TypeChecker) registerStructDecl(s *ast.StructDecl) {
 		return
 	}
 
-	tc.reportUserGenericDeclIfDisabled(
-		len(s.TypeParams),
-		s.Name.Pos(),
-		s.Name.Token.Filename,
-		"generic struct declarations",
-	)
-
 	typeParams := typeParamNames(s.TypeParams)
 	fields := make(map[string]FieldDef)
 	for _, f := range s.Fields {
@@ -116,12 +109,6 @@ func (tc *TypeChecker) registerEnumDecl(s *ast.EnumDecl) {
 	if s == nil || s.Name == nil {
 		return
 	}
-	tc.reportUserGenericDeclIfDisabled(
-		len(s.TypeParams),
-		s.Name.Pos(),
-		s.Name.Token.Filename,
-		"generic enum declarations",
-	)
 	variants := make(map[string]EnumVariantDef)
 	for _, v := range s.Variants {
 		if v == nil || v.Name == nil {
@@ -149,13 +136,6 @@ func (tc *TypeChecker) registerFunctionDecl(s *ast.FunctionDecl) {
 		return
 	}
 
-	tc.reportUserGenericDeclIfDisabled(
-		len(s.TypeParams),
-		s.Name.Pos(),
-		s.Name.Token.Filename,
-		"generic function declarations",
-	)
-
 	typeParams := typeParamNames(s.TypeParams)
 	params := parameterTypes(s.Parameters)
 
@@ -176,13 +156,6 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 		return
 	}
 
-	tc.reportUserGenericDeclIfDisabled(
-		len(s.TypeParams),
-		s.TypeName.Pos(),
-		s.TypeName.Token.Filename,
-		"generic impl declarations",
-	)
-
 	structDef, ok := tc.env.LookupStruct(s.TypeName.Value)
 	if !ok {
 		return
@@ -192,13 +165,6 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 		if method == nil || method.Name == nil {
 			continue
 		}
-
-		tc.reportUserGenericDeclIfDisabled(
-			len(method.TypeParams),
-			method.Name.Pos(),
-			method.Name.Token.Filename,
-			"generic method declarations",
-		)
 
 		if _, exists := structDef.Methods[method.Name.Value]; exists {
 			tc.addError(

@@ -1,7 +1,6 @@
 package runtimecap
 
 import (
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -23,26 +22,6 @@ const (
 	DefaultExecTimeout        = 30 * time.Second
 	DefaultExecMaxOutputBytes = 1 << 20
 )
-
-const (
-	ExperimentalFeatureUnsafe       = "experimental-unsafe"
-	ExperimentalFeatureUserGenerics = "experimental-user-generics"
-)
-
-func KnownExperimentalFeatures() []string {
-	return []string{
-		ExperimentalFeatureUnsafe,
-		ExperimentalFeatureUserGenerics,
-	}
-}
-
-func IsKnownExperimentalFeature(name string) bool {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return false
-	}
-	return slices.Contains(KnownExperimentalFeatures(), name)
-}
 
 type Permissions struct {
 	AllowExec     bool
@@ -112,7 +91,7 @@ func SetCurrent(p Permissions) func() {
 func normalizeFeatures(features []string) []string {
 	seen := make(map[string]struct{}, len(features))
 	normalized := make([]string, 0, len(features))
-	
+
 	for _, feature := range features {
 		feature = strings.TrimSpace(feature)
 		if feature == "" {
@@ -124,7 +103,7 @@ func normalizeFeatures(features []string) []string {
 		seen[feature] = struct{}{}
 		normalized = append(normalized, feature)
 	}
-	
+
 	sort.Strings(normalized)
 
 	return normalized

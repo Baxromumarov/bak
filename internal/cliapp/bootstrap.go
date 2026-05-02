@@ -15,11 +15,6 @@ func buildContext(rawArgs []string) (*cli.Context, []string, error) {
 		return nil, nil, err
 	}
 
-	experimentalFeatures, commandArgs, err := config.ParseExperimentalFeatures(commandArgs)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	commandArgs, traceEnabled := config.StripTraceFlag(commandArgs)
 	commandArgs, debugEscapes := config.StripDebugEscapesFlag(commandArgs)
 	workingDir, err := os.Getwd()
@@ -29,7 +24,7 @@ func buildContext(rawArgs []string) (*cli.Context, []string, error) {
 
 	ctx := &cli.Context{
 		Permissions:  permissions,
-		Features:     experimentalFeatures,
+		Features:     nil,
 		Trace:        traceEnabled,
 		DebugEscapes: debugEscapes,
 		WorkingDir:   workingDir,

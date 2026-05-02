@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"testing"
 
 	"github.com/baxromumarov/bak/internal/config"
 	"github.com/baxromumarov/bak/internal/diagnostics"
@@ -34,16 +35,32 @@ func parseRuntimePermissions(args []string) (runtimecap.Permissions, []string, e
 	return config.ParseRuntimePermissions(args)
 }
 
-func parseExperimentalFeatures(args []string) ([]string, []string, error) {
-	return config.ParseExperimentalFeatures(args)
-}
-
 func stripTraceFlag(args []string) ([]string, bool) {
 	return config.StripTraceFlag(args)
 }
 
 func stripDebugEscapesFlag(args []string) ([]string, bool) {
 	return config.StripDebugEscapesFlag(args)
+}
+
+func findRepoRootForGuardrail(t *testing.T) string {
+	t.Helper()
+
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("could not find repo root starting from %s", dir)
+		}
+		dir = parent
+	}
 }
 
 func parseTestCommandOptions(args []string) (testCommandOptions, []string, error) {

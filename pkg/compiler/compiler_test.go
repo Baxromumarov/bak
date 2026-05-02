@@ -78,8 +78,8 @@ func TestCompileCfgFoldsToBooleanLiteral(t *testing.T) {
 	module := compileSourceWithFeatures(t, `
 package main
 
-const feature_enabled bool = cfg("experimental-cfg")
-`, []string{"experimental-cfg"})
+const feature_enabled bool = cfg("feature-enabled")
+`, []string{"feature-enabled"})
 
 	var initFn *FunctionObj
 	for _, fn := range module.Functions {

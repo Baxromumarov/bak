@@ -1,9 +1,9 @@
-Archived Experimental Design Note
+Archived Design Note
 ================================
 
 Status:
 - This document is archived and retained only for historical context.
-- The experimental explicit heap-allocation syntax previously tracked here is removed from the public language surface.
+- The explicit heap-allocation syntax previously tracked here is removed from the public language surface.
 - The normative language contract is defined by docs/CORE_LANGUAGE_SPEC.md and docs/LANGUAGE_STABILITY_POLICY.md.
 
 Why this archive exists:
@@ -12,4 +12,4 @@ Why this archive exists:
 
 Current guidance:
 - Use only the frozen v0.1 language surface for user-facing code and documentation.
-- Treat any older references to removed experimental syntax as historical.
+- Treat any older references to removed syntax as historical.

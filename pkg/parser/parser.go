@@ -4,14 +4,12 @@
 package parser
 
 import (
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/lexer"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 )
@@ -103,44 +101,6 @@ func stableGenericTypeName(name string) bool {
 	}
 }
 
-func featureFlagHint(feature string) string {
-	short := strings.TrimPrefix(feature, "experimental-")
-
-	return strfmt.Named(
-		"enable it by passing `--experimental={short}`",
-		"Short", short,
-	)
-}
-
-func (p *Parser) experimentalFeatureEnabled(feature string) bool {
-	if feature == runtimecap.ExperimentalFeatureUserGenerics && isStdlibSourcePath(p.filename) {
-		return true
-	}
-
-	return runtimecap.CurrentFeatureEnabled(feature)
-}
-
-func isStdlibSourcePath(path string) bool {
-	if path == "" {
-		return false
-	}
-	normalized := filepath.ToSlash(path)
-	return strings.Contains(normalized, "src/std/")
-}
-
-func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
-	core := strfmt.Named(
-		"{syntax} is experimental and disabled by default",
-		"Syntax", syntax,
-	)
-
-	p.errors = append(p.errors, p.formatMessage(
-		tokenPos(tok),
-		core,
-		featureFlagHint(feature),
-	))
-}
-
 func (p *Parser) pushContext(ctx string) {
 	if ctx == "" {
 		return
@@ -176,7 +136,7 @@ func (p *Parser) popIntent() {
 	if len(p.intentStack) == 0 {
 		return
 	}
-	
+
 	p.intentStack = p.intentStack[:len(p.intentStack)-1]
 }
 
@@ -1385,9 +1345,6 @@ func (p *Parser) parsePanicStatement() *ast.PanicStatement {
 }
 
 func (p *Parser) parseUnsafeBlock() *ast.UnsafeBlock {
-	if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
-		p.reportExperimentalFeature(p.curToken, "`unsafe` blocks", runtimecap.ExperimentalFeatureUnsafe)
-	}
 	stmt := &ast.UnsafeBlock{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.LBRACE) {
@@ -1464,15 +1421,6 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Check for generic parameters
 	if p.peekTokenIs(token.LT) {
-		if !stableGenericTypeName(name) &&
-			!p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-
-			p.reportExperimentalFeature(
-				p.peekToken,
-				strfmt.Named("generic type `{name}<...>`", "Name", name),
-				runtimecap.ExperimentalFeatureUserGenerics,
-			)
-		}
 		baseType = p.parseGenericType(tok, name)
 	} else {
 		baseType = &ast.SimpleType{
@@ -1694,13 +1642,6 @@ func (p *Parser) parseFunctionDecl() *ast.FunctionDecl {
 
 	// Check for generic type parameters: func name<T, U>(...)
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(
-				p.peekToken,
-				"generic function declarations",
-				runtimecap.ExperimentalFeatureUserGenerics,
-			)
-		}
 		p.nextToken() // consume '<'
 		fn.TypeParams = p.parseTypeParams()
 	}
@@ -1977,13 +1918,6 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 
 	// Check for generic type parameters: struct Name<T, U> { ... }
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(
-				p.peekToken,
-				"generic struct declarations",
-				runtimecap.ExperimentalFeatureUserGenerics,
-			)
-		}
 		p.nextToken() // consume '<'
 		stmt.TypeParams = p.parseTypeParams()
 	}
@@ -2055,13 +1989,6 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 
 	// Check for type parameters
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(
-				p.peekToken,
-				"generic enum declarations",
-				runtimecap.ExperimentalFeatureUserGenerics,
-			)
-		}
 		p.nextToken()
 		stmt.TypeParams = p.parseTypeParams()
 	}
@@ -2185,13 +2112,6 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 	var firstParams []*ast.TypeParameter
 
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(
-				p.peekToken,
-				"generic impl declarations",
-				runtimecap.ExperimentalFeatureUserGenerics,
-			)
-		}
 		p.nextToken() // consume '<'
 		firstParams = p.parseTypeParams()
 	}
@@ -2210,13 +2130,6 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 		}
 		stmt.TypeName = p.ident()
 		if p.peekTokenIs(token.LT) {
-			if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-				p.reportExperimentalFeature(
-					p.peekToken,
-					"generic impl declarations",
-					runtimecap.ExperimentalFeatureUserGenerics,
-				)
-			}
 			p.nextToken() // consume '<'
 			stmt.TypeParams = p.parseTypeParams()
 		}
@@ -2279,9 +2192,6 @@ func (p *Parser) parseMethodDecl() *ast.MethodDecl {
 
 	// Check for generic type parameters: func name<T, U>(...)
 	if p.peekTokenIs(token.LT) {
-		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic method declarations", runtimecap.ExperimentalFeatureUserGenerics)
-		}
 		p.nextToken() // consume '<'
 		method.TypeParams = p.parseTypeParams()
 	}

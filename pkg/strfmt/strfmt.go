@@ -1,31 +1,4 @@
-// Package strfmt provides ergonomic string-formatting helpers as a readable
-// alternative to fmt.Sprintf for common concatenation and templating tasks.
-//
-// Simple left-to-right concatenation (no format verbs):
-//
-//	strfmt.S(startBracket, r.Start, ", ", r.End, endBracket)
-//	// => "[3, 7]"
-//
-// Named placeholders with key-value pairs (recommended for this codebase):
-//
-//	strfmt.Named("User {name} has {points} points", "name", name, "points", points)
-//
-// Named placeholders with a struct (fields matched by name or json tag):
-//
-//	strfmt.Format("User {Name} has {Points} points", user)
-//
-// If you don't have a struct, use an inline struct:
-//
-//	strfmt.Format("User {Name} has {Points} points", struct {
-//	    Name   string
-//	    Points int
-//	}{name, points})
-//
-// Fluent builder for complex assembly:
-//
-//	b := strfmt.NewBuilder()
-//	b.Write("error: ", err).WriteString("\n")
-//	return b.String()
+// Package strfmt provides ergonomic string-formatting helpers.
 package strfmt
 
 import (
@@ -36,148 +9,155 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 )
 
+// builderPool reduces allocations for frequent small string builds.
+var builderPool = sync.Pool{
+	New: func() any { return new(strings.Builder) },
+}
+
 // =============================================================================
-// Simple concatenation
+// Simple Concatenation
 // =============================================================================
 
-// S concatenates all arguments into a single string. It converts built-in types
-// directly for efficiency; everything else falls back to fmt.Sprint.
-//
-// It is the recommended replacement for fmt.Sprintf when no special formatting
-// (width, padding, base, precision, etc.) is required.
+// S concatenates arguments into a string. It's faster than fmt.Sprint
+// because it avoids unnecessary reflection where built-ins are used.
 func S(parts ...any) string {
-	var b strings.Builder
+	b := builderPool.Get().(*strings.Builder)
+	b.Reset()
+	defer builderPool.Put(b)
+
 	for _, p := range parts {
-		writeAny(&b, p)
+		writeAny(b, p)
 	}
 	return b.String()
 }
 
 // =============================================================================
-// Named placeholders
+// Named Placeholders
 // =============================================================================
 
-// Named replaces each "{key}" in pattern using key-value pairs:
-//
-//	strfmt.Named("User {name} has {points} points", "name", name, "points", points)
-//
-// Keys are case-insensitive at lookup time ("{Name}" can match "name").
-// If kv has an odd length, the last dangling key is ignored.
-// Non-string keys are ignored.
+// Named replaces "{key}" in pattern using variadic key-value pairs.
 func Named(pattern string, kv ...any) string {
 	if len(kv) == 0 {
 		return pattern
 	}
-	return formatNamed(pattern, lookupFromPairs(kv))
+
+	lookup := make(map[string]any, len(kv)/2)
+	for i := 0; i+1 < len(kv); i += 2 {
+		if key, ok := kv[i].(string); ok {
+			lookup[key] = kv[i+1]
+			lookup[strings.ToLower(key)] = kv[i+1]
+		}
+	}
+	return formatNamed(pattern, lookup)
 }
 
-// Format replaces each occurrence of "{key}" in pattern with values from the
-// exported fields of v. Keys are matched in this order:
-//  1. Exact field name
-//  2. JSON tag name (if present and not "-")
-//  3. Case-insensitive field name
-//
-// Unmatched placeholders are left untouched. Literal braces can be written as
-// "{{" and "}}".
+// Format replaces "{key}" using exported fields or JSON tags of a struct.
 func Format(pattern string, v any) string {
 	if v == nil {
 		return pattern
 	}
+
 	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Pointer {
+	for rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
 			return pattern
 		}
 		rv = rv.Elem()
 	}
+
 	if rv.Kind() != reflect.Struct {
+		// Fallback for non-structs: just try to stringify the whole thing?
+		// Or return pattern. Here we stick to your original logic.
 		return pattern
 	}
 
-	lookup := make(map[string]any)
-	rt := rv.Type()
-	for i := 0; i < rt.NumField(); i++ {
-		field := rt.Field(i)
-		fv := rv.Field(i)
-		if !field.IsExported() {
-			continue
-		}
-
-		// Exact field name
-		lookup[field.Name] = fv.Interface()
-
-		// JSON tag
-		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
-			if idx := strings.Index(tag, ","); idx != -1 {
-				tag = tag[:idx]
-			}
-			if tag != "" && tag != "-" {
-				lookup[tag] = fv.Interface()
-			}
-		}
-
-		// Lower-case variant
-		lookup[strings.ToLower(field.Name)] = fv.Interface()
-	}
-
+	lookup := structToMap(rv)
 	return formatNamed(pattern, lookup)
 }
 
-func lookupFromPairs(kv []any) map[string]any {
-	lookup := make(map[string]any, len(kv))
-	for i := 0; i+1 < len(kv); i += 2 {
-		key, ok := kv[i].(string)
-		if !ok || key == "" {
-			continue
-		}
-		lookup[key] = kv[i+1]
-		lookup[strings.ToLower(key)] = kv[i+1]
-	}
-	return lookup
-}
+// =============================================================================
+// Internal Helpers
+// =============================================================================
 
-// formatNamed is the shared implementation for all named formatting modes.
 func formatNamed(pattern string, lookup map[string]any) string {
 	if len(lookup) == 0 {
 		return pattern
 	}
 
-	var b strings.Builder
+	b := builderPool.Get().(*strings.Builder)
+	b.Reset()
+	defer builderPool.Put(b)
+
 	for i := 0; i < len(pattern); i++ {
-		if pattern[i] == '{' && i+1 < len(pattern) {
-			// Escaped {{
-			if pattern[i+1] == '{' {
+		char := pattern[i]
+
+		switch char {
+		case '{':
+			if i+1 < len(pattern) && pattern[i+1] == '{' {
 				b.WriteByte('{')
 				i++
 				continue
 			}
-			// Find closing }
-			j := i + 1
-			for j < len(pattern) && pattern[j] != '}' {
-				j++
-			}
-			if j < len(pattern) && pattern[j] == '}' {
-				key := pattern[i+1 : j]
-				if val, ok := lookup[key]; ok {
-					writeAny(&b, val)
-				} else if val, ok := lookup[strings.ToLower(key)]; ok {
-					writeAny(&b, val)
-				} else {
-					b.WriteString(pattern[i : j+1])
-				}
-				i = j
+
+			// Find closing brace
+			end := strings.IndexByte(pattern[i:], '}')
+			if end == -1 {
+				b.WriteByte('{')
 				continue
 			}
-		} else if pattern[i] == '}' && i+1 < len(pattern) && pattern[i+1] == '}' {
-			b.WriteByte('}')
-			i++
-			continue
+
+			absEnd := i + end
+			key := pattern[i+1 : absEnd]
+
+			if val, ok := lookup[key]; ok {
+				writeAny(b, val)
+			} else if val, ok := lookup[strings.ToLower(key)]; ok {
+				writeAny(b, val)
+			} else {
+				b.WriteString(pattern[i : absEnd+1])
+			}
+			i = absEnd
+		case '}':
+			if i+1 < len(pattern) && pattern[i+1] == '}' {
+				b.WriteByte('}')
+				i++
+			} else {
+				b.WriteByte('}')
+			}
+		default:
+			b.WriteByte(char)
 		}
-		b.WriteByte(pattern[i])
 	}
 	return b.String()
+}
+
+// structToMap extracts fields. In a production env, you'd cache the
+// reflect.Type's field offsets to avoid repeating this loop.
+func structToMap(rv reflect.Value) map[string]any {
+	rt := rv.Type()
+	out := make(map[string]any, rt.NumField())
+
+	for i := 0; i < rt.NumField(); i++ {
+		field := rt.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+
+		val := rv.Field(i).Interface()
+		out[field.Name] = val
+		out[strings.ToLower(field.Name)] = val
+
+		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
+			name := strings.Split(tag, ",")[0]
+			if name != "" {
+				out[name] = val
+			}
+		}
+	}
+	return out
 }
 
 // =============================================================================

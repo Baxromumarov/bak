@@ -189,34 +189,6 @@ func TestStripDebugEscapesFlag(t *testing.T) {
 	}
 }
 
-func TestParseExperimentalFeatures(t *testing.T) {
-	features, rest, err := parseExperimentalFeatures([]string{
-		"--experimental=unsafe,user-generics",
-		"run",
-		"main.bak",
-	})
-	if err != nil {
-		t.Fatalf("parseExperimentalFeatures returned error: %v", err)
-	}
-	want := []string{
-		runtimecap.ExperimentalFeatureUnsafe,
-		runtimecap.ExperimentalFeatureUserGenerics,
-	}
-	if !reflect.DeepEqual(features, want) {
-		t.Fatalf("unexpected features: got %#v want %#v", features, want)
-	}
-	if len(rest) != 2 || rest[0] != "run" || rest[1] != "main.bak" {
-		t.Fatalf("unexpected remaining args: %#v", rest)
-	}
-}
-
-func TestParseExperimentalFeaturesRejectsUnknownFeature(t *testing.T) {
-	_, _, err := parseExperimentalFeatures([]string{"--experimental=teleport"})
-	if err == nil {
-		t.Fatalf("expected unknown experimental feature to fail")
-	}
-}
-
 func TestResolveProjectFeatureStateDefaultsToCliFeaturesOnly(t *testing.T) {
 	oldWD, err := os.Getwd()
 	if err != nil {

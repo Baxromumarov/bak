@@ -28,7 +28,7 @@ func parseAndCheckSource(t *testing.T, source string, features []string) ([]stri
 	return nil, tc.Check(program)
 }
 
-func TestFrozenV01StableSurfaceParsesAndTypechecksWithoutExperimentalFlags(t *testing.T) {
+func TestFrozenV01StableSurfaceParsesAndTypechecks(t *testing.T) {
 	source := `package main
 
 struct Counter {
@@ -77,7 +77,7 @@ func main() -> (int) {
 	}
 }
 
-func TestExperimentalUnsafeRequiresOptIn(t *testing.T) {
+func TestUnsafeBlocksAreStable(t *testing.T) {
 	source := `package main
 
 func main() -> (void) {
@@ -88,17 +88,17 @@ func main() -> (void) {
 }`
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
-	if len(parseErrs) == 0 || !strings.Contains(strings.Join(parseErrs, "\n"), "experimental and disabled by default") {
-		t.Fatalf("expected experimental unsafe parser error, got %v", parseErrs)
+	if len(parseErrs) > 0 {
+		t.Fatalf("expected unsafe to parse without opt-in, got %v", parseErrs)
 	}
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, []string{runtimecap.ExperimentalFeatureUnsafe})
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) > 0 || len(typeErrs) > 0 {
-		t.Fatalf("expected unsafe to work with opt-in, parse=%v type=%v", parseErrs, typeErrs)
+		t.Fatalf("expected unsafe to typecheck, parse=%v type=%v", parseErrs, typeErrs)
 	}
 }
 
-func TestExperimentalUserGenericsRequireOptIn(t *testing.T) {
+func TestUserGenericsAreStable(t *testing.T) {
 	source := `package main
 
 struct Pair<T, U> {
@@ -113,13 +113,13 @@ func main() -> (void) {
 }`
 
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
-	if len(parseErrs) == 0 || !strings.Contains(strings.Join(parseErrs, "\n"), "experimental and disabled by default") {
-		t.Fatalf("expected experimental generics parser error, got %v", parseErrs)
+	if len(parseErrs) > 0 {
+		t.Fatalf("expected generics to parse without opt-in, got %v", parseErrs)
 	}
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, []string{runtimecap.ExperimentalFeatureUserGenerics})
+	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) > 0 || len(typeErrs) > 0 {
-		t.Fatalf("expected user generics to work with opt-in, parse=%v type=%v", parseErrs, typeErrs)
+		t.Fatalf("expected user generics to typecheck, parse=%v type=%v", parseErrs, typeErrs)
 	}
 }
 
@@ -147,38 +147,6 @@ func main() -> (void) {
 	parseErrs, _ := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) == 0 {
 		t.Fatalf("expected parser to reject removed declaration/colon-impl syntax from the frozen public surface, got %v", parseErrs)
-	}
-}
-
-func TestTypecheckerExperimentalFeatureGuardrailIncludesCodeAndHint(t *testing.T) {
-	source := `package main
-
-func main() -> (void) {
-    unsafe {
-        println("unsafe")
-    }
-    return void
-}`
-
-	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUnsafe})
-	l := lexer.New(source)
-	p := parser.New(l)
-	p.SetFilename("spec_test.bak")
-	program := p.ParseProgram()
-	restore()
-	if len(p.Errors()) > 0 {
-		t.Fatalf("unexpected parser errors: %v", p.Errors())
-	}
-
-	tc := NewWithPath("spec_test.bak")
-	tc.SetSuppressUnused(true)
-	typeErrs := tc.Check(program)
-	joined := strings.Join(typeErrs, "\n")
-	if !strings.Contains(joined, "E0800") {
-		t.Fatalf("expected experimental feature diagnostic code, got %v", typeErrs)
-	}
-	if !strings.Contains(joined, "--experimental=unsafe") {
-		t.Fatalf("expected experimental feature enable hint, got %v", typeErrs)
 	}
 }
 
@@ -237,8 +205,7 @@ func main() -> (void) {
 	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
 	if len(parseErrs) > 0 {
 		joinedParse := strings.Join(parseErrs, "\n")
-		if !strings.Contains(joinedParse, "experimental and disabled by default") &&
-			!strings.Contains(joinedParse, "Option") {
+		if !strings.Contains(joinedParse, "Option") {
 			t.Fatalf("expected Option parser rejection, got %v", parseErrs)
 		}
 		return

@@ -19,6 +19,16 @@ type NamedNode interface {
 	Kind() string
 }
 
+type namedNodeAdapter struct {
+	name string
+	tok  token.Token
+	kind string
+}
+
+func (n namedNodeAdapter) NodeName() string       { return n.name }
+func (n namedNodeAdapter) NodeToken() token.Token { return n.tok }
+func (n namedNodeAdapter) Kind() string           { return n.kind }
+
 // Finding represents a lint finding at a specific location.
 type Finding struct {
 	Rule    string
@@ -226,9 +236,23 @@ func (r *NamingConventionRule) extractNamedNodes(stmt ast.Statement) []NamedNode
 		}
 		return list
 
-	case *ast.StructDecl, *ast.EnumDecl, *ast.ConstStatement:
-		// These implement NamedNode directly
-		return []NamedNode{s.(NamedNode)}
+	case *ast.StructDecl:
+		if s == nil || s.Name == nil {
+			return nil
+		}
+		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "struct"}}
+
+	case *ast.EnumDecl:
+		if s == nil || s.Name == nil {
+			return nil
+		}
+		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "enum"}}
+
+	case *ast.ConstStatement:
+		if s == nil || s.Name == nil {
+			return nil
+		}
+		return []NamedNode{namedNodeAdapter{name: s.Name.Value, tok: s.Name.Token, kind: "constant"}}
 
 	default:
 		return nil

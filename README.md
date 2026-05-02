@@ -23,13 +23,6 @@ Bak is operating under a frozen `v0.1` language line.
 - The Go implementation in `pkg/` and `cmd/` is the compiler/runtime of record.
 - Backend divergence on the frozen surface should be treated as a bug, not as “different modes”.
 
-Current experimental language features are:
-
-- `unsafe`
-- user-defined generics
-
-Those features are outside the frozen `v0.1` compatibility promise and require explicit opt-in via `--experimental=...`. Parser support or partial implementation does not make them stable.
-
 ---
 
 ## Lexical Structure
@@ -244,10 +237,8 @@ Bak is developed as a Go-implemented language toolchain:
 ## Stability Notes
 
 - Prefer the frozen `v0.1` surface for examples, libraries, and tests.
-- If you use `unsafe` or user generics, label that code experimental.
 - `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
 - Projects without `bak.toml` are treated as `language_mode = "frozen"` by default.
-- CLI experimental flags are rejected in frozen mode until you explicitly set `language_mode = "experimental"` in `bak.toml`.
 
 ## Tooling
 
@@ -255,9 +246,7 @@ Bak is developed as a Go-implemented language toolchain:
 - `bak init <name>` remains available as a compatibility alias for `bak new`.
 - `bakfmt` formats Bak source files.
 - `baklint` reports style and correctness findings.
-- `bak.toml` supports `language_mode = "frozen" | "experimental"`.
 - `features = ["..."]` still configures compile-time flags for `cfg("...")` checks.
-- Experimental language features require `language_mode = "experimental"` in `bak.toml`.
 
 See:
 

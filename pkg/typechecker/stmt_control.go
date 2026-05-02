@@ -3,7 +3,6 @@ package typechecker
 import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -109,13 +108,6 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 }
 
 func (tc *TypeChecker) checkUnsafeBlock(ub *ast.UnsafeBlock) {
-	if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
-		tc.addExperimentalFeatureError(
-			ub.Pos(),
-			"`unsafe` blocks",
-			runtimecap.ExperimentalFeatureUnsafe,
-		)
-	}
 	if ub.Body != nil {
 		tc.checkBlockStatement(ub.Body)
 	}

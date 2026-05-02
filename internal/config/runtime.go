@@ -109,37 +109,6 @@ func ParseRuntimePermissions(args []string) (runtimecap.Permissions, []string, e
 	return permissions, rest, nil
 }
 
-func ParseExperimentalFeatures(args []string) ([]string, []string, error) {
-	features := []string{}
-	rest := make([]string, 0, len(args))
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "--experimental":
-			if i+1 >= len(args) {
-				return nil, nil, fmt.Errorf("--experimental requires a feature list")
-			}
-			parsed, err := parseExperimentalFeatureList(args[i+1])
-			if err != nil {
-				return nil, nil, err
-			}
-			features = append(features, parsed...)
-			i++
-		case strings.HasPrefix(arg, "--experimental="):
-			parsed, err := parseExperimentalFeatureList(strings.TrimPrefix(arg, "--experimental="))
-			if err != nil {
-				return nil, nil, err
-			}
-			features = append(features, parsed...)
-		default:
-			rest = append(rest, arg)
-		}
-	}
-
-	return mergeFeatureLists(nil, features), rest, nil
-}
-
 func ResolveProjectFeatureState(cliFeatures []string) ([]string, error) {
 	return mergeFeatureLists(nil, cliFeatures), nil
 }
@@ -171,28 +140,4 @@ func mergeFeatureLists(base []string, extra []string) []string {
 	}
 	sort.Strings(merged)
 	return merged
-}
-
-func parseExperimentalFeatureList(value string) ([]string, error) {
-	parts := strings.Split(value, ",")
-	features := make([]string, 0, len(parts))
-	for _, part := range parts {
-		feature, err := canonicalExperimentalFeature(part)
-		if err != nil {
-			return nil, err
-		}
-		features = append(features, feature)
-	}
-	return features, nil
-}
-
-func canonicalExperimentalFeature(name string) (string, error) {
-	switch strings.TrimSpace(name) {
-	case "unsafe", runtimecap.ExperimentalFeatureUnsafe:
-		return runtimecap.ExperimentalFeatureUnsafe, nil
-	case "user-generics", runtimecap.ExperimentalFeatureUserGenerics:
-		return runtimecap.ExperimentalFeatureUserGenerics, nil
-	default:
-		return "", fmt.Errorf("unknown experimental feature %q (expected one of: unsafe, user-generics)", name)
-	}
 }
