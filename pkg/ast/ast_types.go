@@ -24,6 +24,7 @@ type SimpleType struct {
 func (st *SimpleType) typeExpressionNode()  {}
 func (st *SimpleType) TokenLiteral() string { return st.Token.Literal }
 func (st *SimpleType) String() string       { return st.Name }
+func (st *SimpleType) Pos() Position        { return tokenPosition(st.Token) }
 
 // GenericType represents generic types like Vec<int, 5> or Result<T, E>
 type GenericType struct {
@@ -35,6 +36,7 @@ type GenericType struct {
 
 func (gt *GenericType) typeExpressionNode()  {}
 func (gt *GenericType) TokenLiteral() string { return gt.Token.Literal }
+func (gt *GenericType) Pos() Position        { return tokenPosition(gt.Token) }
 func (gt *GenericType) String() string {
 	if gt == nil {
 		return "<nil>"
@@ -73,6 +75,7 @@ type TypeParameter struct {
 
 func (tp *TypeParameter) typeExpressionNode()  {}
 func (tp *TypeParameter) TokenLiteral() string { return tp.Token.Literal }
+func (tp *TypeParameter) Pos() Position        { return tokenPosition(tp.Token) }
 func (tp *TypeParameter) String() string {
 	return tp.Name.String()
 }
@@ -87,6 +90,7 @@ type BorrowType struct {
 
 func (bt *BorrowType) typeExpressionNode()  {}
 func (bt *BorrowType) TokenLiteral() string { return bt.Token.Literal }
+func (bt *BorrowType) Pos() Position        { return tokenPosition(bt.Token) }
 func (bt *BorrowType) String() string {
 	if bt.Inner == nil {
 		if bt.Mutable {
@@ -111,6 +115,7 @@ type ArrayType struct {
 
 func (at *ArrayType) typeExpressionNode()  {}
 func (at *ArrayType) TokenLiteral() string { return at.Token.Literal }
+func (at *ArrayType) Pos() Position        { return tokenPosition(at.Token) }
 func (at *ArrayType) String() string {
 	var out bytes.Buffer
 	out.WriteString(at.Token.Literal)
@@ -136,6 +141,7 @@ type SizeExpression struct {
 
 func (se *SizeExpression) typeExpressionNode()  {}
 func (se *SizeExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SizeExpression) Pos() Position        { return tokenPosition(se.Token) }
 func (se *SizeExpression) String() string {
 	if se.IsDynamic {
 		return "_"
@@ -152,6 +158,7 @@ type VoidType struct {
 func (vt *VoidType) typeExpressionNode()  {}
 func (vt *VoidType) TokenLiteral() string { return "void" }
 func (vt *VoidType) String() string       { return "void" }
+func (vt *VoidType) Pos() Position        { return tokenPosition(vt.Token) }
 
 // ErrorType represents a type that failed type-checking.
 // This is used to suppress cascading errors after an initial error.
@@ -165,6 +172,7 @@ type ErrorType struct {
 func (et *ErrorType) typeExpressionNode()  {}
 func (et *ErrorType) TokenLiteral() string { return "<error>" }
 func (et *ErrorType) String() string       { return "<error>" }
+func (et *ErrorType) Pos() Position        { return tokenPosition(et.Token) }
 
 // TupleType represents a tuple of types like (int, float64, string) for multiple returns
 type TupleType struct {
@@ -175,6 +183,7 @@ type TupleType struct {
 
 func (tt *TupleType) typeExpressionNode()  {}
 func (tt *TupleType) TokenLiteral() string { return tt.Token.Literal }
+func (tt *TupleType) Pos() Position        { return tokenPosition(tt.Token) }
 func (tt *TupleType) String() string {
 	var out bytes.Buffer
 	out.WriteString("(")
@@ -197,6 +206,7 @@ type FunctionType struct {
 
 func (ft *FunctionType) typeExpressionNode()  {}
 func (ft *FunctionType) TokenLiteral() string { return ft.Token.Literal }
+func (ft *FunctionType) Pos() Position        { return tokenPosition(ft.Token) }
 func (ft *FunctionType) String() string {
 	var out bytes.Buffer
 	out.WriteString("func(")
@@ -225,6 +235,7 @@ type NamedType struct {
 
 func (nt *NamedType) typeExpressionNode()  {}
 func (nt *NamedType) TokenLiteral() string { return nt.Token.Literal }
+func (nt *NamedType) Pos() Position        { return tokenPosition(nt.Token) }
 func (nt *NamedType) String() string {
 	return nt.Name + ": " + nt.Type.String()
 }

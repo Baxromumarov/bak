@@ -130,17 +130,17 @@ func (tc *TypeChecker) checkVecConstructor(pos ast.Position, mutable bool, vecTy
 // Also enforces ownership and mutability rules for Vec operations
 func (tc *TypeChecker) checkVecMethodCall(mc *ast.MethodCallExpression, vecType *ast.GenericType) ast.TypeExpression {
 	method := mc.Method.Value
-	callPos := tokenPos(mc.Token)
+	callPos := mc.Pos()
 
 	// Get the variable name if the object is an identifier
 	var varName string
 	usePos := callPos
 	if ident, ok := mc.Object.(*ast.Identifier); ok {
 		varName = ident.Value
-		usePos = tokenPos(ident.Token)
+		usePos = ident.Pos()
 	} else if mutIdent, ok := mc.Object.(*ast.MutableIdentifier); ok {
 		varName = mutIdent.Value
-		usePos = tokenPos(mutIdent.Token)
+		usePos = mutIdent.Pos()
 	}
 
 	// Check if the Vec has been moved

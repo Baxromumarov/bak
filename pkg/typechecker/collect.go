@@ -39,7 +39,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				s.Name.Value,
 				s.Underlying,
 				s.Visibility,
-				tokenPos(s.Name.Token),
+				s.Name.Pos(),
 			)
 		case *ast.AliasDecl:
 			if s.Name == nil {
@@ -49,7 +49,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 				s.Name.Value,
 				s.Underlying,
 				s.Visibility,
-				tokenPos(s.Name.Token),
+				s.Name.Pos(),
 			)
 		}
 	}
@@ -83,7 +83,7 @@ func (tc *TypeChecker) registerStructDecl(s *ast.StructDecl) {
 
 	tc.reportUserGenericDeclIfDisabled(
 		len(s.TypeParams),
-		tokenPos(s.Name.Token),
+		s.Name.Pos(),
 		s.Name.Token.Filename,
 		"generic struct declarations",
 	)
@@ -118,7 +118,7 @@ func (tc *TypeChecker) registerEnumDecl(s *ast.EnumDecl) {
 	}
 	tc.reportUserGenericDeclIfDisabled(
 		len(s.TypeParams),
-		tokenPos(s.Name.Token),
+		s.Name.Pos(),
 		s.Name.Token.Filename,
 		"generic enum declarations",
 	)
@@ -151,7 +151,7 @@ func (tc *TypeChecker) registerFunctionDecl(s *ast.FunctionDecl) {
 
 	tc.reportUserGenericDeclIfDisabled(
 		len(s.TypeParams),
-		tokenPos(s.Name.Token),
+		s.Name.Pos(),
 		s.Name.Token.Filename,
 		"generic function declarations",
 	)
@@ -178,7 +178,7 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 
 	tc.reportUserGenericDeclIfDisabled(
 		len(s.TypeParams),
-		tokenPos(s.TypeName.Token),
+		s.TypeName.Pos(),
 		s.TypeName.Token.Filename,
 		"generic impl declarations",
 	)
@@ -195,7 +195,7 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 
 		tc.reportUserGenericDeclIfDisabled(
 			len(method.TypeParams),
-			tokenPos(method.Name.Token),
+			method.Name.Pos(),
 			method.Name.Token.Filename,
 			"generic method declarations",
 		)
@@ -236,7 +236,7 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 			if f != nil &&
 				f.Type != nil &&
 				f.Name != nil {
-				tc.validateTypeUsage(f.Type, tokenPos(f.Name.Token))
+				tc.validateTypeUsage(f.Type, f.Name.Pos())
 			}
 		}
 
@@ -246,11 +246,11 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 		restore := tc.setTypeParams(typeParamNames(s.TypeParams))
 		for _, p := range s.Parameters {
 			if p != nil && p.Name != nil {
-				tc.validateTypeUsage(p.Type, tokenPos(p.Name.Token))
+				tc.validateTypeUsage(p.Type, p.Name.Pos())
 			}
 		}
 		if s.Name != nil {
-			tc.validateTypeUsage(s.ReturnType, tokenPos(s.Name.Token))
+			tc.validateTypeUsage(s.ReturnType, s.Name.Pos())
 		}
 		restore()
 	case *ast.EnumDecl:
@@ -260,14 +260,14 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 				continue
 			}
 			for _, f := range v.Fields {
-				tc.validateTypeUsage(f, tokenPos(v.Name.Token))
+				tc.validateTypeUsage(f, v.Name.Pos())
 			}
 		}
 		restore()
 	case *ast.TypeDecl:
-		tc.validateTypeUsage(s.Underlying, tokenPos(s.Token))
+		tc.validateTypeUsage(s.Underlying, s.Pos())
 	case *ast.AliasDecl:
-		tc.validateTypeUsage(s.Underlying, tokenPos(s.Token))
+		tc.validateTypeUsage(s.Underlying, s.Pos())
 	}
 }
 

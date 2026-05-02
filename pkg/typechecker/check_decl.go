@@ -155,20 +155,20 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 			param.Type,
 			param.Mutable,
 			ast.Private,
-			tokenPos(param.Name.Token),
+			param.Name.Pos(),
 		)
 
 		tc.nodeTypes[param.Name] = typeToString(param.Type)
 
 		// Validate parameter type usage (catch deprecated/ambiguous types like 'float')
-		tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
+		tc.validateTypeUsage(param.Type, param.Name.Pos())
 		paramNames = append(paramNames, param.Name.Value)
 
 		paramInfo[param.Name.Value] = param
 	}
 
 	// Validate function return type annotations (catch uses like 'float')
-	tc.validateTypeUsage(fd.ReturnType, tokenPos(fd.Name.Token))
+	tc.validateTypeUsage(fd.ReturnType, fd.Name.Pos())
 
 	oldRet := tc.currentFuncRet
 	tc.currentFuncRet = fd.ReturnType
@@ -179,7 +179,7 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 		!tc.isErrorType(fd.ReturnType) {
 		if !tc.blockTerminates(fd.Body) {
 
-			tc.errorMissingReturnAt(tokenPos(fd.Name.Token), fd.ReturnType)
+			tc.errorMissingReturnAt(fd.Name.Pos(), fd.ReturnType)
 		}
 	}
 
@@ -249,7 +249,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 	if !isBuiltinType {
 		structDef, ok = tc.env.LookupStruct(typeName)
 		if !ok {
-			tc.errorUndefinedTypeInFileAt(typeName, tokenPos(id.Token), id.Token.Filename)
+			tc.errorUndefinedTypeInFileAt(typeName, id.Pos(), id.Token.Filename)
 			return
 		}
 	}
@@ -272,25 +272,25 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		if id.Receiver != nil {
 			receiverName := id.Receiver.Value
 			receiverType := &ast.SimpleType{Name: typeName}
-			tc.env.DefineSymbolAt(receiverName, receiverType, method.Mutable, ast.Private, tokenPos(id.Receiver.Token))
+			tc.env.DefineSymbolAt(receiverName, receiverType, method.Mutable, ast.Private, id.Receiver.Pos())
 
 			// Only define struct fields for non-builtin types
 			if !isBuiltinType && structDef != nil {
 				for fieldName, fieldDef := range structDef.Fields {
-					tc.env.DefineSymbolAt(receiverName+"."+fieldName, fieldDef.Type, method.Mutable, ast.Private, tokenPos(id.Receiver.Token))
+					tc.env.DefineSymbolAt(receiverName+"."+fieldName, fieldDef.Type, method.Mutable, ast.Private, id.Receiver.Pos())
 				}
 			}
 		}
 
 		for _, param := range method.Parameters {
-			tc.validateTypeUsage(param.Type, tokenPos(param.Name.Token))
-			tc.env.DefineSymbolAt(param.Name.Value, param.Type, param.Mutable, ast.Private, tokenPos(param.Name.Token))
+			tc.validateTypeUsage(param.Type, param.Name.Pos())
+			tc.env.DefineSymbolAt(param.Name.Value, param.Type, param.Mutable, ast.Private, param.Name.Pos())
 		}
 
 		oldRet := tc.currentFuncRet
 		oldReceiver := tc.currentReceiver
 		tc.currentFuncRet = method.ReturnType
-		tc.validateTypeUsage(method.ReturnType, tokenPos(method.Name.Token))
+		tc.validateTypeUsage(method.ReturnType, method.Name.Pos())
 		if id.Receiver != nil {
 			tc.currentReceiver = id.Receiver.Value
 		}
@@ -298,7 +298,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		tc.checkBlockStatement(method.Body)
 		if method.ReturnType != nil && !tc.isVoidType(method.ReturnType) && !tc.isErrorType(method.ReturnType) {
 			if !tc.blockTerminates(method.Body) {
-				tc.errorMissingReturnAt(tokenPos(method.Name.Token), method.ReturnType)
+				tc.errorMissingReturnAt(method.Name.Pos(), method.ReturnType)
 			}
 		}
 

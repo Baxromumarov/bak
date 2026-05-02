@@ -26,7 +26,7 @@ func (tc *TypeChecker) checkPrimitiveMethodCall(
 ) ast.TypeExpression {
 
 	method := mc.Method.Value
-	callPos := tokenPos(mc.Token)
+	callPos := mc.Pos()
 	argTypes := make([]ast.TypeExpression, len(mc.Arguments))
 
 	for i, arg := range mc.Arguments {
@@ -176,7 +176,7 @@ func (tc *TypeChecker) checkTypeParamMethodCall(
 	mc *ast.MethodCallExpression,
 ) ast.TypeExpression {
 	method := mc.Method.Value
-	callPos := tokenPos(mc.Token)
+	callPos := mc.Pos()
 	for _, arg := range mc.Arguments {
 		tc.inferType(arg)
 	}

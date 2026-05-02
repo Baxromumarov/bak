@@ -590,7 +590,7 @@ func (p *printer) printSwitchStatement(stmt *ast.SwitchStatement) {
 	p.indent++
 	for _, c := range stmt.Cases {
 		if c.Token.Line != 0 {
-			p.flushCommentsBefore(tokenPos(c.Token))
+			p.flushCommentsBefore(c.Pos())
 		}
 		p.writeIndent()
 		if c.Default {
@@ -722,14 +722,14 @@ func (p *printer) printImplDecl(id *ast.ImplDecl) {
 	p.indent++
 	for i, method := range id.Methods {
 		if method.Token.Line != 0 {
-			p.flushCommentsBefore(tokenPos(method.Token))
+			p.flushCommentsBefore(method.Pos())
 		}
 		p.writeIndent()
 		p.printMethodDecl(method)
 		p.newline()
 		if i < len(id.Methods)-1 {
 			nextMethod := id.Methods[i+1]
-			if !p.hasPendingCommentBefore(tokenPos(nextMethod.Token)) {
+			if !p.hasPendingCommentBefore(nextMethod.Pos()) {
 				p.newline()
 			}
 		}
@@ -1246,67 +1246,16 @@ func (p *printer) hasPendingCommentBefore(pos ast.Position) bool {
 }
 
 func statementPosition(stmt ast.Statement) ast.Position {
-	switch s := stmt.(type) {
-	case *ast.PackageStatement:
-		return tokenPos(s.Token)
-	case *ast.ImportStatement:
-		return tokenPos(s.Token)
-	case *ast.ImportBlock:
-		return tokenPos(s.Token)
-	case *ast.VarStatement:
-		return tokenPos(s.Token)
-	case *ast.MultiVarStatement:
-		return tokenPos(s.Token)
-	case *ast.ConstStatement:
-		return tokenPos(s.Token)
-	case *ast.ConstBlock:
-		return tokenPos(s.Token)
-	case *ast.ReturnStatement:
-		return tokenPos(s.Token)
-	case *ast.ExpressionStatement:
-		return tokenPos(s.Token)
-	case *ast.BlockStatement:
-		return tokenPos(s.Token)
-	case *ast.IfStatement:
-		return tokenPos(s.Token)
-	case *ast.WhileStatement:
-		return tokenPos(s.Token)
-	case *ast.ForStatement:
-		return tokenPos(s.Token)
-	case *ast.SwitchStatement:
-		return tokenPos(s.Token)
-	case *ast.DeferStatement:
-		return tokenPos(s.Token)
-	case *ast.UnsafeBlock:
-		return tokenPos(s.Token)
-	case *ast.BreakStatement:
-		return tokenPos(s.Token)
-	case *ast.ContinueStatement:
-		return tokenPos(s.Token)
-	case *ast.AssignmentStatement:
-		return tokenPos(s.Token)
-	case *ast.FunctionDecl:
-		return tokenPos(s.Token)
-	case *ast.StructDecl:
-		return tokenPos(s.Token)
-	case *ast.TypeDecl:
-		return tokenPos(s.Token)
-	case *ast.AliasDecl:
-		return tokenPos(s.Token)
-	case *ast.EnumDecl:
-		return tokenPos(s.Token)
-	case *ast.ImplDecl:
-		return tokenPos(s.Token)
-	default:
-		return ast.Position{}
-	}
-}
 
-func tokenPos(tok token.Token) ast.Position {
-	return ast.Position{
-		Line:   tok.Line,
-		Column: tok.Column,
+	type posI interface {
+		Pos() ast.Position
 	}
+
+	if node, ok := stmt.(posI); ok {
+		return node.Pos()
+	}
+
+	return ast.Position{}
 }
 
 func unwrapElseIf(block *ast.BlockStatement) *ast.IfStatement {
@@ -1346,9 +1295,7 @@ func precedence(expr ast.Expression) int {
 	switch e := expr.(type) {
 	case *ast.InfixExpression:
 		return infixPrecedence(e.Operator)
-	case *ast.PrefixExpression,
-		*ast.BorrowExpression,
-		*ast.DerefExpression:
+	case *ast.PrefixExpression, *ast.BorrowExpression, *ast.DerefExpression:
 		return precPrefix
 	case *ast.CallExpression:
 		return precCall

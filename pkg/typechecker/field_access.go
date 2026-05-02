@@ -142,7 +142,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		tc.errorStructHasNoFieldAt(
 			structName,
 			fa.Field.Value,
-			tokenPos(fa.Token),
+			fa.Pos(),
 			tc.getStructFieldNames(structName),
 		)
 
@@ -174,7 +174,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 	tc.errorTypeHasNoFieldAt(
 		typeToString(objType),
 		fa.Field.Value,
-		tokenPos(fa.Token),
+		fa.Pos(),
 		nil,
 	)
 	return nil
@@ -231,7 +231,7 @@ func (tc *TypeChecker) tryResolveImportedStructField(fa *ast.FieldAccessExpressi
 					fieldNames = append(fieldNames, f.Name.Value)
 				}
 			}
-			tc.errorStructHasNoFieldAt(structName, fa.Field.Value, tokenPos(fa.Token), fieldNames)
+			tc.errorStructHasNoFieldAt(structName, fa.Field.Value, fa.Pos(), fieldNames)
 			return nil, true
 		}
 	}

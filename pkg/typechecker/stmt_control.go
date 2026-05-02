@@ -99,7 +99,7 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 	loopEnv := NewEnclosedTypeEnv(tc.env)
 	oldEnv := tc.env
 	tc.env = loopEnv
-	tc.env.DefineSymbolAt(fs.Variable.Value, elemType, false, ast.Private, tokenPos(fs.Variable.Token))
+	tc.env.DefineSymbolAt(fs.Variable.Value, elemType, false, ast.Private, fs.Variable.Pos())
 	if fs.Variable != nil {
 		tc.nodeTypes[fs.Variable] = typeToString(elemType)
 	}
@@ -111,7 +111,7 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 func (tc *TypeChecker) checkUnsafeBlock(ub *ast.UnsafeBlock) {
 	if !tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
 		tc.addExperimentalFeatureError(
-			tokenPos(ub.Token),
+			ub.Pos(),
 			"`unsafe` blocks",
 			runtimecap.ExperimentalFeatureUnsafe,
 		)

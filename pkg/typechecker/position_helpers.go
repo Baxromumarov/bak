@@ -2,15 +2,7 @@ package typechecker
 
 import (
 	"github.com/baxromumarov/bak/pkg/ast"
-	baktoken "github.com/baxromumarov/bak/pkg/token"
 )
-
-func tokenPos(tok baktoken.Token) ast.Position {
-	return ast.Position{
-		Line:   tok.Line,
-		Column: tok.Column,
-	}
-}
 
 func lineColPos(line, col int) ast.Position {
 	return ast.Position{

@@ -61,13 +61,13 @@ func (tc *TypeChecker) checkReturnStatement(rs *ast.ReturnStatement) {
 
 	// Track ownership transfer for returned values
 	// If we're returning a variable (not a borrow), mark it as moved
-	tc.trackMoveFromExpression(rs.ReturnValue, tokenPos(rs.Token), MovedByReturn, "return")
+	tc.trackMoveFromExpression(rs.ReturnValue, rs.Pos(), MovedByReturn, "return")
 }
 
 func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	// Handle field access assignments (e.g., obj.field = value)
 	if fa, ok := as.Left.(*ast.FieldAccessExpression); ok {
-		tc.checkFieldAssignment(fa, as.Value, tokenPos(as.Token))
+		tc.checkFieldAssignment(fa, as.Value, as.Pos())
 		return
 	}
 
@@ -91,7 +91,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 		!tc.env.IsPoisoned(varName) {
 
 		moveInfo := tc.env.GetMoveInfo(varName)
-		tc.errorUseAfterMoveAt(varName, tokenPos(as.Token), moveInfo)
+		tc.errorUseAfterMoveAt(varName, as.Pos(), moveInfo)
 		tc.env.MarkPoisoned(varName)
 
 		return
@@ -107,7 +107,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 
 		valueType := tc.inferType(as.Value)
 		tc.errorTypeMismatch(
-			tokenPos(as.Token),
+			as.Pos(),
 			typeToString(varInfo.Type),
 			typeToString(valueType),
 			strfmt.Named("assignment to variable '{varName}'", "VarName", varName),

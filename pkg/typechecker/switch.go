@@ -139,7 +139,7 @@ func (tc *TypeChecker) switchTerminates(ss *ast.SwitchStatement) bool {
 func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 	switchType := tc.inferType(ss.Value)
 	if gt, ok := tc.resolveType(switchType).(*ast.GenericType); ok && gt.Name == "Option" {
-		tc.rejectOptionUsage(tokenPos(ss.Token))
+		tc.rejectOptionUsage(ss.Pos())
 	}
 
 	enumDef := tc.resolveSwitchEnumDef(switchType)
@@ -237,7 +237,7 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 		}
 
 		if variant.HasPayload {
-			tc.errorEnumRequiresPayload(tokenPos(v.Token), v.Value)
+			tc.errorEnumRequiresPayload(v.Pos(), v.Value)
 		}
 
 		return true
@@ -252,7 +252,7 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 			v.Values,
 			variant,
 			variant.Fields,
-			tokenPos(v.Token),
+			v.Pos(),
 			v.Variant.Value,
 		)
 
@@ -289,7 +289,7 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 			ce.Arguments,
 			variant,
 			variant.Fields,
-			tokenPos(ce.Token),
+			ce.Pos(),
 			variantName,
 		)
 
@@ -311,7 +311,7 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 			ce.Arguments,
 			variant,
 			variant.Fields,
-			tokenPos(ce.Token),
+			ce.Pos(),
 			variantName,
 		)
 
@@ -341,7 +341,7 @@ func (tc *TypeChecker) matchKnownEnumFieldAccessCall(
 		args,
 		variant,
 		variant.Fields,
-		tokenPos(fa.Token),
+		fa.Pos(),
 		variantName,
 	)
 
@@ -361,7 +361,7 @@ func (tc *TypeChecker) matchKnownEnumFieldAccess(fa *ast.FieldAccessExpression, 
 	}
 
 	if variant.HasPayload {
-		tc.errorEnumRequiresPayload(tokenPos(fa.Token), variantName)
+		tc.errorEnumRequiresPayload(fa.Pos(), variantName)
 	}
 
 	return true
@@ -397,7 +397,7 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 			ce.Arguments,
 			variant,
 			variant.Fields,
-			tokenPos(ce.Token),
+			ce.Pos(),
 			fn.Value,
 		)
 
@@ -415,7 +415,7 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 			ce.Arguments,
 			variant,
 			fieldTypes,
-			tokenPos(ce.Token),
+			ce.Pos(),
 			fn.Field.Value,
 		)
 
@@ -437,7 +437,7 @@ func (tc *TypeChecker) matchFallbackEnumFieldAccessCall(fa *ast.FieldAccessExpre
 		args,
 		variant,
 		fieldTypes,
-		tokenPos(fa.Token),
+		fa.Pos(),
 		variantName,
 	)
 

@@ -12,7 +12,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 	// If type is not specified, infer it from value (strict mode)
 	if vs.Type == nil {
-		varPos := tokenPos(vs.Token)
+		varPos := vs.Pos()
 		if vs.Value == nil {
 			tc.errorMissingTypeAt(
 				varPos,
@@ -59,7 +59,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 			inferredType,
 			vs.Mutable,
 			ast.Private,
-			tokenPos(vs.Name.Token),
+			vs.Name.Pos(),
 		)
 		tc.nodeTypes[vs.Name] = typeToString(inferredType)
 		return
@@ -74,7 +74,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 			vs.Type,
 			vs.Mutable,
 			ast.Private,
-			tokenPos(vs.Name.Token),
+			vs.Name.Pos(),
 		)
 		tc.nodeTypes[vs.Name] = typeToString(vs.Type)
 		return
@@ -96,7 +96,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	// Validate the annotated/inferred type for deprecated/ambiguous names
 	tc.validateTypeUsage(
 		vs.Type,
-		tokenPos(vs.Name.Token),
+		vs.Name.Pos(),
 	)
 
 	tc.env.DefineSymbolAt(
@@ -104,7 +104,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		vs.Type,
 		vs.Mutable,
 		ast.Private,
-		tokenPos(vs.Name.Token),
+		vs.Name.Pos(),
 	)
 	tc.nodeTypes[vs.Name] = typeToString(vs.Type)
 }
@@ -129,7 +129,7 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 				tt.Elements[i],
 				mvs.Mutable,
 				ast.Private,
-				tokenPos(name.Token),
+				name.Pos(),
 			)
 		}
 	} else if valueType != nil {
@@ -141,7 +141,7 @@ func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 				nil,
 				mvs.Mutable,
 				ast.Private,
-				tokenPos(name.Token),
+				name.Pos(),
 			)
 		}
 	}
@@ -170,7 +170,7 @@ func (tc *TypeChecker) checkVecDeclaration(vs *ast.VarStatement, vecType *ast.Ge
 	if mc, ok := vs.Value.(*ast.MethodCallExpression); ok {
 		if ident, ok := mc.Object.(*ast.Identifier); ok && ident.Value == "Vec" {
 			tc.checkVecConstructor(
-				tokenPos(vs.Token),
+				vs.Pos(),
 				vs.Mutable,
 				vecType,
 				mc,

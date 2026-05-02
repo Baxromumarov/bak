@@ -84,7 +84,7 @@ func (tc *TypeChecker) checkStringMethodCall(mc *ast.MethodCallExpression) ast.T
 			&ast.SimpleType{Name: "string"},
 		}}
 	default:
-		callPos := tokenPos(mc.Token)
+		callPos := mc.Pos()
 		if hint := stringStdlibReplacementHint(method); hint != "" {
 			tc.errorUndefinedMethodWithHelpAt("string", method, callPos, stringMethodCandidates, hint)
 			return nil

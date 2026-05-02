@@ -73,7 +73,7 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			for candidate := range structDef.Fields {
 				fieldNames = append(fieldNames, candidate)
 			}
-			tc.errorStructHasNoFieldAt(structName, fieldName, tokenPos(sl.Token), fieldNames)
+			tc.errorStructHasNoFieldAt(structName, fieldName, sl.Pos(), fieldNames)
 			continue
 		}
 

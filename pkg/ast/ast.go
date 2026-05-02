@@ -2,14 +2,17 @@
 // All language constructs are represented as explicit nodes in this tree.
 package ast
 
-import "strings"
+import (
+	"strings"
 
-import "github.com/baxromumarov/bak/pkg/token"
+	"github.com/baxromumarov/bak/pkg/token"
+)
 
 // Node is the interface that all AST nodes implement
 type Node interface {
 	TokenLiteral() string
 	String() string
+	Pos() Position
 }
 
 // Position represents a 1-based line/column location in source.
@@ -55,10 +58,20 @@ func (p *Program) TokenLiteral() string {
 
 func (p *Program) String() string {
 	var out strings.Builder
+	
 	for _, s := range p.Statements {
-		out .WriteString(s.String())
+		out.WriteString(s.String())
 	}
+
 	return out.String()
+}
+
+func (p *Program) Pos() Position {
+	if len(p.Statements) > 0 {
+		return p.Statements[0].Pos()
+	}
+	
+	return Position{}
 }
 
 // Visibility represents the visibility of a declaration

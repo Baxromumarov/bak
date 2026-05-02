@@ -51,7 +51,7 @@ func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpressio
 				}
 				// Enforce move semantics for spawn arguments
 				if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
-					tc.trackMoveFromExpression(arg, tokenPos(mc.Token), MovedByCall, "thread.spawn")
+					tc.trackMoveFromExpression(arg, mc.Pos(), MovedByCall, "thread.spawn")
 				}
 			}
 		}
@@ -148,7 +148,7 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	for i, arg := range mc.Arguments {
 		argType := argTypes[i]
 		if !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
-			tc.errorTypeMismatch(tokenPos(mc.Token),
+			tc.errorTypeMismatch(mc.Pos(),
 				typeToString(sig.Parameters[i]), typeToString(argType),
 				strfmt.Named(
 					"argument {argIndex} to '{receiver}.{method}'",
@@ -205,7 +205,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 				if !tc.typesMatch(fieldTypes[i], argType) {
 
 					tc.errorTypeMismatch(
-						tokenPos(mc.Token),
+						mc.Pos(),
 						typeToString(fieldTypes[i]),
 						typeToString(argType),
 						strfmt.Named(
@@ -380,7 +380,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 
 	// Handle Option method type checking
 	if gt, ok := baseType.(*ast.GenericType); ok && gt.Name == "Option" {
-		tc.rejectOptionUsage(tokenPos(mc.Token))
+		tc.rejectOptionUsage(mc.Pos())
 		for _, arg := range mc.Arguments {
 			tc.inferType(arg)
 		}
@@ -452,7 +452,7 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 			argType := tc.inferType(arg)
 			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
 				tc.errorMethodArgumentTypeMismatch(
-					tokenPos(mc.Token),
+					mc.Pos(),
 					i+1,
 					ident.Value,
 					mc.Method.Value,
@@ -497,7 +497,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 		if typeName == "" {
 			typeName = "type"
 		}
-		tc.errorUndefinedMethodAt(typeName, mc.Method.Value, tokenPos(mc.Token), methods)
+		tc.errorUndefinedMethodAt(typeName, mc.Method.Value, mc.Pos(), methods)
 		return nil
 	}
 
@@ -538,7 +538,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 			mc.Method.Value,
 			len(methodSig.Parameters),
 			len(mc.Arguments),
-			tokenPos(mc.Token),
+			mc.Pos(),
 			methodSig,
 		)
 		for _, arg := range mc.Arguments {
@@ -575,7 +575,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 			argType := tc.inferType(arg)
 			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
 				tc.errorMethodArgumentTypeMismatch(
-					tokenPos(mc.Token),
+					mc.Pos(),
 					i+1,
 					receiverName,
 					mc.Method.Value,
@@ -622,7 +622,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 		if guardState == resultGuardIsErr {
 			tc.emitWarningAt(
 				diagnostics.DiagnosticCode("W0901"),
-				tokenPos(mc.Token),
+				mc.Pos(),
 				strfmt.Named(
 					"'{guard}.unwrap()' is guaranteed to panic in this branch after '{guard}.isErr()'",
 					"guard", guardVar,
@@ -635,7 +635,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 		if guardState == resultGuardIsOk {
 			tc.emitWarningAt(
 				diagnostics.DiagnosticCode("W0902"),
-				tokenPos(mc.Token),
+				mc.Pos(),
 				strfmt.Named(
 					"'{guard}.unwrapErr()' is guaranteed to panic in this branch after '{guard}.isOk()'",
 					"guard", guardVar,
@@ -647,7 +647,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 	case "toString":
 		return &ast.SimpleType{Name: "string"}
 	default:
-		tc.errorUndefinedMethodAt("Result", method, tokenPos(mc.Token), resultMethodCandidates)
+		tc.errorUndefinedMethodAt("Result", method, mc.Pos(), resultMethodCandidates)
 		return nil
 	}
 }

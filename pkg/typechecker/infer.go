@@ -96,7 +96,7 @@ func (tc *TypeChecker) inferUnwrapType(e *ast.UnwrapExpression) ast.TypeExpressi
 			tc.nodeTypes[e] = typeToString(inferred)
 			return inferred
 		} else if gt.Name == "Option" {
-			tc.rejectOptionUsage(tokenPos(e.Token))
+			tc.rejectOptionUsage(e.Pos())
 			inferred := &ast.ErrorType{Message: "option is not supported"}
 			tc.nodeTypes[e] = typeToString(inferred)
 			return inferred
@@ -208,13 +208,13 @@ func (tc *TypeChecker) inferFunctionLiteralType(e *ast.FunctionLiteral) ast.Type
 				p.Type,
 				p.Mutable,
 				ast.Private,
-				tokenPos(p.Name.Token),
+				p.Name.Pos(),
 			)
-			tc.validateTypeUsage(p.Type, tokenPos(p.Name.Token))
+			tc.validateTypeUsage(p.Type, p.Name.Pos())
 		}
 	}
 
-	tc.validateTypeUsage(e.ReturnType, tokenPos(e.Token))
+	tc.validateTypeUsage(e.ReturnType, e.Pos())
 	if e.Body != nil {
 		tc.checkBlockStatement(e.Body)
 	}
@@ -223,7 +223,7 @@ func (tc *TypeChecker) inferFunctionLiteralType(e *ast.FunctionLiteral) ast.Type
 		!tc.isVoidType(e.ReturnType) &&
 		!tc.isErrorType(e.ReturnType) {
 		if !tc.blockTerminates(e.Body) {
-			tc.errorMissingReturnAt(tokenPos(e.Token), e.ReturnType)
+			tc.errorMissingReturnAt(e.Pos(), e.ReturnType)
 		}
 	}
 
@@ -466,7 +466,7 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 
 	if info, ok := tc.env.LookupSymbol(ident.Value); ok {
 		tc.env.MarkUsed(ident.Value)
-		if !tc.checkVariableUse(ident.Value, tokenPos(ident.Token)) {
+		if !tc.checkVariableUse(ident.Value, ident.Pos()) {
 			return info.Type
 		}
 		tc.nodeTypes[ident] = typeToString(info.Type)
@@ -560,7 +560,7 @@ func (tc *TypeChecker) inferIdentifierType(ident *ast.Identifier) ast.TypeExpres
 		return inferred
 	}
 
-	tc.errorUndefinedIdentifierAt(ident.Value, tokenPos(ident.Token))
+	tc.errorUndefinedIdentifierAt(ident.Value, ident.Pos())
 
 	inferred := &ast.ErrorType{Message: "undefined identifier"}
 	tc.nodeTypes[ident] = typeToString(inferred)
@@ -573,7 +573,7 @@ func (tc *TypeChecker) inferMutableIdentifierType(ident *ast.MutableIdentifier) 
 	if info, ok := tc.env.LookupSymbol(ident.Value); ok {
 		tc.env.MarkUsed(ident.Value)
 
-		if !tc.checkVariableUse(ident.Value, tokenPos(ident.Token)) {
+		if !tc.checkVariableUse(ident.Value, ident.Pos()) {
 			return info.Type
 		}
 
@@ -597,7 +597,7 @@ func (tc *TypeChecker) inferMutableIdentifierType(ident *ast.MutableIdentifier) 
 		return inferred
 	}
 
-	tc.errorUndefinedIdentifierAt(ident.Value, tokenPos(ident.Token))
+	tc.errorUndefinedIdentifierAt(ident.Value, ident.Pos())
 
 	inferred := &ast.ErrorType{Message: "undefined identifier"}
 

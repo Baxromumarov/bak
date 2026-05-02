@@ -145,6 +145,7 @@ func (p *Parser) pushContext(ctx string) {
 	if ctx == "" {
 		return
 	}
+
 	p.contextStack = append(p.contextStack, ctx)
 }
 
@@ -152,6 +153,7 @@ func (p *Parser) popContext() {
 	if len(p.contextStack) == 0 {
 		return
 	}
+
 	p.contextStack = p.contextStack[:len(p.contextStack)-1]
 }
 
@@ -159,6 +161,7 @@ func (p *Parser) currentContext() string {
 	if len(p.contextStack) == 0 {
 		return ""
 	}
+
 	return p.contextStack[len(p.contextStack)-1]
 }
 
@@ -173,6 +176,7 @@ func (p *Parser) popIntent() {
 	if len(p.intentStack) == 0 {
 		return
 	}
+	
 	p.intentStack = p.intentStack[:len(p.intentStack)-1]
 }
 
