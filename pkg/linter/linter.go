@@ -5,11 +5,19 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/baxromumarov/bak/pkg/token"
+
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
+
+type NamedNode interface {
+	NodeName() string
+	NodeToken() token.Token
+	Kind() string
+}
 
 // Finding represents a lint finding at a specific location.
 type Finding struct {
@@ -135,14 +143,19 @@ func isCamelCase(s string) bool {
 	if s == "" {
 		return true
 	}
+
 	if !(s[0] >= 'a' && s[0] <= 'z') {
 		return false
 	}
+
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+		if !((c >= 'a' && c <= 'z') ||
+			(c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9')) {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -151,6 +164,7 @@ func isPascalCase(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
+
 	return s[0] >= 'A' && s[0] <= 'Z'
 }
 
@@ -159,12 +173,26 @@ func isUpperSnakeCase(s string) bool {
 	if s == "" {
 		return true
 	}
+
 	for _, c := range s {
-		if !((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+		if !((c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9') ||
+			c == '_') {
 			return false
 		}
 	}
+
 	return true
+}
+
+// isPascalOrCamel: Used for Structs
+func isPascalOrCamel(s string) bool {
+	return isPascalCase(s) || isCamelCase(s)
+}
+
+// isUpperSnakeOrPascal: Used for Constants
+func isUpperSnakeOrPascal(s string) bool {
+	return isUpperSnakeCase(s) || isPascalCase(s)
 }
 
 // --- Rules ---
@@ -174,69 +202,92 @@ type NamingConventionRule struct{}
 
 func (r *NamingConventionRule) Name() string { return "naming-convention" }
 
-func (r *NamingConventionRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+func (r *NamingConventionRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
 	var findings []Finding
+
 	for _, stmt := range prog.Statements {
 		findings = append(findings, r.checkStatement(stmt)...)
 	}
+
 	return findings
+}
+
+func (r *NamingConventionRule) extractNamedNodes(stmt ast.Statement) []NamedNode {
+	switch s := stmt.(type) {
+	case *ast.FunctionDecl:
+		// We return the function itself AND its parameters
+		list := []NamedNode{s}
+		for _, p := range s.Parameters {
+			list = append(list, p)
+		}
+		return list
+
+	case *ast.StructDecl, *ast.EnumDecl, *ast.ConstStatement:
+		// These implement NamedNode directly
+		return []NamedNode{s.(NamedNode)}
+
+	default:
+		return nil
+	}
+}
+
+type Validator func(string) bool
+
+var namingRegistry = map[string]struct {
+	validate Validator
+	expected string
+}{
+	"function":  {isCamelCase, "camelCase"},
+	"parameter": {isCamelCase, "camelCase"},
+	"struct":    {isPascalOrCamel, "PascalCase or camelCase"},
+	"enum":      {isPascalCase, "PascalCase"},
+	"constant":  {isUpperSnakeOrPascal, "UPPER_SNAKE_CASE or PascalCase"},
 }
 
 func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
 	var findings []Finding
-	switch s := stmt.(type) {
-	case *ast.FunctionDecl:
-		if s.Name != nil && !isCamelCase(s.Name.Value) && s.Name.Value != "main" {
-			findings = append(findings, Finding{
-				Rule:    "naming-convention",
-				Level:   "warning",
-				Message: "function '" + s.Name.Value + "' should be camelCase",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
-			})
+
+	// 1. Extract all potential nodes to check from this statement
+	nodes := r.extractNamedNodes(stmt)
+
+	// 2. Run the unified validation pipeline
+	for _, node := range nodes {
+		name := node.NodeName()
+
+		// Skip ignored names (standard in production linters)
+		if name == "" ||
+			name == "_" ||
+			name == "main" ||
+			strings.HasPrefix(name, "_") {
+			continue
 		}
-		for _, p := range s.Parameters {
-			if p.Name != nil && p.Name.Value != "_" && !strings.HasPrefix(p.Name.Value, "_") && !isCamelCase(p.Name.Value) {
-				findings = append(findings, Finding{
-					Rule:    "naming-convention",
-					Level:   "warning",
-					Message: "parameter '" + p.Name.Value + "' should be camelCase",
-					Line:    p.Name.Token.Line,
-					Column:  p.Name.Token.Column,
-				})
-			}
+
+		// Look up the rule in our registry
+		rule, exists := namingRegistry[node.Kind()]
+		if !exists {
+			continue
 		}
-	case *ast.StructDecl:
-		if s.Name != nil && !isPascalCase(s.Name.Value) && !isCamelCase(s.Name.Value) {
+
+		// Validate
+		if !rule.validate(name) {
 			findings = append(findings, Finding{
-				Rule:    "naming-convention",
-				Level:   "warning",
-				Message: "struct '" + s.Name.Value + "' should be PascalCase or camelCase",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
-			})
-		}
-	case *ast.EnumDecl:
-		if s.Name != nil && !isPascalCase(s.Name.Value) {
-			findings = append(findings, Finding{
-				Rule:    "naming-convention",
-				Level:   "warning",
-				Message: "enum '" + s.Name.Value + "' should be PascalCase",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
-			})
-		}
-	case *ast.ConstStatement:
-		if s.Name != nil && !isUpperSnakeCase(s.Name.Value) && !isPascalCase(s.Name.Value) {
-			findings = append(findings, Finding{
-				Rule:    "naming-convention",
-				Level:   "warning",
-				Message: "constant '" + s.Name.Value + "' should be UPPER_SNAKE_CASE or PascalCase",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
+				Rule:  "naming-convention",
+				Level: "warning",
+				Message: strfmt.Named("{Kind} '{Value}' should be {Expected}",
+					"Kind", node.Kind(),
+					"Value", name,
+					"Expected", rule.expected,
+				),
+				Line:   node.NodeToken().Line,
+				Column: node.NodeToken().Column,
 			})
 		}
 	}
+
 	return findings
 }
 
@@ -245,7 +296,11 @@ type StyleRule struct{}
 
 func (r *StyleRule) Name() string { return "style" }
 
-func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+func (r *StyleRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
 	var findings []Finding
 	lines := strings.Split(source, "\n")
 	inBlockComment := false
@@ -253,12 +308,16 @@ func (r *StyleRule) Check(prog *ast.Program, source string, config *Config) []Fi
 		if isCommentOnlyLine(line, &inBlockComment) {
 			continue
 		}
+
 		// Line length check
 		if len(line) > config.MaxLineLength {
 			findings = append(findings, Finding{
 				Rule:  "style/line-length",
 				Level: "style",
-				Message: strfmt.Named("line exceeds {MaxLineLength} characters ({lineCount})", "MaxLineLength", config.MaxLineLength, "LineCount", len(line)),
+				Message: strfmt.Named("line exceeds {MaxLineLength} characters ({lineCount})",
+					"MaxLineLength", config.MaxLineLength,
+					"LineCount", len(line),
+				),
 				Line:   i + 1,
 				Column: config.MaxLineLength + 1,
 			})
@@ -321,7 +380,11 @@ type EmptyBlockRule struct{}
 
 func (r *EmptyBlockRule) Name() string { return "empty-block" }
 
-func (r *EmptyBlockRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+func (r *EmptyBlockRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
 	var findings []Finding
 	for _, stmt := range prog.Statements {
 		r.checkStmt(stmt, &findings)
@@ -329,48 +392,32 @@ func (r *EmptyBlockRule) Check(prog *ast.Program, source string, config *Config)
 	return findings
 }
 
+type BlockOwner interface {
+	GetBlock() []ast.Statement
+	GetLocation() (line int, col int)
+	BlockName() string // "if", "while", or the function name
+}
+
 func (r *EmptyBlockRule) checkStmt(stmt ast.Statement, findings *[]Finding) {
-	switch s := stmt.(type) {
-	case *ast.FunctionDecl:
-		if s.Body != nil && len(s.Body.Statements) == 0 && s.Name != nil {
-			*findings = append(*findings, Finding{
-				Rule:    "empty-block",
-				Level:   "warning",
-				Message: "empty function body '" + s.Name.Value + "'",
-				Line:    s.Name.Token.Line,
-				Column:  s.Name.Token.Column,
-			})
-		}
-	case *ast.IfStatement:
-		if s.Consequence != nil && len(s.Consequence.Statements) == 0 {
-			*findings = append(*findings, Finding{
-				Rule:    "empty-block",
-				Level:   "warning",
-				Message: "empty if block",
-				Line:    s.Token.Line,
-				Column:  s.Token.Column,
-			})
-		}
-	case *ast.WhileStatement:
-		if s.Body != nil && len(s.Body.Statements) == 0 {
-			*findings = append(*findings, Finding{
-				Rule:    "empty-block",
-				Level:   "warning",
-				Message: "empty while block",
-				Line:    s.Token.Line,
-				Column:  s.Token.Column,
-			})
-		}
-	case *ast.ForStatement:
-		if s.Body != nil && len(s.Body.Statements) == 0 {
-			*findings = append(*findings, Finding{
-				Rule:    "empty-block",
-				Level:   "warning",
-				Message: "empty for block",
-				Line:    s.Token.Line,
-				Column:  s.Token.Column,
-			})
-		}
+
+	blockOwner, ok := stmt.(BlockOwner)
+	if !ok {
+		return
+	}
+
+	// Single logic path for all block types
+	if len(blockOwner.GetBlock()) == 0 {
+		line, col := blockOwner.GetLocation()
+
+		*findings = append(*findings, Finding{
+			Rule:  "empty-block",
+			Level: "warning",
+			Message: strfmt.Named("{BlockName} block is empty",
+				"BlockName", blockOwner.BlockName(),
+			),
+			Line:   line,
+			Column: col,
+		})
 	}
 }
 
@@ -379,7 +426,11 @@ type ComplexityRule struct{}
 
 func (r *ComplexityRule) Name() string { return "complexity" }
 
-func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config) []Finding {
+func (r *ComplexityRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
 	var findings []Finding
 	for _, stmt := range prog.Statements {
 		if fd, ok := stmt.(*ast.FunctionDecl); ok {
@@ -391,7 +442,11 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 				findings = append(findings, Finding{
 					Rule:  "complexity/too-many-params",
 					Level: "warning",
-					Message: strfmt.Named("function '{Value}' has {ParametersCount} parameters (max {MaxFuncParams})", "Value", fd.Name.Value, "ParametersCount", len(fd.Parameters), "MaxFuncParams", config.MaxFuncParams),
+					Message: strfmt.Named("function '{Value}' has {ParametersCount} parameters (max {MaxFuncParams})",
+						"Value", fd.Name.Value,
+						"ParametersCount", len(fd.Parameters),
+						"MaxFuncParams", config.MaxFuncParams,
+					),
 					Line:   fd.Name.Token.Line,
 					Column: fd.Name.Token.Column,
 				})
@@ -403,7 +458,11 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 					findings = append(findings, Finding{
 						Rule:  "complexity/deep-nesting",
 						Level: "warning",
-						Message: strfmt.Named("function '{Value}' has nesting depth {depth} (max {MaxNestingDepth})", "Value", fd.Name.Value, "Depth", depth, "MaxNestingDepth", config.MaxNestingDepth),
+						Message: strfmt.Named("function '{Value}' has nesting depth {depth} (max {MaxNestingDepth})",
+							"Value", fd.Name.Value,
+							"Depth", depth,
+							"MaxNestingDepth", config.MaxNestingDepth,
+						),
 						Line:   fd.Name.Token.Line,
 						Column: fd.Name.Token.Column,
 					})
@@ -414,38 +473,27 @@ func (r *ComplexityRule) Check(prog *ast.Program, source string, config *Config)
 	return findings
 }
 
+type Nester interface {
+	GetNestedBlocks() []*ast.BlockStatement
+}
+
 func measureNestingDepth(block *ast.BlockStatement, current int) int {
-	max := current
+	if block == nil {
+		return current
+	}
+
+	maxDepth := current
 	for _, stmt := range block.Statements {
-		switch s := stmt.(type) {
-		case *ast.IfStatement:
-			if s.Consequence != nil {
-				d := measureNestingDepth(s.Consequence, current+1)
-				if d > max {
-					max = d
-				}
-			}
-			if s.Alternative != nil {
-				d := measureNestingDepth(s.Alternative, current+1)
-				if d > max {
-					max = d
-				}
-			}
-		case *ast.ForStatement:
-			if s.Body != nil {
-				d := measureNestingDepth(s.Body, current+1)
-				if d > max {
-					max = d
-				}
-			}
-		case *ast.WhileStatement:
-			if s.Body != nil {
-				d := measureNestingDepth(s.Body, current+1)
-				if d > max {
-					max = d
+		// Advanced: Check if the statement is a "Nester"
+		if nester, ok := stmt.(Nester); ok {
+			for _, nestedBlock := range nester.GetNestedBlocks() {
+				d := measureNestingDepth(nestedBlock, current+1)
+				if d > maxDepth {
+					maxDepth = d
 				}
 			}
 		}
 	}
-	return max
+
+	return maxDepth
 }

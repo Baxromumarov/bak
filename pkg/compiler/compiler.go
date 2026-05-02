@@ -635,7 +635,7 @@ func (c *Compiler) compileDeferStatement(ds *ast.DeferStatement) error {
 		return fmt.Errorf("defer expects a block")
 	}
 	fl := &ast.FunctionLiteral{
-		Token:      ds.Token,
+		NodeBase:   ast.NodeBase{Token: ds.Token},
 		Parameters: []*ast.Parameter{},
 		ReturnType: &ast.VoidType{Token: ds.Token},
 		Body:       ds.Body,
@@ -1604,7 +1604,7 @@ func (c *Compiler) compileExpression(expr ast.Expression) (err error) {
 	case *ast.Identifier:
 		return c.compileIdentifier(e)
 	case *ast.MutableIdentifier:
-		return c.compileIdentifier(&ast.Identifier{Token: e.Token, Value: e.Value})
+		return c.compileIdentifier(&ast.Identifier{NodeBase: ast.NodeBase{Token: e.Token}, Value: e.Value})
 	case *ast.PrefixExpression:
 		return c.compilePrefixExpression(e)
 	case *ast.InfixExpression:

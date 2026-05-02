@@ -386,8 +386,8 @@ func (p *Parser) noPrefixParseFnError(t token.TokenType) {
 
 func (p *Parser) ident() *ast.Identifier {
 	return &ast.Identifier{
-		Token: p.curToken,
-		Value: p.curToken.Literal,
+		NodeBase: ast.NodeBase{Token: p.curToken},
+		Value:    p.curToken.Literal,
 	}
 }
 
@@ -698,9 +698,9 @@ func (p *Parser) parseStatement() ast.Statement {
 		}
 		return nil
 	case token.BREAK:
-		return &ast.BreakStatement{Token: p.curToken}
+		return &ast.BreakStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 	case token.CONTINUE:
-		return &ast.ContinueStatement{Token: p.curToken}
+		return &ast.ContinueStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 	case token.LBRACE:
 		if s := p.parseBlockStatement(); s != nil {
 			return s
@@ -755,7 +755,7 @@ func (p *Parser) isVarDestructuring() bool {
 }
 
 func (p *Parser) parsePackageStatement() *ast.PackageStatement {
-	stmt := &ast.PackageStatement{Token: p.curToken}
+	stmt := &ast.PackageStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -912,7 +912,7 @@ func (p *Parser) parseImportBlock() ast.Statement {
 	if p.peekTokenIs(token.LPAREN) {
 		p.nextToken() // consume (
 
-		block := &ast.ImportBlock{Token: importToken}
+		block := &ast.ImportBlock{NodeBase: ast.NodeBase{Token: importToken}}
 
 		for !p.curTokenIs(token.RPAREN) && !p.curTokenIs(token.EOF) {
 			p.nextToken()
@@ -935,7 +935,7 @@ func (p *Parser) parseImportBlock() ast.Statement {
 }
 
 func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
-	stmt := &ast.ImportStatement{Token: start}
+	stmt := &ast.ImportStatement{NodeBase: ast.NodeBase{Token: start}}
 
 	// Only support: import "path" as alias
 	// Expect a string literal for the path
@@ -967,7 +967,7 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 		return p.parseMultiVarStatement(varToken, mutable)
 	}
 
-	stmt := &ast.VarStatement{Token: varToken, Mutable: mutable}
+	stmt := &ast.VarStatement{NodeBase: ast.NodeBase{Token: varToken}, Mutable: mutable}
 
 	// Accept either IDENT or UNDERSCORE for discard variable
 	if p.peekTokenIs(token.IDENT) {
@@ -1006,8 +1006,8 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 // parseMultiVarStatement parses: var (a, b, c) = expr or var (_, b, _) = expr
 func (p *Parser) parseMultiVarStatement(varToken token.Token, mutable bool) *ast.MultiVarStatement {
 	stmt := &ast.MultiVarStatement{
-		Token:   varToken,
-		Mutable: mutable,
+		NodeBase: ast.NodeBase{Token: varToken},
+		Mutable:  mutable,
 	}
 
 	stmt.Names = []*ast.Identifier{}
@@ -1048,7 +1048,7 @@ func (p *Parser) parseMultiVarStatement(varToken token.Token, mutable bool) *ast
 }
 
 func (p *Parser) parseConstStatement() *ast.ConstStatement {
-	stmt := &ast.ConstStatement{Token: p.curToken}
+	stmt := &ast.ConstStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -1076,7 +1076,7 @@ func (p *Parser) parseConstStatement() *ast.ConstStatement {
 }
 
 func (p *Parser) parseVarBlock() *ast.VarBlock {
-	block := &ast.VarBlock{Token: p.curToken}
+	block := &ast.VarBlock{NodeBase: ast.NodeBase{Token: p.curToken}}
 	block.Variables = []*ast.VarStatement{}
 
 	if !p.expectPeek(token.LPAREN) {
@@ -1089,7 +1089,7 @@ func (p *Parser) parseVarBlock() *ast.VarBlock {
 			return nil
 		}
 
-		varStmt := &ast.VarStatement{Token: p.curToken, Mutable: false}
+		varStmt := &ast.VarStatement{NodeBase: ast.NodeBase{Token: p.curToken}, Mutable: false}
 		varStmt.Name = p.ident()
 
 		// Parse type (required in block syntax)
@@ -1120,7 +1120,7 @@ func (p *Parser) parseVarBlock() *ast.VarBlock {
 }
 
 func (p *Parser) parseConstBlock() *ast.ConstBlock {
-	block := &ast.ConstBlock{Token: p.curToken}
+	block := &ast.ConstBlock{NodeBase: ast.NodeBase{Token: p.curToken}}
 	block.Constants = []*ast.ConstStatement{}
 
 	if !p.expectPeek(token.LPAREN) {
@@ -1133,7 +1133,7 @@ func (p *Parser) parseConstBlock() *ast.ConstBlock {
 			return nil
 		}
 
-		constStmt := &ast.ConstStatement{Token: p.curToken}
+		constStmt := &ast.ConstStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 		constStmt.Name = p.ident()
 
 		// Type is required (colon optional)
@@ -1166,7 +1166,7 @@ func (p *Parser) parseConstBlock() *ast.ConstBlock {
 }
 
 func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
-	stmt := &ast.ReturnStatement{Token: p.curToken}
+	stmt := &ast.ReturnStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	// Check for empty return (return followed by } or ;)
 	if p.peekTokenIs(token.RBRACE) ||
@@ -1191,7 +1191,7 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 		}
 
 		stmt.ReturnValue = &ast.TupleExpression{
-			Token:    stmt.Token,
+			NodeBase: ast.NodeBase{Token: stmt.Token},
 			Elements: elements,
 		}
 
@@ -1212,8 +1212,8 @@ func (p *Parser) parseExpressionOrAssignment() ast.Statement {
 	if p.peekTokenIs(token.ASSIGN) {
 		p.nextToken()
 		stmt := &ast.AssignmentStatement{
-			Token: p.curToken,
-			Left:  expr,
+			NodeBase: ast.NodeBase{Token: p.curToken},
+			Left:     expr,
 		}
 
 		p.nextToken()
@@ -1223,13 +1223,13 @@ func (p *Parser) parseExpressionOrAssignment() ast.Statement {
 	}
 
 	return &ast.ExpressionStatement{
-		Token:      p.curToken,
+		NodeBase:   ast.NodeBase{Token: p.curToken},
 		Expression: expr,
 	}
 }
 
 func (p *Parser) parseIfStatement() *ast.IfStatement {
-	stmt := &ast.IfStatement{Token: p.curToken}
+	stmt := &ast.IfStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	stmt.Condition = p.parseExpression(LOWEST)
@@ -1250,7 +1250,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 			if elseIfStmt != nil {
 				// Wrap the else if in a block statement
 				stmt.Alternative = &ast.BlockStatement{
-					Token:      elseIfStmt.Token,
+					NodeBase:   ast.NodeBase{Token: elseIfStmt.Token},
 					Statements: []ast.Statement{elseIfStmt},
 				}
 			}
@@ -1268,7 +1268,7 @@ func (p *Parser) parseIfStatement() *ast.IfStatement {
 }
 
 func (p *Parser) parseWhileStatement() *ast.WhileStatement {
-	stmt := &ast.WhileStatement{Token: p.curToken}
+	stmt := &ast.WhileStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	stmt.Condition = p.parseExpression(LOWEST)
@@ -1283,7 +1283,7 @@ func (p *Parser) parseWhileStatement() *ast.WhileStatement {
 }
 
 func (p *Parser) parseForStatement() *ast.ForStatement {
-	stmt := &ast.ForStatement{Token: p.curToken}
+	stmt := &ast.ForStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -1308,7 +1308,7 @@ func (p *Parser) parseForStatement() *ast.ForStatement {
 }
 
 func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
-	stmt := &ast.SwitchStatement{Token: p.curToken}
+	stmt := &ast.SwitchStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	stmt.Value = p.parseExpression(LOWEST)
@@ -1332,7 +1332,7 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 }
 
 func (p *Parser) parseSwitchCase() *ast.SwitchCase {
-	switchCase := &ast.SwitchCase{Token: p.curToken}
+	switchCase := &ast.SwitchCase{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if p.curTokenIs(token.DEFAULT) {
 		switchCase.Default = true
@@ -1361,7 +1361,7 @@ func (p *Parser) parseSwitchCase() *ast.SwitchCase {
 }
 
 func (p *Parser) parseDeferStatement() *ast.DeferStatement {
-	stmt := &ast.DeferStatement{Token: p.curToken}
+	stmt := &ast.DeferStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.LBRACE) {
 		return nil
@@ -1372,7 +1372,7 @@ func (p *Parser) parseDeferStatement() *ast.DeferStatement {
 }
 
 func (p *Parser) parsePanicStatement() *ast.PanicStatement {
-	stmt := &ast.PanicStatement{Token: p.curToken}
+	stmt := &ast.PanicStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	stmt.Message = p.parseExpression(LOWEST)
@@ -1384,7 +1384,7 @@ func (p *Parser) parseUnsafeBlock() *ast.UnsafeBlock {
 	if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUnsafe) {
 		p.reportExperimentalFeature(p.curToken, "`unsafe` blocks", runtimecap.ExperimentalFeatureUnsafe)
 	}
-	stmt := &ast.UnsafeBlock{Token: p.curToken}
+	stmt := &ast.UnsafeBlock{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.LBRACE) {
 		return nil
@@ -1396,7 +1396,7 @@ func (p *Parser) parseUnsafeBlock() *ast.UnsafeBlock {
 }
 
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
-	block := &ast.BlockStatement{Token: p.curToken}
+	block := &ast.BlockStatement{NodeBase: ast.NodeBase{Token: p.curToken}}
 	block.Statements = []ast.Statement{}
 
 	p.nextToken()
@@ -1680,7 +1680,7 @@ func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpressi
 // =============================================================================
 
 func (p *Parser) parseFunctionDecl() *ast.FunctionDecl {
-	fn := &ast.FunctionDecl{Token: p.curToken}
+	fn := &ast.FunctionDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -1938,7 +1938,7 @@ func (p *Parser) parseParameters() []*ast.Parameter {
 }
 
 func (p *Parser) parseParameter() *ast.Parameter {
-	param := &ast.Parameter{Token: p.curToken}
+	param := &ast.Parameter{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if p.curTokenIs(token.MUT) {
 		param.Mutable = true
@@ -1963,7 +1963,7 @@ func (p *Parser) parseParameter() *ast.Parameter {
 }
 
 func (p *Parser) parseStructDecl() *ast.StructDecl {
-	stmt := &ast.StructDecl{Token: p.curToken}
+	stmt := &ast.StructDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -2016,7 +2016,7 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 }
 
 func (p *Parser) parseStructField() *ast.StructField {
-	field := &ast.StructField{Token: p.curToken}
+	field := &ast.StructField{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	// Check for pub visibility
 	if p.curTokenIs(token.PUB) {
@@ -2041,7 +2041,7 @@ func (p *Parser) parseStructField() *ast.StructField {
 }
 
 func (p *Parser) parseEnumDecl() *ast.EnumDecl {
-	stmt := &ast.EnumDecl{Token: p.curToken}
+	stmt := &ast.EnumDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -2085,7 +2085,7 @@ func (p *Parser) parseEnumVariant() *ast.EnumVariant {
 		return nil
 	}
 
-	variant := &ast.EnumVariant{Token: p.curToken}
+	variant := &ast.EnumVariant{NodeBase: ast.NodeBase{Token: p.curToken}}
 	variant.Name = p.ident()
 
 	if p.peekTokenIs(token.LPAREN) {
@@ -2127,7 +2127,7 @@ func (p *Parser) parseEnumVariantFields() []ast.TypeExpression {
 
 // parseTypeDecl parses: type Status = string
 func (p *Parser) parseTypeDecl() *ast.TypeDecl {
-	stmt := &ast.TypeDecl{Token: p.curToken}
+	stmt := &ast.TypeDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -2147,7 +2147,7 @@ func (p *Parser) parseTypeDecl() *ast.TypeDecl {
 
 // parseAliasDecl parses: alias Status = string
 func (p *Parser) parseAliasDecl() *ast.AliasDecl {
-	stmt := &ast.AliasDecl{Token: p.curToken}
+	stmt := &ast.AliasDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.IDENT) {
 		return nil
@@ -2166,7 +2166,7 @@ func (p *Parser) parseAliasDecl() *ast.AliasDecl {
 }
 
 func (p *Parser) parseImplDecl() *ast.ImplDecl {
-	stmt := &ast.ImplDecl{Token: p.curToken}
+	stmt := &ast.ImplDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	// Allow IDENT or special generic type tokens (Vec, Result)
 	if !p.peekTokenIs(token.IDENT) && !token.IsType(p.peekToken.Type) &&
@@ -2250,7 +2250,7 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 }
 
 func (p *Parser) parseMethodDecl() *ast.MethodDecl {
-	method := &ast.MethodDecl{Token: p.curToken}
+	method := &ast.MethodDecl{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	// Handle pub visibility
 	if p.curTokenIs(token.PUB) {
@@ -2350,12 +2350,12 @@ func (p *Parser) parseMutableIdentifier() ast.Expression {
 		return nil
 	}
 	nameTok := p.curToken
-	return &ast.MutableIdentifier{Token: mutToken, NameToken: nameTok, Value: nameTok.Literal}
+	return &ast.MutableIdentifier{NodeBase: ast.NodeBase{Token: mutToken}, NameToken: nameTok, Value: nameTok.Literal}
 }
 
 // parseWildcardExpression parses the _ wildcard for pattern matching
 func (p *Parser) parseWildcardExpression() ast.Expression {
-	return &ast.Identifier{Token: p.curToken, Value: "_"}
+	return &ast.Identifier{NodeBase: ast.NodeBase{Token: p.curToken}, Value: "_"}
 }
 
 // parseTypeIdentifier handles type keywords (Vec, Result) that can appear as identifiers
@@ -2443,7 +2443,7 @@ func (p *Parser) looksLikeStructLiteral() bool {
 }
 
 func (p *Parser) parseIntegerLiteral() ast.Expression {
-	lit := &ast.IntegerLiteral{Token: p.curToken}
+	lit := &ast.IntegerLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
@@ -2458,7 +2458,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 }
 
 func (p *Parser) parseFloatLiteral() ast.Expression {
-	lit := &ast.FloatLiteral{Token: p.curToken}
+	lit := &ast.FloatLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
@@ -2477,7 +2477,7 @@ func (p *Parser) parseFStringLiteral() ast.Expression {
 }
 
 func (p *Parser) parseInterpolatedStringLiteral(s string, allowBareBraces bool) ast.Expression {
-	fstr := &ast.FStringLiteral{Token: p.curToken}
+	fstr := &ast.FStringLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 	var elements []ast.Expression
 	var currentString []byte
 
@@ -2500,8 +2500,8 @@ func (p *Parser) parseInterpolatedStringLiteral(s string, allowBareBraces bool) 
 		if ok {
 			if len(currentString) > 0 {
 				elements = append(elements, &ast.StringLiteral{
-					Token: p.curToken,
-					Value: p.processStringEscapes(string(currentString)),
+					NodeBase: ast.NodeBase{Token: p.curToken},
+					Value:    p.processStringEscapes(string(currentString)),
 				})
 				currentString = nil
 			}
@@ -2537,8 +2537,8 @@ func (p *Parser) parseInterpolatedStringLiteral(s string, allowBareBraces bool) 
 
 	if len(currentString) > 0 {
 		elements = append(elements, &ast.StringLiteral{
-			Token: p.curToken,
-			Value: p.processStringEscapes(string(currentString)),
+			NodeBase: ast.NodeBase{Token: p.curToken},
+			Value:    p.processStringEscapes(string(currentString)),
 		})
 	}
 
@@ -2548,12 +2548,12 @@ func (p *Parser) parseInterpolatedStringLiteral(s string, allowBareBraces bool) 
 
 func (p *Parser) parseStringLiteral() ast.Expression {
 	if p.curToken.Type == token.RAW_STRING {
-		return &ast.StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+		return &ast.StringLiteral{NodeBase: ast.NodeBase{Token: p.curToken}, Value: p.curToken.Literal}
 	}
 
 	// Process escape sequences in string literals
 	value := p.processStringEscapes(p.curToken.Literal)
-	return &ast.StringLiteral{Token: p.curToken, Value: value}
+	return &ast.StringLiteral{NodeBase: ast.NodeBase{Token: p.curToken}, Value: value}
 }
 
 func (p *Parser) parseInterpolationExpression(exprStr string) ast.Expression {
@@ -2686,7 +2686,7 @@ func (p *Parser) processStringEscapes(s string) string {
 }
 
 func (p *Parser) parseCharLiteral() ast.Expression {
-	lit := &ast.CharLiteral{Token: p.curToken}
+	lit := &ast.CharLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 	literal := p.curToken.Literal
 	if len(literal) == 0 {
 		return lit
@@ -2718,16 +2718,16 @@ func (p *Parser) parseCharLiteral() ast.Expression {
 }
 
 func (p *Parser) parseBooleanLiteral() ast.Expression {
-	return &ast.BooleanLiteral{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+	return &ast.BooleanLiteral{NodeBase: ast.NodeBase{Token: p.curToken}, Value: p.curTokenIs(token.TRUE)}
 }
 
 func (p *Parser) parseVoidLiteral() ast.Expression {
-	return &ast.VoidLiteral{Token: p.curToken}
+	return &ast.VoidLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 }
 
 func (p *Parser) parseTypeConversion() ast.Expression {
 	tc := &ast.TypeConversion{
-		Token:    p.curToken,
+		NodeBase: ast.NodeBase{Token: p.curToken},
 		TypeName: p.curToken.Literal,
 	}
 
@@ -2747,7 +2747,7 @@ func (p *Parser) parseTypeConversion() ast.Expression {
 
 func (p *Parser) parsePrefixExpression() ast.Expression {
 	expression := &ast.PrefixExpression{
-		Token:    p.curToken,
+		NodeBase: ast.NodeBase{Token: p.curToken},
 		Operator: p.curToken.Literal,
 	}
 
@@ -2759,7 +2759,7 @@ func (p *Parser) parsePrefixExpression() ast.Expression {
 }
 
 func (p *Parser) parseBorrowExpression() ast.Expression {
-	expression := &ast.BorrowExpression{Token: p.curToken}
+	expression := &ast.BorrowExpression{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	if p.curTokenIs(token.MUT) {
@@ -2773,7 +2773,7 @@ func (p *Parser) parseBorrowExpression() ast.Expression {
 }
 
 func (p *Parser) parseDerefExpression() ast.Expression {
-	expression := &ast.DerefExpression{Token: p.curToken}
+	expression := &ast.DerefExpression{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	p.nextToken()
 	expression.Value = p.parseExpression(PREFIX)
@@ -2783,7 +2783,7 @@ func (p *Parser) parseDerefExpression() ast.Expression {
 
 func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 	expression := &ast.InfixExpression{
-		Token:    p.curToken,
+		NodeBase: ast.NodeBase{Token: p.curToken},
 		Operator: p.curToken.Literal,
 		Left:     left,
 	}
@@ -2809,7 +2809,7 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 }
 
 func (p *Parser) parseCallExpression(function ast.Expression) ast.Expression {
-	exp := &ast.CallExpression{Token: p.curToken, Function: function}
+	exp := &ast.CallExpression{NodeBase: ast.NodeBase{Token: p.curToken}, Function: function}
 	exp.Arguments = p.parseExpressionList(token.RPAREN)
 	return exp
 }
@@ -2844,11 +2844,11 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 }
 
 func (p *Parser) parseUnwrapExpression(left ast.Expression) ast.Expression {
-	return &ast.UnwrapExpression{Token: p.curToken, Value: left}
+	return &ast.UnwrapExpression{NodeBase: ast.NodeBase{Token: p.curToken}, Value: left}
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
-	exp := &ast.IndexExpression{Token: p.curToken, Left: left}
+	exp := &ast.IndexExpression{NodeBase: ast.NodeBase{Token: p.curToken}, Left: left}
 
 	p.nextToken()
 	exp.Index = p.parseExpression(LOWEST)
@@ -2875,7 +2875,7 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 	if p.peekTokenIs(token.LPAREN) {
 		p.nextToken()
 		mc := &ast.MethodCallExpression{
-			Token:     tok,
+			NodeBase:  ast.NodeBase{Token: tok},
 			Object:    left,
 			Method:    field,
 			Arguments: p.parseExpressionList(token.RPAREN),
@@ -2903,18 +2903,18 @@ func (p *Parser) parseDotExpression(left ast.Expression) ast.Expression {
 			if ident, ok := left.(*ast.Identifier); ok {
 				qualifiedName = ident.Value + "." + field.Value
 			}
-			qualifiedIdent := &ast.Identifier{Token: field.Token, Value: qualifiedName}
+			qualifiedIdent := &ast.Identifier{NodeBase: ast.NodeBase{Token: field.Token}, Value: qualifiedName}
 			return p.parseStructLiteral(qualifiedIdent)
 		}
 	}
 
-	return &ast.FieldAccessExpression{Token: tok, Object: left, Field: field}
+	return &ast.FieldAccessExpression{NodeBase: ast.NodeBase{Token: tok}, Object: left, Field: field}
 }
 
 // parseRangeExpression parses a..b range syntax (exclusive end by default, like Rust)
 func (p *Parser) parseRangeExpression(left ast.Expression) ast.Expression {
 	re := &ast.RangeExpression{
-		Token:          p.curToken,
+		NodeBase:       ast.NodeBase{Token: p.curToken},
 		Start:          left,
 		StartInclusive: true,  // a..b includes a
 		EndInclusive:   false, // a..b excludes b (like Rust)
@@ -2934,7 +2934,7 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 	if p.peekTokenIs(token.RBRACKET) {
 		// Empty vector []
 		p.nextToken()
-		return &ast.VecLiteral{Token: startToken, Elements: []ast.Expression{}}
+		return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{}}
 	}
 
 	p.nextToken()
@@ -2946,7 +2946,7 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 		// Handle trailing comma after first element - if next is ], single element Vec
 		if p.peekTokenIs(token.RBRACKET) {
 			p.nextToken()
-			return &ast.VecLiteral{Token: startToken, Elements: []ast.Expression{first}}
+			return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{first}}
 		}
 		p.nextToken() // move to second expression
 		second := p.parseExpression(LOWEST)
@@ -2956,7 +2956,7 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 		if p.peekTokenIs(token.RBRACKET) {
 			p.nextToken()
 			// Always a 2-element Vec (remove implicit Range behavior for [int, int])
-			return &ast.VecLiteral{Token: startToken, Elements: []ast.Expression{first, second}}
+			return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{first, second}}
 		} else if p.peekTokenIs(token.COMMA) {
 			// More than 2 elements - this is a Vec, not a range
 			// Continue parsing remaining elements
@@ -2973,7 +2973,7 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 			if !p.expectPeek(token.RBRACKET) {
 				return nil
 			}
-			return &ast.VecLiteral{Token: startToken, Elements: elements}
+			return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: elements}
 		}
 	}
 
@@ -2984,7 +2984,7 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 		if rangeExpr, ok := first.(*ast.RangeExpression); ok {
 			return rangeExpr
 		}
-		return &ast.VecLiteral{Token: startToken, Elements: []ast.Expression{first}}
+		return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{first}}
 	}
 
 	// This shouldn't happen normally
@@ -2995,11 +2995,11 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 	if rangeExpr, ok := first.(*ast.RangeExpression); ok {
 		return rangeExpr
 	}
-	return &ast.VecLiteral{Token: startToken, Elements: []ast.Expression{first}}
+	return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{first}}
 }
 
 func (p *Parser) parseStructLiteral(name *ast.Identifier) ast.Expression {
-	lit := &ast.StructLiteral{Token: p.curToken, Name: name}
+	lit := &ast.StructLiteral{NodeBase: ast.NodeBase{Token: p.curToken}, Name: name}
 	lit.Fields = make(map[string]ast.Expression)
 
 	p.nextToken() // consume {
@@ -3048,8 +3048,8 @@ func (p *Parser) parseStructFieldValue(lit *ast.StructLiteral) {
 
 func (p *Parser) parseInferredStructLiteral() ast.Expression {
 	lit := &ast.StructLiteral{
-		Token: p.curToken,
-		Name:  &ast.Identifier{Token: p.curToken, Value: ""},
+		NodeBase: ast.NodeBase{Token: p.curToken},
+		Name:     &ast.Identifier{NodeBase: ast.NodeBase{Token: p.curToken}, Value: ""},
 	}
 	lit.Fields = make(map[string]ast.Expression)
 
@@ -3086,8 +3086,8 @@ func (p *Parser) parseInferredStructLiteral() ast.Expression {
 
 func (p *Parser) parseEnumVariantExpression() ast.Expression {
 	ev := &ast.EnumVariantExpression{
-		Token:   p.curToken,
-		Variant: p.ident(),
+		NodeBase: ast.NodeBase{Token: p.curToken},
+		Variant:  p.ident(),
 	}
 
 	if p.peekTokenIs(token.LPAREN) {
@@ -3099,7 +3099,7 @@ func (p *Parser) parseEnumVariantExpression() ast.Expression {
 }
 
 func (p *Parser) parseFunctionLiteral() ast.Expression {
-	lit := &ast.FunctionLiteral{Token: p.curToken}
+	lit := &ast.FunctionLiteral{NodeBase: ast.NodeBase{Token: p.curToken}}
 
 	if !p.expectPeek(token.LPAREN) {
 		return nil

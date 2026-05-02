@@ -164,11 +164,33 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 
 // enum payload error helpers
 func (tc *TypeChecker) errorEnumRequiresPayload(pos ast.Position, variantName string) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("provide payload arguments like `{variantName}(value)`", "VariantName", variantName), strfmt.Named("enum variant '{variantName}' requires payload", "VariantName", variantName))
+	tc.addErrorWithHelp(
+		pos.Line,
+		pos.Column,
+		strfmt.Named(
+			"provide payload arguments like `{variantName}(value)`",
+			"VariantName", variantName,
+		),
+		strfmt.Named(
+			"enum variant '{variantName}' requires payload",
+			"VariantName", variantName,
+		),
+	)
 }
 
 func (tc *TypeChecker) errorEnumNoPayload(pos ast.Position, variantName string) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("remove the parentheses from `{variantName}()`", "VariantName", variantName), strfmt.Named("enum variant '{variantName}' does not accept payload", "VariantName", variantName))
+	tc.addErrorWithHelp(
+		pos.Line,
+		pos.Column,
+		strfmt.Named(
+			"remove the parentheses from `{variantName}()`",
+			"VariantName", variantName,
+		),
+		strfmt.Named(
+			"enum variant '{variantName}' does not accept payload",
+			"VariantName", variantName,
+		),
+	)
 }
 
 func (tc *TypeChecker) errorEnumPayloadCount(
@@ -177,7 +199,20 @@ func (tc *TypeChecker) errorEnumPayloadCount(
 	expected int,
 	got int,
 ) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, strfmt.Named("provide exactly {expected} payload field(s) in order", "Expected", expected), strfmt.Named("enum variant '{variantName}' expects {expected} payload fields, but got {got}", "VariantName", variantName, "Expected", expected, "Got", got))
+	tc.addErrorWithHelp(
+		pos.Line,
+		pos.Column,
+		strfmt.Named(
+			"provide exactly {expected} payload field(s) in order",
+			"Expected", expected,
+		),
+		strfmt.Named(
+			"enum variant '{variantName}' expects {expected} payload fields, but got {got}",
+			"VariantName", variantName,
+			"Expected", expected,
+			"Got", got,
+		),
+	)
 }
 
 // tryMatchEnumCase attempts to resolve a switch case value as an enum variant.
@@ -200,9 +235,11 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 		if !found {
 			return false
 		}
+
 		if variant.HasPayload {
 			tc.errorEnumRequiresPayload(tokenPos(v.Token), v.Value)
 		}
+
 		return true
 
 	case *ast.EnumVariantExpression:
@@ -210,19 +247,32 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(v.Values, variant, variant.Fields, tokenPos(v.Token), v.Variant.Value)
+
+		tc.checkEnumPayloadBindings(
+			v.Values,
+			variant,
+			variant.Fields,
+			tokenPos(v.Token),
+			v.Variant.Value,
+		)
+
 		return true
 
 	case *ast.CallExpression:
 		return tc.matchKnownEnumCallExpr(v, enumDef)
 
 	case *ast.MethodCallExpression:
-		fa := &ast.FieldAccessExpression{Token: v.Token, Object: v.Object, Field: v.Method}
+		fa := &ast.FieldAccessExpression{
+			NodeBase: ast.NodeBase{Token: v.Token},
+			Object:   v.Object,
+			Field:    v.Method,
+		}
 		return tc.matchKnownEnumFieldAccessCall(fa, v.Arguments, enumDef)
 
 	case *ast.FieldAccessExpression:
 		return tc.matchKnownEnumFieldAccess(v, enumDef)
 	}
+
 	return false
 }
 
@@ -234,7 +284,15 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), variantName)
+
+		tc.checkEnumPayloadBindings(
+			ce.Arguments,
+			variant,
+			variant.Fields,
+			tokenPos(ce.Token),
+			variantName,
+		)
+
 		return true
 
 	case *ast.FieldAccessExpression:
@@ -242,28 +300,51 @@ func (tc *TypeChecker) matchKnownEnumCallExpr(ce *ast.CallExpression, enumDef *E
 		if !ok || len(parts) == 0 {
 			return false
 		}
+
 		variantName := parts[len(parts)-1]
 		variant, found := enumDef.Variants[variantName]
 		if !found {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), variantName)
+
+		tc.checkEnumPayloadBindings(
+			ce.Arguments,
+			variant,
+			variant.Fields,
+			tokenPos(ce.Token),
+			variantName,
+		)
+
 		return true
 	}
+
 	return false
 }
 
-func (tc *TypeChecker) matchKnownEnumFieldAccessCall(fa *ast.FieldAccessExpression, args []ast.Expression, enumDef *EnumDef) bool {
+func (tc *TypeChecker) matchKnownEnumFieldAccessCall(
+	fa *ast.FieldAccessExpression,
+	args []ast.Expression,
+	enumDef *EnumDef,
+) bool {
 	parts, ok := fieldAccessParts(fa)
 	if !ok || len(parts) == 0 {
 		return false
 	}
+
 	variantName := parts[len(parts)-1]
 	variant, found := enumDef.Variants[variantName]
 	if !found {
 		return false
 	}
-	tc.checkEnumPayloadBindings(args, variant, variant.Fields, tokenPos(fa.Token), variantName)
+
+	tc.checkEnumPayloadBindings(
+		args,
+		variant,
+		variant.Fields,
+		tokenPos(fa.Token),
+		variantName,
+	)
+
 	return true
 }
 
@@ -272,14 +353,17 @@ func (tc *TypeChecker) matchKnownEnumFieldAccess(fa *ast.FieldAccessExpression, 
 	if !ok || len(parts) == 0 {
 		return false
 	}
+
 	variantName := parts[len(parts)-1]
 	variant, found := enumDef.Variants[variantName]
 	if !found {
 		return false
 	}
+
 	if variant.HasPayload {
 		tc.errorEnumRequiresPayload(tokenPos(fa.Token), variantName)
 	}
+
 	return true
 }
 
@@ -289,7 +373,11 @@ func (tc *TypeChecker) matchFallbackEnumCase(caseValue ast.Expression) bool {
 	case *ast.CallExpression:
 		return tc.matchFallbackEnumCallExpr(v)
 	case *ast.MethodCallExpression:
-		fa := &ast.FieldAccessExpression{Token: v.Token, Object: v.Object, Field: v.Method}
+		fa := &ast.FieldAccessExpression{
+			NodeBase: ast.NodeBase{Token: v.Token},
+			Object:   v.Object,
+			Field:    v.Method,
+		}
 		return tc.matchFallbackEnumFieldAccessCall(fa, v.Arguments)
 	case *ast.FieldAccessExpression:
 		return tc.matchFallbackEnumFieldAccess(v)
@@ -304,7 +392,15 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 		if enumDef == nil {
 			return false
 		}
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, variant.Fields, tokenPos(ce.Token), fn.Value)
+
+		tc.checkEnumPayloadBindings(
+			ce.Arguments,
+			variant,
+			variant.Fields,
+			tokenPos(ce.Token),
+			fn.Value,
+		)
+
 		return true
 
 	case *ast.FieldAccessExpression:
@@ -312,8 +408,17 @@ func (tc *TypeChecker) matchFallbackEnumCallExpr(ce *ast.CallExpression) bool {
 		if !ok {
 			return false
 		}
+
 		fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
-		tc.checkEnumPayloadBindings(ce.Arguments, variant, fieldTypes, tokenPos(ce.Token), fn.Field.Value)
+
+		tc.checkEnumPayloadBindings(
+			ce.Arguments,
+			variant,
+			fieldTypes,
+			tokenPos(ce.Token),
+			fn.Field.Value,
+		)
+
 		return true
 	}
 	return false
@@ -324,9 +429,18 @@ func (tc *TypeChecker) matchFallbackEnumFieldAccessCall(fa *ast.FieldAccessExpre
 	if !ok {
 		return false
 	}
+
 	fieldTypes := tc.qualifyVariantFields(variant.Fields, pkgAlias)
 	variantName := fa.Field.Value
-	tc.checkEnumPayloadBindings(args, variant, fieldTypes, tokenPos(fa.Token), variantName)
+
+	tc.checkEnumPayloadBindings(
+		args,
+		variant,
+		fieldTypes,
+		tokenPos(fa.Token),
+		variantName,
+	)
+
 	return true
 }
 
@@ -335,9 +449,18 @@ func (tc *TypeChecker) matchFallbackEnumFieldAccess(fa *ast.FieldAccessExpressio
 	if !ok {
 		return false
 	}
+
 	if variant.HasPayload {
-		tc.addError(fa.Token.Line, fa.Token.Column, strfmt.Named("enum variant '{Value}' requires payload", "Value", fa.Field.Value))
+		tc.addError(
+			fa.Token.Line,
+			fa.Token.Column,
+			strfmt.Named(
+				"enum variant '{Value}' requires payload",
+				"Value", fa.Field.Value,
+			),
+		)
 	}
+
 	return true
 }
 
@@ -392,15 +515,26 @@ func (tc *TypeChecker) qualifyVariantFields(fields []ast.TypeExpression, pkgAlia
 	return qualified
 }
 
-func (tc *TypeChecker) checkNonEnumCase(caseValue ast.Expression, switchType ast.TypeExpression, ss *ast.SwitchStatement) {
+func (tc *TypeChecker) checkNonEnumCase(
+	caseValue ast.Expression,
+	switchType ast.TypeExpression,
+	ss *ast.SwitchStatement,
+) {
 	caseType := tc.inferType(caseValue)
+
 	if switchType != nil && caseType != nil {
+
 		if !tc.fitsInType(switchType, caseValue) {
-			tc.addError(ss.Token.Line, ss.Token.Column, strfmt.Named(
-				"type mismatch in switch case: expected {expected}, got {got}",
-				"expected", typeToString(switchType),
-				"got", typeToString(caseType),
-			))
+
+			tc.addError(
+				ss.Token.Line,
+				ss.Token.Column,
+				strfmt.Named(
+					"type mismatch in switch case: expected {expected}, got {got}",
+					"expected", typeToString(switchType),
+					"got", typeToString(caseType),
+				),
+			)
 		}
 	}
 }

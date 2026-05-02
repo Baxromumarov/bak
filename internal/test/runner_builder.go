@@ -166,9 +166,11 @@ func buildTestRunner(
 	)
 
 	return &ast.FunctionDecl{
-		Token: token.Token{
-			Type:    token.FUNC,
-			Literal: "func",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.FUNC,
+				Literal: "func",
+			},
 		},
 		Name: identifier("run_all_tests"),
 		ReturnType: &ast.SimpleType{
@@ -208,9 +210,11 @@ func makeVarStatementWithType(
 	value ast.Expression,
 ) *ast.VarStatement {
 	return &ast.VarStatement{
-		Token: token.Token{
-			Type:    token.VAR,
-			Literal: "var",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.VAR,
+				Literal: "var",
+			},
 		},
 		Mutable: mutable,
 		Name:    identifier(name),
@@ -240,9 +244,11 @@ func makeVarStatement(
 	value ast.Expression,
 ) *ast.VarStatement {
 	return &ast.VarStatement{
-		Token: token.Token{
-			Type:    token.VAR,
-			Literal: "var",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.VAR,
+				Literal: "var",
+			},
 		},
 		Mutable: mutable,
 		Name:    identifier(name),
@@ -252,9 +258,11 @@ func makeVarStatement(
 
 func makeExpressionStatement(expr ast.Expression) *ast.ExpressionStatement {
 	return &ast.ExpressionStatement{
-		Token: token.Token{
-			Type:    token.IDENT,
-			Literal: expr.TokenLiteral(),
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.IDENT,
+				Literal: expr.TokenLiteral(),
+			},
 		},
 		Expression: expr,
 	}
@@ -262,9 +270,11 @@ func makeExpressionStatement(expr ast.Expression) *ast.ExpressionStatement {
 
 func makeReturnStatement(expr ast.Expression) *ast.ReturnStatement {
 	return &ast.ReturnStatement{
-		Token: token.Token{
-			Type:    token.RETURN,
-			Literal: "return",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.RETURN,
+				Literal: "return",
+			},
 		},
 		ReturnValue: expr,
 	}
@@ -272,9 +282,11 @@ func makeReturnStatement(expr ast.Expression) *ast.ReturnStatement {
 
 func makeSwitchStatement(value ast.Expression, cases []*ast.SwitchCase) *ast.SwitchStatement {
 	return &ast.SwitchStatement{
-		Token: token.Token{
-			Type:    token.SWITCH,
-			Literal: "switch",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.SWITCH,
+				Literal: "switch",
+			},
 		},
 		Value: value,
 		Cases: cases,
@@ -283,9 +295,11 @@ func makeSwitchStatement(value ast.Expression, cases []*ast.SwitchCase) *ast.Swi
 
 func makeBlockStatement(statements []ast.Statement) *ast.BlockStatement {
 	return &ast.BlockStatement{
-		Token: token.Token{
-			Type:    token.LBRACE,
-			Literal: "{",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.LBRACE,
+				Literal: "{",
+			},
 		},
 		Statements: statements,
 	}
@@ -296,9 +310,11 @@ func callExpression(
 	args ...ast.Expression,
 ) ast.Expression {
 	return &ast.CallExpression{
-		Token: token.Token{
-			Type:    token.LPAREN,
-			Literal: "(",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.LPAREN,
+				Literal: "(",
+			},
 		},
 		Function:  function,
 		Arguments: args,
@@ -311,9 +327,11 @@ func methodCall(
 	args ...ast.Expression,
 ) ast.Expression {
 	return &ast.MethodCallExpression{
-		Token: token.Token{
-			Type:    token.DOT,
-			Literal: ".",
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.DOT,
+				Literal: ".",
+			},
 		},
 		Object:    object,
 		Method:    identifier(method),
@@ -323,9 +341,11 @@ func methodCall(
 
 func enumVariant(name string, values ...ast.Expression) ast.Expression {
 	return &ast.EnumVariantExpression{
-		Token: token.Token{
-			Type:    token.IDENT,
-			Literal: name,
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.IDENT,
+				Literal: name,
+			},
 		},
 		Variant: identifier(name),
 		Values:  values,
@@ -338,9 +358,11 @@ func borrowExpression(mutable bool, value ast.Expression) ast.Expression {
 		literal = "&mut"
 	}
 	return &ast.BorrowExpression{
-		Token: token.Token{
-			Type:    token.AND,
-			Literal: literal,
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.AND,
+				Literal: literal,
+			},
 		},
 		Mutable: mutable,
 		Value:   value,
@@ -349,9 +371,11 @@ func borrowExpression(mutable bool, value ast.Expression) ast.Expression {
 
 func stringLiteral(value string) ast.Expression {
 	return &ast.StringLiteral{
-		Token: token.Token{
-			Type:    token.STRING,
-			Literal: value,
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.STRING,
+				Literal: value,
+			},
 		},
 		Value: value,
 	}
@@ -365,9 +389,11 @@ func boolLiteral(value bool) ast.Expression {
 		tok = token.TRUE
 	}
 	return &ast.BooleanLiteral{
-		Token: token.Token{
-			Type:    tok,
-			Literal: literal,
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    tok,
+				Literal: literal,
+			},
 		},
 		Value: value,
 	}
@@ -375,9 +401,11 @@ func boolLiteral(value bool) ast.Expression {
 
 func identifier(name string) *ast.Identifier {
 	return &ast.Identifier{
-		Token: token.Token{
-			Type:    token.IDENT,
-			Literal: name,
+		NodeBase: ast.NodeBase{
+			Token: token.Token{
+				Type:    token.IDENT,
+				Literal: name,
+			},
 		},
 		Value: name,
 	}

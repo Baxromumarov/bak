@@ -36,18 +36,24 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		}
 	}
 
+	mc := &ast.MethodCallExpression{
+		NodeBase:  ast.NodeBase{Token: ce.Token},
+		Object:    fa2.Object,
+		Method:    fa2.Field,
+		Arguments: ce.Arguments,
+	}
+
 	// Handle String method calls written in call form: s.contains(x)
 	if st, ok := objType.(*ast.SimpleType); ok && st.Name == "string" {
 		for _, arg := range ce.Arguments {
 			tc.inferType(arg)
 		}
-		mc := &ast.MethodCallExpression{Token: ce.Token, Object: fa2.Object, Method: fa2.Field, Arguments: ce.Arguments}
+
 		return tc.checkStringMethodCall(mc), true
 	}
 
 	// Handle Vec method calls in call form
 	if gt, ok := objType.(*ast.GenericType); ok && gt.Name == "Vec" {
-		mc := &ast.MethodCallExpression{Token: ce.Token, Object: fa2.Object, Method: fa2.Field, Arguments: ce.Arguments}
 		return tc.checkVecMethodCall(mc, gt), true
 	}
 
@@ -180,7 +186,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							if !tc.typesMatch(variant.Fields[i], argType) {
 								tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 									typeToString(variant.Fields[i]), typeToString(argType),
-									strfmt.Named("argument {expr} to enum variant '{funcName}'", "Expr", i + 1, "FuncName", funcName),
+									strfmt.Named("argument {expr} to enum variant '{funcName}'", "Expr", i+1, "FuncName", funcName),
 									arg)
 							}
 						}
@@ -328,7 +334,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						if !tc.typesMatch(fieldTypes[i], argType) {
 							tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 								typeToString(fieldTypes[i]), typeToString(argType),
-								strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i + 1, "Value", fa.Field.Value),
+								strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i+1, "Value", fa.Field.Value),
 								arg)
 						}
 					}
@@ -422,7 +428,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				if sig.Parameters[i] != nil && !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
 					tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
 						typeToString(sig.Parameters[i]), typeToString(argType),
-						strfmt.Named("argument {expr} to '{funcName}'", "Expr", i + 1, "FuncName", funcName),
+						strfmt.Named("argument {expr} to '{funcName}'", "Expr", i+1, "FuncName", funcName),
 						arg)
 				}
 

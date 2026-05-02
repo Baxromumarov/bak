@@ -21,7 +21,10 @@ func (tc *TypeChecker) inferStructLiteral(sl *ast.StructLiteral) ast.TypeExpress
 func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structName string) ast.TypeExpression {
 	// Ensure the name is set so later passes can compile it.
 	if sl.Name == nil {
-		sl.Name = &ast.Identifier{Token: sl.Token, Value: structName}
+		sl.Name = &ast.Identifier{
+			NodeBase: ast.NodeBase{Token: sl.Token},
+			Value:    structName,
+		}
 	} else {
 		sl.Name.Value = structName
 	}
@@ -50,7 +53,12 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 	}
 
 	if !ok {
-		tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named("undefined struct: {Value}", "Value", sl.Name.Value))
+		tc.addError(
+			sl.Token.Line,
+			sl.Token.Column,
+			strfmt.Named("undefined struct: {Value}", "Value", sl.Name.Value),
+		)
+
 		return nil
 	}
 
@@ -74,7 +82,15 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			// We don't have the token for the field name key in the map,
 			// so we use the struct token or value token for the error location.
 			// Using the struct token is safer as valueExpr might be complex.
-			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named("field '{fieldName}' of struct '{structName}' is private", "FieldName", fieldName, "StructName", structName))
+			tc.addError(
+				sl.Token.Line,
+				sl.Token.Column,
+				strfmt.Named(
+					"field '{fieldName}' of struct '{structName}' is private",
+					"FieldName", fieldName,
+					"StructName", structName,
+				),
+			)
 		}
 
 		// Mark field as used (propagate to root env)
@@ -88,12 +104,16 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 			// without type assertion in some AST designs, but here Node has TokenLiteral.
 			// TypeChecker usually tracks line/col. inferType handles recursive checks.
 			// We use sl.Token for simplicity unless we want to reflect on valueExpr.
-			tc.addError(sl.Token.Line, sl.Token.Column, strfmt.Named(
-				"field '{fieldName}' expects type {expected}, got {got}",
-				"fieldName", fieldName,
-				"expected", typeToString(fieldDef.Type),
-				"got", typeToString(valueType),
-			))
+			tc.addError(
+				sl.Token.Line,
+				sl.Token.Column,
+				strfmt.Named(
+					"field '{fieldName}' expects type {expected}, got {got}",
+					"fieldName", fieldName,
+					"expected", typeToString(fieldDef.Type),
+					"got", typeToString(valueType),
+				),
+			)
 		}
 
 		// initializedFields[fieldName] = true

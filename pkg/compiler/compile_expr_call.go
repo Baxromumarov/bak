@@ -39,9 +39,9 @@ func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, e
 
 	if fa, ok := c.enumVariantConstructorField(ce.Function); ok {
 		ev := &ast.EnumVariantExpression{
-			Token:   ce.Token,
-			Variant: fa.Field,
-			Values:  ce.Arguments,
+			NodeBase: ast.NodeBase{Token: ce.Token},
+			Variant:  fa.Field,
+			Values:   ce.Arguments,
 		}
 		return true, c.compileEnumVariantExpression(ev)
 	}

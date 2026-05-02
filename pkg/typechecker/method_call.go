@@ -13,12 +13,20 @@ import (
 
 func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpression) (ast.TypeExpression, bool) {
 	ident, ok := mc.Object.(*ast.Identifier)
-	if !ok || ident.Value != "thread" || mc.Method.Value != "spawn" {
+	if !ok ||
+		ident.Value != "thread" ||
+		mc.Method.Value != "spawn" {
+
 		return nil, false
 	}
 
 	if len(mc.Arguments) < 1 {
-		tc.addError(mc.Token.Line, mc.Token.Column, "spawn requires at least a function argument")
+		tc.addError(
+			mc.Token.Line,
+			mc.Token.Column,
+			"spawn requires at least a function argument",
+		)
+
 		return &ast.SimpleType{Name: "thread.Thread"}, true
 	}
 
@@ -31,12 +39,15 @@ func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpressio
 				arg := mc.Arguments[i+1]
 				argType := tc.inferType(arg)
 				if !tc.callArgumentFitsInType(paramType, argType, arg) {
-					tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named(
-						"type mismatch in spawn argument {argIndex}: expected {expected}, got {got}",
-						"argIndex", i+1,
-						"expected", typeToString(paramType),
-						"got", typeToString(argType),
-					))
+					tc.addError(
+						mc.Token.Line,
+						mc.Token.Column,
+						strfmt.Named(
+							"type mismatch in spawn argument {argIndex}: expected {expected}, got {got}",
+							"argIndex", i+1,
+							"expected", typeToString(paramType),
+							"got", typeToString(argType),
+						))
 				}
 				// Enforce move semantics for spawn arguments
 				if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
@@ -154,9 +165,9 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 
 func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpression) (ast.TypeExpression, bool) {
 	enumName, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(&ast.FieldAccessExpression{
-		Token:  mc.Token,
-		Object: mc.Object,
-		Field:  mc.Method,
+		NodeBase: ast.NodeBase{Token: mc.Token},
+		Object:   mc.Object,
+		Field:    mc.Method,
 	})
 	if !ok {
 		return nil, false
@@ -178,29 +189,59 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 
 	if variant.HasPayload {
 		if len(mc.Arguments) != len(fieldTypes) {
-			tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf(msgEnumVariantArgCount, mc.Method.Value, len(fieldTypes), len(mc.Arguments)))
+			tc.addError(
+				mc.Token.Line,
+				mc.Token.Column,
+				fmt.Sprintf(
+					msgEnumVariantArgCount,
+					mc.Method.Value,
+					len(fieldTypes),
+					len(mc.Arguments),
+				),
+			)
 		} else {
 			for i, arg := range mc.Arguments {
 				argType := tc.inferType(arg)
 				if !tc.typesMatch(fieldTypes[i], argType) {
-					tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
-						typeToString(fieldTypes[i]), typeToString(argType),
-						strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i + 1, "Value", mc.Method.Value),
-						arg)
+
+					tc.errorTypeMismatch(
+						mc.Token.Line,
+						mc.Token.Column,
+						typeToString(fieldTypes[i]),
+						typeToString(argType),
+						strfmt.Named(
+							"argument {expr} to enum variant '{Value}'",
+							"Expr", i+1,
+							"Value", mc.Method.Value,
+						),
+						arg,
+					)
 				}
 			}
 		}
 	} else if len(mc.Arguments) > 0 {
-		tc.addError(mc.Token.Line, mc.Token.Column, fmt.Sprintf(msgEnumVariantNoArgs, mc.Method.Value))
+		tc.addError(
+			mc.Token.Line,
+			mc.Token.Column,
+			fmt.Sprintf(msgEnumVariantNoArgs, mc.Method.Value),
+		)
 	}
 
 	tc.clearBorrows(mc.Arguments)
 	if pkgAlias != "" {
 		if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-			return qualifyImportedType(&ast.SimpleType{Name: enumName}, pkgAlias, symbols), true
+			return qualifyImportedType(
+				&ast.SimpleType{Name: enumName},
+				pkgAlias,
+				symbols,
+			), true
 		}
-		return &ast.SimpleType{Name: pkgAlias + "." + enumName}, true
+
+		return &ast.SimpleType{
+			Name: pkgAlias + "." + enumName,
+		}, true
 	}
+
 	return &ast.SimpleType{Name: enumName}, true
 }
 
@@ -219,13 +260,18 @@ func (tc *TypeChecker) tryInferStaticCollectionMethodCall(mc *ast.MethodCallExpr
 		}
 	}
 
+	genericHM := &ast.GenericType{
+		Name: "HashMap",
+		TypeParams: []ast.TypeExpression{
+			&ast.SimpleType{Name: "K"},
+			&ast.SimpleType{Name: "V"},
+		},
+	}
+
 	if ident.Value == "HashMap" {
 		switch mc.Method.Value {
 		case "new":
-			return &ast.GenericType{Name: "HashMap", TypeParams: []ast.TypeExpression{
-				&ast.SimpleType{Name: "K"},
-				&ast.SimpleType{Name: "V"},
-			}}, true
+			return genericHM, true
 		case "withCap":
 			if len(mc.Arguments) == 1 {
 				argType := tc.inferType(mc.Arguments[0])
@@ -235,10 +281,7 @@ func (tc *TypeChecker) tryInferStaticCollectionMethodCall(mc *ast.MethodCallExpr
 			} else {
 				tc.addError(mc.Token.Line, mc.Token.Column, "HashMap.withCap expects exactly 1 argument")
 			}
-			return &ast.GenericType{Name: "HashMap", TypeParams: []ast.TypeExpression{
-				&ast.SimpleType{Name: "K"},
-				&ast.SimpleType{Name: "V"},
-			}}, true
+			return genericHM, true
 		}
 	}
 
@@ -302,7 +345,10 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			Name: "Vec",
 			TypeParams: []ast.TypeExpression{
 				at.ElemType,
-				&ast.SizeExpression{Value: at.Size, IsDynamic: at.IsDynamic},
+				&ast.SizeExpression{
+					Value:     at.Size,
+					IsDynamic: at.IsDynamic,
+				},
 			},
 		}
 		return tc.checkVecMethodCall(mc, vecType)
@@ -313,7 +359,12 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 		if tc.isTypeParamName(st.Name) || st.Name == "any" {
 			return tc.checkTypeParamMethodCall(st.Name, mc)
 		}
-		if tc.isIntegerType(st) || tc.isFloatType(st) || st.Name == "char" || st.Name == "bool" {
+
+		if tc.isIntegerType(st) ||
+			tc.isFloatType(st) ||
+			st.Name == "char" ||
+			st.Name == "bool" {
+
 			return tc.checkPrimitiveMethodCall(st.Name, mc)
 		}
 	}
@@ -351,6 +402,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			if len(mc.Arguments) != 0 {
 				tc.addError(mc.Token.Line, mc.Token.Column, "join takes no arguments")
 			}
+
 			return &ast.VoidType{}
 		}
 	}
@@ -384,12 +436,17 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 		return nil, false
 	}
 
-	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named(
-			"method '{method}' of struct '{structName}' is private",
-			"method", mc.Method.Value,
-			"structName", ident.Value,
-		))
+	if methodSig.Visibility != ast.Public &&
+		structDef.Package != tc.currentPkgName {
+		tc.addError(
+			mc.Token.Line,
+			mc.Token.Column,
+			strfmt.Named(
+				"method '{method}' of struct '{structName}' is private",
+				"method", mc.Method.Value,
+				"structName", ident.Value,
+			),
+		)
 	}
 	for i, arg := range mc.Arguments {
 		if i < len(methodSig.Parameters) {
@@ -462,8 +519,19 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 		methodSig = &sigCopy
 	}
 
-	if methodSig.Visibility != ast.Public && structDef.Package != tc.currentPkgName {
-		tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named("method '{Value}' of struct '{structName}' is private", "Value", mc.Method.Value, "StructName", structName))
+	if methodSig.Visibility != ast.Public &&
+		structDef.Package != tc.currentPkgName {
+
+		tc.addError(
+			mc.Token.Line,
+			mc.Token.Column,
+			strfmt.Named(
+				"method '{Value}' of struct '{structName}' is private",
+				"Value", mc.Method.Value,
+				"StructName", structName,
+			),
+		)
+
 	}
 
 	if len(mc.Arguments) != len(methodSig.Parameters) {
@@ -488,7 +556,15 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 			if id, ok := mc.Object.(*ast.Identifier); ok {
 				name = strfmt.Named("variable '{Value}'", "Value", id.Value)
 			}
-			tc.addError(mc.Token.Line, mc.Token.Column, strfmt.Named("cannot call mutable method '{Value}' on immutable {name}", "Value", mc.Method.Value, "Name", name))
+			tc.addError(
+				mc.Token.Line,
+				mc.Token.Column,
+				strfmt.Named(
+					"cannot call mutable method '{Value}' on immutable {name}",
+					"Value", mc.Method.Value,
+					"Name", name,
+				),
+			)
 		}
 	}
 

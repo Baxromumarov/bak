@@ -9,9 +9,7 @@ const maxSuggestionCandidates = 100
 
 func (tc *TypeChecker) suggestIdentifiers(name string, limit int) []string {
 	cands := tc.collectIdentifierCandidates()
-	if len(cands) > maxSuggestionCandidates {
-		cands = cands[:maxSuggestionCandidates]
-	}
+
 	return bestSuggestions(name, cands, limit)
 }
 
@@ -20,6 +18,7 @@ func (tc *TypeChecker) suggestTypeNames(name string, limit int) []string {
 	if len(cands) > maxSuggestionCandidates {
 		cands = cands[:maxSuggestionCandidates]
 	}
+
 	return bestSuggestions(name, cands, limit)
 }
 
@@ -28,10 +27,15 @@ func (tc *TypeChecker) suggestFunctionNames(name string, limit int) []string {
 	if len(cands) > maxSuggestionCandidates {
 		cands = cands[:maxSuggestionCandidates]
 	}
+
 	return bestSuggestions(name, cands, limit)
 }
 
 func (tc *TypeChecker) suggestTypeFix(expected, got string) string {
+	// Standardize input by removing spaces for comparison
+	expected = strings.ReplaceAll(expected, " ", "")
+	got = strings.ReplaceAll(got, " ", "")
+
 	if strings.HasPrefix(expected, "Result<") && !strings.HasPrefix(got, "Result<") {
 		return "wrap with Ok(...) or Err(...) to convert to Result"
 	}
@@ -311,36 +315,43 @@ func suggestionThreshold(name string) int {
 }
 
 func levenshteinDistance(a, b string) int {
-	ar := []rune(a)
-	br := []rune(b)
-	if len(ar) == 0 {
-		return len(br)
+	ar, br := []rune(a), []rune(b)
+	if len(ar) < len(br) {
+		ar, br = br, ar
 	}
-	if len(br) == 0 {
-		return len(ar)
+
+	n, m := len(ar), len(br)
+	if m == 0 {
+		return n
 	}
-	prev := make([]int, len(br)+1)
-	for j := 0; j <= len(br); j++ {
+
+	prev := make([]int, m+1)
+	curr := make([]int, m+1)
+
+	for j := 0; j <= m; j++ {
 		prev[j] = j
 	}
-	for i := 1; i <= len(ar); i++ {
-		curr := make([]int, len(br)+1)
-		curr[0] = i
-		for j := 1; j <= len(br); j++ {
-			cost := 0
-			if ar[i-1] != br[j-1] {
-				cost = 1
-			}
-			del := prev[j] + 1
-			ins := curr[j-1] + 1
-			sub := prev[j-1] + cost
-			curr[j] = minInt(del, ins, sub)
-		}
-		prev = curr
-	}
-	return prev[len(br)]
-}
 
+	for i := 1; i <= n; i++ {
+		curr[0] = i
+		for j := 1; j <= m; j++ {
+			cost := 1
+			if ar[i-1] == br[j-1] {
+				cost = 0
+			}
+
+			curr[j] = minInt(
+				prev[j]+1,      // Deletion
+				curr[j-1]+1,    // Insertion
+				prev[j-1]+cost, // Substitution
+			)
+		}
+
+		copy(prev, curr)
+	}
+
+	return prev[m]
+}
 func minInt(a, b, c int) int {
 	if a <= b && a <= c {
 		return a

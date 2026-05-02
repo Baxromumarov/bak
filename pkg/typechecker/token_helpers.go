@@ -3,10 +3,7 @@ package typechecker
 import (
 	"reflect"
 
-	"strconv"
-
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typestr"
 )
@@ -18,21 +15,6 @@ func TypeToString(t ast.TypeExpression) string {
 
 func typeToString(t ast.TypeExpression) string {
 	return typestr.RenderType(t)
-}
-
-func describeNodeToken(node ast.Node) string {
-	if node == nil {
-		return ""
-	}
-	if tok, ok := extractTokenFromNode(node); ok {
-		if tok.Literal != "" {
-			return strfmt.Named("{Type} ({Literal})", "Type", tok.Type, "Literal", strconv.Quote(tok.Literal))
-		}
-
-		return string(tok.Type)
-	}
-
-	return node.TokenLiteral()
 }
 
 type tokenExtractor interface{ GetToken() token.Token }
