@@ -78,6 +78,16 @@ func Format(pattern string, v any) string {
 	return formatNamed(pattern, lookup)
 }
 
+// FormatMap replaces "{key}" using a plain map[string]any.
+// This is the preferred entry-point for the diagnostics catalog, where the
+// typechecker passes structured data instead of pre-formatted strings.
+func FormatMap(pattern string, data map[string]any) string {
+	if len(data) == 0 {
+		return pattern
+	}
+	return formatNamed(pattern, data)
+}
+
 // =============================================================================
 // Internal Helpers
 // =============================================================================

@@ -122,18 +122,7 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatchAt(
 
 func (tc *TypeChecker) errorMissingReturnAt(pos ast.Position, expected ast.TypeExpression) {
 	expectedName := typeToString(expected)
-	help := "add a return statement"
-	if expectedName != "" && expectedName != "void" {
-		help = strfmt.Named(helpAddReturn, "ExpectedName", expectedName)
-	}
-	diag := tc.baseDiagnostic(
-		diagnostics.ErrMissingReturn,
-		pos,
-		strfmt.Named(
-			missingReturnFormat,
-			"ExpectedName", expectedName,
-		),
-	)
-	diag.Help = help
-	tc.emitError(diag)
+	tc.emit(diagnostics.ErrMissingReturn, pos, map[string]any{
+		"expectedName": expectedName,
+	})
 }

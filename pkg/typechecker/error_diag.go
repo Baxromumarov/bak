@@ -139,6 +139,70 @@ func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 	}
 }
 
+// emit is the fluent diagnostics API.
+// The TypeChecker identifies the pathogen (the bug) by code, and the
+// diagnostics catalog provides the specific antibody (message) to neutralize
+// confusion for the user.
+//
+// Example:
+//
+//	tc.emit(diagnostics.ErrMissingReturn, pos, map[string]any{
+//	    "expectedName": typeToString(expected),
+//	})
+func (tc *TypeChecker) emit(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any) {
+	level, msg, help := diagnostics.Render(code, data)
+	d := diagnostics.Diagnostic{
+		Code:    code,
+		Level:   level,
+		Message: msg,
+		Help:    help,
+		Line:    pos.Line,
+		Column:  pos.Column,
+		File:    tc.currentPkgPath,
+	}
+	tc.emitter.Emit(d)
+	if level == diagnostics.LevelError {
+		tc.hasFatalError = true
+	}
+}
+
+// emitWithHelp is like emit but overrides the catalog help text.
+func (tc *TypeChecker) emitWithHelp(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, help string) {
+	level, msg, _ := diagnostics.Render(code, data)
+	d := diagnostics.Diagnostic{
+		Code:    code,
+		Level:   level,
+		Message: msg,
+		Help:    help,
+		Line:    pos.Line,
+		Column:  pos.Column,
+		File:    tc.currentPkgPath,
+	}
+	tc.emitter.Emit(d)
+	if level == diagnostics.LevelError {
+		tc.hasFatalError = true
+	}
+}
+
+// emitWithNotes is like emit but attaches additional notes.
+func (tc *TypeChecker) emitWithNotes(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, notes []diagnostics.Note) {
+	level, msg, help := diagnostics.Render(code, data)
+	d := diagnostics.Diagnostic{
+		Code:    code,
+		Level:   level,
+		Message: msg,
+		Help:    help,
+		Line:    pos.Line,
+		Column:  pos.Column,
+		File:    tc.currentPkgPath,
+		Notes:   notes,
+	}
+	tc.emitter.Emit(d)
+	if level == diagnostics.LevelError {
+		tc.hasFatalError = true
+	}
+}
+
 func (tc *TypeChecker) emitWarning(
 	code diagnostics.DiagnosticCode,
 	line,

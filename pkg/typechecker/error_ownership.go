@@ -125,12 +125,8 @@ func (tc *TypeChecker) errorMutabilityRequiredAt(
 		helpMsg = "mark the method as 'mut func'"
 	}
 
-	tc.addFatalError(TypeError{
-		Code:   diagnostics.ErrMutabilityRequired,
-		Tier:   TierFatal,
-		Line:   pos.Line,
-		Column: pos.Column,
-		Message: strfmt.Named("cannot {operation} on immutable variable '{varName}'", "Operation", operation, "VarName", varName),
-		Help: helpMsg,
-	})
+	tc.emitWithHelp(diagnostics.ErrMutabilityRequired, pos, map[string]any{
+		"operation": operation,
+		"varName":   varName,
+	}, helpMsg)
 }
