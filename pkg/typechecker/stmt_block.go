@@ -107,8 +107,7 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 
 		valueType := tc.inferType(as.Value)
 		tc.errorTypeMismatch(
-			as.Token.Line,
-			as.Token.Column,
+			tokenPos(as.Token),
 			typeToString(varInfo.Type),
 			typeToString(valueType),
 			strfmt.Named("assignment to variable '{varName}'", "VarName", varName),

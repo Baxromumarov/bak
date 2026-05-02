@@ -148,7 +148,7 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	for i, arg := range mc.Arguments {
 		argType := argTypes[i]
 		if !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
-			tc.errorTypeMismatch(mc.Token.Line, mc.Token.Column,
+			tc.errorTypeMismatch(tokenPos(mc.Token),
 				typeToString(sig.Parameters[i]), typeToString(argType),
 				strfmt.Named(
 					"argument {argIndex} to '{receiver}.{method}'",
@@ -205,8 +205,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 				if !tc.typesMatch(fieldTypes[i], argType) {
 
 					tc.errorTypeMismatch(
-						mc.Token.Line,
-						mc.Token.Column,
+						tokenPos(mc.Token),
 						typeToString(fieldTypes[i]),
 						typeToString(argType),
 						strfmt.Named(
@@ -453,8 +452,7 @@ func (tc *TypeChecker) resolveStaticStructMethodCall(mc *ast.MethodCallExpressio
 			argType := tc.inferType(arg)
 			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
 				tc.errorMethodArgumentTypeMismatch(
-					mc.Token.Line,
-					mc.Token.Column,
+					tokenPos(mc.Token),
 					i+1,
 					ident.Value,
 					mc.Method.Value,
@@ -577,8 +575,7 @@ func (tc *TypeChecker) checkStructMethodCall(mc *ast.MethodCallExpression, baseT
 			argType := tc.inferType(arg)
 			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
 				tc.errorMethodArgumentTypeMismatch(
-					mc.Token.Line,
-					mc.Token.Column,
+					tokenPos(mc.Token),
 					i+1,
 					receiverName,
 					mc.Method.Value,

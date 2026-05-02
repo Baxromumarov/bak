@@ -28,23 +28,22 @@ func argumentCountHelp(expected, got int) string {
 	}
 }
 
-func replacementFix(
+func makeReplacementFix(
 	title,
 	fromText,
 	toText string,
-	line,
-	col int,
+	pos ast.Position,
 ) diagnostics.Fix {
 	width := utf8.RuneCountInString(fromText)
 	if width <= 0 {
 		width = 1
 	}
-	startLine := line
+	startLine := pos.Line
 	if startLine <= 0 {
 		startLine = 1
 	}
 
-	startColumn := col
+	startColumn := pos.Column
 	if startColumn <= 0 {
 		startColumn = 1
 	}
@@ -83,8 +82,7 @@ func suggestionsHelp(suggestions []string, fallback string) string {
 func suggestionFixes(
 	fromText string,
 	suggestions []string,
-	line,
-	col int,
+	pos ast.Position,
 ) []diagnostics.Fix {
 	if len(suggestions) == 0 {
 		return nil
@@ -93,15 +91,14 @@ func suggestionFixes(
 	fixes := make([]diagnostics.Fix, 0, len(suggestions))
 
 	for _, suggestion := range suggestions {
-		fixes = append(fixes, replacementFix(
+		fixes = append(fixes, makeReplacementFix(
 			strfmt.Named(
 				"Replace with '{suggestion}'",
 				"Suggestion", suggestion,
 			),
 			fromText,
 			suggestion,
-			line,
-			col,
+			pos,
 		))
 	}
 
@@ -116,8 +113,7 @@ func fixFromNodeReplacement(
 	title,
 	replacement string,
 	node ast.Node,
-	fallbackLine,
-	fallbackCol int,
+	fallbackPos ast.Position,
 ) (
 	diagnostics.Fix,
 	bool,
@@ -127,20 +123,18 @@ func fixFromNodeReplacement(
 		return diagnostics.Fix{}, false
 	}
 
-	line := fallbackLine
-	col := fallbackCol
+	pos := fallbackPos
 
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
-		line = tok.Line
-		col = tok.Column
+		pos.Line = tok.Line
+		pos.Column = tok.Column
 	}
 
-	return replacementFix(
+	return makeReplacementFix(
 		title,
 		textProvider.String(),
 		replacement,
-		line,
-		col,
+		pos,
 	), true
 }
 
@@ -148,8 +142,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 	expected,
 	got string,
 	node ast.Node,
-	line,
-	col int,
+	pos ast.Position,
 ) []diagnostics.Fix {
 	if node == nil {
 		return nil
@@ -161,7 +154,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 		replacement string,
 	) []diagnostics.Fix {
 
-		fix, ok := fixFromNodeReplacement(title, replacement, node, line, col)
+		fix, ok := fixFromNodeReplacement(title, replacement, node, pos)
 		if !ok {
 			return fixes
 		}
@@ -192,8 +185,7 @@ func (tc *TypeChecker) typeMismatchFixes(
 		)
 	}
 
-	if (expected == "int" || strings.HasPrefix(expected, "int")) &&
-		strings.HasPrefix(got, "float") {
+	if (expected == "int" || strings.HasPrefix(expected, "int")) && strings.HasPrefix(got, "float") {
 		fixes = addFix(
 			fixes,
 			"Convert to int(...)",

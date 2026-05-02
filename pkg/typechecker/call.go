@@ -140,8 +140,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 			argType := tc.inferType(arg)
 			if argType != nil && !tc.callArgumentFitsInType(methodSig.Parameters[i], argType, arg) {
 				tc.errorMethodArgumentTypeMismatch(
-					ce.Token.Line,
-					ce.Token.Column,
+					tokenPos(ce.Token),
 					i+1,
 					receiverName,
 					fa2.Field.Value,
@@ -184,7 +183,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						for i, arg := range ce.Arguments {
 							argType := tc.inferType(arg)
 							if !tc.typesMatch(variant.Fields[i], argType) {
-								tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
+								tc.errorTypeMismatch(tokenPos(ce.Token),
 									typeToString(variant.Fields[i]), typeToString(argType),
 									strfmt.Named("argument {expr} to enum variant '{funcName}'", "Expr", i+1, "FuncName", funcName),
 									arg)
@@ -205,7 +204,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				} else {
 					argType := tc.inferType(ce.Arguments[0])
 					if !tc.typesMatch(underlyingType, argType) {
-						tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
+						tc.errorTypeMismatch(tokenPos(ce.Token),
 							typeToString(underlyingType), typeToString(argType),
 							strfmt.Named("argument to type constructor '{funcName}'", "FuncName", funcName),
 							ce.Arguments[0])
@@ -332,7 +331,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 					for i, arg := range ce.Arguments {
 						argType := tc.inferType(arg)
 						if !tc.typesMatch(fieldTypes[i], argType) {
-							tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
+							tc.errorTypeMismatch(tokenPos(ce.Token),
 								typeToString(fieldTypes[i]), typeToString(argType),
 								strfmt.Named("argument {expr} to enum variant '{Value}'", "Expr", i+1, "Value", fa.Field.Value),
 								arg)
@@ -426,7 +425,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			if i < len(sig.Parameters) {
 				argType := argTypes[i]
 				if sig.Parameters[i] != nil && !tc.callArgumentFitsInType(sig.Parameters[i], argType, arg) {
-					tc.errorTypeMismatch(ce.Token.Line, ce.Token.Column,
+					tc.errorTypeMismatch(tokenPos(ce.Token),
 						typeToString(sig.Parameters[i]), typeToString(argType),
 						strfmt.Named("argument {expr} to '{funcName}'", "Expr", i+1, "FuncName", funcName),
 						arg)

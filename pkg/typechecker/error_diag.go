@@ -41,40 +41,41 @@ func (tc *TypeChecker) buildNotes(note, noteLoc string) []diagnostics.Note {
 
 func (tc *TypeChecker) baseDiagnostic(
 	code diagnostics.DiagnosticCode,
-	line, col int,
+	pos ast.Position,
 	message string,
 ) diagnostics.Diagnostic {
 	return diagnostics.Diagnostic{
 		Code:    code,
 		Level:   diagnostics.LevelError,
 		Message: message,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		File:    tc.currentPkgPath,
 	}
 }
 
-func (tc *TypeChecker) emitSuggestedDiagnostic(
-	code diagnostics.DiagnosticCode,
-	line, col int,
-	file string,
-	message string,
-	help string,
-	fromText string,
-	suggestions []string,
-) {
-	diag := tc.baseDiagnostic(code, line, col, message)
-	if file != "" {
-		diag.File = file
+type suggestedDiagnostic struct {
+	Code        diagnostics.DiagnosticCode
+	Pos         ast.Position
+	File        string
+	Message     string
+	Help        string
+	FromText    string
+	Suggestions []string
+}
+
+func (tc *TypeChecker) emitSuggestedDiagnostic(sd suggestedDiagnostic) {
+	diag := tc.baseDiagnostic(sd.Code, sd.Pos, sd.Message)
+	if sd.File != "" {
+		diag.File = sd.File
 	}
-	diag.Help = help
+	diag.Help = sd.Help
 	diag.Fixes = append(
 		diag.Fixes,
 		suggestionFixes(
-			fromText,
-			suggestions,
-			line,
-			col,
+			sd.FromText,
+			sd.Suggestions,
+			sd.Pos,
 		)...,
 	)
 
@@ -89,8 +90,7 @@ func (tc *TypeChecker) addError(
 ) {
 	tc.emitError(tc.baseDiagnostic(
 		diagnostics.ErrGeneric,
-		line,
-		col,
+		ast.Position{Line: line, Column: col},
 		message,
 	))
 }
@@ -104,8 +104,7 @@ func (tc *TypeChecker) addErrorWithHelp(
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrGeneric,
-		line,
-		col,
+		ast.Position{Line: line, Column: col},
 		message,
 	)
 
@@ -209,8 +208,7 @@ func (tc *TypeChecker) emitMissingTypeErrorAt(
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrMissingType,
-		pos.Line,
-		pos.Column,
+		pos,
 		message,
 	)
 

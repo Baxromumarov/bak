@@ -15,7 +15,7 @@ func (tc *TypeChecker) errorArgumentCountMismatchAt(
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		pos.Line, pos.Column,
+		pos,
 		strfmt.Named("function '{name}' expects {expected} argument(s), but got {got}", "Name", name, "Expected", expected, "Got", got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
@@ -45,7 +45,7 @@ func (tc *TypeChecker) errorArgumentCountRangeMismatchAt(
 
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		pos.Line, pos.Column,
+		pos,
 		strfmt.Named("function '{name}' expects {rangeHint} argument(s), but got {got}", "Name", name, "RangeHint", rangeHint, "Got", got),
 	)
 	diag.Help = help
@@ -62,7 +62,7 @@ func (tc *TypeChecker) errorMethodArgumentCountMismatchAt(
 ) {
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrArgumentCount,
-		pos.Line, pos.Column,
+		pos,
 		strfmt.Named("method '{typeName}.{method}' expects {expected} argument(s), but got {got}", "TypeName", typeName, "Method", method, "Expected", expected, "Got", got),
 	)
 	diag.Help = argumentCountHelp(expected, got)
@@ -78,7 +78,7 @@ func (tc *TypeChecker) errorMissingReturnAt(pos ast.Position, expected ast.TypeE
 	}
 	diag := tc.baseDiagnostic(
 		diagnostics.ErrMissingReturn,
-		pos.Line, pos.Column,
+		pos,
 		strfmt.Named("missing return of type {expectedName}", "ExpectedName", expectedName),
 	)
 	diag.Help = help

@@ -9,8 +9,7 @@ import (
 )
 
 func (tc *TypeChecker) errorTypeMismatch(
-	line,
-	col int,
+	pos ast.Position,
 	expected,
 	got string,
 	context string,
@@ -46,12 +45,12 @@ func (tc *TypeChecker) errorTypeMismatch(
 	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrTypeMismatch,
 		Level:   diagnostics.LevelError,
-		Line:    line,
-		Column:  col,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		File:    tc.currentPkgPath,
 		Message: msg,
 		Help:    help,
-		Fixes:   tc.typeMismatchFixes(expected, got, node, line, col),
+		Fixes:   tc.typeMismatchFixes(expected, got, node, pos),
 	}
 
 	if context != "" {
@@ -91,8 +90,7 @@ func (tc *TypeChecker) errorTypeMismatch(
 }
 
 func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
-	line,
-	col,
+	pos ast.Position,
 	argIndex int,
 	receiverType,
 	methodName string,
@@ -125,26 +123,25 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 		help = "how to fix: " + help
 	}
 
-	diagLine := line
-	diagCol := col
+	diagPos := pos
 	if tok, ok := extractTokenFromNode(argNode); ok && tok.Line > 0 {
-		diagLine = tok.Line
-		diagCol = tok.Column
+		diagPos.Line = tok.Line
+		diagPos.Column = tok.Column
 	}
 
-	diag := tc.baseDiagnostic(diagnostics.ErrArgumentType, diagLine, diagCol, msg)
+	diag := tc.baseDiagnostic(diagnostics.ErrArgumentType, diagPos, msg)
 	diag.Help = help
-	diag.Fixes = tc.typeMismatchFixes(expected, got, argNode, diagLine, diagCol)
+	diag.Fixes = tc.typeMismatchFixes(expected, got, argNode, diagPos)
 
-	if line > 0 && (line != diagLine || col != diagCol) {
+	if pos.Line > 0 && (pos.Line != diagPos.Line || pos.Column != diagPos.Column) {
 		diag.Notes = append(diag.Notes, diagnostics.Note{
 			Message: strfmt.Named(
 				"in call: method '{receiverType}.{methodName}' invoked here",
 				"ReceiverType", receiverType,
 				"MethodName", methodName,
 			),
-			Line:   line,
-			Column: col,
+			Line:   pos.Line,
+			Column: pos.Column,
 			File:   tc.currentPkgPath,
 		})
 	}

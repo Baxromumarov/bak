@@ -31,8 +31,7 @@ func (tc *TypeChecker) errorTypeMismatchAt(
 	node ast.Node,
 ) {
 	tc.errorTypeMismatch(
-		pos.Line,
-		pos.Column,
+		pos,
 		expected,
 		got,
 		context,
