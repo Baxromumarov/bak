@@ -3,8 +3,6 @@
 package typechecker
 
 import (
-	"strings"
-
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
@@ -130,19 +128,6 @@ type TypeChecker struct {
 	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from isOk/isErr guards
 	registry          *packages.Registry                     // package state scoped to this checker run
 	packageCheckers   map[string]*TypeChecker                // imported module checkers scoped to this checker run
-}
-
-func stableFrozenGenericTypeName(name string) bool {
-	base := name
-	if dot := strings.LastIndex(base, "."); dot >= 0 && dot+1 < len(base) {
-		base = base[dot+1:]
-	}
-	switch base {
-	case "Vec", "Result", "HashMap":
-		return true
-	default:
-		return false
-	}
 }
 
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {

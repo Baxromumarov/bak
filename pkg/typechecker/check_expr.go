@@ -42,7 +42,14 @@ func (tc *TypeChecker) checkFieldAssignment(
 	}
 
 	if !tc.checkMutableReceiver(fa.Object) {
-		tc.errorMutabilityRequiredAt(objName, pos, strfmt.Named("assign to field '{Value}'", "Value", fa.Field.Value))
+		tc.errorMutabilityRequiredAt(
+			objName,
+			pos,
+			strfmt.Named(
+				"assign to field '{Value}'",
+				"Value", fa.Field.Value),
+		)
+
 		return
 	}
 
@@ -57,7 +64,11 @@ func (tc *TypeChecker) checkFieldAssignment(
 			pos,
 			typeToString(fieldType),
 			typeToString(valueType),
-			strfmt.Named("field '{objName}.{Value}'", "ObjName", objName, "Value", fa.Field.Value),
+			strfmt.Named(
+				"field '{objName}.{Value}'",
+				"ObjName", objName,
+				"Value", fa.Field.Value,
+			),
 			value,
 		)
 	}

@@ -88,19 +88,6 @@ type Parser struct {
 	recentTokens []token.Token
 }
 
-func stableGenericTypeName(name string) bool {
-	base := name
-	if dot := strings.LastIndex(base, "."); dot >= 0 && dot+1 < len(base) {
-		base = base[dot+1:]
-	}
-	switch base {
-	case "Vec", "Result", "HashMap":
-		return true
-	default:
-		return false
-	}
-}
-
 func (p *Parser) pushContext(ctx string) {
 	if ctx == "" {
 		return

@@ -112,9 +112,6 @@ func (tc *TypeChecker) checkUnusedElements() {
 			unusedStructSpec,
 		)
 		// NOTE: We intentionally do NOT warn about unused struct fields.
-		// Field assignment is part of constructing a value, not dead code.
-		// The struct value may be passed to functions, serialized, etc.
-		// Rust and Go also do not warn about unused struct fields by default.
 	}
 
 	// Check unused imports
@@ -262,6 +259,7 @@ func (tc *TypeChecker) checkImplDecl(id *ast.ImplDecl) {
 		} else {
 			methodTypeParams = mergeTypeParamNames(structDef.TypeParams, typeParamNames(method.TypeParams))
 		}
+
 		restoreTypeParams := tc.setTypeParams(methodTypeParams)
 
 		methodEnv := NewEnclosedTypeEnv(tc.env)
@@ -356,7 +354,11 @@ func (tc *TypeChecker) warnIfUnused(
 	tc.emitWarningAt(
 		spec.code,
 		pos,
-		strfmt.Named("unused {label}: '{name}'", "Label", spec.label, "Name", name),
+		strfmt.Named(
+			"unused {label}: '{name}'",
+			"Label", spec.label,
+			"Name", name,
+		),
 		spec.help,
 	)
 }

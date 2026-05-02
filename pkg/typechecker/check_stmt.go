@@ -56,7 +56,14 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 	case *ast.PanicStatement:
 		msgType := tc.inferType(s.Message)
 		if msgType != nil && !tc.isStringType(msgType) {
-			tc.addError(s.Token.Line, s.Token.Column, strfmt.Named("panic expects string, got {typeToString}", "TypeToString", typeToString(msgType)))
+			tc.addError(
+				s.Token.Line,
+				s.Token.Column,
+				strfmt.Named(
+					"panic expects string, got {typeToString}",
+					"TypeToString", typeToString(msgType),
+				),
+			)
 		}
 	case *ast.UnsafeBlock:
 		tc.checkUnsafeBlock(s)

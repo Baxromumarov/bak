@@ -24,13 +24,34 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		if enumDef, ok := tc.lookupQualifiedEnum(st.Name); ok {
 			if variant, ok := enumDef.Variants[fa2.Field.Value]; ok {
 				if variant.HasPayload && len(ce.Arguments) == 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Named("variant '{Name}.{Value}' requires arguments", "Name", st.Name, "Value", fa2.Field.Value))
+
+					tc.addError(
+						ce.Token.Line,
+						ce.Token.Column,
+						strfmt.Named(
+							"variant '{Name}.{Value}' requires arguments",
+							"Name", st.Name,
+							"Value", fa2.Field.Value,
+						),
+					)
+
 				} else if !variant.HasPayload && len(ce.Arguments) > 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, strfmt.Named("variant '{Name}.{Value}' does not accept arguments", "Name", st.Name, "Value", fa2.Field.Value))
+
+					tc.addError(
+						ce.Token.Line,
+						ce.Token.Column,
+						strfmt.Named(
+							"variant '{Name}.{Value}' does not accept arguments",
+							"Name", st.Name,
+							"Value", fa2.Field.Value,
+						),
+					)
 				}
+
 				for _, arg := range ce.Arguments {
 					tc.inferType(arg)
 				}
+
 				return objType, true
 			}
 		}
@@ -76,14 +97,24 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 		tc.clearBorrows(ce.Arguments)
 		return nil, false
 	}
+
 	methodSigRaw, ok := structDef.Methods[fa2.Field.Value]
 	if !ok {
+
 		methods := make([]string, 0, len(structDef.Methods))
 		for name := range structDef.Methods {
 			methods = append(methods, name)
 		}
-		tc.errorUndefinedMethodAt(structName, fa2.Field.Value, ce.Pos(), methods)
+
+		tc.errorUndefinedMethodAt(
+			structName,
+			fa2.Field.Value,
+			ce.Pos(),
+			methods,
+		)
+
 		tc.clearBorrows(ce.Arguments)
+
 		return nil, false
 	}
 
@@ -209,9 +240,11 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						for i, arg := range ce.Arguments {
 							argType := tc.inferType(arg)
 							if !tc.typesMatch(variant.Fields[i], argType) {
+
 								tc.errorTypeMismatch(
 									ce.Pos(),
-									typeToString(variant.Fields[i]), typeToString(argType),
+									typeToString(variant.Fields[i]),
+									typeToString(argType),
 									strfmt.Named(
 										"argument {expr} to enum variant '{funcName}'",
 										"Expr", i+1,
@@ -223,8 +256,15 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 						}
 					}
 				} else if len(ce.Arguments) > 0 {
-					tc.addError(ce.Token.Line, ce.Token.Column, fmt.Sprintf(msgEnumVariantNoArgs, funcName))
+
+					tc.addError(
+						ce.Token.Line,
+						ce.Token.Column,
+						fmt.Sprintf(msgEnumVariantNoArgs, funcName),
+					)
+
 				}
+
 				tc.clearBorrows(ce.Arguments)
 				return &ast.SimpleType{Name: enumName}
 			}
@@ -248,10 +288,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							ce.Pos(),
 							typeToString(underlyingType), typeToString(argType),
 							strfmt.Named("argument to type constructor '{funcName}'", "FuncName", funcName),
-							ce.Arguments[0])
+							ce.Arguments[0],
+						)
 					}
 				}
+
 				tc.clearBorrows(ce.Arguments)
+
 				return &ast.SimpleType{Name: funcName}
 			}
 
@@ -410,7 +453,11 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			tc.clearBorrows(ce.Arguments)
 			if pkgAlias != "" {
 				if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
-					return qualifyImportedType(&ast.SimpleType{Name: enumName}, pkgAlias, symbols)
+					return qualifyImportedType(
+						&ast.SimpleType{Name: enumName},
+						pkgAlias,
+						symbols,
+					)
 				}
 
 				return &ast.SimpleType{Name: pkgAlias + "." + enumName}
@@ -478,9 +525,11 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 			)
 			// Clear temporary mutable borrows created by &mut arguments
 			tc.clearBorrows(ce.Arguments)
+
 			return sig.ReturnType
 		}
 		// Pre-compute argument types for inference and checking
+
 		argTypes := make([]ast.TypeExpression, len(ce.Arguments))
 		for i, arg := range ce.Arguments {
 			argTypes[i] = tc.inferType(arg)
@@ -510,7 +559,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 
 				// Check for ownership transfer: if the parameter is NOT a borrow type,
 				// and the argument is an identifier, mark it as moved
-				tc.checkCallArgMove(arg, sig.Parameters[i], funcName, ce.Pos())
+				tc.checkCallArgMove(
+					arg,
+					sig.Parameters[i],
+					funcName,
+					ce.Pos(),
+				)
+
 			} else {
 				// Argument beyond function parameters - still type-check it
 				tc.inferType(arg)
@@ -561,6 +616,7 @@ func (tc *TypeChecker) resolveBuiltinSig(
 		for _, arg := range ce.Arguments {
 			tc.inferType(arg)
 		}
+
 		return sig, sig.ReturnType, true
 	}
 
@@ -582,9 +638,11 @@ func (tc *TypeChecker) resolveBuiltinSig(
 				ce.Pos(),
 			)
 		}
+
 		for _, arg := range ce.Arguments {
 			tc.inferType(arg)
 		}
+
 		tc.clearBorrows(ce.Arguments)
 		return sig, builtinSpec.Signature.ReturnType, true
 	}
@@ -593,6 +651,7 @@ func (tc *TypeChecker) resolveBuiltinSig(
 		for _, arg := range ce.Arguments {
 			tc.inferType(arg)
 		}
+
 		return sig, builtinSpec.Signature.ReturnType, true
 	}
 
@@ -602,10 +661,12 @@ func (tc *TypeChecker) resolveBuiltinSig(
 	if builtinSpec.MaxArgs > builtinSpec.MinArgs && len(ce.Arguments) < len(params) {
 		params = params[:len(ce.Arguments)]
 	}
+
 	newSig := &FunctionSig{
 		Parameters: params,
 		ReturnType: builtinSpec.Signature.ReturnType,
 	}
+
 	return newSig, nil, false
 }
 
@@ -633,7 +694,12 @@ func (tc *TypeChecker) inferGenericCallSig(
 	inferred := make(map[string]ast.TypeExpression)
 
 	for i := 0; i < len(ce.Arguments) && i < len(sig.Parameters); i++ {
-		tc.unifyTypes(sig.Parameters[i], argTypes[i], genericParams, inferred)
+		tc.unifyTypes(
+			sig.Parameters[i],
+			argTypes[i],
+			genericParams,
+			inferred,
+		)
 	}
 
 	if len(inferred) > 0 {
@@ -647,6 +713,7 @@ func (tc *TypeChecker) inferGenericCallSig(
 		}
 
 		sig.ReturnType = tc.substituteTypeParams(sig.ReturnType, sig.TypeParams, args)
+
 		for i := range sig.Parameters {
 			sig.Parameters[i] = tc.substituteTypeParams(sig.Parameters[i], sig.TypeParams, args)
 		}
@@ -692,7 +759,7 @@ func (tc *TypeChecker) checkCallArgMove(
 			"mutably borrowed",
 			tc.env.GetBorrowedMutInfo(name),
 		)
-		
+
 		tc.env.MarkPoisoned(name)
 	}
 
