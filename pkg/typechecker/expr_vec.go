@@ -318,7 +318,7 @@ func (tc *TypeChecker) checkVecSet(mc *ast.MethodCallExpression, elemType ast.Ty
 		return &ast.ErrorType{Message: "wrong number of arguments"}
 	}
 	idxType := tc.inferType(mc.Arguments[0])
-	if idxType != nil && !tc.isIntegerType(idxType) {
+	if idxType != nil && !tc.isIntType(idxType) {
 		tc.addErrorAt(callPos, strfmt.Named("set: first argument must be integer, got {typeToString}", "TypeToString", typeToString(idxType)))
 	}
 	if elemType != nil {

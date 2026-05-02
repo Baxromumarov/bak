@@ -40,7 +40,7 @@ func (tc *TypeChecker) inferInfixType(ie *ast.InfixExpression) ast.TypeExpressio
 
 func (tc *TypeChecker) inferArithmeticType(ie *ast.InfixExpression, leftType, rightType ast.TypeExpression, err func(string) ast.TypeExpression) ast.TypeExpression {
 	if tc.isNumericType(leftType) && tc.isNumericType(rightType) {
-		if tc.isIntegerType(leftType) && tc.isIntegerType(rightType) {
+		if tc.isIntType(leftType) && tc.isIntType(rightType) {
 			if resolved, ok := tc.reconcileIntegerTypes(ie.Left, ie.Right, leftType, rightType); ok {
 				return resolved
 			}
@@ -61,7 +61,7 @@ func (tc *TypeChecker) inferArithmeticType(ie *ast.InfixExpression, leftType, ri
 }
 
 func (tc *TypeChecker) inferBitwiseType(ie *ast.InfixExpression, leftType, rightType ast.TypeExpression, err func(string) ast.TypeExpression) ast.TypeExpression {
-	if tc.isIntegerType(leftType) && tc.isIntegerType(rightType) {
+	if tc.isIntType(leftType) && tc.isIntType(rightType) {
 		if resolved, ok := tc.reconcileIntegerTypes(ie.Left, ie.Right, leftType, rightType); ok {
 			return resolved
 		}
@@ -71,7 +71,7 @@ func (tc *TypeChecker) inferBitwiseType(ie *ast.InfixExpression, leftType, right
 }
 
 func (tc *TypeChecker) inferShiftType(ie *ast.InfixExpression, leftType, rightType ast.TypeExpression, err func(string) ast.TypeExpression) ast.TypeExpression {
-	if tc.isIntegerType(leftType) && tc.isIntegerType(rightType) {
+	if tc.isIntType(leftType) && tc.isIntType(rightType) {
 		constVal, isConst := tc.integerConstValue(ie.Right)
 		if !tc.sameConcreteType(leftType, rightType) && !isConst {
 			return err("shift amount must have the same type as the left operand")
@@ -132,7 +132,7 @@ func (tc *TypeChecker) inferPrefixType(pe *ast.PrefixExpression) ast.TypeExpress
 		if tc.isBoolType(rightType) {
 			return &ast.SimpleType{Name: "bool"}
 		}
-		if tc.isIntegerType(rightType) {
+		if tc.isIntType(rightType) {
 			return rightType
 		}
 		return err("NOT requires bool or integer operand")

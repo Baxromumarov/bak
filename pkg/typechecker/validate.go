@@ -12,20 +12,19 @@ import (
 
 func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 	switch e := expr.(type) {
-	case *ast.IntegerLiteral, *ast.FloatLiteral, *ast.StringLiteral, *ast.BooleanLiteral,
-		*ast.CharLiteral:
-		return true
-	case *ast.Identifier:
-		// Check if identifier refers to another constant or enum variant
-		// For now, allow identifiers (they could be other constants)
+	case *ast.IntegerLiteral,
+		*ast.FloatLiteral,
+		*ast.StringLiteral,
+		*ast.BooleanLiteral,
+		*ast.CharLiteral,
+		*ast.EnumVariantExpression,
+		*ast.Identifier:
+
 		return true
 	case *ast.PrefixExpression:
 		return tc.isCompileTimeConstant(e.Right)
 	case *ast.InfixExpression:
 		return tc.isCompileTimeConstant(e.Left) && tc.isCompileTimeConstant(e.Right)
-	case *ast.EnumVariantExpression:
-		// Allow enum variant access like Color.Red
-		return true
 	case *ast.FieldAccessExpression:
 		// Allow field access on constants
 		return tc.isCompileTimeConstant(e.Object)
@@ -51,6 +50,7 @@ func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 			}
 		}
 		return false
+
 	default:
 		return false
 	}
@@ -71,14 +71,22 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position)
 		case *ast.SimpleType:
 			// Disallow ambiguous 'float' type name; require explicit float32 or float64
 			if tt.Name == "float" {
-				tc.addError(pos.Line, pos.Column, "invalid type 'float': use 'float32' or 'float64'")
+				tc.addError(
+					pos.Line,
+					pos.Column,
+					"invalid type 'float': use 'float32' or 'float64'",
+				)
+
 				return
 			}
+
 			if tt.Name == "Option" {
 				tc.rejectOptionUsage(pos)
 				return
+
 			}
 			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)
+
 		case *ast.GenericType:
 			if tt.Name == "Option" {
 				tc.rejectOptionUsage(pos)
@@ -87,13 +95,25 @@ func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position)
 				}
 				return
 			}
-			if !stableFrozenGenericTypeName(tt.Name) && !tc.userGenericsAllowedForTypeContext(tt.Token.Filename) {
-				tc.addExperimentalFeatureError(pos, strfmt.Named("generic type `{Name}<...>`", "Name", tt.Name), runtimecap.ExperimentalFeatureUserGenerics)
+			if !stableFrozenGenericTypeName(tt.Name) &&
+				!tc.userGenericsAllowedForTypeContext(tt.Token.Filename) {
+
+				tc.addExperimentalFeatureError(
+					pos,
+					strfmt.Named(
+						"generic type `{Name}<...>`",
+						"Name", tt.Name,
+					),
+					runtimecap.ExperimentalFeatureUserGenerics,
+				)
 			}
+
 			tc.validateTypeName(tt.Name, pos, tt.Token.Filename)
+			
 			for _, p := range tt.TypeParams {
 				walk(p)
 			}
+
 		case *ast.BorrowType:
 			walk(tt.Inner)
 		case *ast.TupleType:

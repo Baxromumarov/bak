@@ -119,7 +119,7 @@ func (tc *TypeChecker) checkFloatMethodCall(
 
 		requireArgs(1)
 
-		if len(argTypes) > 0 && !tc.isIntegerType(argTypes[0]) {
+		if len(argTypes) > 0 && !tc.isIntType(argTypes[0]) {
 			tc.errorTypeMismatchAt(
 				callPos,
 				"int",

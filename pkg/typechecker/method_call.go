@@ -360,7 +360,7 @@ func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExp
 			return tc.checkTypeParamMethodCall(st.Name, mc)
 		}
 
-		if tc.isIntegerType(st) ||
+		if tc.isIntType(st) ||
 			tc.isFloatType(st) ||
 			st.Name == "char" ||
 			st.Name == "bool" {

@@ -241,7 +241,7 @@ func (tc *TypeChecker) inferRangeType(e *ast.RangeExpression) ast.TypeExpression
 	startType := tc.inferType(e.Start)
 	endType := tc.inferType(e.End)
 
-	if startType != nil && !tc.isIntegerType(startType) {
+	if startType != nil && !tc.isIntType(startType) {
 		tc.addError(
 			e.Token.Line,
 			e.Token.Column,
@@ -250,7 +250,7 @@ func (tc *TypeChecker) inferRangeType(e *ast.RangeExpression) ast.TypeExpression
 		return &ast.ErrorType{}
 	}
 
-	if endType != nil && !tc.isIntegerType(endType) {
+	if endType != nil && !tc.isIntType(endType) {
 		tc.addError(
 			e.Token.Line,
 			e.Token.Column,

@@ -112,8 +112,7 @@ type TypeEnv struct {
 
 // TypeChecker performs static type checking
 type TypeChecker struct {
-	emitter *diagnostics.DiagnosticEmitter
-	// errors          []TypeError // Replaced by emitter
+	emitter           *diagnostics.DiagnosticEmitter
 	env               *TypeEnv
 	currentFuncRet    ast.TypeExpression
 	currentReceiver   string                                 // Name of the current method receiver (if any)
@@ -150,6 +149,7 @@ func stableFrozenGenericTypeName(name string) bool {
 
 func experimentalFeatureHelp(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
+
 	return strfmt.Named("enable it by passing --experimental={short}", "Short", short)
 }
 
@@ -162,7 +162,12 @@ func isStdlibSourcePath(path string) bool {
 }
 
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
-	tc.addErrorWithHelp(pos.Line, pos.Column, "Option<T> is not supported; use Result<T, string>", "replace Option/Some/None flows with Result using Ok(...) and Err(...)")
+	tc.addErrorWithHelp(
+		pos.Line,
+		pos.Column,
+		"Option<T> is not supported; use Result<T, string>",
+		"replace Option/Some/None flows with Result using Ok(...) and Err(...)",
+	)
 }
 
 func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
@@ -171,13 +176,16 @@ func (tc *TypeChecker) experimentalFeatureEnabled(feature string) bool {
 
 func (tc *TypeChecker) addExperimentalFeatureError(pos ast.Position, syntax, feature string) {
 	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    diagnostics.ErrExperimentalFeature,
-		Level:   diagnostics.LevelError,
-		Message: strfmt.Named("{syntax} is experimental and disabled by default", "Syntax", syntax),
-		Line:    pos.Line,
-		Column:  pos.Column,
-		File:    tc.currentPkgPath,
-		Help:    experimentalFeatureHelp(feature),
+		Code:  diagnostics.ErrExperimentalFeature,
+		Level: diagnostics.LevelError,
+		Message: strfmt.Named(
+			"{syntax} is experimental and disabled by default",
+			"Syntax", syntax,
+		),
+		Line:   pos.Line,
+		Column: pos.Column,
+		File:   tc.currentPkgPath,
+		Help:   experimentalFeatureHelp(feature),
 	})
 }
 
@@ -195,14 +203,22 @@ func (tc *TypeChecker) userGenericsAllowedForDecl(filename string) bool {
 	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) || isStdlibSourcePath(filename)
 }
 
-func (tc *TypeChecker) reportUserGenericDeclIfDisabled(typeParamCount int, pos ast.Position, filename, syntax string) {
+func (tc *TypeChecker) reportUserGenericDeclIfDisabled(
+	typeParamCount int,
+	pos ast.Position,
+	filename,
+	syntax string,
+) {
+
 	if typeParamCount == 0 || tc.userGenericsAllowedForDecl(filename) {
 		return
 	}
+
 	tc.addExperimentalFeatureError(pos, syntax, runtimecap.ExperimentalFeatureUserGenerics)
 }
 
 func (tc *TypeChecker) userGenericsAllowedForTypeContext(filename string) bool {
+
 	return tc.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) ||
 		isStdlibSourcePath(filename) ||
 		isStdlibSourcePath(tc.currentPkgPath)
