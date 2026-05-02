@@ -6,7 +6,15 @@ import (
 )
 
 func TestExecuteCommandCapturesOutputAndExitCode(t *testing.T) {
-	result, err := ExecuteCommand("sh", []string{"-c", "printf out; printf err >&2; exit 7"}, Permissions{ExecTimeout: DefaultExecTimeout, ExecMaxOutput: DefaultExecMaxOutputBytes})
+	result, err := ExecuteCommand(
+		"sh",
+		[]string{"-c", "printf out; printf err >&2; exit 7"},
+		Permissions{
+			ExecTimeout:   DefaultExecTimeout,
+			ExecMaxOutput: DefaultExecMaxOutputBytes,
+		},
+	)
+
 	if err != nil {
 		t.Fatalf("ExecuteCommand failed: %v", err)
 	}
@@ -31,7 +39,14 @@ func TestExecuteCommandCapturesOutputAndExitCode(t *testing.T) {
 }
 
 func TestExecuteCommandTruncatesCombinedOutput(t *testing.T) {
-	result, err := ExecuteCommand("sh", []string{"-c", "printf abcdef"}, Permissions{ExecTimeout: DefaultExecTimeout, ExecMaxOutput: 3})
+	result, err := ExecuteCommand(
+		"sh",
+		[]string{"-c", "printf abcdef"},
+		Permissions{
+			ExecTimeout:   DefaultExecTimeout,
+			ExecMaxOutput: 3,
+		},
+	)
 	if err != nil {
 		t.Fatalf("ExecuteCommand failed: %v", err)
 	}
@@ -50,7 +65,14 @@ func TestExecuteCommandTruncatesCombinedOutput(t *testing.T) {
 }
 
 func TestExecuteCommandTimesOutWithStableExitCode(t *testing.T) {
-	result, err := ExecuteCommand("sh", []string{"-c", "sleep 1"}, Permissions{ExecTimeout: 20 * time.Millisecond, ExecMaxOutput: DefaultExecMaxOutputBytes})
+	result, err := ExecuteCommand(
+		"sh",
+		[]string{"-c", "sleep 1"},
+		Permissions{
+			ExecTimeout:   20 * time.Millisecond,
+			ExecMaxOutput: DefaultExecMaxOutputBytes,
+		},
+	)
 	if err != nil {
 		t.Fatalf("ExecuteCommand failed: %v", err)
 	}

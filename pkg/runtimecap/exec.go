@@ -65,10 +65,18 @@ func (c *limitedCapture) Write(p []byte) (int, error) {
 func (c *limitedCapture) String() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	return c.buf.String()
 }
 
-func ExecuteCommand(cmdName string, cmdArgs []string, permissions Permissions) (ExecResult, error) {
+func ExecuteCommand(
+	cmdName string,
+	cmdArgs []string,
+	permissions Permissions,
+) (
+	ExecResult,
+	error,
+) {
 	ctx, cancel := context.WithTimeout(context.Background(), permissions.EffectiveExecTimeout())
 	defer cancel()
 
@@ -99,11 +107,11 @@ func ExecuteCommand(cmdName string, cmdArgs []string, permissions Permissions) (
 		result.ExitCode = -1
 		return result, nil
 	default:
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 			result.ExitCode = int64(exitErr.ExitCode())
 			return result, nil
 		}
+		
 		return ExecResult{}, err
 	}
 }

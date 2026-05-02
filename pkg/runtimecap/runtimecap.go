@@ -61,7 +61,11 @@ func AllPermissions() Permissions {
 }
 
 func PermissionError(op string, flag string) string {
-	return strfmt.Named("permission denied: {op} requires {flag}", "Op", op, "Flag", flag)
+	return strfmt.Named(
+		"permission denied: {op} requires {flag}",
+		"Op", op,
+		"Flag", flag,
+	)
 }
 
 func (p Permissions) EffectiveExecTimeout() time.Duration {
@@ -108,6 +112,7 @@ func SetCurrent(p Permissions) func() {
 func normalizeFeatures(features []string) []string {
 	seen := make(map[string]struct{}, len(features))
 	normalized := make([]string, 0, len(features))
+	
 	for _, feature := range features {
 		feature = strings.TrimSpace(feature)
 		if feature == "" {
@@ -119,13 +124,16 @@ func normalizeFeatures(features []string) []string {
 		seen[feature] = struct{}{}
 		normalized = append(normalized, feature)
 	}
+	
 	sort.Strings(normalized)
+
 	return normalized
 }
 
 func CurrentFeatures() []string {
 	featureMu.RLock()
 	defer featureMu.RUnlock()
+
 	return append([]string(nil), currentFeatures...)
 }
 
@@ -134,16 +142,21 @@ func CurrentFeatureEnabled(name string) bool {
 	if name == "" {
 		return false
 	}
+
 	featureMu.RLock()
 	defer featureMu.RUnlock()
+
 	idx := sort.SearchStrings(currentFeatures, name)
+
 	return idx < len(currentFeatures) && currentFeatures[idx] == name
 }
 
 func SetCurrentFeatures(features []string) func() {
 	featureMu.Lock()
 	prev := append([]string(nil), currentFeatures...)
+
 	currentFeatures = normalizeFeatures(features)
+
 	featureMu.Unlock()
 
 	return func() {

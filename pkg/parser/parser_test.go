@@ -9,59 +9,67 @@ import (
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
+func source(input string) string {
+	return strings.TrimSpace(input) + "\n"
+}
+
+func parseValidSource(t *testing.T, input string) *ast.Program {
+	t.Helper()
+
+	p := newTestParser(input)
+	program := p.ParseProgram()
+	checkParserErrors(t, p)
+	return program
+}
+
+func parseSourceWithErrors(input string) *Parser {
+	p := newTestParser(input)
+	p.ParseProgram()
+	return p
+}
+
+func newTestParser(input string) *Parser {
+	return New(lexer.New(input))
+}
+
 func TestFunctionTypeAsParameter(t *testing.T) {
 	t.Parallel()
-	input := `
-	pub func listenAndServe(addr string, handler func(request.Request) -> (response.Response)) -> (Result<void, string>) {
-		return Ok(void)
-	}
-	`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		pub func listenAndServe(addr string, handler func(request.Request) -> (response.Response)) -> (Result<void, string>) {
+			return Ok(void)
+		}
+	`))
 }
 
 func TestParserShorthandVarDeclaration(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var x = 1
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var x = 1
+		}
+	`))
 }
 
 func TestParserShorthandConstBlock(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-const (
-	MAX int = 1
-	MIN int = 2
-)
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		const (
+			MAX int = 1
+			MIN int = 2
+		)
+	`))
 }
 
 func TestParserErrorHintForFunctionParameter(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-pub func foo(handler func(name string count string) -> (void)) -> (void) {
-	return Ok(void)
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
+	p := parseSourceWithErrors(source(`
+		package main
+		pub func foo(handler func(name string count string) -> (void)) -> (void) {
+			return Ok(void)
+		}
+	`))
 	errs := p.Errors()
 	if len(errs) == 0 {
 		t.Fatalf("expected parser errors but got none")
@@ -77,15 +85,12 @@ pub func foo(handler func(name string count string) -> (void)) -> (void) {
 
 func TestParserPeekErrorShowsExpectedAndGot(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-pub func foo(handler func(name string count string) -> (void)) -> (void) {
-	return Ok(void)
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
+	p := parseSourceWithErrors(source(`
+		package main
+		pub func foo(handler func(name string count string) -> (void)) -> (void) {
+			return Ok(void)
+		}
+	`))
 	errs := p.Errors()
 	if len(errs) == 0 {
 		t.Fatalf("expected parser errors but got none")
@@ -101,17 +106,13 @@ pub func foo(handler func(name string count string) -> (void)) -> (void) {
 
 func TestStringLiteralInterpolation(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var i: int = 7
-	println(f"case {i}: {i + 1} | literal {{ok}}")
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var i: int = 7
+			println(f"case {i}: {i + 1} | literal {{ok}}")
+		}
+	`))
 
 	fn := program.Statements[1].(*ast.FunctionDecl)
 	callStmt := fn.Body.Statements[1].(*ast.ExpressionStatement)
@@ -133,16 +134,12 @@ func main() -> (void) {
 
 func TestStringLiteralBracesAreLiteral(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	println("POST /tasks body: {\"title\":\"ship bak\"}")
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			println("POST /tasks body: {\"title\":\"ship bak\"}")
+		}
+	`))
 
 	fn := program.Statements[1].(*ast.FunctionDecl)
 	callStmt := fn.Body.Statements[0].(*ast.ExpressionStatement)
@@ -158,21 +155,18 @@ func main() -> (void) {
 
 func TestStructLiteralFieldRequiresValue(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
+	p := parseSourceWithErrors(source(`
+		package main
 
-struct Person {
-	age: int
-	name: string
-}
+		struct Person {
+			age: int
+			name: string
+		}
 
-func main() -> (void) {
-	var _p: Person = Person{age: 30, name}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
+		func main() -> (void) {
+			var _p: Person = Person{age: 30, name}
+		}
+	`))
 	errs := p.Errors()
 	if len(errs) == 0 {
 		t.Fatalf("expected parser errors but got none")
@@ -190,17 +184,13 @@ func main() -> (void) {
 
 func TestParseStructDecl(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-struct Point {
-	x: int
-	y: int
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		struct Point {
+			x: int
+			y: int
+		}
+	`))
 
 	// package + struct = 2 statements
 	if len(program.Statements) < 2 {
@@ -220,17 +210,13 @@ struct Point {
 
 func TestParseTraceFunctionDecl(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
+	program := parseValidSource(t, source(`
+		package main
 
-trace func work(value int) -> (int) {
-	return value
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+		trace func work(value int) -> (int) {
+			return value
+		}
+	`))
 
 	fd, ok := program.Statements[1].(*ast.FunctionDecl)
 	if !ok {
@@ -246,17 +232,13 @@ trace func work(value int) -> (int) {
 
 func TestParsePubTraceFunctionDecl(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
+	program := parseValidSource(t, source(`
+		package main
 
-pub trace func work() -> (void) {
-	return void
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+		pub trace func work() -> (void) {
+			return void
+		}
+	`))
 
 	fd, ok := program.Statements[1].(*ast.FunctionDecl)
 	if !ok {
@@ -272,16 +254,12 @@ pub trace func work() -> (void) {
 
 func TestParserCanonicalizesVecShorthandToDynamic(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var xs: Vec<int> = Vec.new()
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var xs: Vec<int> = Vec.new()
+		}
+	`))
 
 	fn, ok := program.Statements[1].(*ast.FunctionDecl)
 	if !ok {
@@ -315,18 +293,14 @@ func main() -> (void) {
 
 func TestParseEnumDecl(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-enum Color {
-	Red
-	Green
-	Blue
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		enum Color {
+			Red
+			Green
+			Blue
+		}
+	`))
 
 	if len(program.Statements) < 2 {
 		t.Fatalf("expected at least 2 statements, got %d", len(program.Statements))
@@ -345,17 +319,13 @@ enum Color {
 
 func TestParseEnumWithPayload(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-enum Shape {
-	Circle(float64)
-	Rectangle(float64, float64)
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		enum Shape {
+			Circle(float64)
+			Rectangle(float64, float64)
+		}
+	`))
 
 	if len(program.Statements) < 2 {
 		t.Fatalf("expected at least 2 statements, got %d", len(program.Statements))
@@ -374,21 +344,17 @@ enum Shape {
 
 func TestParseImplDecl(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-struct Counter {
-	count: int
-}
-impl Counter as c {
-	func increment() -> (void) {
-		c.count = c.count + 1
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		struct Counter {
+			count: int
+		}
+		impl Counter as c {
+			func increment() -> (void) {
+				c.count = c.count + 1
+			}
+		}
+	`))
 
 	found := false
 	for _, stmt := range program.Statements {
@@ -409,94 +375,73 @@ impl Counter as c {
 
 func TestParseIfElse(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	if x > 0 {
-		println("positive")
-	} else {
-		println("non-positive")
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			if x > 0 {
+				println("positive")
+			} else {
+				println("non-positive")
+			}
+		}
+	`))
 }
 
 func TestParseWhileLoop(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var i: int = 0
-	while i < 10 {
-		i = i + 1
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var i: int = 0
+			while i < 10 {
+				i = i + 1
+			}
+		}
+	`))
 }
 
 func TestParseForInLoop(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	for item in items {
-		println(item)
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			for item in items {
+				println(item)
+			}
+		}
+	`))
 }
 
 func TestParseSwitchStatement(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	switch x {
-		case 1 {
-			println("one")
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			switch x {
+				case 1 {
+					println("one")
+				}
+				case 2 {
+					println("two")
+				}
+				default {
+					println("other")
+				}
+			}
 		}
-		case 2 {
-			println("two")
-		}
-		default {
-			println("other")
-		}
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	`))
 }
 
 func TestParseGenericFunction(t *testing.T) {
-	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
 	t.Cleanup(restore)
 
-	input := `
-package main
-func identity<T>(x T) -> (T) {
-	return x
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		func identity<T>(x T) -> (T) {
+			return x
+		}
+	`))
 
 	found := false
 	for _, stmt := range program.Statements {
@@ -513,21 +458,16 @@ func identity<T>(x T) -> (T) {
 }
 
 func TestParseGenericStruct(t *testing.T) {
-	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUserGenerics})
 	t.Cleanup(restore)
 
-	input := `
-package main
-struct Pair<A, B> {
-	first: A
-	second: B
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		struct Pair<A, B> {
+			first: A
+			second: B
+		}
+	`))
 
 	found := false
 	for _, stmt := range program.Statements {
@@ -545,61 +485,45 @@ struct Pair<A, B> {
 
 func TestParseVecLiteral(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var nums = [1, 2, 3]
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var nums = [1, 2, 3]
+		}
+	`))
 }
 
 func TestParseMultipleReturnValues(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func divide(a int, b int) -> (int, int) {
-	return a / b, a % b
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func divide(a int, b int) -> (int, int) {
+			return a / b, a % b
+		}
+	`))
 }
 
 func TestParseDeferStatement(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	defer {
-		println("cleanup")
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			defer {
+				println("cleanup")
+			}
+		}
+	`))
 }
 
 func TestParseImportBlock(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-import (
-	"std/io"
-	"std/fmt"
-)
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		import (
+			"std/io"
+			"std/fmt"
+		)
+	`))
 
 	found := false
 	for _, stmt := range program.Statements {
@@ -614,30 +538,22 @@ import (
 
 func TestParseBorrowExpression(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var x: int = 42
-	var y = &x
-	var z = &mut x
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var x: int = 42
+			var y = &x
+			var z = &mut x
+		}
+	`))
 }
 
 func TestParseTypeAlias(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-type UserID = int
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		type UserID = int
+	`))
 
 	found := false
 	for _, stmt := range program.Statements {
@@ -655,45 +571,34 @@ type UserID = int
 
 func TestParseFunctionLiteral(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	var add = func(a int, b int) -> (int) {
-		return a + b
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var add = func(a int, b int) -> (int) {
+				return a + b
+			}
+		}
+	`))
 }
 
 func TestParseResultTypes(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func readFile(path string) -> (Result<string, string>) {
-	return Ok("content")
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func readFile(path string) -> (Result<string, string>) {
+			return Ok("content")
+		}
+	`))
 }
 
 func TestParseOptionTypesRejected(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func find(items int) -> (Option<int>) {
-	return None
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
+	p := parseSourceWithErrors(source(`
+		package main
+		func find(items int) -> (Option<int>) {
+			return None
+		}
+	`))
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected parser errors for Option type usage")
 	}
@@ -701,74 +606,58 @@ func find(items int) -> (Option<int>) {
 
 func TestParseNestedGenericTypeWithOptionRejected(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func process() -> (Result<Option<int>, string>) {
-	return Ok(Some(42))
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
+	p := parseSourceWithErrors(source(`
+		package main
+		func process() -> (Result<Option<int>, string>) {
+			return Ok(Some(42))
+		}
+	`))
 	if len(p.Errors()) == 0 {
 		t.Fatalf("expected parser errors for nested Option type usage")
 	}
 }
 
 func TestParseUnsafeBlock(t *testing.T) {
-	t.Parallel()
 	restore := runtimecap.SetCurrentFeatures([]string{runtimecap.ExperimentalFeatureUnsafe})
 	t.Cleanup(restore)
 
-	input := `
-package main
-func main() -> (void) {
-	unsafe {
-		var x: int = 0
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			unsafe {
+				var x: int = 0
+			}
+		}
+	`))
 }
 
 func TestParseBreakContinue(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-func main() -> (void) {
-	while true {
-		if x > 10 {
-			break
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			while true {
+				if x > 10 {
+					break
+				}
+				continue
+			}
 		}
-		continue
-	}
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	p.ParseProgram()
-	checkParserErrors(t, p)
+	`))
 }
 
 func TestParsePubVisibility(t *testing.T) {
 	t.Parallel()
-	input := `
-package main
-pub struct Config {
-	pub name: string
-	port: int
-}
-pub func init() -> (void) {
-	return void
-}
-`
-	l := lexer.New(input)
-	p := New(l)
-	program := p.ParseProgram()
-	checkParserErrors(t, p)
+	program := parseValidSource(t, source(`
+		package main
+		pub struct Config {
+			pub name: string
+			port: int
+		}
+		pub func init() -> (void) {
+			return void
+		}
+	`))
 
 	for _, stmt := range program.Statements {
 		if sd, ok := stmt.(*ast.StructDecl); ok {

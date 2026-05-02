@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/internal/pipeline"
+	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
@@ -50,7 +50,11 @@ func evalREPLLine(line string, permissions runtimecap.Permissions) (compiler.Val
 	// If the line looks like a statement (ends with ; or contains =),
 	// treat it as body code. Otherwise treat it as an expression to print.
 	var source string
-	if strings.HasSuffix(line, ";") || strings.Contains(line, "=") || strings.HasPrefix(line, "let ") || strings.HasPrefix(line, "mut ") || strings.HasPrefix(line, "var ") {
+	if strings.HasSuffix(line, ";") ||
+		strings.Contains(line, "=") ||
+		strings.HasPrefix(line, "let ") ||
+		strings.HasPrefix(line, "mut ") ||
+		strings.HasPrefix(line, "var ") {
 		source = fmt.Sprintf("package main\nfunc main() {\n%s\n}", line)
 	} else {
 		source = fmt.Sprintf("package main\nfunc main() -> any {\nreturn %s\n}", line)

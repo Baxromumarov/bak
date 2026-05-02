@@ -105,13 +105,18 @@ func stableGenericTypeName(name string) bool {
 
 func featureFlagHint(feature string) string {
 	short := strings.TrimPrefix(feature, "experimental-")
-	return strfmt.Named("enable it by passing `--experimental={short}`", "Short", short)
+
+	return strfmt.Named(
+		"enable it by passing `--experimental={short}`",
+		"Short", short,
+	)
 }
 
 func (p *Parser) experimentalFeatureEnabled(feature string) bool {
 	if feature == runtimecap.ExperimentalFeatureUserGenerics && isStdlibSourcePath(p.filename) {
 		return true
 	}
+
 	return runtimecap.CurrentFeatureEnabled(feature)
 }
 
@@ -124,8 +129,16 @@ func isStdlibSourcePath(path string) bool {
 }
 
 func (p *Parser) reportExperimentalFeature(tok token.Token, syntax, feature string) {
-	core := strfmt.Named("{syntax} is experimental and disabled by default", "Syntax", syntax)
-	p.errors = append(p.errors, p.formatMessage(tokenPos(tok), core, featureFlagHint(feature)))
+	core := strfmt.Named(
+		"{syntax} is experimental and disabled by default",
+		"Syntax", syntax,
+	)
+
+	p.errors = append(p.errors, p.formatMessage(
+		tokenPos(tok),
+		core,
+		featureFlagHint(feature),
+	))
 }
 
 func (p *Parser) pushContext(ctx string) {
@@ -186,8 +199,13 @@ func (p *Parser) recentTokensSummary() string {
 	}
 	parts := make([]string, len(p.recentTokens))
 	for i, tok := range p.recentTokens {
-		parts[i] = strfmt.Named("{Literal}({Type})", "Literal", tok.Literal, "Type", tok.Type)
+		parts[i] = strfmt.Named(
+			"{Literal}({Type})",
+			"Literal", tok.Literal,
+			"Type", tok.Type,
+		)
 	}
+
 	return "recent tokens: " + strings.Join(parts, " ")
 }
 
@@ -213,10 +231,16 @@ func (p *Parser) Diagnostics() []diagnostics.Diagnostic {
 	return p.emitter.Diagnostics()
 }
 
-func (p *Parser) emitParserDiagnostic(pos ast.Position, message, help string, notes []diagnostics.Note) {
+func (p *Parser) emitParserDiagnostic(
+	pos ast.Position,
+	message,
+	help string,
+	notes []diagnostics.Note,
+) {
 	if p.emitter == nil {
 		p.emitter = diagnostics.NewEmitter(p.filename)
 	}
+
 	diag := diagnostics.Diagnostic{
 		Code:    diagnostics.ErrParser,
 		Level:   diagnostics.LevelError,
@@ -227,6 +251,7 @@ func (p *Parser) emitParserDiagnostic(pos ast.Position, message, help string, no
 		Help:    help,
 		Notes:   notes,
 	}
+
 	p.emitter.Emit(diag)
 }
 
@@ -330,7 +355,11 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t token.TokenType) {
-	core := strfmt.Named("expected next token to be {t}, got {describeToken} instead", "T", t, "DescribeToken", p.describeToken(p.peekToken))
+	core := strfmt.Named(
+		"expected next token to be {t}, got {describeToken} instead",
+		"T", t,
+		"DescribeToken", p.describeToken(p.peekToken),
+	)
 
 	msg := p.formatMessage(tokenPos(p.peekToken), core, "")
 
@@ -341,41 +370,80 @@ func (p *Parser) describeToken(tok token.Token) string {
 	if tok.Literal == "" {
 		return string(tok.Type)
 	}
-	return strfmt.Named("{Type} ({Literal})", "Type", tok.Type, "Literal", strconv.Quote(tok.Literal))
+	return strfmt.Named("{Type} ({Literal})",
+		"Type", tok.Type,
+		"Literal", strconv.Quote(tok.Literal),
+	)
 }
 
 func (p *Parser) noPrefixParseFnError(t token.TokenType) {
-	core := strfmt.Named("no prefix parse function for {t} found", "T", t)
+	core := strfmt.Named("no prefix parse function for {t} found",
+		"T", t,
+	)
 	msg := p.formatMessage(tokenPos(p.curToken), core, "")
 	p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) ident() *ast.Identifier {
-	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	return &ast.Identifier{
+		Token: p.curToken,
+		Value: p.curToken.Literal,
+	}
 }
 
-func (p *Parser) formatMessage(pos ast.Position, core string, help string) string {
+func (p *Parser) formatMessage(
+	pos ast.Position,
+	core string,
+	help string,
+) string {
 	return p.formatMessageWithSummary(pos, core, true, help)
 }
 
-func (p *Parser) formatMessageWithSummary(pos ast.Position, core string, includeSummary bool, help string) string {
-	msg := strfmt.Named("line {Line}:{Column}: {core}", "Line", pos.Line, "Column", pos.Column, "Core", core)
+func (p *Parser) formatMessageWithSummary(
+	pos ast.Position,
+	core string,
+	includeSummary bool,
+	help string,
+) string {
+
+	msg := strfmt.Named("line {Line}:{Column}: {core}",
+		"Line", pos.Line,
+		"Column", pos.Column,
+		"Core", core,
+	)
 	diagMsg := core
 
 	if ctx := p.currentContext(); ctx != "" {
-		msg = strfmt.Named("while {ctx}: {msg}", "Ctx", ctx, "Msg", msg)
-		diagMsg = strfmt.Named("{diagMsg} (while {ctx})", "DiagMsg", diagMsg, "Ctx", ctx)
+		msg = strfmt.Named("while {ctx}: {msg}",
+			"Ctx", ctx,
+			"Msg", msg,
+		)
+
+		diagMsg = strfmt.Named("{diagMsg} (while {ctx})",
+			"DiagMsg", diagMsg,
+			"Ctx", ctx,
+		)
 	}
 
 	if intent := p.currentIntent(); intent != "" {
-		msg = strfmt.Named("{msg} (hint: {intent})", "Msg", msg, "Intent", intent)
-		diagMsg = strfmt.Named("{diagMsg} (hint: {intent})", "DiagMsg", diagMsg, "Intent", intent)
+		msg = strfmt.Named("{msg} (hint: {intent})",
+			"Msg", msg,
+			"Intent", intent,
+		)
+		diagMsg = strfmt.Named("{diagMsg} (hint: {intent})",
+			"DiagMsg", diagMsg,
+			"Intent", intent,
+		)
 	}
 
 	var notes []diagnostics.Note
 	if includeSummary {
 		if summary := p.recentTokensSummary(); summary != "" {
-			msg = strfmt.Named("{msg}; {summary}", "Msg", msg, "Summary", summary)
+			msg = strfmt.Named("{msg}; {summary}",
+				"Msg", msg,
+				"Summary", summary,
+			)
+
 			notes = append(notes, diagnostics.Note{Message: summary})
 		}
 	}
@@ -459,7 +527,12 @@ func (p *Parser) ParseProgram() *ast.Program {
 // into two separate tokens for generic type parsing contexts.
 // The current compound token becomes firstType, and a synthetic second token
 // is inserted into the lookahead stream.
-func (p *Parser) splitCompoundToken(firstType token.TokenType, firstLit string, secondType token.TokenType, secondLit string) {
+func (p *Parser) splitCompoundToken(
+	firstType token.TokenType,
+	firstLit string,
+	secondType token.TokenType,
+	secondLit string,
+) {
 	p.nextToken() // consume the compound token
 
 	nextToken := p.peekToken
@@ -477,6 +550,7 @@ func (p *Parser) splitCompoundToken(firstType token.TokenType, firstLit string, 
 		EndLine:   line,
 		EndColumn: col + 1,
 	}
+
 	p.peekToken = token.Token{
 		Type:      secondType,
 		Literal:   secondLit,
@@ -486,6 +560,7 @@ func (p *Parser) splitCompoundToken(firstType token.TokenType, firstLit string, 
 		EndLine:   line,
 		EndColumn: col + 2,
 	}
+
 	p.peek2Token = nextToken
 	p.peek3Token = next2Token
 }
@@ -501,13 +576,31 @@ func (p *Parser) synchronize() {
 		}
 		// If the next token starts a new statement, stop
 		switch p.peekToken.Type {
-		case token.FUNC, token.VAR, token.CONST, token.STRUCT, token.ENUM,
-			token.IMPL, token.IF, token.WHILE, token.FOR, token.SWITCH,
-			token.RETURN, token.IMPORT, token.PUB, token.TYPE, token.ALIAS,
-			token.PACKAGE, token.DEFER, token.PANIC, token.UNSAFE:
+		case token.FUNC,
+			token.VAR,
+			token.CONST,
+			token.STRUCT,
+			token.ENUM,
+			token.IMPL,
+			token.IF,
+			token.WHILE,
+			token.FOR,
+			token.SWITCH,
+			token.RETURN,
+			token.IMPORT,
+			token.PUB,
+			token.TYPE,
+			token.ALIAS,
+			token.PACKAGE,
+			token.DEFER,
+			token.PANIC,
+			token.UNSAFE:
+
 			p.nextToken()
+
 			return
 		}
+
 		p.nextToken()
 	}
 }
@@ -657,6 +750,7 @@ func (p *Parser) isVarDestructuring() bool {
 	if !(p.peek2TokenIs(token.IDENT) || p.peek2TokenIs(token.UNDERSCORE)) {
 		return false
 	}
+
 	return p.peek3TokenIs(token.COMMA) || p.peek3TokenIs(token.RPAREN)
 }
 
@@ -687,7 +781,9 @@ func (p *Parser) parsePubDecl() ast.Statement {
 		}
 		decl, ok := stmt.(*ast.FunctionDecl)
 		if !ok {
-			msg := strfmt.Named("line {Line}: 'pub trace' can only be used before func declarations", "Line", pubToken.Line)
+			msg := strfmt.Named("line {Line}: 'pub trace' can only be used before func declarations",
+				"Line", pubToken.Line,
+			)
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -711,7 +807,9 @@ func (p *Parser) parsePubDecl() ast.Statement {
 	case token.ALIAS:
 		return p.applyPublicModifier(p.parseAliasDecl())
 	default:
-		msg := strfmt.Named("line {Line}: 'pub' can only be used before func, struct, enum, const, type, or alias declarations", "Line", pubToken.Line)
+		msg := strfmt.Named("line {Line}: 'pub' can only be used before func, struct, enum, const, type, or alias declarations",
+			"Line", pubToken.Line,
+		)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -727,7 +825,9 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		return p.markFunctionTraced(p.parseFunctionDecl())
 	case token.PUB:
 		if !p.peekTokenIs(token.FUNC) {
-			msg := strfmt.Named("line {Line}: 'trace pub' can only be used before func declarations", "Line", traceToken.Line)
+			msg := strfmt.Named("line {Line}: 'trace pub' can only be used before func declarations",
+				"Line", traceToken.Line,
+			)
 			p.errors = append(p.errors, msg)
 			return nil
 		}
@@ -740,7 +840,10 @@ func (p *Parser) parseTraceDecl() ast.Statement {
 		decl.Visibility = ast.Public
 		return decl
 	default:
-		msg := strfmt.Named("line {Line}: 'trace' can only be used before func declarations", "Line", traceToken.Line)
+		msg := strfmt.Named("line {Line}: 'trace' can only be used before func declarations",
+			"Line", traceToken.Line,
+		)
+
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -902,7 +1005,11 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 
 // parseMultiVarStatement parses: var (a, b, c) = expr or var (_, b, _) = expr
 func (p *Parser) parseMultiVarStatement(varToken token.Token, mutable bool) *ast.MultiVarStatement {
-	stmt := &ast.MultiVarStatement{Token: varToken, Mutable: mutable}
+	stmt := &ast.MultiVarStatement{
+		Token:   varToken,
+		Mutable: mutable,
+	}
+
 	stmt.Names = []*ast.Identifier{}
 
 	p.nextToken() // consume (
@@ -1062,7 +1169,10 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 	stmt := &ast.ReturnStatement{Token: p.curToken}
 
 	// Check for empty return (return followed by } or ;)
-	if p.peekTokenIs(token.RBRACE) || p.peekTokenIs(token.SEMICOLON) || p.peekTokenIs(token.EOF) {
+	if p.peekTokenIs(token.RBRACE) ||
+		p.peekTokenIs(token.SEMICOLON) ||
+		p.peekTokenIs(token.EOF) {
+
 		return stmt
 	}
 
@@ -1079,7 +1189,12 @@ func (p *Parser) parseReturnStatement() *ast.ReturnStatement {
 			p.nextToken() // move to next expression
 			elements = append(elements, p.parseExpression(LOWEST))
 		}
-		stmt.ReturnValue = &ast.TupleExpression{Token: stmt.Token, Elements: elements}
+
+		stmt.ReturnValue = &ast.TupleExpression{
+			Token:    stmt.Token,
+			Elements: elements,
+		}
+
 	} else {
 		stmt.ReturnValue = first
 	}
@@ -1096,13 +1211,21 @@ func (p *Parser) parseExpressionOrAssignment() ast.Statement {
 	// Check for assignment
 	if p.peekTokenIs(token.ASSIGN) {
 		p.nextToken()
-		stmt := &ast.AssignmentStatement{Token: p.curToken, Left: expr}
+		stmt := &ast.AssignmentStatement{
+			Token: p.curToken,
+			Left:  expr,
+		}
+
 		p.nextToken()
 		stmt.Value = p.parseExpression(LOWEST)
+
 		return stmt
 	}
 
-	return &ast.ExpressionStatement{Token: p.curToken, Expression: expr}
+	return &ast.ExpressionStatement{
+		Token:      p.curToken,
+		Expression: expr,
+	}
 }
 
 func (p *Parser) parseIfStatement() *ast.IfStatement {
@@ -1337,12 +1460,21 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Check for generic parameters
 	if p.peekTokenIs(token.LT) {
-		if !stableGenericTypeName(name) && !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, strfmt.Named("generic type `{name}<...>`", "Name", name), runtimecap.ExperimentalFeatureUserGenerics)
+		if !stableGenericTypeName(name) &&
+			!p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
+
+			p.reportExperimentalFeature(
+				p.peekToken,
+				strfmt.Named("generic type `{name}<...>`", "Name", name),
+				runtimecap.ExperimentalFeatureUserGenerics,
+			)
 		}
 		baseType = p.parseGenericType(tok, name)
 	} else {
-		baseType = &ast.SimpleType{Token: tok, Name: name}
+		baseType = &ast.SimpleType{
+			Token: tok,
+			Name:  name,
+		}
 	}
 
 	return baseType
@@ -1438,23 +1570,39 @@ func (p *Parser) parseBorrowType() *ast.BorrowType {
 }
 
 func (p *Parser) parseGenericType(tok token.Token, name string) ast.TypeExpression {
-	gt := &ast.GenericType{Token: tok, Name: name}
+	gt := &ast.GenericType{
+		Token: tok,
+		Name:  name,
+	}
 	gt.TypeParams = []ast.TypeExpression{}
 
 	p.nextToken() // consume <
 
 	p.nextToken()
 	if p.curTokenIs(token.GT) {
-		msg := p.formatMessage(tokenPos(p.curToken), "expected type parameter after '<' in generic type", "")
+		msg := p.formatMessage(
+			tokenPos(p.curToken),
+			"expected type parameter after '<' in generic type",
+			"",
+		)
+
 		p.errors = append(p.errors, msg)
+
 		return gt
 	}
+
 	// Handle underscore for dynamic size
 	if p.curTokenIs(token.UNDERSCORE) {
-		gt.TypeParams = append(gt.TypeParams, &ast.SizeExpression{Token: p.curToken, IsDynamic: true})
+		gt.TypeParams = append(gt.TypeParams, &ast.SizeExpression{
+			Token:     p.curToken,
+			IsDynamic: true,
+		})
 	} else if p.curTokenIs(token.INT) {
 		val, _ := strconv.ParseInt(p.curToken.Literal, 10, 64)
-		gt.TypeParams = append(gt.TypeParams, &ast.SizeExpression{Token: p.curToken, Value: val})
+		gt.TypeParams = append(gt.TypeParams, &ast.SizeExpression{
+			Token: p.curToken,
+			Value: val,
+		})
 	} else {
 		gt.TypeParams = append(gt.TypeParams, p.parseTypeExpression())
 	}
@@ -1543,7 +1691,11 @@ func (p *Parser) parseFunctionDecl() *ast.FunctionDecl {
 	// Check for generic type parameters: func name<T, U>(...)
 	if p.peekTokenIs(token.LT) {
 		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic function declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(
+				p.peekToken,
+				"generic function declarations",
+				runtimecap.ExperimentalFeatureUserGenerics,
+			)
 		}
 		p.nextToken() // consume '<'
 		fn.TypeParams = p.parseTypeParams()
@@ -1620,7 +1772,10 @@ func (p *Parser) parseReturnTypes() ast.TypeExpression {
 			}
 		}
 
-		return &ast.TupleType{Token: startToken, Elements: types}
+		return &ast.TupleType{
+			Token:    startToken,
+			Elements: types,
+		}
 	}
 
 	// Single return type
@@ -1819,19 +1974,29 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 	// Check for generic type parameters: struct Name<T, U> { ... }
 	if p.peekTokenIs(token.LT) {
 		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic struct declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(
+				p.peekToken,
+				"generic struct declarations",
+				runtimecap.ExperimentalFeatureUserGenerics,
+			)
 		}
 		p.nextToken() // consume '<'
 		stmt.TypeParams = p.parseTypeParams()
 	}
 
 	if !p.peekTokenIs(token.LBRACE) {
-		core := strfmt.Named("expected '{{' to start struct '{Value}' body", "Value", stmt.Name.Value)
+		core := strfmt.Named("expected '{{' to start struct '{Value}' body",
+			"Value", stmt.Name.Value,
+		)
+
 		msg := p.formatMessage(tokenPos(p.peekToken), core, "")
+
 		p.errors = append(p.errors, msg)
+
 		for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 			p.nextToken()
 		}
+
 		return stmt
 	}
 	p.nextToken()
@@ -1887,7 +2052,11 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 	// Check for type parameters
 	if p.peekTokenIs(token.LT) {
 		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic enum declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(
+				p.peekToken,
+				"generic enum declarations",
+				runtimecap.ExperimentalFeatureUserGenerics,
+			)
 		}
 		p.nextToken()
 		stmt.TypeParams = p.parseTypeParams()
@@ -2013,7 +2182,11 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 
 	if p.peekTokenIs(token.LT) {
 		if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-			p.reportExperimentalFeature(p.peekToken, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
+			p.reportExperimentalFeature(
+				p.peekToken,
+				"generic impl declarations",
+				runtimecap.ExperimentalFeatureUserGenerics,
+			)
 		}
 		p.nextToken() // consume '<'
 		firstParams = p.parseTypeParams()
@@ -2034,7 +2207,11 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 		stmt.TypeName = p.ident()
 		if p.peekTokenIs(token.LT) {
 			if !p.experimentalFeatureEnabled(runtimecap.ExperimentalFeatureUserGenerics) {
-				p.reportExperimentalFeature(p.peekToken, "generic impl declarations", runtimecap.ExperimentalFeatureUserGenerics)
+				p.reportExperimentalFeature(
+					p.peekToken,
+					"generic impl declarations",
+					runtimecap.ExperimentalFeatureUserGenerics,
+				)
 			}
 			p.nextToken() // consume '<'
 			stmt.TypeParams = p.parseTypeParams()

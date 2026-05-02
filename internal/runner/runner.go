@@ -15,7 +15,12 @@ func RunVM(
 	permissions runtimecap.Permissions,
 	traceEnabled bool,
 ) error {
-	return p.RunVM(ctx, scriptArgs, permissions, traceEnabled)
+	return p.RunVM(
+		ctx,
+		scriptArgs,
+		permissions,
+		traceEnabled,
+	)
 }
 
 // BuildNative builds a native executable from a pipeline.
@@ -29,5 +34,10 @@ func BuildNative(
 	string,
 	error,
 ) {
-	return p.BuildNative(ctx, outputFile, permissions, traceEnabled)
+	return p.BuildNative(
+		ctx,
+		outputFile,
+		permissions,
+		traceEnabled,
+	)
 }

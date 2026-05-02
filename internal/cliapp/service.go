@@ -95,12 +95,16 @@ func (s *commandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) err
 	if len(opts.Targets) == 0 {
 		opts.Targets = []string{"."}
 	}
-	return internaltest.Run(opts.Targets, ctx.Permissions, ctx.Features, internaltest.Options{
-		Targets:        opts.Targets,
-		RunPattern:     opts.RunPattern,
-		PackageFilters: opts.PackageFilters,
-		Quiet:          opts.Quiet,
-	})
+	return internaltest.Run(
+		opts.Targets,
+		ctx.Permissions,
+		ctx.Features,
+		internaltest.Options{
+			Targets:        opts.Targets,
+			RunPattern:     opts.RunPattern,
+			PackageFilters: opts.PackageFilters,
+			Quiet:          opts.Quiet,
+		})
 }
 
 func (s *commandService) Doctor(root string, _ *cli.Context) error {
