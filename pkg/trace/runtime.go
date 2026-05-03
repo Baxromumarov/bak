@@ -57,7 +57,7 @@ func (s *Scope) Exit(status string, err error) {
 	if s == nil || s.runtime == nil || !s.active {
 		return
 	}
-	
+
 	duration := s.runtime.now().Sub(s.start).Nanoseconds()
 	errText := ""
 	if err != nil {
@@ -85,17 +85,21 @@ func (r *Runtime) emit(
 		" fn=" + fn +
 		" depth=" + strconv.Itoa(depth) +
 		" thread=" + strconv.Itoa(thread)
+
 	if status != "" {
 		line += " status=" + status
 	}
+
 	if event == "exit" {
 		line += " duration_ns=" + strconv.FormatInt(durationNS, 10)
 	}
+
 	if errText != "" {
 		line += " error=" + strconv.Quote(errText)
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
 	_, _ = fmt.Fprintln(r.writer, line)
 }

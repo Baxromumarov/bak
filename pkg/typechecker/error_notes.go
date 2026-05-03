@@ -35,11 +35,28 @@ func extractIdentifierName(node ast.Node) (string, bool) {
 	}
 }
 
+// extractFunctionNameFromContext pulls a function name out of argument-context strings
+// like "argument 1 to 'sum'" or "argument to type constructor 'UserId'".
+func extractFunctionNameFromContext(context string) string {
+	if _, after, ok := strings.Cut(context, " to '"); ok {
+		if idx := strings.Index(after, "'"); idx > 0 {
+			return after[:idx]
+		}
+	}
+	return ""
+}
+
 func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnostics.Note {
 	note := diagnostics.Note{
-		Message: strfmt.Named("where expected: {context} expects type {expected}", "Context", context, "Expected", expected),
+		Message: strfmt.Named(
+			"where expected: {context} expects type {expected}",
+			"Context", context,
+			"Expected", expected,
+		),
 		File: tc.currentPkgPath,
 	}
+
+	// Assignment context → point to the variable declaration.
 	const assignmentPrefix = "assignment to variable '"
 	if after, ok := strings.CutPrefix(context, assignmentPrefix); ok {
 		rest := after
@@ -50,7 +67,22 @@ func (tc *TypeChecker) expectedTypeOriginNote(context, expected string) diagnost
 				note.Column = info.Column
 			}
 		}
+		return note
 	}
+
+	// Function argument context → point to the function declaration.
+	if funcName := extractFunctionNameFromContext(context); funcName != "" {
+		if sig, ok := tc.env.LookupFunction(funcName); ok && sig.Line > 0 {
+			note.Message = strfmt.Named(
+				"function '{funcName}' declared here with parameter of type {expected}",
+				"FuncName", funcName,
+				"Expected", expected,
+			)
+			note.Line = sig.Line
+			note.Column = sig.Column
+		}
+	}
+
 	return note
 }
 

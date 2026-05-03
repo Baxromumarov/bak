@@ -11,9 +11,8 @@ import (
 )
 
 func (s *Server) handleCompletion(req Request) CompletionList {
-
 	var params CompletionParams
-	var out = CompletionList{Items: []CompletionItem{}}
+	out := CompletionList{Items: []CompletionItem{}}
 
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return out
@@ -35,14 +34,13 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			if strings.HasPrefix(path, prefix) {
 				items = append(items, CompletionItem{
 					Label:  path,
-					Kind:   9, // Module
+					Kind:   9,
 					Detail: "std import",
 				})
 			}
 		}
 
 		out.Items = items
-
 		return out
 	}
 
@@ -60,15 +58,8 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	items := []CompletionItem{}
 	if !isDotCompletion {
 		result := s.Cache[params.TextDocument.URI]
-		if structItems := s.completeStructLiteralFields(
-			result,
-			text,
-			params.TextDocument.URI,
-			params.Position,
-		); len(structItems) > 0 {
-
+		if structItems := s.completeStructLiteralFields(result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
 			out.Items = structItems
-
 			return out
 		}
 	}
@@ -76,116 +67,101 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	if qualifier != "" || isDotCompletion {
 		result := s.Cache[params.TextDocument.URI]
 		if result != nil {
+			if qualifier != "" && isDotCompletion {
+				if importItems, handled := s.completeImportedModuleMembers(result, params.TextDocument.URI, qualifier, memberPrefix); handled {
+					out.Items = importItems
+					return out
+				}
+			}
+
 			tc := result.TC
 			astRoot := result.AST
-			if tc == nil ||
-				astRoot == nil ||
-				isDotCompletion {
-				tc, astRoot = s.typecheckForCompletion(
-					text,
-					params.TextDocument.URI,
-					params.Position,
-				)
+			if tc == nil || astRoot == nil || isDotCompletion {
+				tc, astRoot = s.typecheckForCompletion(text, params.TextDocument.URI, params.Position)
 			}
 
-			currentPkg := ""
-			if astRoot != nil {
-				for _, stmt := range astRoot.Statements {
-					if pkgStmt, ok := stmt.(*ast.PackageStatement); ok {
-						currentPkg = pkgStmt.Name.Value
-						break
-					}
-				}
-			}
+			if tc != nil && astRoot != nil {
+				currentPkg := currentPackageName(astRoot)
 
-			addMembers := func(typeStr string, isStatic bool) {
-				if typeStr == "" {
-					return
-				}
-
-				typeStr = resolveAliasTypeString(result, typeStr)
-				baseType := typeStr
-
-				if before, _, ok0 := strings.Cut(typeStr, "<"); ok0 {
-					baseType = before
-				}
-
-				if structDef, ok := tc.GetStruct(baseType); ok {
-					isSamePkg := structDef.Package == currentPkg
-
-					// Check for standard library types that might be injected via prelude (incorrectly appearing as same package)
-					// If we are in 'main' but completion is for 'HashMap' (which belongs to 'collections'), force false.
-					if isSamePkg {
-						if (strings.HasSuffix(baseType, "HashMap") ||
-							strings.HasSuffix(baseType, "Vec")) &&
-							currentPkg != "collections" {
-							isSamePkg = false
-						}
+				addMembers := func(typeStr string, isStatic bool) {
+					if typeStr == "" {
+						return
 					}
 
-					for methodName, methodSig := range structDef.Methods {
-						// Filter private methods if different package
-						if methodSig.Visibility == ast.Private && !isSamePkg {
-							continue
-						}
+					typeStr = resolveAliasTypeString(result, typeStr)
+					baseType := typeStr
 
-						// Filter based on static/instance context
-						if isStatic {
-							// If accessing via Type (Static), hide instance methods
-							if methodSig.IsInstance {
-								continue
-							}
-						} else {
-							// If accessing via Instance, hide static methods
-							if !methodSig.IsInstance {
-								continue
+					if before, _, ok0 := strings.Cut(typeStr, "<"); ok0 {
+						baseType = before
+					}
+
+					if structDef, ok := tc.GetStruct(baseType); ok {
+						isSamePkg := structDef.Package == currentPkg
+
+						if isSamePkg {
+							if (strings.HasSuffix(baseType, "HashMap") || strings.HasSuffix(baseType, "Vec")) && currentPkg != "collections" {
+								isSamePkg = false
 							}
 						}
 
-						insertText := methodName
-						insertFormat := 1
-						if methodSig != nil {
-							insertFormat = 2 // Snippet
+						for methodName, methodSig := range structDef.Methods {
+							if methodSig == nil {
+								continue
+							}
+							if methodSig.Visibility == ast.Private && !isSamePkg {
+								continue
+							}
+
+							if isStatic {
+								if methodSig.IsInstance {
+									continue
+								}
+							} else {
+								if !methodSig.IsInstance {
+									continue
+								}
+							}
+
+							insertText := methodName
+							insertFormat := 1
+							insertFormat = 2
 							if len(methodSig.Parameters) == 0 {
 								insertText = methodName + "()"
 							} else {
 								insertText = methodName + "($0)"
 							}
-						}
 
-						items = append(items, CompletionItem{
-							Label:            methodName,
-							Kind:             2, // Method
-							Detail:           methodDetail(methodSig),
-							InsertText:       insertText,
-							InsertTextFormat: insertFormat,
-						})
-					}
-					// Only show fields if NOT static access
-					if !isStatic {
-						for fieldName, fieldDef := range structDef.Fields {
-							// Filter private fields if different package
-							if fieldDef.Visibility == ast.Private && !isSamePkg {
-								continue
-							}
 							items = append(items, CompletionItem{
-								Label:  fieldName,
-								Kind:   5, // Field
-								Detail: fieldDef.Type.String(),
+								Label:            methodName,
+								Kind:             2,
+								Detail:           methodDetail(methodSig),
+								InsertText:       insertText,
+								InsertTextFormat: insertFormat,
 							})
 						}
-					}
-				} else {
-					if appendBuiltinTypeMethodCompletions(&items, baseType, isStatic) {
-						return
-					}
-					if result.Index != nil && result.Index.Structs != nil {
-						if st, ok := result.Index.Structs[baseType]; ok {
-							if !isStatic {
+
+						if !isStatic {
+							for fieldName, fieldDef := range structDef.Fields {
+								if fieldDef.Visibility == ast.Private && !isSamePkg {
+									continue
+								}
+								items = append(items, CompletionItem{
+									Label:  fieldName,
+									Kind:   5,
+									Detail: fieldDef.Type.String(),
+								})
+							}
+						}
+					} else {
+						if appendBuiltinTypeMethodCompletions(&items, baseType, isStatic) {
+							return
+						}
+						if result.Index != nil && result.Index.Structs != nil {
+							if st, ok := result.Index.Structs[baseType]; ok && !isStatic {
 								for _, f := range st.Fields {
 									items = append(items, CompletionItem{
 										Label:  f,
-										Kind:   5, // Field
+										Kind:   5,
 										Detail: "field",
 									})
 								}
@@ -193,22 +169,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 						}
 					}
 				}
-			}
-			if qualifier != "" && isDotCompletion {
-				if importItems, handled := s.completeImportedModuleMembers(
-					result,
-					params.TextDocument.URI,
-					qualifier,
-					memberPrefix,
-				); handled {
-					out.Items = importItems
 
-					return out
-				}
-			}
-
-			// 2. Check for Variable/Struct Methods
-			if tc != nil && astRoot != nil {
 				typeStr := ""
 				isStatic := false
 
@@ -218,25 +179,20 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					switch n := node.(type) {
 					case *ast.FieldAccessExpression:
 						typeStr = tc.GetNodeType(n.Object)
-						// Check if the object is a Type Identifier
 						if ident, ok := n.Object.(*ast.Identifier); ok {
-							// Check if this identifier resolves to a variable locally
 							locals := collectLocalSymbols(astRoot, params.Position.Line+1)
 							_, isLocal := locals[ident.Value]
 
-							// Check if it resolves to a global variable
 							isGlobalVar := false
 							if result.Index != nil && result.Index.Vars != nil {
 								_, isGlobalVar = result.Index.Vars[ident.Value]
 							}
 
-							// If it's not a local or global var, and it IS a known struct, assume static
 							if !isLocal && !isGlobalVar {
 								base := typeStr
 								if bracket := strings.Index(base, "<"); bracket != -1 {
 									base = base[:bracket]
 								}
-								// Check against Structs
 								if _, ok := tc.GetStruct(base); ok {
 									isStatic = true
 								} else if result.Index != nil && result.Index.Structs != nil {
@@ -244,8 +200,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 										isStatic = true
 									}
 								}
-								// Special case: if typeStr == identifier value, it's likely the type itself
-								// (assuming types shadow same-named vars or vice versa)
 								if base == ident.Value {
 									isStatic = true
 								}
@@ -253,44 +207,35 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 						}
 					case *ast.MethodCallExpression:
 						typeStr = tc.GetNodeType(n.Object)
-						// Method calls like Type.method() are handled similarly
 					}
 				}
 
 				if typeStr == "" && qualifier != "" {
-					if typeStr == "" {
-						locals := collectLocalSymbols(astRoot, params.Position.Line+1)
-						if local, ok := locals[qualifier]; ok && local.Node != nil {
-							typeStr = tc.GetNodeType(local.Node)
-							isStatic = false // It's a local variable
-						}
+					locals := collectLocalSymbols(astRoot, params.Position.Line+1)
+					if local, ok := locals[qualifier]; ok && local.Node != nil {
+						typeStr = tc.GetNodeType(local.Node)
+						isStatic = false
 					}
 				}
-				if typeStr == "" &&
-					qualifier != "" &&
-					hasBuiltinStaticCompletionType(qualifier) {
-
+				if typeStr == "" && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
 					typeStr = qualifier
 					isStatic = true
 				}
 
 				addMembers(typeStr, isStatic)
-			}
 
-			if len(items) == 0 &&
-				qualifier != "" &&
-				hasBuiltinStaticCompletionType(qualifier) {
+				if len(items) == 0 && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
+					appendBuiltinTypeMethodCompletions(&items, qualifier, true)
+				}
 
-				appendBuiltinTypeMethodCompletions(&items, qualifier, true)
+				if isDotCompletion && memberPrefix != "" {
+					items = filterCompletionItemsByPrefix(items, memberPrefix)
+				}
+
+				out.Items = items
+				return out
 			}
 		}
-
-		if isDotCompletion && memberPrefix != "" {
-			items = filterCompletionItemsByPrefix(items, memberPrefix)
-		}
-
-		out.Items = items
-		return out
 	}
 
 	if result := s.Cache[params.TextDocument.URI]; result != nil && result.Index != nil {
@@ -299,7 +244,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			insertText := sym.Name
 			insertFormat := 1
 			if sym.Kind == "func" || sym.Kind == "method" {
-				insertFormat = 2 // Snippet
+				insertFormat = 2
 				insertText = sym.Name + "($0)"
 			}
 
@@ -329,7 +274,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				items = append(items, CompletionItem{
 					Label:  name,
 					Detail: detail,
-					Kind:   6, // Variable
+					Kind:   6,
 				})
 				seen[name] = true
 			}
@@ -341,7 +286,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 			items = append(items, CompletionItem{
 				Label:  alias,
-				Kind:   9, // Module
+				Kind:   9,
 				Detail: "import " + importPath,
 			})
 
@@ -355,7 +300,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 			items = append(items, CompletionItem{
 				Label:  name,
-				Kind:   9, // Module
+				Kind:   9,
 				Detail: "builtin module",
 			})
 
@@ -367,7 +312,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			}
 			items = append(items, CompletionItem{
 				Label:  name,
-				Kind:   25, // Type
+				Kind:   25,
 				Detail: "builtin type",
 			})
 			seen[name] = true
@@ -382,7 +327,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			}
 			items = append(items, CompletionItem{
 				Label:  name,
-				Kind:   3, // Function
+				Kind:   3,
 				Detail: detail,
 			})
 			seen[name] = true
@@ -393,7 +338,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			}
 			items = append(items, CompletionItem{
 				Label:  name,
-				Kind:   9, // Module
+				Kind:   9,
 				Detail: "std package (import required)",
 			})
 			seen[name] = true
@@ -724,7 +669,7 @@ func appendBuiltinTypeMethodCompletions(
 	} else {
 		methods = builtinMethods[typeName]
 	}
-	
+
 	if len(methods) == 0 {
 		return false
 	}

@@ -75,15 +75,21 @@ func (tc *TypeChecker) errorTypeMismatch(
 	}
 
 	if tok, ok := extractTokenFromNode(node); ok && tok.Line > 0 {
-		diag.Notes = append(diag.Notes, diagnostics.Note{
-			Message: strfmt.Named(
-				"where inferred: this expression has type {got}",
-				"Got", got,
-			),
-			Line:   tok.Line,
-			Column: tok.Column,
-			File:   tc.currentPkgPath,
-		})
+		// Only add the "where inferred" note when it points to a *different*
+		// location than the main error. If it's the same spot, the main
+		// diagnostic already underlines the expression and the note becomes
+		// redundant (plus its snippet is deduplicated anyway).
+		if tok.Line != pos.Line || tok.Column != pos.Column {
+			diag.Notes = append(diag.Notes, diagnostics.Note{
+				Message: strfmt.Named(
+					"value provided here has type {got}",
+					"Got", got,
+				),
+				Line:   tok.Line,
+				Column: tok.Column,
+				File:   tc.currentPkgPath,
+			})
+		}
 	}
 
 	tc.emitError(diag)

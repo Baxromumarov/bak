@@ -361,7 +361,7 @@ func main() -> (void) {
 	mut var x: int = 1
 	x = "hello"
 }
-`, "where inferred: this expression has type string")
+`, "value provided here has type string")
 	expectError(t, `
 package main
 func main() -> (void) {

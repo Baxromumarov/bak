@@ -1,17 +1,13 @@
 package main
 
-pub func sum(a: int, b: int) -> (int) {
-    return a + b
+struct Data{
+    age: int,
+    name: string,
+    fl: float64
 }
 
-pub func demo() -> (void) {
+func main() -> (void){
+    var _p: Data
+    var _s: float64
 
-    return void
-}
-
-
-func main() -> (void) {
-    println(sum(1,2))
-    println("hello world", sum(1,2))
-    return void
 }
