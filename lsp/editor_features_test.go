@@ -639,6 +639,167 @@ func TestWorkspaceSymbolIndexesProjectFiles(t *testing.T) {
 	}
 }
 
+func TestInitializeAdvertisesModernDocumentFeatures(t *testing.T) {
+	s := NewServer()
+	result := s.handleInitialize(mustRequest(t, InitializeParams{}))
+
+	rename, ok := result.Capabilities.RenameProvider.(RenameOptions)
+	if !ok {
+		t.Fatalf("expected rename options, got %#v", result.Capabilities.RenameProvider)
+	}
+	if !rename.PrepareProvider {
+		t.Fatalf("expected prepareRename support")
+	}
+	if result.Capabilities.DocumentLinkProvider == nil {
+		t.Fatalf("expected documentLink provider support")
+	}
+	if !result.Capabilities.FoldingRangeProvider {
+		t.Fatalf("expected foldingRange provider support")
+	}
+}
+
+func TestPrepareRenameReturnsTargetAndRenameRejectsInvalidName(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var value: int = 1",
+		"    println(value)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	line, col := findLineCol(src, "value)")
+	if line < 0 {
+		t.Fatalf("rename target not found")
+	}
+
+	prepare := s.handlePrepareRename(mustRequest(t, PrepareRenameParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}))
+	if prepare == nil {
+		t.Fatalf("expected prepareRename result")
+	}
+	if prepare.Placeholder != "value" {
+		t.Fatalf("unexpected placeholder: %q", prepare.Placeholder)
+	}
+	if prepare.Range.Start.Line != line || prepare.Range.Start.Character != col {
+		t.Fatalf("unexpected prepareRename range: %#v", prepare.Range)
+	}
+
+	edit := s.handleRename(mustRequest(t, RenameParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+		NewName:      "for",
+	}))
+	if edit == nil {
+		t.Fatalf("expected empty workspace edit, got nil")
+	}
+	if len(edit.Changes) != 0 {
+		t.Fatalf("expected invalid keyword rename to produce no edits, got %#v", edit.Changes)
+	}
+}
+
+func TestDocumentLinkResolvesImports(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "lib.bak")
+	if err := os.WriteFile(libPath, []byte("package lib\npub func id() -> (int) { return 1 }\n"), 0o644); err != nil {
+		t.Fatalf("write lib file: %v", err)
+	}
+	mainPath := filepath.Join(dir, "main.bak")
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"import \"lib\" as lib",
+		"",
+		"func main() -> (void) {",
+		"    println(lib.id())",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(mainPath, []byte(src), 0o644); err != nil {
+		t.Fatalf("write main file: %v", err)
+	}
+	absMain, err := filepath.Abs(mainPath)
+	if err != nil {
+		t.Fatalf("abs main path: %v", err)
+	}
+	absLib, err := filepath.Abs(libPath)
+	if err != nil {
+		t.Fatalf("abs lib path: %v", err)
+	}
+	uri := pathToURI(absMain)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	links := s.handleDocumentLink(mustRequest(t, DocumentLinkParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}))
+	if len(links) != 1 {
+		t.Fatalf("expected one document link, got %#v", links)
+	}
+	if links[0].Target != pathToURI(absLib) {
+		t.Fatalf("unexpected document link target: got %q want %q", links[0].Target, pathToURI(absLib))
+	}
+	if links[0].Range.Start.Line != 2 || links[0].Range.Start.Character != len("import ") {
+		t.Fatalf("unexpected document link range: %#v", links[0].Range)
+	}
+}
+
+func TestFoldingRangeIncludesImportsCommentsAndBlocks(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"// first",
+		"// second",
+		"import (",
+		"    \"std/fmt/fmt.bak\" as fmt",
+		"    \"std/time/time.bak\" as time",
+		")",
+		"",
+		"func main() -> (void) {",
+		"    if true {",
+		"        println(\"ok\")",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	ranges := s.handleFoldingRange(mustRequest(t, FoldingRangeParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}))
+	hasRange := func(start, end int, kind string) bool {
+		for _, r := range ranges {
+			if r.StartLine == start && r.EndLine == end && r.Kind == kind {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasRange(2, 3, "comment") {
+		t.Fatalf("expected consecutive comment folding range, got %#v", ranges)
+	}
+	if !hasRange(4, 7, "imports") {
+		t.Fatalf("expected import block folding range, got %#v", ranges)
+	}
+	if !hasRange(9, 13, "region") {
+		t.Fatalf("expected function folding range, got %#v", ranges)
+	}
+}
+
 func TestCodeActionSuggestsStdlibAutoImport(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

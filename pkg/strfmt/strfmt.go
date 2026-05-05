@@ -61,7 +61,7 @@ func Format(pattern string, v any) string {
 	}
 
 	rv := reflect.ValueOf(v)
-	for rv.Kind() == reflect.Ptr {
+	for rv.Kind() == reflect.Pointer {
 		if rv.IsNil() {
 			return pattern
 		}

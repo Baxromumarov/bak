@@ -7,7 +7,7 @@ struct Data{
 }
 
 func main() -> (void){
-    var _p: Data
-    var _s: float64
 
+return void
 }
+

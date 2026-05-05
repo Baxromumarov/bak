@@ -495,6 +495,13 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
+	result, ok := s.Cache[params.TextDocument.URI]
+	if !ok || result == nil || result.AST == nil || !isRenameableIdentifier(params.NewName) {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
+	if _, _, ok := renameTargetAt(result.AST, params.Position); !ok {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
 	refParams := ReferenceParams{
 		TextDocument: params.TextDocument,
 		Position:     params.Position,

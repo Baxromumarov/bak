@@ -123,11 +123,9 @@ func printSuiteProgress(done, total int, current string) {
 	if total <= 0 {
 		return
 	}
+
 	barWidth := 20
-	filled := max(done*barWidth/total, 0)
-	if filled > barWidth {
-		filled = barWidth
-	}
+	filled := min(max(done*barWidth/total, 0), barWidth)
 
 	bar := "[" + strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled) + "]"
 	if current == "" {
@@ -275,11 +273,14 @@ func runTestFile(
 			err,
 		)
 
-		return testFileRunResult{Executed: true, Passed: false}
+		return testExecutedTrue
 	}
 
 	if result.Type == compiler.VAL_BOOL {
-		return testFileRunResult{Executed: true, Passed: result.AsBool}
+		return testFileRunResult{
+			Executed: true,
+			Passed:   result.AsBool,
+		}
 	}
 
 	return testExecutedTrue

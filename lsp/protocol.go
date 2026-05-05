@@ -19,7 +19,7 @@ type ServerCapabilities struct {
 	DefinitionProvider         bool                   `json:"definitionProvider"`
 	ImplementationProvider     bool                   `json:"implementationProvider,omitempty"`
 	ReferencesProvider         bool                   `json:"referencesProvider,omitempty"`
-	RenameProvider             bool                   `json:"renameProvider,omitempty"`
+	RenameProvider             any                    `json:"renameProvider,omitempty"`
 	CompletionProvider         *CompletionOptions     `json:"completionProvider,omitempty"`
 	SignatureHelpProvider      *SignatureHelpOptions  `json:"signatureHelpProvider,omitempty"`
 	SemanticTokensProvider     *SemanticTokensOptions `json:"semanticTokensProvider,omitempty"`
@@ -30,6 +30,8 @@ type ServerCapabilities struct {
 	CodeActionProvider         bool                   `json:"codeActionProvider,omitempty"`
 	DocumentSymbolProvider     bool                   `json:"documentSymbolProvider,omitempty"`
 	WorkspaceSymbolProvider    bool                   `json:"workspaceSymbolProvider,omitempty"`
+	DocumentLinkProvider       *DocumentLinkOptions   `json:"documentLinkProvider,omitempty"`
+	FoldingRangeProvider       bool                   `json:"foldingRangeProvider,omitempty"`
 }
 
 type TextDocumentItem struct {
@@ -192,6 +194,20 @@ type RenameParams struct {
 	NewName      string                 `json:"newName"`
 }
 
+type RenameOptions struct {
+	PrepareProvider bool `json:"prepareProvider,omitempty"`
+}
+
+type PrepareRenameParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Position     Position               `json:"position"`
+}
+
+type PrepareRenameResult struct {
+	Range       Range  `json:"range"`
+	Placeholder string `json:"placeholder"`
+}
+
 type WorkspaceEdit struct {
 	Changes map[string][]TextEdit `json:"changes"`
 }
@@ -284,4 +300,30 @@ type Command struct {
 
 type ParameterInformation struct {
 	Label string `json:"label"`
+}
+
+type DocumentLinkOptions struct {
+	ResolveProvider bool `json:"resolveProvider,omitempty"`
+}
+
+type DocumentLinkParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+}
+
+type DocumentLink struct {
+	Range   Range  `json:"range"`
+	Target  string `json:"target,omitempty"`
+	Tooltip string `json:"tooltip,omitempty"`
+}
+
+type FoldingRangeParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+}
+
+type FoldingRange struct {
+	StartLine      int    `json:"startLine"`
+	StartCharacter int    `json:"startCharacter,omitempty"`
+	EndLine        int    `json:"endLine"`
+	EndCharacter   int    `json:"endCharacter,omitempty"`
+	Kind           string `json:"kind,omitempty"`
 }

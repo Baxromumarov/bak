@@ -62,6 +62,8 @@ func (s *Server) Handle(req Request) any {
 		return s.handleDocumentSymbol(req)
 	case "workspace/symbol":
 		return s.handleWorkspaceSymbol(req)
+	case "textDocument/prepareRename":
+		return s.handlePrepareRename(req)
 	case "textDocument/rename":
 		return s.handleRename(req)
 	case "textDocument/completion":
@@ -78,6 +80,10 @@ func (s *Server) Handle(req Request) any {
 		return s.handleDocumentHighlight(req)
 	case "textDocument/codeAction":
 		return s.handleCodeAction(req)
+	case "textDocument/documentLink":
+		return s.handleDocumentLink(req)
+	case "textDocument/foldingRange":
+		return s.handleFoldingRange(req)
 	case "shutdown":
 		return nil
 	case "exit":
@@ -106,7 +112,7 @@ func (s *Server) handleInitialize(req Request) InitializeResult {
 			DefinitionProvider:     true,
 			ImplementationProvider: true,
 			ReferencesProvider:     true,
-			RenameProvider:         true,
+			RenameProvider:         RenameOptions{PrepareProvider: true},
 			CompletionProvider: &CompletionOptions{
 				ResolveProvider:   false,
 				TriggerCharacters: []string{".", "{", ",", ":"},
@@ -125,6 +131,10 @@ func (s *Server) handleInitialize(req Request) InitializeResult {
 			CodeActionProvider:         true,
 			DocumentSymbolProvider:     true,
 			WorkspaceSymbolProvider:    true,
+			DocumentLinkProvider: &DocumentLinkOptions{
+				ResolveProvider: false,
+			},
+			FoldingRangeProvider: true,
 		},
 	}
 }
@@ -150,7 +160,7 @@ func (s *Server) handleDidOpen(req Request) {
 
 func (s *Server) handleDidChange(req Request) {
 	var params DidChangeTextDocumentParams
-	
+
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		log.Printf("Error unmarshalling didChange: %v", err)
 		return
