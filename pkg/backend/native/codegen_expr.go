@@ -2,10 +2,10 @@ package native
 
 import (
 	"fmt"
-	"math"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"math"
 )
 
 func (s *EmitState) emitExpression(expr ast.Expression) error {

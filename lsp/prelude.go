@@ -95,12 +95,13 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 			strings.HasPrefix(name, "test_") {
 			continue
 		}
-		
+
 		siblingPath := filepath.Join(dir, name)
 		data, err := os.ReadFile(siblingPath)
 		if err != nil {
 			continue
 		}
+		
 		sl := lexer.New(string(data))
 		sp := parser.New(sl)
 		sp.SetFilename(siblingPath)

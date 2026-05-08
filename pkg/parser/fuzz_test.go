@@ -14,7 +14,7 @@ func FuzzParseProgram(f *testing.F) {
 		"package main\ntrace func work(v int) -> (int) { return v + 1 }\n",
 		"package main\nfunc main() -> (void) { var items = [1, 2, 3]\n",
 	}
-	
+
 	for _, seed := range seeds {
 		f.Add(seed)
 	}

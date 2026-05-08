@@ -3,6 +3,7 @@ package packages
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -74,13 +75,7 @@ func TestResolveImportPathDetailedReportsTriedPaths(t *testing.T) {
 		t.Fatalf("expected tried paths")
 	}
 	want := filepath.Clean(filepath.Join(root, "app", "../lib/missing.bak"))
-	found := false
-	for _, tried := range result.Tried {
-		if tried == want {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(result.Tried, want)
 	if !found {
 		t.Fatalf("expected tried paths to include %q, got %#v", want, result.Tried)
 	}

@@ -412,4 +412,3 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 // ============================================================
 //  Expression Emission
 // ============================================================
-

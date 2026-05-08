@@ -52,10 +52,10 @@ func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, mov
 
 func (tc *TypeChecker) errorCannotMoveAt(varName string, pos ast.Position, reason string, borrowInfo *BorrowInfo) {
 	diag := TypeError{
-		Code:   diagnostics.ErrMoveWhileBorrowed,
-		Tier:   TierFatal,
-		Line:   pos.Line,
-		Column: pos.Column,
+		Code:    diagnostics.ErrMoveWhileBorrowed,
+		Tier:    TierFatal,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Message: strfmt.Named("cannot move '{varName}' because it is {reason}", "VarName", varName, "Reason", reason),
 		Help: strfmt.Named(
 			"how to fix: finish active borrows of '{varName}' before moving it, or clone '{varName}' first",
@@ -97,12 +97,12 @@ func (tc *TypeChecker) errorBorrowConflictAt(
 	}
 	help = "how to fix: " + help
 	diag := TypeError{
-		Code:   diagnostics.ErrBorrowConflict,
-		Tier:   TierFatal,
-		Line:   pos.Line,
-		Column: pos.Column,
+		Code:    diagnostics.ErrBorrowConflict,
+		Tier:    TierFatal,
+		Line:    pos.Line,
+		Column:  pos.Column,
 		Message: strfmt.Named("cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", "VarName", varName, "AttemptedBorrow", attemptedBorrow, "ExistingState", existingState),
-		Help: help,
+		Help:    help,
 	}
 	if borrowInfo != nil && borrowInfo.Line > 0 {
 		state := "immutable borrow"

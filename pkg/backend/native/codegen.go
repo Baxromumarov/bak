@@ -2,13 +2,13 @@ package native
 
 import (
 	"fmt"
-	"log"
-	"os"
-	"strings"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
+	"log"
+	"os"
+	"strings"
 )
 
 // Code generation: AST -> x86_64 machine code.
@@ -2106,4 +2106,3 @@ func (s *EmitState) emitPanic(st *ast.PanicStatement) error {
 	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_panic"})
 	return nil
 }
-

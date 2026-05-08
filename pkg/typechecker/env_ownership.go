@@ -173,6 +173,6 @@ func (e *TypeEnv) GetBorrowedImInfo(name string) *BorrowInfo {
 	if e.parent != nil {
 		return e.parent.GetBorrowedImInfo(name)
 	}
-	
+
 	return nil
 }

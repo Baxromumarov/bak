@@ -163,6 +163,6 @@ func (tc *TypeChecker) errorMethodArgumentTypeMismatch(
 			),
 		)...)
 	}
-	
+
 	tc.emitError(diag)
 }

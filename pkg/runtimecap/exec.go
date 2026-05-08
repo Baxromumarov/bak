@@ -111,7 +111,7 @@ func ExecuteCommand(
 			result.ExitCode = int64(exitErr.ExitCode())
 			return result, nil
 		}
-		
+
 		return ExecResult{}, err
 	}
 }

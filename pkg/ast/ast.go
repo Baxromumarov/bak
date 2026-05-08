@@ -58,7 +58,7 @@ func (p *Program) TokenLiteral() string {
 
 func (p *Program) String() string {
 	var out strings.Builder
-	
+
 	for _, s := range p.Statements {
 		out.WriteString(s.String())
 	}
@@ -70,7 +70,7 @@ func (p *Program) Pos() Position {
 	if len(p.Statements) > 0 {
 		return p.Statements[0].Pos()
 	}
-	
+
 	return Position{}
 }
 

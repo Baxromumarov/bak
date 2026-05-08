@@ -2,11 +2,11 @@ package native
 
 import (
 	"fmt"
-	"os"
-	"strings"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
+	"os"
+	"strings"
 )
 
 func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (bool, error) {

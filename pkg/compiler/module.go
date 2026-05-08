@@ -16,10 +16,10 @@ type BytecodeModule struct {
 	EntryPoint int
 
 	// Type definitions
-	StructDefs      map[string]*StructDef
-	EnumDefs        map[string]*EnumDef
-	StructDefByID   map[int]*StructDef // reverse lookup for VM
-	EnumDefByID     map[int]*EnumDef   // reverse lookup for VM
+	StructDefs    map[string]*StructDef
+	EnumDefs      map[string]*EnumDef
+	StructDefByID map[int]*StructDef // reverse lookup for VM
+	EnumDefByID   map[int]*EnumDef   // reverse lookup for VM
 
 	// Method table: "TypeName.methodName" -> function index
 	Methods map[string]int

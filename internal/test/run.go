@@ -105,7 +105,7 @@ func Run(
 			"failed", failed,
 		))
 	}
-	
+
 	if len(pathErrors) > 0 {
 		_, _ = strfmt.Fprintln(
 			os.Stdout,

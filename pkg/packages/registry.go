@@ -557,7 +557,7 @@ func (r *Registry) GetAllPackages() []*Package {
 	for _, pkg := range r.packages {
 		result = append(result, pkg)
 	}
-	
+
 	return result
 }
 

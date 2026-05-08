@@ -28,17 +28,24 @@ func (s *Server) resolveImportPath(baseFile, importPath string) string {
 	return packages.ResolveImportPathFrom(importPath, baseFile)
 }
 
+func (s *Server) workspaceRoot() string {
+	if s.RootPath != "" {
+		return s.RootPath
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
+
 func (s *Server) getStdPackages() []string {
 	if s.stdPackages != nil {
 		return s.stdPackages
 	}
-	root := s.RootPath
+	root := s.workspaceRoot()
 	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil
-		}
-		root = cwd
+		return nil
 	}
 	stdPath := filepath.Join(root, "src", "std")
 	entries, err := os.ReadDir(stdPath)
@@ -68,13 +75,9 @@ func (s *Server) getStdImportPaths() []string {
 	if s.stdImportPaths != nil {
 		return s.stdImportPaths
 	}
-	root := s.RootPath
+	root := s.workspaceRoot()
 	if root == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil
-		}
-		root = cwd
+		return nil
 	}
 	stdPath := filepath.Join(root, "src", "std")
 	paths := []string{}
@@ -128,6 +131,21 @@ func (s *Server) getStdImportPaths() []string {
 	return paths
 }
 
+func loadPublicFileIndex(path, uri string) *FileIndex {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	l := lexer.New(string(data))
+	p := parser.New(l)
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		return nil
+	}
+	comments := formatter.ScanComments(string(data))
+	return indexProgram(prog, uri, comments, false)
+}
+
 func (s *Server) packageDoc(path string) (string, string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -168,18 +186,10 @@ func (s *Server) getOrIndexFile(path string) *FileIndex {
 	if idx, ok := s.PublicIndexes[uri]; ok {
 		return idx
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	idx := loadPublicFileIndex(path, uri)
+	if idx == nil {
 		return nil
 	}
-	l := lexer.New(string(data))
-	p := parser.New(l)
-	prog := p.ParseProgram()
-	if len(p.Errors()) > 0 {
-		return nil
-	}
-	comments := formatter.ScanComments(string(data))
-	idx := indexProgram(prog, uri, comments, false)
 	s.PublicIndexes[uri] = idx
 	return idx
 }
@@ -214,18 +224,10 @@ func (s *Server) getOrIndexDir(dirPath string) *FileIndex {
 			mergeFileIndex(merged, idx)
 			continue
 		}
-		data, err := os.ReadFile(filePath)
-		if err != nil {
+		idx := loadPublicFileIndex(filePath, fileURI)
+		if idx == nil {
 			continue
 		}
-		l := lexer.New(string(data))
-		p := parser.New(l)
-		prog := p.ParseProgram()
-		if len(p.Errors()) > 0 {
-			continue
-		}
-		comments := formatter.ScanComments(string(data))
-		idx := indexProgram(prog, fileURI, comments, false)
 		s.PublicIndexes[fileURI] = idx
 		mergeFileIndex(merged, idx)
 	}

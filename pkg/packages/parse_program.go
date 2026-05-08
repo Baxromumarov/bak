@@ -108,7 +108,7 @@ func parseProgramDir(dir string) (*ast.Program, error) {
 					}
 				}
 			}
-			
+
 			combined.Statements = append(combined.Statements, stmt)
 		}
 	}

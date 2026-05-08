@@ -179,10 +179,10 @@ func InjectImplPrelude(program *ast.Program, src string, typeName string) string
 	if insertIdx > 0 {
 		newStmts = append(newStmts, program.Statements[0])
 	}
-	
+
 	newStmts = append(newStmts, prog.Statements[startIdx:]...)
 	newStmts = append(newStmts, program.Statements[insertIdx:]...)
-	
+
 	program.Statements = newStmts
 
 	return ""

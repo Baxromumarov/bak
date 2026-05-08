@@ -92,7 +92,7 @@ func (tc *TypeChecker) getBuiltinCallSpec(name string) (builtinCallSpec, bool) {
 	if sig == nil {
 		return builtinCallSpec{}, false
 	}
-	
+
 	spec := buildBuiltinCallSpec(sig)
 	if contract, ok := compiler.BuiltinContractByName(name); ok {
 		spec.MinArgs = contract.MinArgs

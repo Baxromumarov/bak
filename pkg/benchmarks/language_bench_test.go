@@ -25,7 +25,6 @@ func BenchmarkParseCorpus(b *testing.B) {
 	totalBytes := corpusSize(corpus)
 	b.ReportAllocs()
 	b.SetBytes(totalBytes)
-	
 
 	for b.Loop() {
 		for _, source := range corpus {
@@ -39,7 +38,6 @@ func BenchmarkTypecheckCorpus(b *testing.B) {
 	totalBytes := corpusSize(corpus)
 	b.ReportAllocs()
 	b.SetBytes(totalBytes)
-	
 
 	for b.Loop() {
 		for _, source := range corpus {
@@ -58,7 +56,6 @@ func BenchmarkCompileBytecode(b *testing.B) {
 	program := checkedProgram(b, source)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	
 
 	for b.Loop() {
 		c := compiler.New()
@@ -79,7 +76,6 @@ func BenchmarkVMRun(b *testing.B) {
 
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	
 
 	for b.Loop() {
 		runtime := vm.New(module)
@@ -94,7 +90,6 @@ func BenchmarkNativeBuild(b *testing.B) {
 	program := checkedProgram(b, source)
 	b.ReportAllocs()
 	b.SetBytes(int64(len(source.src)))
-	
 
 	for b.Loop() {
 		if _, err := native.BuildExecutableWithOptions(program, native.BuildOptions{

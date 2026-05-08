@@ -4,6 +4,7 @@ package packages
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -157,10 +158,8 @@ func resolveCandidates(result *ImportResolution, candidates, bases []string) str
 
 func (r *ImportResolution) addTried(path string) {
 	path = filepath.Clean(path)
-	for _, existing := range r.Tried {
-		if existing == path {
-			return
-		}
+	if slices.Contains(r.Tried, path) {
+		return
 	}
 	r.Tried = append(r.Tried, path)
 }

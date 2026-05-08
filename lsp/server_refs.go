@@ -310,15 +310,11 @@ func collectReferences(prog *ast.Program, uri string, name string) []Location {
 	return locs
 }
 
-func collectReferencesWorkspace(s *Server, uri string, node ast.Node) []Location {
-	name := ""
-	modulePath := ""
-	localOnly := false
-
+func referenceTarget(s *Server, uri string, node ast.Node) (name, modulePath string, localOnly, ok bool) {
 	switch n := node.(type) {
 	case *ast.MethodCallExpression:
 		if n.Method == nil {
-			return nil
+			return "", "", false, false
 		}
 		name = n.Method.Value
 		if ident, ok := n.Object.(*ast.Identifier); ok {
@@ -328,23 +324,46 @@ func collectReferencesWorkspace(s *Server, uri string, node ast.Node) []Location
 				}
 			}
 		}
+		return name, modulePath, false, true
 	case *ast.Identifier:
 		name = n.Value
 		if res, ok := s.Cache[uri]; ok && res.Index != nil {
 			if sym, ok := res.Index.Symbols[name]; ok {
 				if sym.Location.URI == uri && sym.Location.Range.Start.Line == n.Token.Line-1 {
-					modulePath = uriToPath(uri)
+					return name, uriToPath(uri), false, true
 				}
 			}
 		}
-		if modulePath == "" {
-			localOnly = true
-		}
+		return name, "", true, true
 	default:
+		return "", "", false, false
+	}
+}
+
+func referencesFromFile(s *Server, fileURI string, res *AnalysisResult, modulePath, name string) []Location {
+	if res == nil || res.AST == nil {
 		return nil
 	}
+	if uriToPath(fileURI) == modulePath {
+		return collectReferences(res.AST, fileURI, name)
+	}
+	if modulePath == "" || res.Imports == nil {
+		return nil
+	}
+	refs := []Location{}
+	for alias, importPath := range res.Imports {
+		resolved := s.resolveImportPath(uriToPath(fileURI), importPath)
+		if resolved != modulePath {
+			continue
+		}
+		refs = append(refs, collectQualifiedMethodRefs(res.AST, fileURI, alias, name)...)
+	}
+	return refs
+}
 
-	if name == "" {
+func collectWorkspaceReferences(s *Server, uri string, node ast.Node) []Location {
+	name, modulePath, localOnly, ok := referenceTarget(s, uri, node)
+	if !ok || name == "" {
 		return nil
 	}
 
@@ -357,23 +376,7 @@ func collectReferencesWorkspace(s *Server, uri string, node ast.Node) []Location
 
 	var refs []Location
 	for fileURI, res := range s.Cache {
-		if res == nil || res.AST == nil {
-			continue
-		}
-		if uriToPath(fileURI) == modulePath {
-			refs = append(refs, collectReferences(res.AST, fileURI, name)...)
-			continue
-		}
-		if modulePath == "" || res.Imports == nil {
-			continue
-		}
-		for alias, importPath := range res.Imports {
-			resolved := s.resolveImportPath(uriToPath(fileURI), importPath)
-			if resolved != modulePath {
-				continue
-			}
-			refs = append(refs, collectQualifiedMethodRefs(res.AST, fileURI, alias, name)...)
-		}
+		refs = append(refs, referencesFromFile(s, fileURI, res, modulePath, name)...)
 	}
 	return refs
 }

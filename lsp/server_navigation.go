@@ -10,9 +10,327 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/prelude"
-	"github.com/baxromumarov/bak/pkg/strfmt"
+	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
+
+func (s *Server) documentText(uri string) string {
+	if text := s.Documents[uri]; text != "" {
+		return text
+	}
+	data, err := os.ReadFile(uriToPath(uri))
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func (s *Server) importedModuleIndex(result *AnalysisResult, originURI, alias string) *FileIndex {
+	if result == nil || result.Imports == nil {
+		return nil
+	}
+	importPath, ok := result.Imports[alias]
+	if !ok {
+		return nil
+	}
+	path := s.resolveImportPath(uriToPath(originURI), importPath)
+	if path == "" {
+		return nil
+	}
+	return s.getOrIndexFile(path)
+}
+
+func (s *Server) lookupImportedSymbol(result *AnalysisResult, originURI, alias, symbolName string) (Location, bool) {
+	modIndex := s.importedModuleIndex(result, originURI, alias)
+	if modIndex == nil {
+		return Location{}, false
+	}
+	sym, ok := modIndex.Symbols[symbolName]
+	if !ok {
+		return Location{}, false
+	}
+	return sym.Location, true
+}
+
+func (s *Server) lookupSymbolInImports(result *AnalysisResult, originURI, key, fallback string) (Location, bool) {
+	if result == nil || result.Imports == nil {
+		return Location{}, false
+	}
+	for _, importPath := range result.Imports {
+		path := s.resolveImportPath(uriToPath(originURI), importPath)
+		if path == "" {
+			continue
+		}
+		modIndex := s.getOrIndexFile(path)
+		if modIndex == nil {
+			continue
+		}
+		if sym, ok := modIndex.Symbols[key]; ok {
+			return sym.Location, true
+		}
+		if fallback != "" {
+			if sym, ok := modIndex.Symbols[fallback]; ok {
+				return sym.Location, true
+			}
+		}
+	}
+	return Location{}, false
+}
+
+func (s *Server) preludePaths(includeBuiltins bool) []string {
+	stdLibPath := prelude.GetStdLibPath()
+	paths := make([]string, 0, 4)
+	if includeBuiltins {
+		paths = append(paths, filepath.Join(stdLibPath, "builtins.bak"))
+	}
+	paths = append(paths,
+		filepath.Join(stdLibPath, "collections", "vec.bak"),
+		filepath.Join(stdLibPath, "collections", "hashmap.bak"),
+		filepath.Join(stdLibPath, "result.bak"),
+	)
+	return paths
+}
+
+func (s *Server) lookupPreludeSymbol(key, method string, includeBuiltins bool) (Location, bool) {
+	for _, path := range s.preludePaths(includeBuiltins) {
+		modIndex := s.getOrIndexFile(path)
+		if modIndex == nil {
+			continue
+		}
+		if sym, ok := modIndex.Symbols[key]; ok {
+			return sym.Location, true
+		}
+		if method == "" {
+			continue
+		}
+		log.Printf("DEBUG(ID): Searching for %s in %s (found %d symbols)\n", key, path, len(modIndex.Symbols))
+		if sym, ok := modIndex.Symbols[method]; ok {
+			return sym.Location, true
+		}
+		if strings.Contains(path, "builtins.bak") {
+			for k := range modIndex.Symbols {
+				log.Printf("DEBUG(ID): Found symbol key: %s\n", k)
+			}
+		}
+	}
+	return Location{}, false
+}
+
+func (s *Server) definitionFromRefs(result *AnalysisResult, node ast.Node) []Location {
+	if result == nil || result.RefByPos == nil || result.Defs == nil {
+		return nil
+	}
+	key := nodeRefKey(node)
+	if key == "" {
+		return nil
+	}
+	id, ok := result.RefByPos[key]
+	if !ok {
+		return nil
+	}
+	defLoc, ok := result.Defs[id]
+	if !ok {
+		return nil
+	}
+	return []Location{defLoc}
+}
+
+func (s *Server) definitionForIdentifier(result *AnalysisResult, originURI string, position Position, ident *ast.Identifier) []Location {
+	if ident == nil {
+		return nil
+	}
+	if parts := strings.SplitN(ident.Value, ".", 2); len(parts) == 2 {
+		if loc, ok := s.lookupImportedSymbol(result, originURI, parts[0], parts[1]); ok {
+			return []Location{loc}
+		}
+	}
+
+	if sym, ok := result.Index.Symbols[ident.Value]; ok {
+		return []Location{sym.Location}
+	}
+
+	text := s.documentText(originURI)
+	if text == "" {
+		return nil
+	}
+	lineText := lineAt(text, position.Line)
+	word, start := wordAt(lineText, position.Character)
+	if word != ident.Value || start <= 0 || lineText[start-1] != '.' {
+		return nil
+	}
+
+	qualifier := qualifierBefore(lineText, start-1)
+	if qualifier == "" {
+		return nil
+	}
+
+	if loc, ok := s.lookupImportedSymbol(result, originURI, qualifier, word); ok {
+		return []Location{loc}
+	}
+
+	if result.TC == nil {
+		return nil
+	}
+	qualCol := start - len(qualifier)
+	if qualCol <= 0 {
+		return nil
+	}
+	qNode := findNode(result.AST, position.Line+1, qualCol)
+	if qNode == nil {
+		return nil
+	}
+	t := result.TC.GetNodeType(qNode)
+	if t == "" {
+		return nil
+	}
+	t = resolveAliasTypeString(result, t)
+	key := mapBuiltinType(baseTypeName(t)) + "." + word
+	if sym, ok := result.Index.Symbols[key]; ok {
+		return []Location{sym.Location}
+	}
+	if loc, ok := s.lookupSymbolInImports(result, originURI, key, ""); ok {
+		return []Location{loc}
+	}
+	if loc, ok := s.lookupPreludeSymbol(key, "", false); ok {
+		return []Location{loc}
+	}
+	return nil
+}
+
+func (s *Server) definitionForFieldAccess(result *AnalysisResult, originURI string, fieldAccess *ast.FieldAccessExpression) []Location {
+	if fieldAccess == nil {
+		return nil
+	}
+	if ident, ok := fieldAccess.Object.(*ast.Identifier); ok {
+		if loc, ok := s.lookupImportedSymbol(result, originURI, ident.Value, fieldAccess.Field.Value); ok {
+			return []Location{loc}
+		}
+	}
+	if result.TC == nil {
+		return nil
+	}
+	if t := result.TC.GetNodeType(fieldAccess.Object); t != "" {
+		t = resolveAliasTypeString(result, t)
+		key := baseTypeName(t) + "." + fieldAccess.Field.Value
+		if sym, ok := result.Index.Symbols[key]; ok {
+			return []Location{sym.Location}
+		}
+	}
+	return nil
+}
+
+func (s *Server) definitionForMethodCall(result *AnalysisResult, originURI string, methodCall *ast.MethodCallExpression) []Location {
+	if methodCall == nil {
+		return nil
+	}
+	if ident, ok := methodCall.Object.(*ast.Identifier); ok {
+		if loc, ok := s.lookupImportedSymbol(result, originURI, ident.Value, methodCall.Method.Value); ok {
+			return []Location{loc}
+		}
+	}
+	if result.TC == nil {
+		return nil
+	}
+	t := result.TC.GetNodeType(methodCall.Object)
+	if t == "" {
+		return nil
+	}
+	t = resolveAliasTypeString(result, t)
+	baseType := baseTypeName(t)
+	key := baseType + "." + methodCall.Method.Value
+	if sym, ok := result.Index.Symbols[key]; ok {
+		return []Location{sym.Location}
+	}
+	if loc, ok := s.lookupSymbolInImports(result, originURI, key, methodCall.Method.Value); ok {
+		return []Location{loc}
+	}
+	if loc, ok := s.lookupPreludeSymbol(key, methodCall.Method.Value, false); ok {
+		return []Location{loc}
+	}
+	return nil
+}
+
+func (s *Server) definitionForSimpleType(result *AnalysisResult, originURI string, simpleType *ast.SimpleType) []Location {
+	if simpleType == nil {
+		return nil
+	}
+	name := simpleType.Name
+	if idx := strings.LastIndex(name, "."); idx != -1 {
+		pkgAlias := name[:idx]
+		typeName := name[idx+1:]
+		if loc, ok := s.lookupImportedSymbol(result, originURI, pkgAlias, typeName); ok {
+			return []Location{loc}
+		}
+	} else if sym, ok := result.Index.Symbols[name]; ok {
+		return []Location{sym.Location}
+	}
+	return nil
+}
+
+func implementationTypeName(node ast.Node, result *AnalysisResult) string {
+	switch n := node.(type) {
+	case *ast.Identifier:
+		return n.Value
+	case *ast.StructDecl:
+		if n.Name != nil {
+			return n.Name.Value
+		}
+	case *ast.EnumDecl:
+		if n.Name != nil {
+			return n.Name.Value
+		}
+	default:
+		if result != nil && result.TC != nil {
+			t := result.TC.GetNodeType(node)
+			if t != "" {
+				return baseTypeName(resolveAliasTypeString(result, t))
+			}
+		}
+	}
+	return ""
+}
+
+func (s *Server) implementationLocations(typeName string) []Location {
+	if typeName == "" {
+		return nil
+	}
+	locs := []Location{}
+	for uri, res := range s.Cache {
+		if res == nil || res.AST == nil {
+			continue
+		}
+		for _, stmt := range res.AST.Statements {
+			impl, ok := stmt.(*ast.ImplDecl)
+			if !ok || impl.TypeName == nil {
+				continue
+			}
+			if impl.TypeName.Value == typeName || strings.HasSuffix(impl.TypeName.Value, "."+typeName) {
+				locs = append(locs, locationFromToken(uri, impl.Token, impl.Token.Literal))
+			}
+		}
+	}
+	return locs
+}
+
+func (s *Server) lookupWorkspaceSymbol(result *AnalysisResult, originURI, name string) (Location, bool) {
+	if sym, ok := result.Index.Symbols[name]; ok {
+		return sym.Location, true
+	}
+	originPath := uriToPath(originURI)
+	for _, res := range s.Cache {
+		if res == nil || res.Index == nil {
+			continue
+		}
+		sym, ok := res.Index.Symbols[name]
+		if !ok {
+			continue
+		}
+		if sym.Exported || uriToPath(sym.Location.URI) == originPath {
+			return sym.Location, true
+		}
+	}
+	return Location{}, false
+}
 
 func (s *Server) handleDefinition(req Request) []Location {
 	var params DefinitionParams
@@ -30,244 +348,36 @@ func (s *Server) handleDefinition(req Request) []Location {
 	if node == nil || isNil(node) {
 		return nil
 	}
-	if result.RefByPos != nil && result.Defs != nil {
-		if key := nodeRefKey(node); key != "" {
-			if id, ok := result.RefByPos[key]; ok {
-				if defLoc, ok := result.Defs[id]; ok {
-					return []Location{defLoc}
-				}
-			}
-		}
+	if locs := s.definitionFromRefs(result, node); len(locs) > 0 {
+		return locs
 	}
-	if mce, ok := node.(*ast.MethodCallExpression); ok {
-		if result.TC != nil {
-			t := result.TC.GetNodeType(mce.Object)
-			if t != "" {
-				t = resolveAliasTypeString(result, t)
-				baseType := mapBuiltinType(baseTypeName(t))
-				key := baseType + "." + mce.Method.Value
-				stdLibPath := prelude.GetStdLibPath()
-				preludeFiles := []string{
-					filepath.Join(stdLibPath, "builtins.bak"),
-					filepath.Join(stdLibPath, "collections", "vec.bak"),
-					filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-					filepath.Join(stdLibPath, "result.bak"),
-				}
-				for _, path := range preludeFiles {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[key]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
+	if mce, ok := node.(*ast.MethodCallExpression); ok && result.TC != nil {
+		t := result.TC.GetNodeType(mce.Object)
+		if t != "" {
+			t = resolveAliasTypeString(result, t)
+			key := mapBuiltinType(baseTypeName(t)) + "." + mce.Method.Value
+			if loc, ok := s.lookupPreludeSymbol(key, "", true); ok {
+				return []Location{loc}
 			}
 		}
 	}
 
 	switch n := node.(type) {
 	case *ast.Identifier:
-		// Check if it's a composite identifier like "http.Server" from the parser
-		if parts := strings.SplitN(n.Value, ".", 2); len(parts) == 2 {
-			moduleName := parts[0]
-			typeName := parts[1]
-			if importPath, ok := result.Imports[moduleName]; ok {
-				path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-				if path != "" {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[typeName]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
-			}
-		}
-
-		if sym, ok := result.Index.Symbols[n.Value]; ok {
-			return []Location{sym.Location}
-		}
-		// If the identifier is a member name (obj.member), try resolving via the qualifier.
-		text := s.Documents[params.TextDocument.URI]
-		if text == "" {
-			if data, err := os.ReadFile(uriToPath(params.TextDocument.URI)); err == nil {
-				text = string(data)
-			}
-		}
-		if text != "" {
-			lineText := lineAt(text, params.Position.Line)
-			word, start := wordAt(lineText, params.Position.Character)
-			if word == n.Value && start > 0 && lineText[start-1] == '.' {
-				qualifier := qualifierBefore(lineText, start-1)
-				if qualifier != "" {
-					// Module-qualified member (pkg.Symbol)
-					if importPath, ok := result.Imports[qualifier]; ok {
-						path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-						if path != "" {
-							modIndex := s.getOrIndexFile(path)
-							if modIndex != nil {
-								if sym, ok := modIndex.Symbols[word]; ok {
-									return []Location{sym.Location}
-								}
-							}
-						}
-					}
-
-					// Struct member (Type.member) resolved via qualifier type.
-					if result.TC != nil {
-						line := params.Position.Line + 1
-						qualCol := start - 1 - len(qualifier) + 1
-						if qualCol > 0 {
-							if qNode := findNode(result.AST, line, qualCol); qNode != nil {
-								if t := result.TC.GetNodeType(qNode); t != "" {
-									t = resolveAliasTypeString(result, t)
-									baseType := mapBuiltinType(baseTypeName(t))
-									key := baseType + "." + word
-									if sym, ok := result.Index.Symbols[key]; ok {
-										return []Location{sym.Location}
-									}
-									for _, importPath := range result.Imports {
-										path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-										if path != "" {
-											modIndex := s.getOrIndexFile(path)
-											if modIndex != nil {
-												if sym, ok := modIndex.Symbols[key]; ok {
-													return []Location{sym.Location}
-												}
-											}
-										}
-									}
-									stdLibPath := prelude.GetStdLibPath()
-									preludeFiles := []string{
-										filepath.Join(stdLibPath, "builtins.bak"),
-										filepath.Join(stdLibPath, "collections", "vec.bak"),
-										filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-										filepath.Join(stdLibPath, "result.bak"),
-									}
-									for _, path := range preludeFiles {
-										modIndex := s.getOrIndexFile(path)
-										if modIndex != nil {
-											log.Printf("DEBUG(ID): Searching for %s in %s (found %d symbols)\n", key, path, len(modIndex.Symbols))
-											if sym, ok := modIndex.Symbols[key]; ok {
-												return []Location{sym.Location}
-											}
-											if strings.Contains(path, "builtins.bak") {
-												for k := range modIndex.Symbols {
-													log.Printf("DEBUG(ID): Found symbol key: %s\n", k)
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		if locs := s.definitionForIdentifier(result, params.TextDocument.URI, params.Position, n); len(locs) > 0 {
+			return locs
 		}
 	case *ast.FieldAccessExpression:
-		if ident, ok := n.Object.(*ast.Identifier); ok {
-			if importPath, ok := result.Imports[ident.Value]; ok {
-				path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-				if path != "" {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[n.Field.Value]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
-			}
-		}
-		if result.TC != nil {
-			if t := result.TC.GetNodeType(n.Object); t != "" {
-				t = resolveAliasTypeString(result, t)
-				key := baseTypeName(t) + "." + n.Field.Value
-				if sym, ok := result.Index.Symbols[key]; ok {
-					return []Location{sym.Location}
-				}
-			}
+		if locs := s.definitionForFieldAccess(result, params.TextDocument.URI, n); len(locs) > 0 {
+			return locs
 		}
 	case *ast.MethodCallExpression:
-		if ident, ok := n.Object.(*ast.Identifier); ok {
-			if importPath, ok := result.Imports[ident.Value]; ok {
-				path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-				if path != "" {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[n.Method.Value]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
-			}
-		}
-		if result.TC != nil {
-			if t := result.TC.GetNodeType(n.Object); t != "" {
-				t = resolveAliasTypeString(result, t)
-				baseType := baseTypeName(t)
-				key := baseType + "." + n.Method.Value
-				// Try local index first
-				if sym, ok := result.Index.Symbols[key]; ok {
-					return []Location{sym.Location}
-				}
-				// Try imported modules - the type might be defined in an import
-				for _, importPath := range result.Imports {
-					path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-					if path != "" {
-						modIndex := s.getOrIndexFile(path)
-						if modIndex != nil {
-							if sym, ok := modIndex.Symbols[key]; ok {
-								return []Location{sym.Location}
-							}
-							// Also check just the method name (for methods in same file as struct)
-							if sym, ok := modIndex.Symbols[n.Method.Value]; ok {
-								return []Location{sym.Location}
-							}
-						}
-					}
-				}
-
-				// Key fallback: Check Standard Library Prelude (Vec, HashMap, etc.)
-				stdLibPath := prelude.GetStdLibPath()
-				preludeFiles := []string{
-					filepath.Join(stdLibPath, "collections", "vec.bak"),
-					filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-					filepath.Join(stdLibPath, "result.bak"),
-				}
-
-				for _, path := range preludeFiles {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[key]; ok {
-							return []Location{sym.Location}
-						}
-						// Also check just the method name
-						if sym, ok := modIndex.Symbols[n.Method.Value]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
-			}
+		if locs := s.definitionForMethodCall(result, params.TextDocument.URI, n); len(locs) > 0 {
+			return locs
 		}
 	case *ast.SimpleType:
-		name := n.Name
-		if idx := strings.LastIndex(name, "."); idx != -1 {
-			pkgAlias := name[:idx]
-			typeName := name[idx+1:]
-			if importPath, ok := result.Imports[pkgAlias]; ok {
-				path := s.resolveImportPath(uriToPath(params.TextDocument.URI), importPath)
-				if path != "" {
-					modIndex := s.getOrIndexFile(path)
-					if modIndex != nil {
-						if sym, ok := modIndex.Symbols[typeName]; ok {
-							return []Location{sym.Location}
-						}
-					}
-				}
-			}
-		} else if sym, ok := result.Index.Symbols[name]; ok {
-			return []Location{sym.Location}
+		if locs := s.definitionForSimpleType(result, params.TextDocument.URI, n); len(locs) > 0 {
+			return locs
 		}
 	}
 	return nil
@@ -300,44 +410,18 @@ func (s *Server) handleTypeDefinition(req Request) []Location {
 	if base == "" {
 		return nil
 	}
-
-	// Try to find the symbol 'base'
 	return s.findSymbolLocations(params.TextDocument.URI, base, result)
 }
 
 func (s *Server) findSymbolLocations(originURI, name string, result *AnalysisResult) []Location {
-	// Handle module-qualified search if 'name' contains a dot (e.g., "http.Server")
 	if parts := strings.SplitN(name, ".", 2); len(parts) == 2 {
-		moduleName := parts[0]
-		typeName := parts[1]
-		if importPath, ok := result.Imports[moduleName]; ok {
-			path := s.resolveImportPath(uriToPath(originURI), importPath)
-			if path != "" {
-				modIndex := s.getOrIndexFile(path)
-				if modIndex != nil {
-					if sym, ok := modIndex.Symbols[typeName]; ok {
-						return []Location{sym.Location}
-					}
-				}
-			}
+		if loc, ok := s.lookupImportedSymbol(result, originURI, parts[0], parts[1]); ok {
+			return []Location{loc}
 		}
 	}
 
-	// Local lookup
-	if sym, ok := result.Index.Symbols[name]; ok {
-		return []Location{sym.Location}
-	}
-
-	// Workspace-wide lookup for the symbol
-	for _, res := range s.Cache {
-		if res == nil || res.Index == nil {
-			continue
-		}
-		if sym, ok := res.Index.Symbols[name]; ok {
-			if sym.Exported || uriToPath(res.Index.Symbols[name].Location.URI) == uriToPath(originURI) {
-				return []Location{sym.Location}
-			}
-		}
+	if loc, ok := s.lookupWorkspaceSymbol(result, originURI, name); ok {
+		return []Location{loc}
 	}
 
 	return nil
@@ -360,42 +444,12 @@ func (s *Server) handleImplementation(req Request) []Location {
 		return nil
 	}
 
-	// Identify the type we are interested in.
-	typeName := ""
-	if ident, ok := node.(*ast.Identifier); ok {
-		typeName = ident.Value
-	} else if structDecl, ok := node.(*ast.StructDecl); ok {
-		typeName = structDecl.Name.Value
-	} else if enumDecl, ok := node.(*ast.EnumDecl); ok {
-		typeName = enumDecl.Name.Value
-	} else {
-		// Fallback to type of node.
-		if result.TC != nil {
-			t := result.TC.GetNodeType(node)
-			typeName = baseTypeName(resolveAliasTypeString(result, t))
-		}
-	}
-
+	typeName := implementationTypeName(node, result)
 	if typeName == "" {
 		return nil
 	}
 
-	// Find all 'impl typeName' blocks in the workspace.
-	locs := []Location{}
-	for uri, res := range s.Cache {
-		if res == nil || res.AST == nil {
-			continue
-		}
-		for _, stmt := range res.AST.Statements {
-			if impl, ok := stmt.(*ast.ImplDecl); ok {
-				if impl.TypeName != nil && (impl.TypeName.Value == typeName || strings.HasSuffix(impl.TypeName.Value, "."+typeName)) {
-					locs = append(locs, locationFromToken(uri, impl.Token, impl.Token.Literal))
-				}
-			}
-		}
-	}
-
-	return locs
+	return s.implementationLocations(typeName)
 }
 
 func (s *Server) handleReferences(req Request) []Location {
@@ -441,18 +495,22 @@ func (s *Server) handleReferences(req Request) []Location {
 			}
 		}
 	}
-	return collectReferencesWorkspace(s, params.TextDocument.URI, node)
+
+	return collectWorkspaceReferences(s, params.TextDocument.URI, node)
 }
 
 func (s *Server) handleDocumentSymbol(req Request) []DocumentSymbol {
 	var params DocumentSymbolParams
+
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
+
 	result, ok := s.Cache[params.TextDocument.URI]
 	if !ok || result.AST == nil {
 		return nil
 	}
+
 	return collectDocumentSymbols(result.AST, result.TC)
 }
 
@@ -472,21 +530,14 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 			if query != "" && !strings.Contains(strings.ToLower(sym.Name), query) {
 				continue
 			}
-			name := sym.Name
-			container := ""
-			if parts := strings.SplitN(sym.Name, ".", 2); len(parts) == 2 {
-				container = parts[0]
-				name = parts[1]
-			}
-			items = append(items, SymbolInformation{
-				Name:          name,
-				Kind:          symbolKindFromKind(sym.Kind),
-				Location:      sym.Location,
-				ContainerName: container,
-			})
+			items = append(items, workspaceSymbolInformation(sym))
 		}
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].Name < items[j].Name })
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+
 	return items
 }
 
@@ -495,23 +546,28 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
+
 	result, ok := s.Cache[params.TextDocument.URI]
 	if !ok || result == nil || result.AST == nil || !isRenameableIdentifier(params.NewName) {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
+
 	if _, _, ok := renameTargetAt(result.AST, params.Position); !ok {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
+
 	refParams := ReferenceParams{
 		TextDocument: params.TextDocument,
 		Position:     params.Position,
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
+
 	refParamsBytes, _ := json.Marshal(refParams)
 	refs := s.handleReferences(Request{Params: refParamsBytes})
 	if len(refs) == 0 {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
+
 	changes := make(map[string][]TextEdit)
 	for _, loc := range refs {
 		changes[loc.URI] = append(changes[loc.URI], TextEdit{
@@ -519,6 +575,7 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 			NewText: params.NewName,
 		})
 	}
+
 	return &WorkspaceEdit{Changes: changes}
 }
 
@@ -555,120 +612,28 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 
 	actions := []CodeAction{}
 	for _, diag := range params.Context.Diagnostics {
-		for _, fix := range diagnosticFixesFromData(diag.Data) {
-			title := strings.TrimSpace(fix.Title)
-			if title == "" {
-				title = "Apply suggested fix"
-			}
-			actions = append(actions, CodeAction{
-				Title:       title,
-				Kind:        "quickfix",
-				Diagnostics: []Diagnostic{diag},
-				Edit: &WorkspaceEdit{
-					Changes: map[string][]TextEdit{
-						params.TextDocument.URI: {
-							{
-								Range:   fix.Range,
-								NewText: fix.NewText,
-							},
-						},
-					},
-				},
-			})
-		}
-		if strings.Contains(diag.Message, "unused") {
-			actions = append(actions, CodeAction{
-				Title:       "Remove unused declaration",
-				Kind:        "quickfix",
-				Diagnostics: []Diagnostic{diag},
-				Edit: &WorkspaceEdit{
-					Changes: map[string][]TextEdit{
-						params.TextDocument.URI: {
-							{
-								Range:   diag.Range,
-								NewText: "",
-							},
-						},
-					},
-				},
-			})
-		}
+		actions = addQuickFixActions(actions, params.TextDocument.URI, diag)
+		actions = addRemoveUnusedAction(actions, params.TextDocument.URI, diag)
 	}
 
-	// Add "Organize Imports" action
 	actions = append(actions, CodeAction{
 		Title: "Organize Imports",
 		Kind:  "source.organizeImports",
 		Edit:  s.getOrganizeImportsEdit(params.TextDocument.URI),
 	})
 
-	// Add "Remove all unused" if there are multiple unused diagnostics
-	unusedCount := 0
-	for _, diag := range params.Context.Diagnostics {
-		if strings.Contains(diag.Message, "unused") {
-			unusedCount++
-		}
-	}
-	if unusedCount > 1 {
-		edits := []TextEdit{}
-		diags := []Diagnostic{}
-		for _, diag := range params.Context.Diagnostics {
-			if strings.Contains(diag.Message, "unused") {
-				edits = append(edits, TextEdit{Range: diag.Range, NewText: ""})
-				diags = append(diags, diag)
-			}
-		}
-		actions = append(actions, CodeAction{
-			Title:       "Remove all unused declarations",
-			Kind:        "quickfix",
-			Diagnostics: diags,
-			Edit: &WorkspaceEdit{
-				Changes: map[string][]TextEdit{
-					params.TextDocument.URI: edits,
-				},
-			},
-		})
-	}
+	actions = addRemoveAllUnusedAction(
+		actions,
+		params.TextDocument.URI,
+		params.Context.Diagnostics,
+	)
 
-	// Auto-import: suggest imports for undefined symbols
-	result := s.Cache[params.TextDocument.URI]
-	for _, diag := range params.Context.Diagnostics {
-		// Match "undefined: X" or "undefined type: X"
-		symbolName := extractUndefinedSymbol(diag.Message)
-		if symbolName == "" {
-			continue
-		}
-		candidates := lookupStdlibSymbol(symbolName)
-		if len(candidates) == 0 {
-			continue
-		}
-		insertPos := findImportInsertPosition(result)
-		for _, candidate := range candidates {
-			importLine := strfmt.Named("import {Alias} \"{ImportPath}\"\n", "ImportPath", candidate.ImportPath, "Alias", candidate.Alias)
-			actions = append(actions, CodeAction{
-				Title: strfmt.Named(
-					"Import '{SymbolName}' from {Alias}",
-					"SymbolName", symbolName,
-					"Alias", candidate.Alias,
-				),
-				Kind:        "quickfix",
-				Diagnostics: []Diagnostic{diag},
-				Edit: &WorkspaceEdit{
-					Changes: map[string][]TextEdit{
-						params.TextDocument.URI: {
-							{
-								Range: Range{
-									Start: insertPos,
-									End:   insertPos,
-								},
-								NewText: importLine,
-							},
-						},
-					},
-				},
-			})
-		}
-	}
+	actions = addAutoImportActions(
+		actions,
+		s.Cache[params.TextDocument.URI],
+		params.TextDocument.URI,
+		params.Context.Diagnostics,
+	)
 
 	return actions
 }
@@ -696,13 +661,128 @@ func symbolKindFromKind(kind string) int {
 	}
 }
 
+func workspaceSymbolInformation(sym SymbolInfo) SymbolInformation {
+	name := sym.Name
+	container := ""
+	if parts := strings.SplitN(sym.Name, ".", 2); len(parts) == 2 {
+		container = parts[0]
+		name = parts[1]
+	}
+	return SymbolInformation{
+		Name:          name,
+		Kind:          symbolKindFromKind(sym.Kind),
+		Location:      sym.Location,
+		ContainerName: container,
+	}
+}
+
+func documentSymbolFromToken(
+	tok token.Token,
+	name string,
+	kind int,
+	detail string,
+	children []DocumentSymbol,
+	span ast.Span,
+) *DocumentSymbol {
+	fullRange := rangeFromToken(tok, name)
+	if r, ok := rangeFromSpan(span); ok {
+		fullRange = r
+	}
+
+	selectionRange := rangeFromToken(tok, name)
+	return &DocumentSymbol{
+		Name:           name,
+		Kind:           kind,
+		Detail:         detail,
+		Range:          fullRange,
+		SelectionRange: selectionRange,
+		Children:       children,
+	}
+}
+
+func fieldDocumentSymbol(field *ast.StructField) *DocumentSymbol {
+	if field == nil || field.Name == nil {
+		return nil
+	}
+
+	detail := ""
+	if field.Type != nil {
+		detail = field.Type.String()
+	}
+
+	return documentSymbolFromToken(
+		field.Name.Token,
+		field.Name.Value,
+		8,
+		detail,
+		nil,
+		field.Span,
+	)
+}
+
+func variantDocumentSymbol(variant *ast.EnumVariant) *DocumentSymbol {
+	if variant == nil || variant.Name == nil {
+		return nil
+	}
+	detail := ""
+	if len(variant.Fields) > 0 {
+		parts := make([]string, 0, len(variant.Fields))
+		for _, f := range variant.Fields {
+			if f != nil {
+				parts = append(parts, f.String())
+			}
+		}
+		detail = "(" + strings.Join(parts, ", ") + ")"
+	}
+	return documentSymbolFromToken(variant.Name.Token, variant.Name.Value, 22, detail, nil, variant.Span)
+}
+
+func implMethodDocumentSymbol(method *ast.MethodDecl) *DocumentSymbol {
+	if method == nil || method.Name == nil {
+		return nil
+	}
+	return documentSymbolFromToken(
+		method.Name.Token,
+		method.Name.Value,
+		6,
+		formatFuncDetail(
+			method.Parameters,
+			method.ReturnType,
+			method.Mutable,
+		),
+		nil,
+		method.Span,
+	)
+}
+
+func mergeDocumentSymbolMethods(structs map[string]*DocumentSymbol, methods map[string][]*DocumentSymbol, entries []*DocumentSymbol) []*DocumentSymbol {
+	for typeName, ms := range methods {
+		if st, ok := structs[typeName]; ok {
+			for _, m := range ms {
+				if m != nil {
+					st.Children = append(st.Children, *m)
+				}
+			}
+			continue
+		}
+		for _, m := range ms {
+			if m == nil {
+				continue
+			}
+			m.Name = typeName + "." + m.Name
+			entries = append(entries, m)
+		}
+	}
+	return entries
+}
+
 func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []DocumentSymbol {
 	if prog == nil {
 		return nil
 	}
 	entries := []*DocumentSymbol{}
 	structs := make(map[string]*DocumentSymbol)
-	methods := make(map[string][]DocumentSymbol)
+	methods := make(map[string][]*DocumentSymbol)
 
 	for _, stmt := range prog.Statements {
 		switch s := stmt.(type) {
@@ -710,147 +790,57 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           12,
-				Detail:         formatFuncDetail(s.Parameters, s.ReturnType, false),
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 12, formatFuncDetail(s.Parameters, s.ReturnType, false), nil, s.Span)
 			entries = append(entries, sym)
 		case *ast.StructDecl:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			children := []DocumentSymbol{}
 			for _, f := range s.Fields {
-				if f == nil || f.Name == nil {
-					continue
+				if sym := fieldDocumentSymbol(f); sym != nil {
+					children = append(children, *sym)
 				}
-				fieldRange := rangeFromToken(f.Name.Token, f.Name.Value)
-				if r, ok := rangeFromSpan(f.Span); ok {
-					fieldRange = r
-				}
-				detail := ""
-				if f.Type != nil {
-					detail = f.Type.String()
-				}
-				children = append(children, DocumentSymbol{
-					Name:           f.Name.Value,
-					Kind:           8,
-					Detail:         detail,
-					Range:          fieldRange,
-					SelectionRange: rangeFromToken(f.Name.Token, f.Name.Value),
-				})
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           23,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-				Children:       children,
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 23, "", children, s.Span)
 			entries = append(entries, sym)
 			structs[s.Name.Value] = sym
 		case *ast.EnumDecl:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			children := []DocumentSymbol{}
 			for _, v := range s.Variants {
-				if v == nil || v.Name == nil {
-					continue
+				if sym := variantDocumentSymbol(v); sym != nil {
+					children = append(children, *sym)
 				}
-				varRange := rangeFromToken(v.Name.Token, v.Name.Value)
-				if r, ok := rangeFromSpan(v.Span); ok {
-					varRange = r
-				}
-				detail := ""
-				if len(v.Fields) > 0 {
-					parts := make([]string, 0, len(v.Fields))
-					for _, f := range v.Fields {
-						if f != nil {
-							parts = append(parts, f.String())
-						}
-					}
-					detail = "(" + strings.Join(parts, ", ") + ")"
-				}
-				children = append(children, DocumentSymbol{
-					Name:           v.Name.Value,
-					Kind:           22,
-					Detail:         detail,
-					Range:          varRange,
-					SelectionRange: rangeFromToken(v.Name.Token, v.Name.Value),
-				})
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           10,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-				Children:       children,
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 10, "", children, s.Span)
 			entries = append(entries, sym)
 		case *ast.TypeDecl:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			detail := ""
 			if s.Underlying != nil {
 				detail = s.Underlying.String()
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           26,
-				Detail:         detail,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 26, detail, nil, s.Span)
 			entries = append(entries, sym)
 		case *ast.AliasDecl:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			detail := ""
 			if s.Underlying != nil {
 				detail = s.Underlying.String()
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           26,
-				Detail:         detail,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 26, detail, nil, s.Span)
 			entries = append(entries, sym)
 		case *ast.ConstStatement:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			detail := ""
 			if s.Type != nil {
 				detail = s.Type.String()
@@ -859,22 +849,12 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					detail = t
 				}
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           14,
-				Detail:         detail,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 14, detail, nil, s.Span)
 			entries = append(entries, sym)
 		case *ast.VarStatement:
 			if s == nil || s.Name == nil {
 				continue
 			}
-			fullRange := rangeFromToken(s.Name.Token, s.Name.Value)
-			if r, ok := rangeFromSpan(s.Span); ok {
-				fullRange = r
-			}
 			detail := ""
 			if s.Type != nil {
 				detail = s.Type.String()
@@ -883,13 +863,7 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					detail = t
 				}
 			}
-			sym := &DocumentSymbol{
-				Name:           s.Name.Value,
-				Kind:           13,
-				Detail:         detail,
-				Range:          fullRange,
-				SelectionRange: rangeFromToken(s.Name.Token, s.Name.Value),
-			}
+			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 13, detail, nil, s.Span)
 			entries = append(entries, sym)
 		case *ast.ImplDecl:
 			if s == nil || s.TypeName == nil {
@@ -897,35 +871,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 			}
 			typeName := s.TypeName.Value
 			for _, m := range s.Methods {
-				if m == nil || m.Name == nil {
-					continue
+				if sym := implMethodDocumentSymbol(m); sym != nil {
+					methods[typeName] = append(methods[typeName], sym)
 				}
-				methodRange := rangeFromToken(m.Name.Token, m.Name.Value)
-				if r, ok := rangeFromSpan(m.Span); ok {
-					methodRange = r
-				}
-				methods[typeName] = append(methods[typeName], DocumentSymbol{
-					Name:           m.Name.Value,
-					Kind:           6,
-					Detail:         formatFuncDetail(m.Parameters, m.ReturnType, m.Mutable),
-					Range:          methodRange,
-					SelectionRange: rangeFromToken(m.Name.Token, m.Name.Value),
-				})
 			}
 		}
 	}
 
-	for typeName, ms := range methods {
-		if st, ok := structs[typeName]; ok {
-			st.Children = append(st.Children, ms...)
-			continue
-		}
-		for _, m := range ms {
-			name := typeName + "." + m.Name
-			m.Name = name
-			entries = append(entries, &m)
-		}
-	}
+	entries = mergeDocumentSymbolMethods(structs, methods, entries)
 
 	out := make([]DocumentSymbol, 0, len(entries))
 	for _, sym := range entries {

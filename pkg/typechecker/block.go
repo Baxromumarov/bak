@@ -81,7 +81,7 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 	if node == nil {
 		return false
 	}
-	
+
 	switch n := node.(type) {
 	case *ast.BlockStatement:
 		for _, s := range n.Statements {
@@ -127,7 +127,7 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 		if tc.identifierOccursInNode(n.Condition, name) {
 			return true
 		}
-		
+
 		if tc.identifierOccursInNode(n.Consequence, name) {
 			return true
 		}

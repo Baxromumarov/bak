@@ -46,7 +46,7 @@ func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 
 	// Validate the constant's type annotation for deprecated/ambiguous names
 	tc.validateTypeUsage(cs.Type, cs.Name.Pos())
-	
+
 	tc.env.DefineSymbolAt(
 		cs.Name.Value,
 		cs.Type,

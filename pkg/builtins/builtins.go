@@ -936,17 +936,17 @@ func builtinVecGet(args ...object.Object) object.Object {
 	if !ok {
 		return nthArgTypeError("__vec_get", 0, args[0], "Vec")
 	}
-	
+
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_get", 1, args[1], "int")
 	}
-	
+
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
 		return &object.Null{}
 	}
-	
+
 	return vec.Elements[idx]
 }
 
@@ -960,19 +960,19 @@ func builtinVecSet(args ...object.Object) object.Object {
 	if !ok {
 		return nthArgTypeError("__vec_set", 0, args[0], "Vec")
 	}
-	
+
 	idxObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_set", 1, args[1], "int")
 	}
-	
+
 	idx := int(idxObj.Value)
 	if idx < 0 || idx >= len(vec.Elements) {
 		return newError("__vec_set: index out of range")
 	}
-	
+
 	vec.Elements[idx] = args[2]
-	
+
 	return object.NewVoid()
 }
 
@@ -986,24 +986,24 @@ func builtinVecGrow(args ...object.Object) object.Object {
 	if !ok {
 		return nthArgTypeError("__vec_grow", 0, args[0], "Vec")
 	}
-	
+
 	capObj, ok := args[1].(*object.Integer)
 	if !ok {
 		return nthArgTypeError("__vec_grow", 1, args[1], "int")
 	}
-	
+
 	newCap := int(capObj.Value)
 	if newCap <= len(vec.Elements) {
 		return vec
 	}
-	
+
 	newElements := make([]object.Object, newCap)
 	copy(newElements, vec.Elements)
 	// fill rest with nil (Null)
 	for i := len(vec.Elements); i < newCap; i++ {
 		newElements[i] = &object.Null{}
 	}
-	
+
 	return &object.Vec{
 		Elements: newElements,
 		Size:     newCap,
@@ -1021,16 +1021,16 @@ func builtinMutexLock(args ...object.Object) object.Object {
 	if !ok {
 		return argTypeError("__builtin_mutex_lock", args[0], "int (id)")
 	}
-	
+
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]
 	mutexMu.Unlock()
 	if !ok {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
-	
+
 	mu.Lock()
-	
+
 	return object.NewVoid()
 }
 
@@ -1043,15 +1043,15 @@ func builtinMutexUnlock(args ...object.Object) object.Object {
 	if !ok {
 		return argTypeError("__builtin_mutex_unlock", args[0], "int (id)")
 	}
-	
+
 	mutexMu.Lock()
 	mu, ok := mutexes[int(idObj.Value)]
 	mutexMu.Unlock()
 	if !ok {
 		return newError("invalid mutex handle: %d", idObj.Value)
 	}
-	
+
 	mu.Unlock()
-	
+
 	return object.NewVoid()
 }
