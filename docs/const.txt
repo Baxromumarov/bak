@@ -53,7 +53,7 @@ const (
 - Structs
 - Vec
 - Box
-- Option
+- Result and legacy Option-style values
 - Function calls
 - Heap allocation
 

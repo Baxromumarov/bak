@@ -7,7 +7,7 @@ Companion usage guide for recently expanded helpers:
 
 ## Common conventions
 - File and process APIs return `Result<..., string>` for fallible operations.
-- Optional lookups return `Option<T>`.
+- Optional lookups return `Result<T, string>` using `Err(...)` for absence.
 - Pure helpers return plain values and should avoid hidden failure paths.
 - Dangerous operations are still subject to runtime permissions in the Go implementation.
 
@@ -32,7 +32,7 @@ Companion usage guide for recently expanded helpers:
   - `exec` with structured `ExecResult`
   - `chmod`, `temp_dir`, `user_home_dir`
 - Error model:
-  - lookups that may be missing use `Option` (`getenv`)
+  - lookups that may be missing use `Result` (`getenv`)
   - operations that can fail use `Result`
 - Limits:
   - `exec` is permission-gated
@@ -45,7 +45,7 @@ Companion usage guide for recently expanded helpers:
   - router dispatch and server helpers
 - Error model:
   - parsing functions return `Result<..., string>`
-  - header and query lookups return `Option<string>`
+  - header and query lookups return `Result<string, string>`
 - Limits:
   - the current `std/http` surface is request/response and server oriented
   - there is no stable outbound HTTP client API in this module yet
@@ -57,7 +57,7 @@ Companion usage guide for recently expanded helpers:
   - typed getters and builder helpers
 - Error model:
   - parsing and required-field helpers return `Result`
-  - optional field access uses `Option`
+  - optional field access uses `Result`
 - Limits:
   - callers should prefer the typed helpers instead of assuming object layout manually
 

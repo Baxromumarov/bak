@@ -14,7 +14,10 @@ func test_bind_and_close_listener() -> (void) {
             t.fail("closeListener failed: " + close_res.unwrapErr())
         }
     } else {
-        t.fail("bind failed: " + res.unwrapErr())
+        var err: string = res.unwrapErr()
+        if !err.contains("--allow-net") {
+            t.fail("bind failed: " + err)
+        }
     }
 
     t.finish()

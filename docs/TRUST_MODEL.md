@@ -10,9 +10,8 @@ Bak does not currently provide a sandbox for untrusted code.
 
 Current behavior:
 
-- `bak run`, `bak --vm`, `bak --bc`, `bak test`, and the REPL deny subprocess execution, network/database access, and destructive filesystem mutation by default,
+- `bak run`, `bak test`, and the REPL deny subprocess execution, network/database access, and destructive filesystem mutation by default,
 - those capabilities can be enabled explicitly with `--allow-exec`, `--allow-net`, `--allow-fs-mutate`, or `--allow-all`,
-- `bak.toml` can request the same runtime capabilities under a `[permissions]` table, and CLI flags still take precedence,
 - `os.exec` in interpreter/VM paths is direct-exec only, uses a default timeout, and caps captured output unless overridden with CLI flags,
 - native executables produced by `bak build` now carry the same project permission policy at compile time and refuse dangerous builtin usage unless the matching permission is granted.
 
@@ -59,14 +58,13 @@ Current CLI/runtime guardrails:
 
 ### Package fetching
 
-`bak get` and `bak install` may fetch code from git repositories.
+Package fetching is not part of the current CLI surface. There is no active `bak get` or `bak install` command in this toolchain line.
 
-Current hardening:
+Planned hardening before package fetching becomes user-facing:
 
-- lockfile entries now include commit and content checksum,
-- cached packages are keyed by source plus commit instead of repo name alone,
-- `bak install --offline` avoids network access,
-- `bak install --frozen-lockfile` refuses dependency drift relative to `bak.toml`.
+- lockfile entries should include commit and content checksum,
+- cached packages should be keyed by source plus commit instead of repo name alone,
+- offline and frozen-lockfile modes should be available before networked installs are treated as stable.
 
 Current limitations:
 
@@ -80,8 +78,8 @@ Until Bak has a stronger permission model, follow these rules:
 
 1. Do not run untrusted Bak programs on machines you care about.
 2. Prefer containers, VMs, or separate users for risky code.
-3. Prefer `bak install --offline` in reproducible environments.
-4. Commit `bak.lock` and review dependency changes before updating it.
+3. Keep third-party Bak source vendored or reviewed until package fetching is implemented.
+4. Commit any future lockfile and review dependency changes before updating it.
 5. Treat `--allow-exec`, `--allow-net`, and `--allow-fs-mutate` as privileged opt-ins.
 6. Keep `--exec-timeout` and `--exec-max-output-bytes` conservative when running questionable code.
 7. Treat native executables built by `bak build` as enforced at compile time, not by a runtime sandbox.
@@ -89,13 +87,9 @@ Until Bak has a stronger permission model, follow these rules:
 
 ## Near-Term Roadmap
 
-The active Go toolchain roadmap calls for additional hardening:
+Near-term hardening work:
 
 1. ✅ Runtime permission model v1 baseline is complete (interpreter/VM/native compile-time gating plus native runtime defense-in-depth).
 2. ✅ Native exec policy documented: direct-exec, no timeout/output capture in emitted binaries.
 3. ✅ Filesystem traversal guardrails added.
-4. Source allowlists and stronger lockfile integrity checks are in progress.
-
-See:
-
-- `GO_ROADMAP.md`
+4. Source allowlists and stronger lockfile integrity checks should land with any future package-fetching feature.

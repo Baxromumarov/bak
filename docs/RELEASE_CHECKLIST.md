@@ -8,7 +8,6 @@ Use this together with:
 
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
-- `GO_ROADMAP.md`
 - `docs/RESULT_MIGRATION_NOTES.md` (when Result-oriented API behavior changes)
 
 ## Language and Compatibility

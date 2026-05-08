@@ -4,7 +4,7 @@ Current status:
 
 - The Go implementation in `pkg/` and `cmd/` is the supported compiler.
 - `src/std` contains the Bak standard library sources used by examples and tests.
-- The active project roadmap is in `GO_ROADMAP.md`.
+- The compatibility and release direction is tracked in `docs/`.
 
 Purpose: concise overview of Bak syntax, tooling, and project direction.
 
@@ -29,7 +29,7 @@ Bak is operating under a frozen `v0.1` language line.
 
 - Comments: `//` single-line, `/* ... */` block.
 - Identifiers: ASCII letters, digits, `_`, not starting with a digit.
-- Keywords: `package`, `import`, `pub`, `func`, `mut`, `var`, `const`, `struct`, `enum`, `impl`, `return`, `switch`, `case`, `break`, `continue`, `if`, `else`, `Option`, `Result`, `Some`, `None`, `Ok`, `Err`, `panic`, `defer`.
+- Keywords: `package`, `import`, `pub`, `func`, `mut`, `var`, `const`, `struct`, `enum`, `impl`, `return`, `switch`, `case`, `break`, `continue`, `if`, `else`, `Result`, `Ok`, `Err`, `panic`, `defer`.
 - Literals: integers (`123`), floats (`1.5`), char `'a'`, string `"hello"`, bool `true`/`false`.
 
 ## File Structure & Packages
@@ -58,7 +58,7 @@ func main() -> (void) {
 
 - Primitive: `int`, `int32`, `int64`, `float32`, `float64`, `bool`, `char`, `string`.
 - Structs and enums are the primary composite types.
-- `Option<T>` and `Result<T, E>` are used for optional and fallible results.
+- `Result<T, E>` is used for optional and fallible results.
 - Type aliases: `type Name = string`.
 
 ## Variables & Mutability
@@ -181,17 +181,17 @@ func process() -> (void) {
 
 ## Pattern Matching
 
-Switch statements support simple value matching and destructuring of `Option`/`Result` types.
+Switch statements support simple value matching and destructuring of `Result` types.
 
 ```bak
-var opt: Option<int> = Some(10)
+var result: Result<int, string> = Ok(10)
 
-switch opt {
-    case Some(val) {
+switch result {
+    case Ok(val) {
         println("Got value: ", val)
     }
-    case None {
-        println("Got nothing")
+    case Err(err) {
+        println("Got error: ", err)
     }
 }
 ```
@@ -212,11 +212,11 @@ Selected std packages and examples:
 - Methods: `push`, `pop`, `len`.
 - Indexing: `v[i]`.
 
-## Option / Result
+## Result
 
-- `Some(value)` / `None`
 - `Ok(val)` / `Err(err)`
 - Use `unwrap()` to extract values (panics if invalid) or `switch` to handle safely.
+- `Option<T>` / `Some` / `None` are legacy constructs and are rejected on the frozen v0.1 user surface.
 
 ## Diagnostics & Best Practices
 
@@ -238,19 +238,17 @@ Bak is developed as a Go-implemented language toolchain:
 
 - Prefer the frozen `v0.1` surface for examples, libraries, and tests.
 - `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
-- Projects without `bak.toml` are treated as `language_mode = "frozen"` by default.
+- Project manifest support is not part of the current stable CLI surface.
 
 ## Tooling
 
-- `bak new <name>` creates a starter project with `bak.toml`, `README.md`, `src/main.bak`, and `.gitignore`.
-- `bak init <name>` remains available as a compatibility alias for `bak new`.
+- `bak run`, `bak check`, `bak build`, `bak test`, `bak doctor`, `bak explain`, and `bak repl` are the current CLI commands.
 - `bakfmt` formats Bak source files.
 - `baklint` reports style and correctness findings.
-- `features = ["..."]` still configures compile-time flags for `cfg("...")` checks.
+- Compile-time feature flags are currently provided by the toolchain runtime, not a stable project manifest.
 
 See:
 
-- `GO_ROADMAP.md`
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/STDLIB_PHASE3.md`

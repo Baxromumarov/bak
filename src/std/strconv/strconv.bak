@@ -39,9 +39,32 @@ pub func formatInt(n: int, base: int) -> (string) {
         return ""
     }
 
-    // Native backend keeps this intentionally minimal for runtime stability.
-    // Non-decimal formatting currently falls back to decimal output.
-    return n.toString()
+    if n == 0 {
+        return "0"
+    }
+
+    mut var value: int = n
+    mut var negative: bool = false
+    if value < 0 {
+        negative = true
+        value = -value
+    }
+
+    mut var out: string = ""
+    while value > 0 {
+        var digit: int = value % base
+        mut var ch: int = CH_0 + digit
+        if digit >= 10 {
+            ch = CH_A_LOWER + (digit - 10)
+        }
+        out = string(char(ch)) + out
+        value = value / base
+    }
+
+    if negative {
+        return "-" + out
+    }
+    return out
 }
 
 

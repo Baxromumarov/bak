@@ -435,6 +435,34 @@ func TestCLIExplainKnownCode(t *testing.T) {
 	}
 }
 
+func TestCLIHelpFlag(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "--help")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected help to succeed, got err=%v output=%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "Bak language toolchain") {
+		t.Fatalf("expected help heading, got: %s", text)
+	}
+	if !strings.Contains(text, "Commands:") {
+		t.Fatalf("expected command list, got: %s", text)
+	}
+}
+
+func TestCLIVersionFlag(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "--version")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected version to succeed, got err=%v output=%s", err, string(out))
+	}
+	if !strings.Contains(string(out), "bak dev") {
+		t.Fatalf("expected version output, got: %s", string(out))
+	}
+}
+
 func TestCLIExplainList(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "explain", "--list")
 	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")

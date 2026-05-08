@@ -139,6 +139,7 @@ func printSuiteProgress(done, total int, current string) {
 var (
 	ErrTestsFailed    = errors.New("test run failed")
 	testExecutedTrue  = testFileRunResult{Executed: true, Passed: true}
+	testExecutedFail  = testFileRunResult{Executed: true, Passed: false}
 	testExecutedFalse = testFileRunResult{Executed: false, Passed: true}
 )
 
@@ -152,7 +153,7 @@ func runTestFile(
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		_, _ = strfmt.Fprintln(os.Stderr, "Error reading file: ", err)
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	src := string(data)
@@ -167,7 +168,7 @@ func runTestFile(
 		for _, msg := range p.Errors() {
 			_, _ = strfmt.Fprintln(os.Stderr, "  ", msg)
 		}
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	tests := discoverTestFunctions(origProgram)
@@ -186,7 +187,7 @@ func runTestFile(
 			return testExecutedFalse
 		}
 		_, _ = strfmt.Fprintln(os.Stderr, "No test functions found in ", filename)
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	combined := cloneProgram(origProgram)
@@ -203,7 +204,7 @@ func runTestFile(
 		_, _ = strfmt.Fprintln(os.Stderr, "Compilation pipeline failed for ", filename, ":")
 		_, _ = strfmt.Fprintln(os.Stderr, "  ", err)
 
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	module := pipe.Module
@@ -217,7 +218,7 @@ func runTestFile(
 	}
 	if runIndex < 0 {
 		_, _ = strfmt.Fprintln(os.Stderr, "Error: run_all_tests not found in ", filename)
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	initIndex := -1
@@ -273,7 +274,7 @@ func runTestFile(
 			err,
 		)
 
-		return testExecutedTrue
+		return testExecutedFail
 	}
 
 	if result.Type == compiler.VAL_BOOL {
@@ -283,7 +284,8 @@ func runTestFile(
 		}
 	}
 
-	return testExecutedTrue
+	_, _ = strfmt.Fprintln(os.Stderr, "Test runner returned non-bool result in ", filename)
+	return testExecutedFail
 }
 
 func fillTestFunctionLines(src string, tests []testFunctionInfo) []testFunctionInfo {

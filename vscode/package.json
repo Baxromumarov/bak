@@ -45,13 +45,6 @@
     ],
     "themes": [
       {
-        "label": "Bak Dark+",
-        "uiTheme": "vs-dark",
-        "path": "./themes/bak-go-dark.json"
-      }
-    ],
-    "themes": [
-      {
         "label": "Bak Go Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/bak-go-dark.json"

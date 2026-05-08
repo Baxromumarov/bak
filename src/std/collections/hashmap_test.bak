@@ -12,7 +12,7 @@ import "src/std/collections/hashmap.bak" as hashmap
 func test_hashmap_new() -> (void) {
     mut var t: test.T = test.new("test_hashmap_new")
     
-    mut var m: HashMap<string, int> = HashMap.new()
+    mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
     
     t.eq(m.len(), 0)
     t.isTrue(m.isEmpty())

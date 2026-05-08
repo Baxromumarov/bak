@@ -1,13 +1,12 @@
 package main
 
-struct Data{
-    age: int,
-    name: string,
-    fl: float64
+struct Data {
+    age:  int
+    name: string
+    fl:   float64
 }
 
-func main() -> (void){
-
-return void
+func main() -> (void) {
+    println("hello world")
+    return void
 }
-

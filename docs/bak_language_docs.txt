@@ -72,7 +72,8 @@ string
 4.2 Generic and composite types
 -------------------------------
 Vec<T, N> where N is an int or _ for dynamic size.
-Option<T> and Result<T, E> for optional and fallible values.
+Result<T, E> for optional and fallible values.
+Option<T> is legacy and rejected on the frozen v0.1 user surface.
 
 4.3 void
 --------
@@ -178,9 +179,9 @@ Only concrete types and impl blocks exist.
 
 Enums are tagged unions.
 
-    enum Option<T> {
-        Some(T)
-        None
+    enum Status {
+        Ready
+        Failed(string)
     }
 
 
