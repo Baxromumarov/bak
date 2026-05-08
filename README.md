@@ -251,6 +251,9 @@ See:
 
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
+- `docs/BACKEND_CONFORMANCE.md`
+- `docs/PACKAGE_BOUNDARIES.md`
+- `docs/EXAMPLES.md`
 - `docs/STDLIB_PHASE3.md`
 - `docs/STDLIB_COLLECTIONS_STRINGS_PATH.md`
 - `docs/TRUST_MODEL.md`

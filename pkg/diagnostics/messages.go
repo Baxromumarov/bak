@@ -21,11 +21,11 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrMissingPackage: {LevelError, "file must start with a package declaration", "add 'package main' (or another name) at the top of the file"},
 
 	// Ownership errors (E01xx)
-	ErrUseAfterMove:      {LevelError, "use of moved value '{varName}'", "consider borrowing instead: &{varName}"},
-	ErrBorrowAfterMove:   {LevelError, "borrow of moved value '{varName}'", ""},
-	ErrMoveWhileBorrowed: {LevelError, "cannot move '{varName}' because it is {reason}", ""},
+	ErrUseAfterMove:        {LevelError, "use of moved value '{varName}'", "consider borrowing instead: &{varName}"},
+	ErrBorrowAfterMove:     {LevelError, "borrow of moved value '{varName}'", ""},
+	ErrMoveWhileBorrowed:   {LevelError, "cannot move '{varName}' because it is {reason}", ""},
 	ErrDoubleMutableBorrow: {LevelError, "cannot borrow '{varName}' as mutable more than once at a time", ""},
-	ErrBorrowConflict:    {LevelError, "cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", ""},
+	ErrBorrowConflict:      {LevelError, "cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", ""},
 
 	// Mutability errors (E02xx)
 	ErrMutabilityRequired: {LevelError, "cannot {operation} on immutable variable '{varName}'", "declare the variable as 'mut var'"},
@@ -53,7 +53,8 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrUnusedVariable:    {LevelWarning, "unused variable: '{varName}'", "prefix with _ to ignore: '_{varName}'"},
 
 	// Import errors (E07xx)
-	ErrUnusedImport: {LevelWarning, "unused import: '{importPath}'", "remove this import if it's not used"},
+	ErrUnusedImport:   {LevelWarning, "unused import: '{importPath}'", "remove this import if it's not used"},
+	ErrImportNotFound: {LevelError, "import not found: '{importPath}'", "check the import path exists and is accessible"},
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly: {LevelError, "cannot call '{method}' on fixed-size {vecType}", "use Vec<T, _> for dynamic arrays"},

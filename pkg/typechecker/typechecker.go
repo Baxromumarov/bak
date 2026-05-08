@@ -254,6 +254,14 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 		if d.Level == diagnostics.LevelWarning {
 			t = TierWarning
 		}
+		note := ""
+		noteLoc := ""
+		if len(d.Notes) > 0 {
+			note = d.Notes[0].Message
+			if d.Notes[0].Line > 0 {
+				noteLoc = strfmt.S("line ", d.Notes[0].Line, ":", d.Notes[0].Column)
+			}
+		}
 		result = append(result, TypeError{
 			Code:    d.Code,
 			Tier:    t,
@@ -261,6 +269,8 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 			Column:  d.Column,
 			File:    d.File,
 			Message: d.Message,
+			Note:    note,
+			NoteLoc: noteLoc,
 			Help:    d.Help,
 			Fixes:   d.Fixes,
 		})

@@ -1,6 +1,8 @@
 package typechecker
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -21,6 +23,63 @@ func checkSource(t *testing.T, source string) []string {
 	tc := New()
 	tc.SetSuppressUnused(true)
 	return tc.Check(program)
+}
+
+func TestCheck_MissingImportReportsTriedPaths(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	source := `
+package main
+import "./missing.bak" as missing
+
+func main() -> (void) {
+	return void
+}
+`
+	if err := os.WriteFile(mainPath, []byte(source), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	errs := tc.GetErrors()
+	if len(errs) == 0 {
+		t.Fatalf("expected missing import error")
+	}
+
+	var found *TypeError
+	for i := range errs {
+		if errs[i].Code == diagnostics.ErrImportNotFound {
+			found = &errs[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected ErrImportNotFound, got %#v", errs)
+	}
+	if !strings.Contains(found.Message, "./missing.bak") {
+		t.Fatalf("expected requested path in message, got %q", found.Message)
+	}
+	if found.Help == "" {
+		t.Fatalf("expected help text")
+	}
+	if !strings.Contains(found.Note, "requested by") {
+		t.Fatalf("expected structured note to include importer context, got %q", found.Note)
+	}
+
+	formatted := strings.Join(tc.Errors(), "\n")
+	if !strings.Contains(formatted, "tried") {
+		t.Fatalf("expected formatted diagnostic to include tried paths, got:\n%s", formatted)
+	}
 }
 
 func checkSourceStructured(t *testing.T, source string) []TypeError {

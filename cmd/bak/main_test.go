@@ -451,6 +451,38 @@ func TestCLIHelpFlag(t *testing.T) {
 	}
 }
 
+func TestCLIHelpCommandSpecific(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "help", "run")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected command help to succeed, got err=%v output=%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "bak run") {
+		t.Fatalf("expected run help heading, got: %s", text)
+	}
+	if !strings.Contains(text, "Runs a Bak source file") {
+		t.Fatalf("expected run help body, got: %s", text)
+	}
+}
+
+func TestCLICommandHelpFlag(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "test", "--help")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected test help to succeed, got err=%v output=%s", err, string(out))
+	}
+	text := string(out)
+	if !strings.Contains(text, "bak test") {
+		t.Fatalf("expected test help heading, got: %s", text)
+	}
+	if !strings.Contains(text, "--run pattern") {
+		t.Fatalf("expected test help options, got: %s", text)
+	}
+}
+
 func TestCLIVersionFlag(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "--version")
 	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")

@@ -4,9 +4,14 @@ SHELL := /usr/bin/env bash
 GO ?= go
 BINDIR ?= bin
 
+VERSION ?= dev
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -X github.com/baxromumarov/bak/internal/cliapp.Version=$(VERSION) -X github.com/baxromumarov/bak/internal/cliapp.Commit=$(COMMIT) -X github.com/baxromumarov/bak/internal/cliapp.Date=$(DATE)
+
 define go_build
-	@echo "$(GO) build -mod=readonly -o $(1) $(2)"
-	@$(GO) build -mod=readonly -o $(1) $(2) 2> >(grep -v '^go: writing stat cache: .*read-only file system$$' >&2)
+	@echo "$(GO) build -mod=readonly -ldflags '$(LDFLAGS)' -o $(1) $(2)"
+	@$(GO) build -mod=readonly -ldflags "$(LDFLAGS)" -o $(1) $(2) 2> >(grep -v '^go: writing stat cache: .*read-only file system$$' >&2)
 endef
 
 BAK_BIN := $(BINDIR)/bak
@@ -24,7 +29,7 @@ TEST_SCRIPTS := \
 
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-comprehensive test-parity test-lanes test-all test-all-go clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check test-comprehensive test-parity test-lsp-verify test-lanes test-all test-all-go release-check clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -50,13 +55,18 @@ help:
 	@echo "Test targets:"
 	@echo "  make test             Run go test ./..."
 	@echo "  make test-unit        Run go test ./..."
-	@echo "  make test-scripts     Run executable test scripts under tests/"
-	@echo "  make test-comprehensive Run legacy broad-pattern comprehensive script"
-	@echo "  make      Run frozen-surface language and docs guardrails"
-	@echo "  make test-parity      Run evaluator/vm/native parity matrix"
-	@echo "  make test-lanes       Run frozen + parity lanes"
-	@echo "  make test-all         Run unit tests + test scripts"
-	@echo "  make test-all-go      Run all Go tests (unit + frozen + parity)"
+	@echo "  make test-scripts     Run focused shell guardrails under tests/"
+	@echo "  make test-negative    Run expected-failure compiler guardrails"
+	@echo "  make test-imports     Run package/import guardrails"
+	@echo "  make test-stdlib      Run Bak stdlib tests"
+	@echo "  make examples-check   Check stable v0.1 examples"
+	@echo "  make test-parity      Run VM/native parity guardrails"
+	@echo "  make test-lsp-verify  Run the LSP smoke verifier"
+	@echo "  make test-lanes       Run unit + scripts + stdlib + parity"
+	@echo "  make test-comprehensive Run the comprehensive release gate"
+	@echo "  make release-check    Build tools and run release-quality checks"
+	@echo "  make test-all         Alias for test-lanes"
+	@echo "  make test-all-go      Run Go tests + parity"
 	@echo ""
 	@echo "Cleanup targets:"
 	@echo "  make clean            Remove binaries and local build artifacts"
@@ -106,19 +116,38 @@ test-unit:
 test-scripts: build-root-bak
 	$(call run_script_list,$(TEST_SCRIPTS))
 
+test-negative: build-root-bak
+	@bash tests/run_typechecker_tests.sh
+	@bash tests/run_func_arg_tests.sh
+
+test-imports: build-root-bak
+	$(GO) test ./pkg/packages ./pkg/typechecker -run 'Import|Resolve|Cyclic|Visibility|Alias'
+	@bash tests/run_alias_type_tests.sh
+
+test-stdlib: build-root-bak
+	@./bak test src/std
+
+examples-check: build-root-bak
+	@BAK_BIN=./bak bash scripts/check_examples.sh
+
 test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"
 	@bash $(COMPREHENSIVE_SCRIPT)
 
 
 test-parity:
-	$(GO) test ./pkg/backend/native -run TestEvaluatorVMNativeParityMatrix
+	$(GO) test ./pkg/backend/native -run 'TestVMNative.*Parity|TestNativeSmoke'
 
-test-lanes: test-parity
+test-lsp-verify: build-lsp
+	$(GO) run ./scripts/verify_lsp
 
-test-all: test-unit test-scripts
+test-lanes: test-unit test-scripts test-imports test-stdlib examples-check test-parity
+
+test-all: test-lanes
 
 test-all-go: test-unit test-parity
+
+release-check: build test-comprehensive test-lsp-verify
 
 clean: clean-binaries
 	@rm -f coverage.out *.prof *.cov

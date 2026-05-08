@@ -16,7 +16,9 @@ run bash tests/run_alias_type_tests.sh
 run bash tests/run_defer_panic_conformance.sh
 run bash tests/run_func_arg_tests.sh
 run bash tests/run_typechecker_tests.sh
+run go test ./pkg/packages ./pkg/typechecker -run 'Import|Resolve|Cyclic|Visibility|Alias'
 run ./bak test src/std
+run env BAK_BIN=./bak bash scripts/check_examples.sh
 run go test ./pkg/backend/native -run 'TestVMNative.*Parity|TestNativeSmoke'
 
 echo

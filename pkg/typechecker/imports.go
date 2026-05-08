@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
@@ -15,7 +16,12 @@ func (tc *TypeChecker) checkPackageStatement(ps *ast.PackageStatement) {
 }
 
 func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
-	importPath := tc.resolveImportPath(is.Path)
+	resolution := packages.ResolveImportPathDetailedFrom(is.Path, tc.currentPkgPath)
+	if resolution.Resolved == "" {
+		tc.emitImportNotFound(is, resolution)
+		return
+	}
+	importPath := resolution.Resolved
 
 	if tc.currentPkgPath != "" {
 		tc.registry.RecordResolvedImport(tc.currentPkgPath, importPath)
@@ -128,9 +134,28 @@ func extractPackageName(path string) string {
 	return name
 }
 
-func (tc *TypeChecker) resolveImportPath(importPath string) string {
-	if resolved := packages.ResolveImportPathFrom(importPath, tc.currentPkgPath); resolved != "" {
-		return resolved
+func (tc *TypeChecker) emitImportNotFound(is *ast.ImportStatement, resolution packages.ImportResolution) {
+	notes := []diagnostics.Note{
+		{
+			Message: strfmt.Named("requested by {file}", "File", tc.currentPkgPath),
+			File:    tc.currentPkgPath,
+			Line:    is.Token.Line,
+			Column:  is.Token.Column,
+		},
 	}
-	return importPath
+	for _, tried := range resolution.Tried {
+		notes = append(notes, diagnostics.Note{
+			Message: strfmt.Named("tried {path}", "Path", tried),
+			File:    tried,
+		})
+	}
+
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrImportNotFound,
+		ast.Position{Line: is.Token.Line, Column: is.Token.Column},
+		strfmt.Named("import not found: '{importPath}'", "ImportPath", resolution.Requested),
+	)
+	diag.Help = resolution.Hint
+	diag.Notes = notes
+	tc.emitError(diag)
 }

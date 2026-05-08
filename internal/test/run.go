@@ -138,7 +138,6 @@ func printSuiteProgress(done, total int, current string) {
 
 var (
 	ErrTestsFailed    = errors.New("test run failed")
-	testExecutedTrue  = testFileRunResult{Executed: true, Passed: true}
 	testExecutedFail  = testFileRunResult{Executed: true, Passed: false}
 	testExecutedFalse = testFileRunResult{Executed: false, Passed: true}
 )

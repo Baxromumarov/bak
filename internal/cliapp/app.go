@@ -9,7 +9,11 @@ import (
 	commandpkg "github.com/baxromumarov/bak/internal/cli/commands"
 )
 
-const version = "dev"
+var (
+	Version = "dev"
+	Commit  = "unknown"
+	Date    = "unknown"
+)
 
 // Execute parses CLI args and dispatches to the registered command set.
 func Execute(rawArgs []string, stdout io.Writer) error {
@@ -29,11 +33,15 @@ func Execute(rawArgs []string, stdout io.Writer) error {
 	registry.Register(commandpkg.NewReplCommand(service))
 
 	if shouldShowHelp(commandArgs) {
-		printHelp(stdout)
+		printHelp(stdout, commandArgs)
 		return nil
 	}
 	if shouldShowVersion(commandArgs) {
-		_, _ = fmt.Fprintf(stdout, "bak %s\n", version)
+		printVersion(stdout)
+		return nil
+	}
+	if shouldShowCommandHelp(registry, commandArgs) {
+		printHelp(stdout, []string{"help", commandArgs[0]})
 		return nil
 	}
 
@@ -69,7 +77,30 @@ func shouldShowVersion(args []string) bool {
 	}
 }
 
-func printHelp(w io.Writer) {
+func shouldShowCommandHelp(registry *cli.Registry, args []string) bool {
+	if len(args) < 2 || !registry.Has(args[0]) {
+		return false
+	}
+	return args[1] == "--help" || args[1] == "-h" || args[1] == "help"
+}
+
+func printVersion(w io.Writer) {
+	_, _ = fmt.Fprintf(w, "bak %s\n", Version)
+	if Commit != "" && Commit != "unknown" {
+		_, _ = fmt.Fprintf(w, "commit %s\n", Commit)
+	}
+	if Date != "" && Date != "unknown" {
+		_, _ = fmt.Fprintf(w, "built %s\n", Date)
+	}
+}
+
+func printHelp(w io.Writer, args []string) {
+	if len(args) > 1 {
+		if printCommandHelp(w, args[1]) {
+			return
+		}
+		_, _ = fmt.Fprintf(w, "Unknown command: %s\n\n", args[1])
+	}
 	lines := []string{
 		"Bak language toolchain",
 		"",
@@ -99,4 +130,89 @@ func printHelp(w io.Writer) {
 		"  --exec-max-output-bytes <bytes>",
 	}
 	_, _ = fmt.Fprintln(w, strings.Join(lines, "\n"))
+}
+
+func printCommandHelp(w io.Writer, name string) bool {
+	help, ok := commandHelp[name]
+	if !ok {
+		return false
+	}
+	_, _ = fmt.Fprintln(w, strings.Join(help, "\n"))
+	return true
+}
+
+var commandHelp = map[string][]string{
+	"run": {
+		"bak run",
+		"",
+		"Usage:",
+		"  bak [global flags] run <file.bak> [-- script args]",
+		"  bak [global flags] <file.bak> [-- script args]",
+		"",
+		"Runs a Bak source file on the VM.",
+	},
+	"build": {
+		"bak build",
+		"",
+		"Usage:",
+		"  bak [global flags] build [-o output] <file.bak>",
+		"",
+		"Builds a native executable. Permission flags are checked at build time for dangerous native builtins.",
+	},
+	"check": {
+		"bak check",
+		"",
+		"Usage:",
+		"  bak check <file.bak>",
+		"",
+		"Parses and typechecks a Bak source file without running it.",
+	},
+	"test": {
+		"bak test",
+		"",
+		"Usage:",
+		"  bak [global flags] test [path] [--run pattern] [--package name] [--quiet]",
+		"",
+		"Discovers functions named test_* or testName in .bak files and runs them on the VM.",
+	},
+	"repl": {
+		"bak repl",
+		"",
+		"Usage:",
+		"  bak [global flags] repl",
+		"",
+		"Starts the interactive Bak REPL.",
+	},
+	"doctor": {
+		"bak doctor",
+		"",
+		"Usage:",
+		"  bak doctor [workspace]",
+		"",
+		"Checks local toolchain binaries, stdlib files, and a small example smoke test.",
+	},
+	"explain": {
+		"bak explain",
+		"",
+		"Usage:",
+		"  bak explain <diagnostic-code>",
+		"  bak explain --list",
+		"",
+		"Prints diagnostic explanations and suggested fixes.",
+	},
+	"help": {
+		"bak help",
+		"",
+		"Usage:",
+		"  bak help",
+		"  bak help <command>",
+	},
+	"version": {
+		"bak version",
+		"",
+		"Usage:",
+		"  bak version",
+		"",
+		"Prints the Bak toolchain version and build metadata when available.",
+	},
 }

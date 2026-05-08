@@ -22,7 +22,7 @@ Use this together with:
 - [ ] Parser/typechecker/compiler/runtime tests were updated for the changed behavior.
 - [ ] Spec-conformance tests were updated when the frozen surface changed.
 - [ ] Negative tests exist for newly rejected or gated behavior.
-- [ ] `go test ./...` passes.
+- [ ] `make release-check` passes.
 
 ## Tooling
 
