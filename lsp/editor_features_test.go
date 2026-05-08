@@ -332,7 +332,7 @@ func TestCompletionSuggestsStdImportPaths(t *testing.T) {
 
 	found := false
 	for _, item := range completion.Items {
-		if item.Label == "std/strings/strings" {
+		if item.Label == "std/strings" {
 			found = true
 			break
 		}
@@ -847,7 +847,7 @@ func TestCodeActionSuggestsStdlibAutoImport(t *testing.T) {
 			if len(edits) != 1 {
 				t.Fatalf("expected one auto-import edit, got %#v", action.Edit.Changes)
 			}
-			if edits[0].NewText != "import \"std/fmt/fmt.bak\" as fmt\n" {
+			if edits[0].NewText != "import fmt \"std/fmt\"\n" {
 				t.Fatalf("unexpected auto-import edit: %q", edits[0].NewText)
 			}
 		}

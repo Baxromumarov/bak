@@ -78,8 +78,26 @@ func (s *Server) getStdImportPaths() []string {
 	}
 	stdPath := filepath.Join(root, "src", "std")
 	paths := []string{}
+	seen := map[string]bool{}
+	addPath := func(path string) {
+		if path == "" || seen[path] {
+			return
+		}
+		seen[path] = true
+		paths = append(paths, path)
+	}
 	_ = filepath.WalkDir(stdPath, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if path != stdPath {
+				if _, parseErr := packages.ParseProgram(path); parseErr == nil {
+					if rel, relErr := filepath.Rel(root, path); relErr == nil {
+						addPath(filepath.ToSlash(strings.TrimPrefix(rel, "src/")))
+					}
+				}
+			}
 			return nil
 		}
 		if !strings.HasSuffix(d.Name(), ".bak") ||
@@ -93,7 +111,16 @@ func (s *Server) getStdImportPaths() []string {
 		rel = filepath.ToSlash(rel)
 		rel = strings.TrimPrefix(rel, "src/")
 		rel = strings.TrimSuffix(rel, ".bak")
-		paths = append(paths, rel)
+		if slash := strings.LastIndex(rel, "/"); slash >= 0 {
+			parent := rel[:slash]
+			file := rel[slash+1:]
+			if strings.HasSuffix(parent, "/"+file) {
+				if _, parseErr := packages.ParseProgram(filepath.Dir(path)); parseErr == nil {
+					rel = parent
+				}
+			}
+		}
+		addPath(rel)
 		return nil
 	})
 	sort.Strings(paths)

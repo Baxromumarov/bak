@@ -54,7 +54,8 @@ If this behavior changes, treat it as a user-visible compatibility event:
 ### Files, packages, and visibility
 
 - Each source file starts with a `package` declaration.
-- Imports use explicit paths and may use aliases.
+- Imports use Go-like package paths. `import "x"` binds to the imported package declaration, and `import name "x"` sets an explicit alias.
+- Direct `.bak` file imports and `import "x" as name` are compatibility forms, not the preferred v0.1 style.
 - `pub` marks exported declarations.
 - Import cycles are rejected.
 

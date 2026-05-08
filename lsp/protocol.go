@@ -65,16 +65,31 @@ type PublishDiagnosticsParams struct {
 }
 
 type Diagnostic struct {
-	Range    Range  `json:"range"`
-	Severity int    `json:"severity"`
-	Source   string `json:"source"`
-	Message  string `json:"message"`
-	Code     any    `json:"code,omitempty"`
-	Data     any    `json:"data,omitempty"`
+	Range              Range                          `json:"range"`
+	Severity           int                            `json:"severity"`
+	Source             string                         `json:"source"`
+	Message            string                         `json:"message"`
+	Code               any                            `json:"code,omitempty"`
+	Data               any                            `json:"data,omitempty"`
+	RelatedInformation []DiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
 }
 
 type DiagnosticData struct {
-	Fixes []DiagnosticFix `json:"fixes,omitempty"`
+	Help  string           `json:"help,omitempty"`
+	Notes []DiagnosticNote `json:"notes,omitempty"`
+	Fixes []DiagnosticFix  `json:"fixes,omitempty"`
+}
+
+type DiagnosticNote struct {
+	Message string `json:"message"`
+	URI     string `json:"uri,omitempty"`
+	Line    int    `json:"line,omitempty"`
+	Column  int    `json:"column,omitempty"`
+}
+
+type DiagnosticRelatedInformation struct {
+	Location Location `json:"location"`
+	Message  string   `json:"message"`
 }
 
 type DiagnosticFix struct {

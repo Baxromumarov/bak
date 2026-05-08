@@ -36,3 +36,6 @@ Before promoting one into the stable list:
 2. make `bak check` pass,
 3. add it to `scripts/check_examples.sh`,
 4. run `make examples-check`.
+
+Stable examples should use Go-like package imports such as `import "std/path"` or
+`import fp "std/filepath"` instead of direct `src/std/.../*.bak` paths.

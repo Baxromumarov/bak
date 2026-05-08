@@ -1,6 +1,6 @@
 package main
 
-import "src/std/os/os.bak" as os
+import "std/os"
 
 func main() -> (void) {
     var args: Vec<string, _> = os.args()

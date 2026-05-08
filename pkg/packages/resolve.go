@@ -18,10 +18,10 @@ type ImportResolution struct {
 	Hint      string
 }
 
-// ResolveImportPath resolves an import path to an absolute file path.
-// It handles "std/" prefix expansion, .bak extension appending, directory
-// imports, and legacy github.com path resolution.
-// Returns "" if the module cannot be found.
+// ResolveImportPath resolves an import path to an absolute package path.
+// Import paths are Go-like: "x" names a package path, not necessarily a file.
+// The resolver still accepts direct .bak file imports for compatibility.
+// Returns "" if the package cannot be found.
 func ResolveImportPath(importPath string) string {
 	return ResolveImportPathFrom(importPath, "")
 }
@@ -41,27 +41,9 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 		Hint:      importHint(importPath),
 	}
 
-	// 1. Alias Expansion
-	// "std/" prefix -> "src/std/"
-	searchPath := importPath
-	if strings.HasPrefix(importPath, "std/") {
-		searchPath = filepath.Join("src", importPath)
-	}
+	searchPath := importSearchPath(importPath)
+	candidates := importCandidates(searchPath)
 
-	// 2. Candidate Generation
-	// We try:
-	// a) The path exactly as is (e.g. valid relative path or absolute path)
-	// b) The path + .bak (if not present)
-	// c) The path + "/" + basename + .bak (directory import)
-	candidates := []string{searchPath}
-
-	if !strings.HasSuffix(searchPath, fileExtn) {
-		candidates = append(candidates, searchPath+fileExtn)
-		base := filepath.Base(searchPath)
-		candidates = append(candidates, filepath.Join(searchPath, base+fileExtn))
-	}
-
-	// 3. Resolution
 	cwd, _ := os.Getwd()
 	baseDir := importBaseDir(fromPath)
 	projectRoot := findProjectRoot(baseDir)
@@ -69,57 +51,16 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 		projectRoot = findProjectRoot(cwd)
 	}
 
-	for _, path := range candidates {
-		// For repository-rooted imports like src/std/..., resolve from project root.
-		if projectRoot != "" {
-			candidate := filepath.Join(projectRoot, path)
-			result.addTried(candidate)
-			if resolved := existingFilePath(candidate); resolved != "" {
-				result.Resolved = resolved
-				return result
-			}
-		}
-
-		// Try relative to the importing file/directory first.
-		if baseDir != "" {
-			candidate := filepath.Join(baseDir, path)
-			result.addTried(candidate)
-			if resolved := existingFilePath(candidate); resolved != "" {
-				result.Resolved = resolved
-				return result
-			}
-		}
-
-		// Try relative to CWD
-		cwdCandidate := filepath.Join(cwd, path)
-		result.addTried(cwdCandidate)
-		if resolved := existingFilePath(cwdCandidate); resolved != "" {
-			result.Resolved = resolved
-			return result
-		}
-
-		// If path was already absolute or relative to where we are running
-		result.addTried(path)
-		if resolved := existingFilePath(path); resolved != "" {
-			result.Resolved = resolved
-			return result
-		}
+	if resolved := resolveCandidates(&result, candidates, resolutionBases(importPath, projectRoot, baseDir, cwd)); resolved != "" {
+		result.Resolved = resolved
+		return result
 	}
 
-	// Fallback for legacy "simple" imports (e.g. import "fmt")
+	// Standard-library shorthand, Go-style: import "fmt" resolves like std/fmt.
 	if !strings.Contains(importPath, "/") {
-		legacyPath := filepath.Join("src", "std", importPath, importPath+fileExtn)
-		if baseDir != "" {
-			candidate := filepath.Join(baseDir, legacyPath)
-			result.addTried(candidate)
-			if resolved := existingFilePath(candidate); resolved != "" {
-				result.Resolved = resolved
-				return result
-			}
-		}
-		candidate := filepath.Join(cwd, legacyPath)
-		result.addTried(candidate)
-		if resolved := existingFilePath(candidate); resolved != "" {
+		stdPath := filepath.Join("src", "std", filepath.FromSlash(importPath))
+		stdCandidates := importCandidates(stdPath)
+		if resolved := resolveCandidates(&result, stdCandidates, resolutionBases(stdPath, projectRoot, "", cwd)); resolved != "" {
 			result.Resolved = resolved
 			return result
 		}
@@ -131,17 +72,7 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 		if rest != "" {
 			base := filepath.Base(rest)
 			legacyPath := filepath.Join("src", rest, base+fileExtn)
-			if baseDir != "" {
-				candidate := filepath.Join(baseDir, legacyPath)
-				result.addTried(candidate)
-				if resolved := existingFilePath(candidate); resolved != "" {
-					result.Resolved = resolved
-					return result
-				}
-			}
-			candidate := filepath.Join(cwd, legacyPath)
-			result.addTried(candidate)
-			if resolved := existingFilePath(candidate); resolved != "" {
+			if resolved := resolveCandidates(&result, []string{legacyPath}, resolutionBases(legacyPath, projectRoot, baseDir, cwd)); resolved != "" {
 				result.Resolved = resolved
 				return result
 			}
@@ -149,6 +80,79 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 	}
 
 	return result
+}
+
+func importSearchPath(importPath string) string {
+	importPath = filepath.FromSlash(strings.TrimSpace(importPath))
+	if strings.HasPrefix(importPath, "std"+string(filepath.Separator)) {
+		return filepath.Join("src", importPath)
+	}
+	return importPath
+}
+
+func importCandidates(path string) []string {
+	path = filepath.Clean(path)
+	candidates := []string{path}
+	if strings.HasSuffix(path, fileExtn) {
+		return candidates
+	}
+	candidates = append(candidates, path+fileExtn)
+	base := filepath.Base(path)
+	if base != "." && base != string(filepath.Separator) {
+		candidates = append(candidates, filepath.Join(path, base+fileExtn))
+	}
+	return candidates
+}
+
+func resolutionBases(importPath, projectRoot, baseDir, cwd string) []string {
+	if filepath.IsAbs(importPath) {
+		return []string{""}
+	}
+	if isRelativeImport(importPath) {
+		return uniquePaths(baseDir, cwd, "")
+	}
+	return uniquePaths(projectRoot, cwd, baseDir, "")
+}
+
+func isRelativeImport(importPath string) bool {
+	importPath = filepath.FromSlash(importPath)
+	return strings.HasPrefix(importPath, "."+string(filepath.Separator)) ||
+		strings.HasPrefix(importPath, ".."+string(filepath.Separator)) ||
+		importPath == "." ||
+		importPath == ".."
+}
+
+func uniquePaths(paths ...string) []string {
+	out := make([]string, 0, len(paths))
+	seen := make(map[string]struct{}, len(paths))
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path != "" {
+			path = filepath.Clean(path)
+		}
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	return out
+}
+
+func resolveCandidates(result *ImportResolution, candidates, bases []string) string {
+	for _, path := range candidates {
+		for _, base := range bases {
+			candidate := path
+			if base != "" && !filepath.IsAbs(path) {
+				candidate = filepath.Join(base, path)
+			}
+			result.addTried(candidate)
+			if resolved := existingPackagePath(candidate); resolved != "" {
+				return resolved
+			}
+		}
+	}
+	return ""
 }
 
 func (r *ImportResolution) addTried(path string) {
@@ -167,15 +171,15 @@ func importHint(importPath string) string {
 		return "use a non-empty import path"
 	}
 	if strings.HasPrefix(importPath, "std/") {
-		return "prefer the explicit stdlib source path, for example src/std/<pkg>/<pkg>.bak"
+		return "use a standard-library package path such as std/path or std/collections/vec"
 	}
 	if !strings.Contains(importPath, "/") {
-		return "simple stdlib imports are legacy; prefer src/std/<pkg>/<pkg>.bak"
+		return "use a package directory named x, a file named x.bak, or a standard-library package named x"
 	}
 	if !strings.HasSuffix(importPath, fileExtn) {
-		return "include the .bak file path or use a directory containing <name>.bak"
+		return "use a package directory, a matching .bak file, or a directory containing <name>.bak"
 	}
-	return "check that the path is correct relative to the importing file"
+	return "check that the path is correct relative to the module root or the importing file"
 }
 
 func importBaseDir(fromPath string) string {
@@ -221,6 +225,45 @@ func existingFilePath(path string) string {
 		return path
 	}
 	return abs
+}
+
+func existingPackagePath(path string) string {
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	if info.IsDir() {
+		if !dirHasBakSource(path) {
+			return ""
+		}
+		abs, absErr := filepath.Abs(path)
+		if absErr != nil {
+			return path
+		}
+		return abs
+	}
+	return existingFilePath(path)
+}
+
+func dirHasBakSource(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, fileExtn) {
+			continue
+		}
+		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func findProjectRoot(start string) string {

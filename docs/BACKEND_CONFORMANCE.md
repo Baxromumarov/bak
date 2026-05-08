@@ -21,6 +21,17 @@ The following areas must behave the same across VM and native where native suppo
 
 Backend divergence on these areas is a bug.
 
+## Conformance Matrix
+
+| Surface | Typecheck | VM | Native |
+| --- | --- | --- | --- |
+| packages/imports | `make test-imports` | shared frontend | shared frontend |
+| structs/enums | `go test ./pkg/typechecker` | `go test ./pkg/vm` | `make test-parity` |
+| `Result<T, E>` | `tests/run_typechecker_tests.sh` | `go test ./pkg/vm` | `make test-parity` |
+| `Vec<T, _>` | `./bak test src/std` | `./bak test src/std` | `make test-parity` |
+| defer/panic | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` |
+| stable examples | `make examples-check` | future `examples-run` lane | future `examples-native` lane |
+
 ## Native-Limited Areas
 
 Native may reject or return an explicit `Err(...)` for APIs that are not yet implemented in emitted binaries, especially:

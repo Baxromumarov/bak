@@ -8,6 +8,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/prelude"
 )
@@ -102,10 +103,8 @@ func buildStdlibIndex() map[string][]StdlibSymbol {
 				continue
 			}
 
-			relPath := bakFile
-			if rel, err := filepath.Rel(baseDir, bakFile); err == nil {
-				relPath = rel
-			}
+			importPath := canonicalStdlibImportPath(baseDir, bakFile)
+			pkgName := packageNameForProgram(prog, alias)
 
 			// Helper to avoid repeating the append logic for every declaration kind.
 			record := func(name, kind string) {
@@ -114,8 +113,8 @@ func buildStdlibIndex() map[string][]StdlibSymbol {
 				}
 				index[name] = append(index[name], StdlibSymbol{
 					Name:       name,
-					ImportPath: relPath,
-					Alias:      alias,
+					ImportPath: importPath,
+					Alias:      pkgName,
 					Kind:       kind,
 				})
 			}
@@ -140,6 +139,31 @@ func buildStdlibIndex() map[string][]StdlibSymbol {
 	}
 
 	return index
+}
+
+func canonicalStdlibImportPath(baseDir, bakFile string) string {
+	dir := filepath.Dir(bakFile)
+	if _, err := packages.ParseProgram(dir); err == nil {
+		if rel, relErr := filepath.Rel(baseDir, dir); relErr == nil {
+			return filepath.ToSlash(rel)
+		}
+	}
+	if rel, err := filepath.Rel(baseDir, bakFile); err == nil {
+		return strings.TrimSuffix(filepath.ToSlash(rel), ".bak")
+	}
+	return strings.TrimSuffix(filepath.ToSlash(bakFile), ".bak")
+}
+
+func packageNameForProgram(prog *ast.Program, fallback string) string {
+	if prog == nil {
+		return fallback
+	}
+	for _, stmt := range prog.Statements {
+		if ps, ok := stmt.(*ast.PackageStatement); ok && ps.Name != nil && ps.Name.Value != "" {
+			return ps.Name.Value
+		}
+	}
+	return fallback
 }
 
 // lookupStdlibSymbol returns all stdlib symbols matching the given name.

@@ -34,6 +34,7 @@ type TypeError struct {
 	Message string
 	Note    string // Additional context (e.g., "value was moved here")
 	NoteLoc string // Location for the note
+	Notes   []diagnostics.Note
 	Help    string // Suggestion for fixing
 	Fixes   []diagnostics.Fix
 }
@@ -271,6 +272,7 @@ func (tc *TypeChecker) GetErrors() []TypeError {
 			Message: d.Message,
 			Note:    note,
 			NoteLoc: noteLoc,
+			Notes:   d.Notes,
 			Help:    d.Help,
 			Fixes:   d.Fixes,
 		})

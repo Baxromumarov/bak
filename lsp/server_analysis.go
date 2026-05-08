@@ -148,8 +148,16 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 			if typeErr.Code != "" {
 				diag.Code = string(typeErr.Code)
 			}
-			if lspFixes := typeErrorFixesToLSP(typeErr); len(lspFixes) > 0 {
-				diag.Data = DiagnosticData{Fixes: lspFixes}
+			data := DiagnosticData{
+				Help:  typeErr.Help,
+				Notes: typeErrorNotesToLSP(typeErr),
+				Fixes: typeErrorFixesToLSP(typeErr),
+			}
+			if data.Help != "" || len(data.Notes) > 0 || len(data.Fixes) > 0 {
+				diag.Data = data
+			}
+			if related := typeErrorRelatedInformation(typeErr); len(related) > 0 {
+				diag.RelatedInformation = related
 			}
 			diagnostics = append(diagnostics, diag)
 		}
@@ -204,6 +212,54 @@ func samePath(a, b string) bool {
 		b = bb
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+func typeErrorNotesToLSP(typeErr typechecker.TypeError) []DiagnosticNote {
+	if len(typeErr.Notes) == 0 {
+		return nil
+	}
+	notes := make([]DiagnosticNote, 0, len(typeErr.Notes))
+	for _, note := range typeErr.Notes {
+		lspNote := DiagnosticNote{
+			Message: note.Message,
+			Line:    note.Line,
+			Column:  note.Column,
+		}
+		if note.File != "" {
+			lspNote.URI = pathToURI(note.File)
+		}
+		notes = append(notes, lspNote)
+	}
+	return notes
+}
+
+func typeErrorRelatedInformation(typeErr typechecker.TypeError) []DiagnosticRelatedInformation {
+	if len(typeErr.Notes) == 0 {
+		return nil
+	}
+	related := make([]DiagnosticRelatedInformation, 0, len(typeErr.Notes))
+	for _, note := range typeErr.Notes {
+		if note.Message == "" {
+			continue
+		}
+		uri := pathToURI(typeErr.File)
+		if note.File != "" {
+			uri = pathToURI(note.File)
+		}
+		line, column := typeErr.Line, typeErr.Column
+		if note.Line > 0 {
+			line = note.Line
+			column = note.Column
+		}
+		related = append(related, DiagnosticRelatedInformation{
+			Location: Location{
+				URI:   uri,
+				Range: rangeFromLineCol(line, column, 1),
+			},
+			Message: note.Message,
+		})
+	}
+	return related
 }
 
 func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {

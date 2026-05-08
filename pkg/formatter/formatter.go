@@ -380,13 +380,13 @@ func (p *printer) printStatement(stmt ast.Statement) {
 		p.write(s.Name.Value)
 	case *ast.ImportStatement:
 		p.write("import ")
+		if s.Alias != "" {
+			p.write(s.Alias)
+			p.write(" ")
+		}
 		p.write("\"")
 		p.write(s.Path)
 		p.write("\"")
-		if s.Alias != "" {
-			p.write(" as ")
-			p.write(s.Alias)
-		}
 	case *ast.ImportBlock:
 		p.write("import ")
 		p.write("(")
@@ -395,13 +395,13 @@ func (p *printer) printStatement(stmt ast.Statement) {
 		for _, imp := range s.Imports {
 			p.flushCommentsBefore(statementPosition(imp))
 			p.writeIndent()
+			if imp.Alias != "" {
+				p.write(imp.Alias)
+				p.write(" ")
+			}
 			p.write("\"")
 			p.write(imp.Path)
 			p.write("\"")
-			if imp.Alias != "" {
-				p.write(" as ")
-				p.write(imp.Alias)
-			}
 			p.newline()
 		}
 		p.indent--

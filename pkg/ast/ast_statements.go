@@ -19,7 +19,7 @@ func (ps *PackageStatement) String() string {
 	return "package " + ps.Name.String()
 }
 
-// ImportStatement represents a single import: "path/to/module" as alias
+// ImportStatement represents a single import: "path/to/module" or alias "path/to/module".
 type ImportStatement struct {
 	Span Span
 	NodeBase
@@ -32,7 +32,7 @@ type ImportStatement struct {
 func (is *ImportStatement) statementNode() {}
 func (is *ImportStatement) String() string {
 	if is.Alias != "" {
-		return "\"" + is.Path + "\" as " + is.Alias
+		return is.Alias + " \"" + is.Path + "\""
 	}
 	return "\"" + is.Path + "\""
 }

@@ -8,12 +8,15 @@ Use this together with:
 
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
+- `docs/PACKAGE_BOUNDARIES.md`
+- `docs/STDLIB_STABLE_V0.1.md`
 - `docs/RESULT_MIGRATION_NOTES.md` (when Result-oriented API behavior changes)
 
 ## Language and Compatibility
 
 - [ ] The change is classified correctly: stable or internal.
 - [ ] `docs/CORE_LANGUAGE_SPEC.md` was updated if the stable language contract changed.
+- [ ] `docs/PACKAGE_BOUNDARIES.md` was updated if import or package behavior changed.
 - [ ] Migration notes were added if any existing valid program changes meaning or stops compiling.
 - [ ] If Result-oriented stdlib/runtime API behavior changed, `docs/RESULT_MIGRATION_NOTES.md` was updated.
 

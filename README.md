@@ -35,12 +35,14 @@ Bak is operating under a frozen `v0.1` language line.
 ## File Structure & Packages
 
 - Every source file should start with a `package` declaration, e.g. `package main`.
-- Import other modules with a file path and alias:
+- Import other packages with Go-like package paths:
 
 ```bak
-import "std/http" as http
+import "std/http"
+import vec "std/collections/vec"
 ```
 
+- Unaliased imports bind to the imported file's `package` declaration.
 - `pub` marks exported declarations.
 
 ## Basic Program
@@ -254,6 +256,7 @@ See:
 - `docs/BACKEND_CONFORMANCE.md`
 - `docs/PACKAGE_BOUNDARIES.md`
 - `docs/EXAMPLES.md`
+- `docs/STDLIB_STABLE_V0.1.md`
 - `docs/STDLIB_PHASE3.md`
 - `docs/STDLIB_COLLECTIONS_STRINGS_PATH.md`
 - `docs/TRUST_MODEL.md`

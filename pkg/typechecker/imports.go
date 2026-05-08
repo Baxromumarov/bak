@@ -42,29 +42,6 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		}
 	}
 
-	// Determine the alias to use for this import
-	alias := is.Alias
-	if alias == "" {
-		// Use the package name from the path (last component)
-		alias = extractPackageName(importPath)
-	}
-
-	// Store the alias mapping
-	tc.importAliases[importPath] = alias
-	// Also store reverse mapping: alias -> importPath
-	tc.importedPkgPaths[alias] = importPath
-	if alias != "" {
-		tc.imports[alias] = ImportInfo{
-			Path:   is.Path,
-			Alias:  alias,
-			Line:   is.Token.Line,
-			Column: is.Token.Column,
-		}
-		if strings.HasPrefix(alias, "_") {
-			tc.usedImports[alias] = true
-		}
-	}
-
 	// Try to get symbols from the package registry
 	pkg, exists := tc.registry.GetPackage(importPath)
 	if !exists {
@@ -76,7 +53,10 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		}
 
 		// Register the package
-		pkgName := extractPackageName(importPath)
+		pkgName := packageNameFromProgram(modProg)
+		if pkgName == "" {
+			pkgName = extractPackageName(importPath)
+		}
 		pkg = packages.NewPackage(pkgName, importPath, modProg)
 		tc.registry.RegisterPackage(pkg)
 
@@ -107,6 +87,30 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	// Retrieve potentially newly created package
 	pkg, exists = tc.registry.GetPackage(importPath)
 	if exists {
+		// Determine the alias to use for this import. Like Go, an unaliased
+		// import binds to the imported file's declared package name.
+		alias := is.Alias
+		if alias == "" {
+			alias = pkg.Name
+		}
+		if alias == "" {
+			alias = extractPackageName(importPath)
+		}
+
+		tc.importAliases[importPath] = alias
+		tc.importedPkgPaths[alias] = importPath
+		if alias != "" {
+			tc.imports[alias] = ImportInfo{
+				Path:   is.Path,
+				Alias:  alias,
+				Line:   is.Token.Line,
+				Column: is.Token.Column,
+			}
+			if strings.HasPrefix(alias, "_") {
+				tc.usedImports[alias] = true
+			}
+		}
+
 		// Store the public symbols for this import
 		publicSymbols := pkg.GetPublicSymbols()
 		tc.importedSymbols[alias] = publicSymbols
@@ -132,6 +136,18 @@ func extractPackageName(path string) string {
 	name = strings.TrimSuffix(name, ".bak")
 
 	return name
+}
+
+func packageNameFromProgram(program *ast.Program) string {
+	if program == nil {
+		return ""
+	}
+	for _, stmt := range program.Statements {
+		if ps, ok := stmt.(*ast.PackageStatement); ok && ps.Name != nil {
+			return ps.Name.Value
+		}
+	}
+	return ""
 }
 
 func (tc *TypeChecker) emitImportNotFound(is *ast.ImportStatement, resolution packages.ImportResolution) {

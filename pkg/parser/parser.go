@@ -888,8 +888,19 @@ func (p *Parser) parseImportBlock() ast.Statement {
 func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
 	stmt := &ast.ImportStatement{NodeBase: ast.NodeBase{Token: start}}
 
-	// Only support: import "path" as alias
-	// Expect a string literal for the path
+	// Go-like alias form: import alias "path" or import _ "path".
+	if p.curTokenIs(token.IDENT) || p.curTokenIs(token.UNDERSCORE) {
+		stmt.AliasToken = p.curToken
+		stmt.Alias = p.curToken.Literal
+		if !p.expectPeek(token.STRING) {
+			return nil
+		}
+		stmt.PathToken = p.curToken
+		stmt.Path = p.curToken.Literal
+		return stmt
+	}
+
+	// Default form: import "path".
 	if !p.curTokenIs(token.STRING) {
 		p.peekError(token.STRING)
 		return nil
@@ -897,7 +908,7 @@ func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
 	stmt.PathToken = p.curToken
 	stmt.Path = p.curToken.Literal
 
-	// Check for alias: "path" as alias
+	// Compatibility alias form: import "path" as alias.
 	if p.peekTokenIs(token.AS) {
 		p.nextToken() // consume "as"
 		if !p.expectPeek(token.IDENT) {

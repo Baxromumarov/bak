@@ -644,7 +644,7 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 		}
 		insertPos := findImportInsertPosition(result)
 		for _, candidate := range candidates {
-			importLine := strfmt.Named("import \"{ImportPath}\" as {Alias}\n", "ImportPath", candidate.ImportPath, "Alias", candidate.Alias)
+			importLine := strfmt.Named("import {Alias} \"{ImportPath}\"\n", "ImportPath", candidate.ImportPath, "Alias", candidate.Alias)
 			actions = append(actions, CodeAction{
 				Title: strfmt.Named(
 					"Import '{SymbolName}' from {Alias}",

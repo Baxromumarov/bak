@@ -5,20 +5,32 @@ Bak v0.1 supports direct source imports. Package fetching and manifests are not 
 ## Stable Today
 
 - Source files begin with `package name`.
-- Imports use explicit source paths plus aliases:
+- Imports use Go-like package paths:
 
 ```bak
-import "src/std/strings/strings.bak" as strings
+import "std/strings"
+import vec "std/collections/vec"
+import _ "std/test"
 ```
 
+- `import "x"` first looks for a package directory or file at `x`, then for `x.bak`, then for `x/x.bak`.
+- `import "std/path"` maps to the standard library source under `src/std/path`.
+- When an import has no alias, the binding name comes from the imported file's `package` declaration.
+- The compatibility form `import "path" as alias` still parses, but new code should use `import alias "path"`.
 - `pub` marks declarations that can be accessed from another package.
 - Import cycles are rejected.
 
 ## Compatibility Fallbacks
 
-The resolver still contains legacy fallback behavior for older examples and historical tests. Those fallbacks are implementation compatibility, not the preferred v0.1 authoring style.
+The resolver still accepts explicit `.bak` file paths and older `as` aliases for historical tests and examples:
 
-New docs and examples should use explicit paths.
+```bak
+import "src/std/strings/strings.bak" as strings
+```
+
+Those forms are compatibility, not the preferred authoring style.
+
+New docs and examples should use package paths.
 
 ## Not Stable Yet
 
@@ -35,7 +47,5 @@ Before any of these become stable, they need lockfile integrity tests, offline b
 
 ## Next Package Work
 
-1. Make import errors list the paths that were tried.
-2. Add tests for canonical explicit-path imports.
-3. Reduce reliance on legacy fallbacks in examples.
-4. Design package manifests only after the import contract is quiet.
+1. Reduce reliance on legacy fallbacks in examples.
+2. Design package manifests only after the import contract is quiet.

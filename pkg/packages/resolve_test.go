@@ -89,7 +89,7 @@ func TestResolveImportPathDetailedReportsTriedPaths(t *testing.T) {
 	}
 }
 
-func TestResolveImportPathFromDirectoryImportUsesContainedBakFile(t *testing.T) {
+func TestResolveImportPathFromDirectoryImportUsesPackageDirectory(t *testing.T) {
 	root := t.TempDir()
 	libDir := filepath.Join(root, "lib", "math")
 	libPath := filepath.Join(libDir, "math.bak")
@@ -112,7 +112,47 @@ func TestResolveImportPathFromDirectoryImportUsesContainedBakFile(t *testing.T) 
 	})
 
 	resolved := ResolveImportPathFrom("lib/math", "")
-	if resolved != libPath {
-		t.Fatalf("expected directory import to resolve to %q, got %q", libPath, resolved)
+	if resolved != libDir {
+		t.Fatalf("expected directory import to resolve to %q, got %q", libDir, resolved)
+	}
+}
+
+func TestResolveImportPathGoLikeStdAndFilePackages(t *testing.T) {
+	root := t.TempDir()
+	stdStrings := filepath.Join(root, "src", "std", "strings")
+	stdDB := filepath.Join(root, "src", "std", "db")
+	if err := os.MkdirAll(stdStrings, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(stdDB, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(stdStrings, "strings.bak"), []byte("package strings\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	postgresPath := filepath.Join(stdDB, "postgres.bak")
+	if err := os.WriteFile(postgresPath, []byte("package postgres\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	if resolved := ResolveImportPathFrom("std/strings", ""); resolved != stdStrings {
+		t.Fatalf("expected std/strings to resolve to %q, got %q", stdStrings, resolved)
+	}
+	if resolved := ResolveImportPathFrom("std/db/postgres", ""); resolved != postgresPath {
+		t.Fatalf("expected std/db/postgres to resolve to %q, got %q", postgresPath, resolved)
 	}
 }

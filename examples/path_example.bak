@@ -1,7 +1,7 @@
 package main
 
-import "src/std/path/path.bak" as path
-import "src/std/filepath/filepath.bak" as fp
+import "std/path"
+import fp "std/filepath"
 
 func main() -> (void) {
     var joined: string = path.join("/usr", "local/bin")

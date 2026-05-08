@@ -1,8 +1,8 @@
 package main
 
 import (
-	"context"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -101,6 +101,62 @@ func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
 			t.Fatalf("unexpected bak-typechecker diagnostic: %s", diag.Message)
 		}
 	}
+}
+
+func TestAnalyzeAndPublish_MissingImportIncludesRelatedInformation(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		`import "./missing"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.bak")
+	if err := os.WriteFile(path, []byte(src), 0644); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	uri := pathToURI(path)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Code != "E0701" {
+			continue
+		}
+		if len(diag.RelatedInformation) == 0 {
+			t.Fatalf("expected related information for tried paths: %#v", diag)
+		}
+		data, ok := diag.Data.(map[string]any)
+		if !ok || data["help"] == "" {
+			t.Fatalf("expected help in diagnostic data: %#v", diag.Data)
+		}
+		return
+	}
+	t.Fatalf("expected E0701 missing import diagnostic, got %#v", params.Diagnostics)
 }
 
 func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {

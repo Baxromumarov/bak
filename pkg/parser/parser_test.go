@@ -529,6 +529,31 @@ func TestParseImportBlock(t *testing.T) {
 	}
 }
 
+func TestParseGoStyleImportAlias(t *testing.T) {
+	t.Parallel()
+	program := parseValidSource(t, source(`
+		package main
+		import math "std/math"
+		import _ "std/test"
+	`))
+
+	var imports []*ast.ImportStatement
+	for _, stmt := range program.Statements {
+		if imp, ok := stmt.(*ast.ImportStatement); ok {
+			imports = append(imports, imp)
+		}
+	}
+	if len(imports) != 2 {
+		t.Fatalf("expected 2 imports, got %d", len(imports))
+	}
+	if imports[0].Alias != "math" || imports[0].Path != "std/math" {
+		t.Fatalf("unexpected aliased import: %#v", imports[0])
+	}
+	if imports[1].Alias != "_" || imports[1].Path != "std/test" {
+		t.Fatalf("unexpected blank import: %#v", imports[1])
+	}
+}
+
 func TestParseBorrowExpression(t *testing.T) {
 	t.Parallel()
 	parseValidSource(t, source(`

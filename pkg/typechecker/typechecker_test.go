@@ -82,6 +82,52 @@ func main() -> (void) {
 	}
 }
 
+func TestCheck_UnaliasedImportUsesDeclaredPackageName(t *testing.T) {
+	dir := t.TempDir()
+	libDir := filepath.Join(dir, "lib")
+	if err := os.MkdirAll(libDir, 0755); err != nil {
+		t.Fatalf("mkdir lib: %v", err)
+	}
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(libDir, "lib.bak")
+	libSource := `
+package actual
+
+pub func answer() -> (int) {
+	return 42
+}
+`
+	mainSource := `
+package main
+import "./lib"
+
+func main() -> (void) {
+	println(actual.answer())
+	return void
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatalf("write lib.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	errs := tc.Check(program)
+	if len(errs) > 0 {
+		t.Fatalf("expected package-name import to typecheck, got:\n%s", strings.Join(errs, "\n"))
+	}
+}
+
 func checkSourceStructured(t *testing.T, source string) []TypeError {
 	t.Helper()
 	l := lexer.New(source)
