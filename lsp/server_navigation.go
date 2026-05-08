@@ -14,6 +14,36 @@ import (
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
+// LSP SymbolKind constants
+const (
+	SymbolKindFile = iota + 1
+	SymbolKindModule
+	SymbolKindNamespace
+	SymbolKindPackage
+	SymbolKindClass
+	SymbolKindMethod
+	SymbolKindProperty
+	SymbolKindField
+	SymbolKindConstructor
+	SymbolKindEnum
+	SymbolKindInterface
+	SymbolKindFunction
+	SymbolKindVariable
+	SymbolKindConstant
+	SymbolKindString
+	SymbolKindNumber
+	SymbolKindBoolean
+	SymbolKindArray
+	SymbolKindObject
+	SymbolKindKey
+	SymbolKindNull
+	SymbolKindEnumMember
+	SymbolKindStruct
+	SymbolKindEvent
+	SymbolKindOperator
+	SymbolKindTypeAlias
+)
+
 func (s *Server) documentText(uri string) string {
 	if text := s.Documents[uri]; text != "" {
 		return text
@@ -40,7 +70,12 @@ func (s *Server) importedModuleIndex(result *AnalysisResult, originURI, alias st
 	return s.getOrIndexFile(path)
 }
 
-func (s *Server) lookupImportedSymbol(result *AnalysisResult, originURI, alias, symbolName string) (Location, bool) {
+func (s *Server) lookupImportedSymbol(
+	result *AnalysisResult,
+	originURI,
+	alias,
+	symbolName string,
+) (Location, bool) {
 	modIndex := s.importedModuleIndex(result, originURI, alias)
 	if modIndex == nil {
 		return Location{}, false
@@ -52,7 +87,12 @@ func (s *Server) lookupImportedSymbol(result *AnalysisResult, originURI, alias, 
 	return sym.Location, true
 }
 
-func (s *Server) lookupSymbolInImports(result *AnalysisResult, originURI, key, fallback string) (Location, bool) {
+func (s *Server) lookupSymbolInImports(
+	result *AnalysisResult,
+	originURI,
+	key,
+	fallback string,
+) (Location, bool) {
 	if result == nil || result.Imports == nil {
 		return Location{}, false
 	}
@@ -135,7 +175,12 @@ func (s *Server) definitionFromRefs(result *AnalysisResult, node ast.Node) []Loc
 	return []Location{defLoc}
 }
 
-func (s *Server) definitionForIdentifier(result *AnalysisResult, originURI string, position Position, ident *ast.Identifier) []Location {
+func (s *Server) definitionForIdentifier(
+	result *AnalysisResult,
+	originURI string,
+	position Position,
+	ident *ast.Identifier,
+) []Location {
 	if ident == nil {
 		return nil
 	}
@@ -197,12 +242,21 @@ func (s *Server) definitionForIdentifier(result *AnalysisResult, originURI strin
 	return nil
 }
 
-func (s *Server) definitionForFieldAccess(result *AnalysisResult, originURI string, fieldAccess *ast.FieldAccessExpression) []Location {
+func (s *Server) definitionForFieldAccess(
+	result *AnalysisResult,
+	originURI string,
+	fieldAccess *ast.FieldAccessExpression,
+) []Location {
 	if fieldAccess == nil {
 		return nil
 	}
 	if ident, ok := fieldAccess.Object.(*ast.Identifier); ok {
-		if loc, ok := s.lookupImportedSymbol(result, originURI, ident.Value, fieldAccess.Field.Value); ok {
+		if loc, ok := s.lookupImportedSymbol(
+			result,
+			originURI,
+			ident.Value,
+			fieldAccess.Field.Value,
+		); ok {
 			return []Location{loc}
 		}
 	}
@@ -219,12 +273,21 @@ func (s *Server) definitionForFieldAccess(result *AnalysisResult, originURI stri
 	return nil
 }
 
-func (s *Server) definitionForMethodCall(result *AnalysisResult, originURI string, methodCall *ast.MethodCallExpression) []Location {
+func (s *Server) definitionForMethodCall(
+	result *AnalysisResult,
+	originURI string,
+	methodCall *ast.MethodCallExpression,
+) []Location {
 	if methodCall == nil {
 		return nil
 	}
 	if ident, ok := methodCall.Object.(*ast.Identifier); ok {
-		if loc, ok := s.lookupImportedSymbol(result, originURI, ident.Value, methodCall.Method.Value); ok {
+		if loc, ok := s.lookupImportedSymbol(
+			result,
+			originURI,
+			ident.Value,
+			methodCall.Method.Value,
+		); ok {
 			return []Location{loc}
 		}
 	}
@@ -250,7 +313,11 @@ func (s *Server) definitionForMethodCall(result *AnalysisResult, originURI strin
 	return nil
 }
 
-func (s *Server) definitionForSimpleType(result *AnalysisResult, originURI string, simpleType *ast.SimpleType) []Location {
+func (s *Server) definitionForSimpleType(
+	result *AnalysisResult,
+	originURI string,
+	simpleType *ast.SimpleType,
+) []Location {
 	if simpleType == nil {
 		return nil
 	}
@@ -304,7 +371,9 @@ func (s *Server) implementationLocations(typeName string) []Location {
 			if !ok || impl.TypeName == nil {
 				continue
 			}
-			if impl.TypeName.Value == typeName || strings.HasSuffix(impl.TypeName.Value, "."+typeName) {
+
+			if impl.TypeName.Value == typeName ||
+				strings.HasSuffix(impl.TypeName.Value, "."+typeName) {
 				locs = append(locs, locationFromToken(uri, impl.Token, impl.Token.Literal))
 			}
 		}
@@ -713,7 +782,7 @@ func fieldDocumentSymbol(field *ast.StructField) *DocumentSymbol {
 	return documentSymbolFromToken(
 		field.Name.Token,
 		field.Name.Value,
-		8,
+		SymbolKindField,
 		detail,
 		nil,
 		field.Span,
@@ -734,7 +803,15 @@ func variantDocumentSymbol(variant *ast.EnumVariant) *DocumentSymbol {
 		}
 		detail = "(" + strings.Join(parts, ", ") + ")"
 	}
-	return documentSymbolFromToken(variant.Name.Token, variant.Name.Value, 22, detail, nil, variant.Span)
+
+	return documentSymbolFromToken(
+		variant.Name.Token,
+		variant.Name.Value,
+		SymbolKindEnumMember,
+		detail,
+		nil,
+		variant.Span,
+	)
 }
 
 func implMethodDocumentSymbol(method *ast.MethodDecl) *DocumentSymbol {
@@ -744,7 +821,7 @@ func implMethodDocumentSymbol(method *ast.MethodDecl) *DocumentSymbol {
 	return documentSymbolFromToken(
 		method.Name.Token,
 		method.Name.Value,
-		6,
+		SymbolKindMethod,
 		formatFuncDetail(
 			method.Parameters,
 			method.ReturnType,
@@ -755,7 +832,11 @@ func implMethodDocumentSymbol(method *ast.MethodDecl) *DocumentSymbol {
 	)
 }
 
-func mergeDocumentSymbolMethods(structs map[string]*DocumentSymbol, methods map[string][]*DocumentSymbol, entries []*DocumentSymbol) []*DocumentSymbol {
+func mergeDocumentSymbolMethods(
+	structs map[string]*DocumentSymbol,
+	methods map[string][]*DocumentSymbol,
+	entries []*DocumentSymbol,
+) []*DocumentSymbol {
 	for typeName, ms := range methods {
 		if st, ok := structs[typeName]; ok {
 			for _, m := range ms {
@@ -790,7 +871,18 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 			if s == nil || s.Name == nil {
 				continue
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 12, formatFuncDetail(s.Parameters, s.ReturnType, false), nil, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindFunction,
+				formatFuncDetail(
+					s.Parameters,
+					s.ReturnType,
+					false,
+				),
+				nil,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.StructDecl:
 			if s == nil || s.Name == nil {
@@ -802,7 +894,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					children = append(children, *sym)
 				}
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 23, "", children, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindStruct,
+				"",
+				children,
+				s.Span,
+			)
 			entries = append(entries, sym)
 			structs[s.Name.Value] = sym
 		case *ast.EnumDecl:
@@ -815,7 +914,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					children = append(children, *sym)
 				}
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 10, "", children, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindEnum,
+				"",
+				children,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.TypeDecl:
 			if s == nil || s.Name == nil {
@@ -825,7 +931,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 			if s.Underlying != nil {
 				detail = s.Underlying.String()
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 26, detail, nil, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindTypeAlias,
+				detail,
+				nil,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.AliasDecl:
 			if s == nil || s.Name == nil {
@@ -835,7 +948,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 			if s.Underlying != nil {
 				detail = s.Underlying.String()
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 26, detail, nil, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindTypeAlias,
+				detail,
+				nil,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.ConstStatement:
 			if s == nil || s.Name == nil {
@@ -849,7 +969,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					detail = t
 				}
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 14, detail, nil, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindConstant,
+				detail,
+				nil,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.VarStatement:
 			if s == nil || s.Name == nil {
@@ -863,7 +990,14 @@ func collectDocumentSymbols(prog *ast.Program, tc *typechecker.TypeChecker) []Do
 					detail = t
 				}
 			}
-			sym := documentSymbolFromToken(s.Name.Token, s.Name.Value, 13, detail, nil, s.Span)
+			sym := documentSymbolFromToken(
+				s.Name.Token,
+				s.Name.Value,
+				SymbolKindVariable,
+				detail,
+				nil,
+				s.Span,
+			)
 			entries = append(entries, sym)
 		case *ast.ImplDecl:
 			if s == nil || s.TypeName == nil {

@@ -101,7 +101,7 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 		if err != nil {
 			continue
 		}
-		
+
 		sl := lexer.New(string(data))
 		sp := parser.New(sl)
 		sp.SetFilename(siblingPath)
