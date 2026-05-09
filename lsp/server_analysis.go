@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	bakdiag "github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/formatter"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/linter"
@@ -20,6 +21,7 @@ import (
 )
 
 var lineColRegex = regexp.MustCompile(`line (\d+):(\d+): (.*)`)
+var legacyImportAliasRegex = regexp.MustCompile(`^\s*import\s+"([^"]+)"\s+as\s+([A-Za-z_][A-Za-z0-9_]*)`)
 
 func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string) {
 	filePath := uriToPath(uri)
@@ -123,9 +125,9 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 				Range:    rangeFromLineCol(l, c, 1),
 				Severity: 1,
 				Source:   "bak-parser",
-				Code:     "P0001",
+				Code:     string(bakdiag.ErrParser),
 				Message:  m,
-				Data:     parserDiagnosticData(m),
+				Data:     parserDiagnosticData(m, text, l),
 			})
 		}
 	}
@@ -155,7 +157,10 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 				Notes: typeErrorNotesToLSP(typeErr),
 				Fixes: typeErrorFixesToLSP(typeErr),
 			}
-			if data.Help != "" || len(data.Notes) > 0 || len(data.Fixes) > 0 {
+			if typeErr.Code != "" {
+				mergeDiagnosticCatalogData(&data, typeErr.Code)
+			}
+			if hasDiagnosticData(data) {
 				diag.Data = data
 			}
 			if related := typeErrorRelatedInformation(typeErr); len(related) > 0 {
@@ -203,15 +208,68 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	os.Stdout.Write(msg)
 }
 
-func parserDiagnosticData(message string) DiagnosticData {
+func parserDiagnosticData(message, source string, line int) DiagnosticData {
 	data := DiagnosticData{}
+	mergeDiagnosticCatalogData(&data, bakdiag.ErrParser)
 	switch {
 	case strings.Contains(message, "legacy import alias syntax"):
 		data.Help = `write aliases before the path: import alias "path"`
+		if fix, ok := legacyImportAliasFix(source, line); ok {
+			data.Fixes = append(data.Fixes, fix)
+		}
 	case strings.Contains(message, "expected next token"):
 		data.Help = "check the token at this location and the syntax immediately before it"
 	}
 	return data
+}
+
+func mergeDiagnosticCatalogData(data *DiagnosticData, code bakdiag.DiagnosticCode) {
+	entry, ok := bakdiag.Lookup(code)
+	if !ok {
+		return
+	}
+	if data.Title == "" {
+		data.Title = entry.Title
+	}
+	if data.Description == "" {
+		data.Description = entry.Description
+	}
+	if data.Help == "" {
+		data.Help = entry.Help
+	}
+}
+
+func hasDiagnosticData(data DiagnosticData) bool {
+	return data.Title != "" ||
+		data.Description != "" ||
+		data.Help != "" ||
+		len(data.Notes) > 0 ||
+		len(data.Fixes) > 0
+}
+
+func legacyImportAliasFix(source string, line int) (DiagnosticFix, bool) {
+	if line <= 0 {
+		return DiagnosticFix{}, false
+	}
+	lines := strings.Split(source, "\n")
+	if line > len(lines) {
+		return DiagnosticFix{}, false
+	}
+	text := lines[line-1]
+	matches := legacyImportAliasRegex.FindStringSubmatch(text)
+	if len(matches) != 3 {
+		return DiagnosticFix{}, false
+	}
+	replacement := text[:len(text)-len(strings.TrimLeft(text, " \t"))] +
+		"import " + matches[2] + " \"" + matches[1] + "\""
+	return DiagnosticFix{
+		Title: "Rewrite import alias",
+		Range: Range{
+			Start: Position{Line: line - 1, Character: 0},
+			End:   Position{Line: line - 1, Character: len(text)},
+		},
+		NewText: replacement,
+	}, true
 }
 
 func samePath(a, b string) bool {
@@ -308,13 +366,19 @@ func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
 		severity = 4
 	}
 
-	return Diagnostic{
+	data := DiagnosticData{}
+	mergeDiagnosticCatalogData(&data, bakdiag.DiagnosticCode(finding.Rule))
+	diag := Diagnostic{
 		Range:    rangeFromLineCol(finding.Line, finding.Column, 1),
 		Severity: severity,
 		Source:   "bak-linter",
 		Code:     finding.Rule,
 		Message:  finding.Message,
 	}
+	if hasDiagnosticData(data) {
+		diag.Data = data
+	}
+	return diag
 }
 
 func uriToPath(uri string) string {

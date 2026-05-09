@@ -458,9 +458,9 @@ func (e *DiagnosticEmitter) Emit(d Diagnostic) {
 		case LevelError:
 			d.Code = ErrGeneric
 		case LevelWarning:
-			d.Code = DiagnosticCode("W0000")
+			d.Code = WarnGeneric
 		case LevelHint:
-			d.Code = DiagnosticCode("H0000")
+			d.Code = HintGeneric
 		default:
 			d.Code = ErrGeneric
 		}

@@ -33,7 +33,7 @@ func TestEmitterNormalizesWarningAndEmptyMessage(t *testing.T) {
 	if len(diags) != 1 {
 		t.Fatalf("expected 1 diagnostic, got %d", len(diags))
 	}
-	if diags[0].Code != DiagnosticCode("W0000") {
+	if diags[0].Code != WarnGeneric {
 		t.Fatalf("expected warning default code, got %q", diags[0].Code)
 	}
 	if diags[0].Message != "unknown diagnostic" {

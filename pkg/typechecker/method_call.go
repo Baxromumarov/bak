@@ -621,7 +621,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 	case "unwrap":
 		if guardState == resultGuardIsErr {
 			tc.emitWarningAt(
-				diagnostics.DiagnosticCode("W0901"),
+				diagnostics.WarnGuardedUnwrap,
 				mc.Pos(),
 				strfmt.Named(
 					"'{guard}.unwrap()' is guaranteed to panic in this branch after '{guard}.isErr()'",
@@ -634,7 +634,7 @@ func (tc *TypeChecker) checkResultMethodCall(mc *ast.MethodCallExpression, resTy
 	case "unwrapErr":
 		if guardState == resultGuardIsOk {
 			tc.emitWarningAt(
-				diagnostics.DiagnosticCode("W0902"),
+				diagnostics.WarnUnguardedUnwrap,
 				mc.Pos(),
 				strfmt.Named(
 					"'{guard}.unwrapErr()' is guaranteed to panic in this branch after '{guard}.isOk()'",

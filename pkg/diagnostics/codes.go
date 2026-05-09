@@ -102,12 +102,24 @@ const (
 	ErrVecFixedOnly   DiagnosticCode = "E0601"
 	ErrVecInvalidInit DiagnosticCode = "E0602"
 
-	// Feature-gating errors (E08xx)
-	ErrGeneric DiagnosticCode = "E9999"
+	// Generic fallback errors
+	ErrGeneric  DiagnosticCode = "E9999"
+	WarnGeneric DiagnosticCode = "W0000"
+	HintGeneric DiagnosticCode = "H0000"
 
 	// Parser errors (P00xx)
 	ErrParser     DiagnosticCode = "P0001"
 	ErrParserHint DiagnosticCode = "P0002"
+
+	// Direct warnings used by the typechecker and linter.
+	WarnUnusedTypeDef   DiagnosticCode = "UnusedTypeDef"
+	WarnUnusedAlias     DiagnosticCode = "UnusedAlias"
+	WarnUnusedFunc      DiagnosticCode = "UnusedFunc"
+	WarnUnusedType      DiagnosticCode = "UnusedType"
+	WarnAmbiguousRange  DiagnosticCode = "AmbiguousRange"
+	WarnGuardedUnwrap   DiagnosticCode = "W0901"
+	WarnUnguardedUnwrap DiagnosticCode = "W0902"
+	LintImportStyle     DiagnosticCode = "import-style"
 )
 
 // Note provides additional context for a diagnostic

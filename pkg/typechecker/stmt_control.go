@@ -80,7 +80,7 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 	// Check for common mistake: iterating over [start, end] Vec literal instead of range
 	if vecLit, ok := fs.Iterable.(*ast.VecLiteral); ok && len(vecLit.Elements) == 2 {
 		tc.emitter.Emit(diagnostics.Diagnostic{
-			Code:    diagnostics.DiagnosticCode("AmbiguousRange"),
+			Code:    diagnostics.WarnAmbiguousRange,
 			Level:   diagnostics.LevelWarning,
 			Message: "iterating over a 2-element vector; did you mean to use a range 'start..end'?",
 			Line:    vecLit.Token.Line,

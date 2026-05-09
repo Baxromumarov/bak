@@ -64,11 +64,112 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrVecInvalidInit: {LevelError, "invalid vector initialization", ""},
 
 	// Feature-gating errors (E08xx)
-	ErrGeneric: {LevelError, "unsupported construct", ""},
+	ErrGeneric:  {LevelError, "unsupported construct", ""},
+	WarnGeneric: {LevelWarning, "warning", ""},
+	HintGeneric: {LevelHint, "hint", ""},
 
 	// Parser errors (P00xx)
 	ErrParser:     {LevelError, "parse error", ""},
 	ErrParserHint: {LevelHint, "parse hint", ""},
+
+	// Direct typechecker/linter diagnostics.
+	WarnUnusedTypeDef:   {LevelWarning, "type definition is never used", "remove if not used"},
+	WarnUnusedAlias:     {LevelWarning, "alias is never used", "remove if not used"},
+	WarnUnusedFunc:      {LevelWarning, "private function is never used", "remove if not used"},
+	WarnUnusedType:      {LevelWarning, "private type is never used", "remove if not used"},
+	WarnAmbiguousRange:  {LevelWarning, "range syntax may be ambiguous", "use 'start..end' when you mean a numeric range"},
+	WarnGuardedUnwrap:   {LevelWarning, "unwrap call is guaranteed to panic in this branch", "move unwrap into the matching result guard branch"},
+	WarnUnguardedUnwrap: {LevelWarning, "unwrap call is not guarded by a result check", "check isOk/isErr before unwrapping when failure is possible"},
+	LintImportStyle:     {LevelHint, "import should use the stable Go-like package path style", "prefer imports such as import \"std/strings\""},
+}
+
+// CatalogEntry describes one stable diagnostic code for CLI help and editor UX.
+type CatalogEntry struct {
+	Code        DiagnosticCode
+	Title       string
+	Description string
+	Help        string
+}
+
+var catalogTitles = map[DiagnosticCode]string{
+	ErrMissingPackage:      "missing package",
+	ErrUseAfterMove:        "use of moved value",
+	ErrBorrowAfterMove:     "borrow after move",
+	ErrMoveWhileBorrowed:   "move while borrowed",
+	ErrDoubleMutableBorrow: "double mutable borrow",
+	ErrBorrowConflict:      "borrow conflict",
+	ErrMutabilityRequired:  "mutability required",
+	ErrAssignToImmutable:   "assignment to immutable value",
+	ErrMutBorrowImmutable:  "mutable borrow of immutable value",
+	ErrTypeMismatch:        "type mismatch",
+	ErrUnknownType:         "unknown type",
+	ErrGenericMismatch:     "generic type mismatch",
+	ErrVecSizeMismatch:     "vector size mismatch",
+	ErrArgumentCount:       "argument count mismatch",
+	ErrArgumentType:        "argument type mismatch",
+	ErrReturnType:          "return type mismatch",
+	ErrUndefinedFunction:   "undefined function",
+	ErrMissingReturn:       "missing return",
+	ErrUndefinedMethod:     "undefined method",
+	ErrUndefinedVariable:   "undefined variable",
+	ErrDuplicateVariable:   "duplicate variable",
+	ErrMissingType:         "missing type annotation",
+	ErrUnusedVariable:      "unused variable",
+	ErrUnusedImport:        "unused import",
+	ErrImportNotFound:      "import not found",
+	ErrDuplicateImport:     "duplicate import alias",
+	ErrSelfImport:          "self import",
+	ErrVecDynamicOnly:      "dynamic vector required",
+	ErrVecFixedOnly:        "fixed vector required",
+	ErrVecInvalidInit:      "invalid vector initialization",
+	ErrGeneric:             "unsupported construct",
+	WarnGeneric:            "generic warning",
+	HintGeneric:            "generic hint",
+	ErrParser:              "parse error",
+	ErrParserHint:          "parse hint",
+	WarnUnusedTypeDef:      "unused type definition",
+	WarnUnusedAlias:        "unused alias",
+	WarnUnusedFunc:         "unused function",
+	WarnUnusedType:         "unused type",
+	WarnAmbiguousRange:     "ambiguous range",
+	WarnGuardedUnwrap:      "guarded unwrap warning",
+	WarnUnguardedUnwrap:    "unguarded unwrap warning",
+	LintImportStyle:        "import style",
+}
+
+// Catalog returns all known diagnostic entries.
+func Catalog() []CatalogEntry {
+	entries := make([]CatalogEntry, 0, len(catalog))
+	for code, tmpl := range catalog {
+		entries = append(entries, CatalogEntry{
+			Code:        code,
+			Title:       catalogTitle(code),
+			Description: tmpl.Message,
+			Help:        tmpl.Help,
+		})
+	}
+	return entries
+}
+
+// Lookup returns one known diagnostic entry by code.
+func Lookup(code DiagnosticCode) (CatalogEntry, bool) {
+	tmpl, ok := catalog[code]
+	if !ok {
+		return CatalogEntry{}, false
+	}
+	return CatalogEntry{
+		Code:        code,
+		Title:       catalogTitle(code),
+		Description: tmpl.Message,
+		Help:        tmpl.Help,
+	}, true
+}
+
+func catalogTitle(code DiagnosticCode) string {
+	if title := catalogTitles[code]; title != "" {
+		return title
+	}
+	return string(code)
 }
 
 // Render resolves a diagnostic code against the catalog using the supplied data.

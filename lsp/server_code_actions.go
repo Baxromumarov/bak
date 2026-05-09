@@ -61,10 +61,16 @@ func findImportInsertPosition(result *AnalysisResult) Position {
 	for _, stmt := range result.AST.Statements {
 		switch s := stmt.(type) {
 		case *ast.ImportStatement:
+			if s == nil {
+				continue
+			}
 			if s.Token.Line > lastImportLine {
 				lastImportLine = s.Token.Line
 			}
 		case *ast.PackageStatement:
+			if s == nil {
+				continue
+			}
 			if s.Token.Line > lastImportLine {
 				lastImportLine = s.Token.Line
 			}
@@ -234,6 +240,9 @@ func (s *Server) getOrganizeImportsEdit(uri string) *WorkspaceEdit {
 
 	for _, stmt := range result.AST.Statements {
 		if imp, ok := stmt.(*ast.ImportStatement); ok {
+			if imp == nil {
+				continue
+			}
 			if firstImport == nil {
 				firstImport = imp
 			}
@@ -253,6 +262,9 @@ func (s *Server) getOrganizeImportsEdit(uri string) *WorkspaceEdit {
 	var sb strings.Builder
 	seen := make(map[string]bool)
 	for _, imp := range imports {
+		if imp == nil {
+			continue
+		}
 		path := imp.Path
 		if seen[path] {
 			continue

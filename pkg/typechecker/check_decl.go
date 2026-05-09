@@ -18,26 +18,26 @@ var (
 	}
 
 	unusedTypeDefSpec = unusedWarningSpec{
-		code:  diagnostics.DiagnosticCode("UnusedTypeDef"),
+		code:  diagnostics.WarnUnusedTypeDef,
 		label: "type",
 		help:  "remove if not used",
 	}
 
 	unusedAliasSpec = unusedWarningSpec{
-		code:  diagnostics.DiagnosticCode("UnusedAlias"),
+		code:  diagnostics.WarnUnusedAlias,
 		label: "alias",
 		help:  "remove if not used",
 	}
 
 	unusedFuncSpec = unusedWarningSpec{
-		code:      diagnostics.DiagnosticCode("UnusedFunc"),
+		code:      diagnostics.WarnUnusedFunc,
 		label:     "function",
 		help:      "remove if not used",
 		extraSkip: []func(string) bool{skipMain, skipTest},
 	}
 
 	unusedStructSpec = unusedWarningSpec{
-		code:  diagnostics.DiagnosticCode("UnusedType"),
+		code:  diagnostics.WarnUnusedType,
 		label: "struct",
 		help:  "remove if not used",
 	}

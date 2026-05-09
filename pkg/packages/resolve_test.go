@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -196,5 +197,41 @@ func TestParseProgramDirRequiresEachFileToStartWithPackage(t *testing.T) {
 
 	if _, err := ParseProgram(dir); err == nil {
 		t.Fatalf("expected directory parse to reject files without package declarations")
+	}
+}
+
+func TestParseProgramDirRejectsDuplicateTopLevelSymbols(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.bak"), []byte("package demo\n\npub func same() -> (void) {\n    return void\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.bak"), []byte("package demo\n\npub const same int = 1\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := ParseProgram(dir)
+	if err == nil {
+		t.Fatalf("expected duplicate top-level symbol error")
+	}
+	if !strings.Contains(err.Error(), `duplicate top-level symbol "same"`) {
+		t.Fatalf("expected duplicate symbol error, got %v", err)
+	}
+}
+
+func TestParseProgramDirMergesPackageFiles(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.bak"), []byte("package demo\n\npub func one() -> (void) {\n    return void\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.bak"), []byte("package demo\n\npub const two int = 2\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	program, err := ParseProgram(dir)
+	if err != nil {
+		t.Fatalf("ParseProgram failed: %v", err)
+	}
+	if got := len(program.Statements); got != 3 {
+		t.Fatalf("expected package plus two declarations, got %d statements", got)
 	}
 }

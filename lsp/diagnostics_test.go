@@ -313,10 +313,77 @@ func TestAnalyzeAndPublishLegacyImportAliasParserDiagnosticHasHelp(t *testing.T)
 			if !ok || !strings.Contains(fmt.Sprint(data["help"]), `import alias "path"`) {
 				t.Fatalf("expected parser diagnostic help, got %#v", diag)
 			}
+			if data["title"] != "parse error" {
+				t.Fatalf("expected parser diagnostic catalog title, got %#v", data)
+			}
+			fixes, ok := data["fixes"].([]any)
+			if !ok || len(fixes) != 1 {
+				t.Fatalf("expected parser diagnostic quick fix, got %#v", data)
+			}
 			return
 		}
 	}
 	t.Fatalf("expected parser diagnostic for legacy import alias, got %#v", params.Diagnostics)
+}
+
+func TestCodeActionRewritesLegacyImportAlias(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		`import "std/strings" as strings`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+
+	var publish PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &publish); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	params := CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 1, Character: 0},
+			End:   Position{Line: 1, Character: len(`import "std/strings" as strings`)},
+		},
+		Context: CodeActionContext{Diagnostics: publish.Diagnostics},
+	}
+	actions := s.handleCodeAction(mustRequest(t, params))
+	for _, action := range actions {
+		if action.Title != "Rewrite import alias" {
+			continue
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 {
+			t.Fatalf("expected one edit, got %#v", action.Edit)
+		}
+		if edits[0].NewText != `import strings "std/strings"` {
+			t.Fatalf("unexpected rewrite: %#v", edits[0])
+		}
+		return
+	}
+	t.Fatalf("expected legacy import rewrite action, got %#v", actions)
 }
 
 func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {

@@ -77,6 +77,31 @@ func TestExplainDiagnosticCodeKnown(t *testing.T) {
 	if !strings.Contains(text, "use of moved value") {
 		t.Fatalf("expected explanation title in output, got: %s", text)
 	}
+	if !strings.Contains(text, "Help:") {
+		t.Fatalf("expected help text in output, got: %s", text)
+	}
+}
+
+func TestExplainDiagnosticCodeImportAndParserCodes(t *testing.T) {
+	cases := []struct {
+		code string
+		want string
+	}{
+		{code: "E0702", want: "duplicate import alias"},
+		{code: "p0001", want: "parse error"},
+		{code: "import-style", want: "import style"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.code, func(t *testing.T) {
+			var out bytes.Buffer
+			if !explainDiagnosticCode(&out, tc.code) {
+				t.Fatalf("expected diagnostic code %q to be known", tc.code)
+			}
+			if !strings.Contains(out.String(), tc.want) {
+				t.Fatalf("expected %q in output, got: %s", tc.want, out.String())
+			}
+		})
+	}
 }
 
 func TestExplainDiagnosticCodeUnknown(t *testing.T) {
@@ -102,6 +127,9 @@ func TestPrintDiagnosticCodeList(t *testing.T) {
 	}
 	if !strings.Contains(text, "E0100") {
 		t.Fatalf("expected known code in list output, got: %s", text)
+	}
+	if !strings.Contains(text, "E0702") || !strings.Contains(text, "P0001") || !strings.Contains(text, "import-style") {
+		t.Fatalf("expected import/parser/linter codes in list output, got: %s", text)
 	}
 }
 

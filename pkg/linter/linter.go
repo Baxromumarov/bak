@@ -8,6 +8,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/token"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/strfmt"
@@ -211,7 +212,7 @@ func isUpperSnakeOrPascal(s string) bool {
 // ImportStyleRule nudges source toward the canonical Go-like package import style.
 type ImportStyleRule struct{}
 
-func (r *ImportStyleRule) Name() string { return "import-style" }
+func (r *ImportStyleRule) Name() string { return string(diagnostics.LintImportStyle) }
 
 func (r *ImportStyleRule) Check(
 	prog *ast.Program,
@@ -242,7 +243,7 @@ func importStyleFinding(imp *ast.ImportStatement) []Finding {
 		return findings
 	}
 	findings = append(findings, Finding{
-		Rule:    "import-style",
+		Rule:    string(diagnostics.LintImportStyle),
 		Level:   "style",
 		Message: strfmt.Named("prefer Go-like import path '{path}'", "Path", canonical),
 		Line:    imp.PathToken.Line,

@@ -75,9 +75,11 @@ type Diagnostic struct {
 }
 
 type DiagnosticData struct {
-	Help  string           `json:"help,omitempty"`
-	Notes []DiagnosticNote `json:"notes,omitempty"`
-	Fixes []DiagnosticFix  `json:"fixes,omitempty"`
+	Title       string           `json:"title,omitempty"`
+	Description string           `json:"description,omitempty"`
+	Help        string           `json:"help,omitempty"`
+	Notes       []DiagnosticNote `json:"notes,omitempty"`
+	Fixes       []DiagnosticFix  `json:"fixes,omitempty"`
 }
 
 type DiagnosticNote struct {
