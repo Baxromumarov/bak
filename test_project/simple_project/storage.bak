@@ -1,6 +1,6 @@
 package storage
 
-import items "test/project/simple_project/item.bak"
+import items "./item.bak"
 
 pub struct Vault {
     pub Products: Vec<items.Product, _>

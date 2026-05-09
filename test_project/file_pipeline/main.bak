@@ -1,0 +1,57 @@
+package main
+
+import fs "std/fs"
+import io "std/io"
+
+struct LogSummary {
+    lines:    int
+    warnings: int
+    errors:   int
+}
+
+func summarizeLogs(data: &string) -> (LogSummary) {
+    mut var lines = io.lines(*data)
+    mut var out: LogSummary = LogSummary{lines: 0, warnings: 0, errors: 0}
+
+    while lines.hasMore() {
+        var lineResult: Result<string, string> = lines.next()
+        if lineResult.isOk() {
+            var line: string = lineResult.unwrap()
+            out.lines = out.lines + 1
+
+            if line.indexOf("WARN").isOk() {
+                out.warnings = out.warnings + 1
+            }
+
+            if line.indexOf("ERROR").isOk() {
+                out.errors = out.errors + 1
+            }
+        }
+    }
+
+    return out
+}
+
+func render(summary: LogSummary) -> (string) {
+    mut var writer = io.newWriter()
+    writer.writeLine("lines=" + summary.lines.toString())
+    writer.writeLine("warnings=" + summary.warnings.toString())
+    writer.writeLine("errors=" + summary.errors.toString())
+    return writer.toString()
+}
+
+func loadOrDefault(path: string) -> (string) {
+    var loaded: Result<string, string> = fs.readFile(path)
+    if loaded.isOk() {
+        return loaded.unwrap()
+    }
+
+    return "INFO boot\nWARN retry\nERROR timeout\n"
+}
+
+func main() -> (void) {
+    var data: string = loadOrDefault("app.log")
+    var summary: LogSummary = summarizeLogs(&data)
+    println(render(summary))
+    return void
+}

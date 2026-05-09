@@ -1,0 +1,49 @@
+package main
+
+func isPrime(n: int) -> (bool) {
+    if n < 2 {
+        return false
+    }
+
+    mut var factor: int = 2
+    while factor * factor <= n {
+        if n % factor == 0 {
+            return false
+        }
+        factor = factor + 1
+    }
+
+    return true
+}
+
+func countPrimes(limit: int) -> (int) {
+    mut var count: int = 0
+    mut var n: int = 2
+
+    while n <= limit {
+        if isPrime(n) {
+            count = count + 1
+        }
+        n = n + 1
+    }
+
+    return count
+}
+
+func checksum(rounds: int) -> (int) {
+    mut var acc: int = 0
+    mut var i: int = 0
+
+    while i < rounds {
+        acc = ((acc * 31) + (i * i)) % 1000003
+        i = i + 1
+    }
+
+    return acc
+}
+
+func main() -> (void) {
+    println("prime count: " + countPrimes(200).toString())
+    println("checksum: " + checksum(5000).toString())
+    return void
+}

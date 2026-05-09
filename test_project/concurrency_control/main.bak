@@ -1,0 +1,38 @@
+package main
+
+import sync "std/sync"
+
+struct Counter {
+    lock:  sync.Mutex
+    value: int
+}
+
+impl Counter as c {
+    mut func inc() -> (void) {
+        c.lock.lock()
+        c.value = c.value + 1
+        c.lock.unlock()
+    }
+
+    mut func add(n: int) -> (void) {
+        mut var i: int = 0
+        while i < n {
+            c.inc()
+            i = i + 1
+        }
+    }
+
+    func get() -> (int) {
+        c.lock.lock()
+        var value: int = c.value
+        c.lock.unlock()
+        return value
+    }
+}
+
+func main() -> (void) {
+    mut var counter: Counter = Counter{lock: sync.newMutex(), value: 0}
+    counter.add(10)
+    println("counter: " + counter.get().toString())
+    return void
+}

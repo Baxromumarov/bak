@@ -1,0 +1,25 @@
+package main
+
+
+import "src/compiler/driver/driver.bak" as driver
+import "src/std/os/os.bak" as os
+
+func main() -> (void) {
+    var rawArgs: Vec<string, _> = os.args()
+
+    // Normalize arguments: ensure args[0] is "bak" and subsequent arguments are passed cleanly.
+    mut var normalizedArgs: Vec<string, _> = Vec.new()
+    normalizedArgs.push("bak")
+
+    // The rawArgs[0] is the script path (e.g. ".../main.bak").
+    // The rawArgs[1...] are the actual CLI arguments passed via the shim (e.g. "run", "foo.bak")
+    mut var i: int = 1
+    while i < rawArgs.len() {
+        normalizedArgs.push(rawArgs[i])
+        i = i + 1
+    }
+
+    var exitCode: int = driver.run(normalizedArgs)
+
+    os.exit(exitCode)
+}

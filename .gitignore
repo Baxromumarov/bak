@@ -7,9 +7,3 @@
 .codex
 .agents
 *.zip
-# Build artifacts
-bakc-stage0
-bakc-stage1
-bakc-stage2
-bakc
-bin/

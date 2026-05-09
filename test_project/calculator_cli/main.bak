@@ -1,0 +1,68 @@
+package main
+
+enum Op {
+    Add
+    Sub
+    Mul
+    Div
+}
+
+struct Expr {
+    left:  int
+    op:    Op
+    right: int
+}
+
+func eval(expr: &Expr) -> (Result<int, string>) {
+    switch expr.op {
+        case Op.Add {
+            return Ok(expr.left + expr.right)
+        }
+        case Op.Sub {
+            return Ok(expr.left - expr.right)
+        }
+        case Op.Mul {
+            return Ok(expr.left * expr.right)
+        }
+        case Op.Div {
+            if expr.right == 0 {
+                return Err("division by zero")
+            }
+            return Ok(expr.left / expr.right)
+        }
+    }
+}
+
+func describe(op: Op) -> (string) {
+    switch op {
+        case Op.Add {
+            return "add"
+        }
+        case Op.Sub {
+            return "subtract"
+        }
+        case Op.Mul {
+            return "multiply"
+        }
+        case Op.Div {
+            return "divide"
+        }
+    }
+}
+
+func run(expr: Expr) -> (void) {
+    var result: Result<int, string> = eval(&expr)
+    if result.isOk() {
+        println(describe(expr.op) + ": " + result.unwrap().toString())
+    } else {
+        println("error: " + result.unwrapErr())
+    }
+    return void
+}
+
+func main() -> (void) {
+    run(Expr{left: 21, op: Op.Add, right: 21})
+    run(Expr{left: 9, op: Op.Div, right: 0})
+    
+    return void
+}

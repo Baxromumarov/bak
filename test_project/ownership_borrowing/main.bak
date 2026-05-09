@@ -1,0 +1,45 @@
+package main
+
+struct Buffer {
+    values: Vec<int, _>
+}
+
+impl Buffer as b {
+    mut func push(value: int) -> (void) {
+        b.values.push(value)
+        return void
+    }
+
+    func total() -> (int) {
+        return sum(&b.values)
+    }
+}
+
+func sum(values: &Vec<int, _>) -> (int) {
+    mut var total: int = 0
+    for value in *values {
+        total = total + value
+    }
+    return total
+}
+
+func fill(buf: &mut Buffer, count: int) -> (void) {
+    mut var i: int = 0
+    while i < count {
+        buf.push(i + 1)
+        i = i + 1
+    }
+    return void
+}
+
+func consume(buf: Buffer) -> (int) {
+    return buf.total()
+}
+
+func main() -> (void) {
+    mut var buf: Buffer = Buffer{values: Vec.new()}
+    fill(&mut buf, 5)
+    println("borrowed total: " + buf.total().toString())
+    println("moved total: " + consume(buf).toString())
+    return void
+}

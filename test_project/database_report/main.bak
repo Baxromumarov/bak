@@ -1,0 +1,51 @@
+package main
+
+import db "std/db"
+
+struct Totals {
+    invoices: int
+    cents:    int
+}
+
+func sampleResult() -> (db.QueryResult) {
+    mut var columns: Vec<string, _> = Vec.new()
+    columns.push("name")
+    columns.push("total")
+
+    mut var rowA: Vec<string, _> = Vec.new()
+    rowA.push("alice")
+    rowA.push("1200")
+
+    mut var rowB: Vec<string, _> = Vec.new()
+    rowB.push("bob")
+    rowB.push("350")
+
+    mut var rows: Vec<Vec<string, _>, _> = Vec.new()
+    rows.push(rowA)
+    rows.push(rowB)
+
+    return db.QueryResult{Columns: columns, Rows: rows}
+}
+
+func summarize(qr: &db.QueryResult) -> (Totals) {
+    var rows = db.rows(qr)
+    mut var out: Totals = Totals{invoices: 0, cents: 0}
+
+    for row in rows {
+        var amount: Result<int, string> = row.getInt("total")
+        if amount.isOk() {
+            out.invoices = out.invoices + 1
+            out.cents = out.cents + amount.unwrap()
+        }
+    }
+
+    return out
+}
+
+func main() -> (void) {
+    var qr: db.QueryResult = sampleResult()
+    var totals: Totals = summarize(&qr)
+    println("invoices: " + totals.invoices.toString())
+    println("cents: " + totals.cents.toString())
+    return void
+}

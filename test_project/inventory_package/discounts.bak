@@ -1,0 +1,20 @@
+package discounts
+
+import catalog "./catalog.bak"
+
+pub func priceAfterDiscount(item: &catalog.Item, percent: int) -> (Result<int, string>) {
+    if percent < 0 || percent > 90 {
+        return Err("discount percent must be between 0 and 90")
+    }
+
+    var discount: int = (item.price * percent) / 100
+    return Ok(item.price - discount)
+}
+
+pub func restockCount(item: &catalog.Item, amount: int) -> (Result<int, string>) {
+    if amount < 0 {
+        return Err("restock amount cannot be negative")
+    }
+
+    return Ok(item.stock + amount)
+}

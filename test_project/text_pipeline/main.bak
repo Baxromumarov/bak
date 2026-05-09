@@ -1,0 +1,70 @@
+package main
+
+struct TextStats {
+    letters: int
+    digits:  int
+    spaces:  int
+}
+
+impl TextStats as s {
+    func total() -> (int) {
+        return s.letters + s.digits + s.spaces
+    }
+}
+
+func isDigit(ch: char) -> (bool) {
+    return ch >= '0' && ch <= '9'
+}
+
+func isLetter(ch: char) -> (bool) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+func analyze(input: &string) -> (TextStats) {
+    mut var stats: TextStats = TextStats{letters: 0, digits: 0, spaces: 0}
+    mut var i: int = 0
+
+    while i < input.len() {
+        var ch: char = input[i]
+        if isLetter(ch) {
+            stats.letters = stats.letters + 1
+        } else if isDigit(ch) {
+            stats.digits = stats.digits + 1
+        } else if ch == ' ' {
+            stats.spaces = stats.spaces + 1
+        }
+        i = i + 1
+    }
+
+    return stats
+}
+
+func compact(input: &string) -> (string) {
+    mut var out: string = ""
+    mut var sawSpace: bool = false
+    mut var i: int = 0
+
+    while i < input.len() {
+        var ch: char = input[i]
+        if ch == ' ' {
+            if !sawSpace {
+                out = out + " "
+            }
+            sawSpace = true
+        } else {
+            out = out + string(ch)
+            sawSpace = false
+        }
+        i = i + 1
+    }
+
+    return out
+}
+
+func main() -> (void) {
+    var raw: string = "Bak  language  v01"
+    var stats: TextStats = analyze(&raw)
+    println(compact(&raw))
+    println("tokens: " + stats.total().toString())
+    return void
+}

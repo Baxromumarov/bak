@@ -1,0 +1,46 @@
+package main
+
+import strconv "std/strconv"
+
+struct ParseReport {
+    ok:     int
+    failed: int
+    total:  int
+}
+
+func parsePositive(raw: &string) -> (Result<int, string>) {
+    var parsed: Result<int, string> = strconv.atoi(raw)
+    if parsed.isErr() {
+        return Err("not an integer: " + *raw)
+    }
+
+    var value: int = parsed.unwrap()
+    if value <= 0 {
+        return Err("not positive: " + *raw)
+    }
+    return Ok(value)
+}
+
+func report(values: Vec<string, _>) -> (ParseReport) {
+    mut var out: ParseReport = ParseReport{ok: 0, failed: 0, total: 0}
+
+    for raw in values {
+        var parsed: Result<int, string> = parsePositive(&raw)
+        out.total = out.total + 1
+        if parsed.isOk() {
+            out.ok = out.ok + parsed.unwrap()
+        } else {
+            out.failed = out.failed + 1
+        }
+    }
+
+    return out
+}
+
+func main() -> (void) {
+    var r: ParseReport = report(Vec.from(["12", "-2", "7", "bad"]))
+    println("sum ok: " + r.ok.toString())
+    println("failed: " + r.failed.toString())
+    println("total: " + r.total.toString())
+    return void
+}

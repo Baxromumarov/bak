@@ -1,0 +1,43 @@
+package main
+
+struct Arena {
+    chunks: Vec<Vec<int, _>, _>
+    bytes:  int
+}
+
+impl Arena as a {
+    mut func reserveChunk(size: int) -> (void) {
+        mut var chunk: Vec<int, _> = Vec.new()
+        mut var i: int = 0
+
+        while i < size {
+            chunk.push(i % 256)
+            i = i + 1
+        }
+
+        a.bytes = a.bytes + size
+        a.chunks.push(chunk)
+    }
+
+    func allocated() -> (int) {
+        return a.bytes
+    }
+}
+
+func buildArena(rounds: int, chunkSize: int) -> (Arena) {
+    mut var arena: Arena = Arena{chunks: Vec.new(), bytes: 0}
+    mut var i: int = 0
+
+    while i < rounds {
+        arena.reserveChunk(chunkSize + i)
+        i = i + 1
+    }
+
+    return arena
+}
+
+func main() -> (void) {
+    var arena: Arena = buildArena(8, 64)
+    println("allocated bytes: " + arena.allocated().toString())
+    return void
+}

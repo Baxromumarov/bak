@@ -1,0 +1,36 @@
+package catalog
+
+pub enum Category {
+    Book
+    Tool
+    Food
+}
+
+pub struct Item {
+    pub sku: string
+    pub category: Category
+    pub price: int
+    pub stock: int
+}
+
+pub func newItem(
+    sku: string,
+    category: Category,
+    price: int,
+    stock: int,
+) -> (Item) {
+    return Item{
+        sku: sku,
+        category: category,
+        price: price,
+        stock: stock,
+    }
+}
+
+pub func inventoryValue(item: &Item) -> (int) {
+    return item.price * item.stock
+}
+
+pub func isLowStock(item: &Item, threshold: int) -> (bool) {
+    return item.stock <= threshold
+}

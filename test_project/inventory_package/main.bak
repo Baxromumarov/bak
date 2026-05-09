@@ -1,0 +1,33 @@
+package main
+
+import catalog "./catalog.bak"
+import discounts "./discounts.bak"
+
+func totalInventory(first: &catalog.Item, second: &catalog.Item, third: &catalog.Item) -> (int) {
+    return catalog.inventoryValue(first) + catalog.inventoryValue(second) + catalog.inventoryValue(third)
+}
+
+func main() -> (void) {
+    var hammer = catalog.newItem("tool-hammer", catalog.Category.Tool, 18, 12)
+    var notebook = catalog.newItem("book-notes", catalog.Category.Book, 9, 30)
+    var apples = catalog.newItem("food-apples", catalog.Category.Food, 4, 6)
+
+    println("inventory value:", totalInventory(&hammer, &notebook, &apples))
+
+    var low = catalog.newItem("tool-saw", catalog.Category.Tool, 25, 2)
+    if catalog.isLowStock(&low, 3) {
+        println("low stock:", low.sku)
+    }
+
+    var discounted = discounts.priceAfterDiscount(&low, 20)
+    if discounted.isOk() {
+        println("discounted saw:", discounted.unwrap())
+    }
+
+    var restocked = discounts.restockCount(&low, 8)
+    if restocked.isOk() {
+        println("restocked:", low.sku, restocked.unwrap())
+    }
+
+    return void
+}

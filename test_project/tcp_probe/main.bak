@@ -1,0 +1,53 @@
+package main
+
+import net "std/net"
+
+func buildGet(path: string, host: string) -> (Vec<int, _>) {
+    var request: string = "GET " + path + " HTTP/1.1\r\nHost: " + host + "\r\nConnection: close\r\n\r\n"
+    return request.bytes()
+}
+
+func probe(host: string, port: int, path: string) -> (Result<int, string>) {
+    var opened = net.connect(host, port)
+
+    switch opened {
+        case Ok(stream) {
+            mut var socket: net.TcpStream = stream
+            var timeoutResult: Result<void, string> = net.setTimeout(&mut socket, 1000)
+            if timeoutResult.isErr() {
+                return Err(timeoutResult.unwrapErr())
+            }
+
+            var payload: Vec<int, _> = buildGet(path, host)
+            var writeResult: Result<void, string> = net.write(&mut socket, payload)
+            if writeResult.isErr() {
+                return Err(writeResult.unwrapErr())
+            }
+
+            var readResult = net.read(&mut socket, 512)
+            var closeResult: Result<void, string> = net.close(&mut socket)
+            if closeResult.isErr() {
+                return Err(closeResult.unwrapErr())
+            }
+
+            if readResult.isErr() {
+                return Err(readResult.unwrapErr())
+            }
+
+            return Ok(readResult.unwrap().len())
+        }
+        case Err(err) {
+            return Err(err)
+        }
+    }
+}
+
+func main() -> (void) {
+    var result: Result<int, string> = probe("example.com", 80, "/")
+    if result.isOk() {
+        println("bytes read: " + result.unwrap().toString())
+    } else {
+        println("tcp probe failed: " + result.unwrapErr())
+    }
+    return void
+}

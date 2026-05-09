@@ -1,0 +1,46 @@
+package main
+
+import math "std/math"
+
+struct Sample {
+    values: Vec<int, _>
+}
+
+impl Sample as s {
+    func sum() -> (int) {
+        mut var total: int = 0
+        for value in s.values {
+            total = total + value
+        }
+        return total
+    }
+
+    func mean() -> (float64) {
+        if s.values.len() == 0 {
+            return 0.0
+        }
+        return float64(s.sum()) / float64(s.values.len())
+    }
+
+    func spread() -> (int) {
+        if s.values.len() == 0 {
+            return 0
+        }
+
+        mut var min: int = s.values[0]
+        mut var max: int = s.values[0]
+        for value in s.values {
+            min = math.minInt(min, value)
+            max = math.maxInt(max, value)
+        }
+        return max - min
+    }
+}
+
+func main() -> (void) {
+    var sample: Sample = Sample{values: Vec.from([10, 12, 18, 20])}
+    println("sum: " + sample.sum().toString())
+    println("mean: " + sample.mean().toString())
+    println("spread: " + sample.spread().toString())
+    return void
+}

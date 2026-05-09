@@ -1,0 +1,44 @@
+package main
+
+import http "std/http"
+
+func health(req: http.Request) -> (http.Response) {
+    if req.method != "GET" {
+        return http.text(405, "method not allowed")
+    }
+
+    return http.json(200, "{\"status\":\"ok\"}")
+}
+
+func route(req: http.Request) -> (http.Response) {
+    if req.path == "/health" || req.path == "/health?verbose=true" {
+        return health(req)
+    }
+
+    if req.path == "/redirect" {
+        return http.redirect("/health")
+    }
+
+    return http.notFound()
+}
+
+func main() -> (void) {
+    var raw: string = "GET /health?verbose=true HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    var parsed: Result<http.Request, string> = http.parseRequest(raw)
+
+    if parsed.isErr() {
+        println(parsed.unwrapErr())
+        return void
+    }
+
+    var response: http.Response = route(parsed.unwrap())
+    var contentType: Result<string, string> = http.getResponseHeader(&response, "Content-Type")
+
+    if contentType.isOk() {
+        println("content type: " + contentType.unwrap())
+    }
+
+    println("status: " + response.status.toString())
+    println(response.bodyString())
+    return void
+}

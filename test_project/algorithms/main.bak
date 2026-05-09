@@ -1,0 +1,62 @@
+package main
+
+func bubbleSort(mut values: Vec<int, _>) -> (Vec<int, _>) {
+    mut var i: int = 0
+
+    while i < values.len() {
+        mut var j: int = 0
+        while j + 1 < values.len() {
+            if values[j] > values[j + 1] {
+                var tmp: int = values[j]
+                values[j] = values[j + 1]
+                values[j + 1] = tmp
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+
+    return values
+}
+
+func binarySearch(values: &Vec<int, _>, target: int) -> (int) {
+    mut var low: int = 0
+    mut var high: int = values.len() - 1
+
+    while low <= high {
+        var mid: int = (low + high) / 2
+        if values[mid] == target {
+            return mid
+        }
+        if values[mid] < target {
+            low = mid + 1
+        } else {
+            high = mid - 1
+        }
+    }
+
+    return -1
+}
+
+func fib(n: int) -> (int) {
+    if n <= 1 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+func checksum(values: &Vec<int, _>) -> (int) {
+    mut var sum: int = 0
+    for value in *values {
+        sum = sum + value
+    }
+    return sum
+}
+
+func main() -> (void) {
+    var sorted: Vec<int, _> = bubbleSort(Vec.from([5, 1, 4, 2, 3]))
+    println("index: " + binarySearch(&sorted, 4).toString())
+    println("checksum: " + checksum(&sorted).toString())
+    println("fib: " + fib(8).toString())
+    return void
+}
