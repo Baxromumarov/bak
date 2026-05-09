@@ -79,7 +79,7 @@ func (p *Pipeline) Typecheck(ctx context.Context) error {
 		return err
 	}
 
-	result, err := analysis.TypecheckProgram(ctx, p.Filename, p.AST, analysis.Options{}, nil)
+	result, err := analysis.TypecheckProgram(ctx, p.Filename, p.AST, analysis.CLIOptions(), nil)
 	if err != nil {
 		return err
 	}

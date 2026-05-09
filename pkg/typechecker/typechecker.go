@@ -201,11 +201,6 @@ func New() *TypeChecker {
 	return tc
 }
 
-// DiagnosticEmitter wrapper to support legacy addError
-type DiagnosticEmitterWrapper struct {
-	*diagnostics.DiagnosticEmitter
-}
-
 // NewWithPath creates a new TypeChecker with a file path context
 func NewWithPath(filePath string) *TypeChecker {
 	tc := New()
@@ -244,9 +239,8 @@ func (tc *TypeChecker) Errors() []string {
 	return result
 }
 
-// GetErrors returns the raw structured errors (for LSP)
-// GetErrors returns the raw structured errors (for LSP)
-// Reconstructed from diagnostics for backward compatibility
+// GetErrors returns structured diagnostics for tools that need raw positions,
+// notes, help, and fixes.
 func (tc *TypeChecker) GetErrors() []TypeError {
 	diags := tc.emitter.Diagnostics()
 	result := make([]TypeError, 0, len(diags))

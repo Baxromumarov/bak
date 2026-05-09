@@ -134,7 +134,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 							items = append(items, CompletionItem{
 								Label:            methodName,
 								Kind:             2,
-								Detail:           methodDetail(methodSig),
+								Detail:           methodCompletionDetail(baseType, methodName, methodSig, isStatic),
 								InsertText:       insertText,
 								InsertTextFormat: insertFormat,
 							})
@@ -651,6 +651,22 @@ func methodDetail(sig *typechecker.FunctionSig) string {
 		"params", strings.Join(params, ", "),
 		"ret", ret,
 	)
+}
+
+func methodCompletionDetail(
+	baseType,
+	methodName string,
+	sig *typechecker.FunctionSig,
+	isStatic bool,
+) string {
+	if isStatic {
+		if info, ok := builtinStaticMethods[baseType][methodName]; ok && info.Signature != "" {
+			return info.Signature
+		}
+	} else if info, ok := builtinMethods[baseType][methodName]; ok && info.Signature != "" {
+		return info.Signature
+	}
+	return methodDetail(sig)
 }
 
 func hasBuiltinStaticCompletionType(typeName string) bool {

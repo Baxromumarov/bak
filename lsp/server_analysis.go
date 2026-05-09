@@ -6,28 +6,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime/debug"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/baxromumarov/bak/internal/analysis"
-	bakdiag "github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/formatter"
 	"github.com/baxromumarov/bak/pkg/linter"
-	"github.com/baxromumarov/bak/pkg/typechecker"
 )
-
-var lineColRegex = regexp.MustCompile(`line (\d+):(\d+): (.*)`)
-var legacyImportAliasRegex = regexp.MustCompile(`^\s*import\s+"([^"]+)"\s+as\s+([A-Za-z_][A-Za-z0-9_]*)`)
 
 func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string) {
 	filePath := uriToPath(uri)
-
-	// 0. Update Registry
-	// Ideally we should know the package path relative to workspace.
-	// For now we treat single file as "main" or parse package decl.
 
 	var analysisResult *analysis.Result
 	analysisPanicked := false
@@ -39,13 +27,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 			}
 		}()
 		var err error
-		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.Options{
-			InjectPrelude:       true,
-			IncludePackageFiles: true,
-			RestoreProgram:      true,
-			SuppressUnused:      strings.HasSuffix(filePath, "_test.bak"),
-			InvalidatePackage:   true,
-		})
+		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.LSPOptions(filePath))
 		if err != nil && ctx.Err() == nil {
 			log.Printf("analysis failed(%s): %v", uri, err)
 		}
@@ -57,12 +39,6 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	prog := analysisResult.Program
 	parserErrors := analysisResult.ParserErrors
 	tc := analysisResult.TypeChecker
-
-	select {
-	case <-ctx.Done():
-		return
-	default:
-	}
 
 	select {
 	case <-ctx.Done():
@@ -99,20 +75,8 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 
 	// Parser Errors
 	for _, msg := range parserErrors {
-		matches := lineColRegex.FindStringSubmatch(msg)
-		if len(matches) == 4 {
-			l, _ := strconv.Atoi(matches[1]) // Line
-			c, _ := strconv.Atoi(matches[2]) // Col
-			m := matches[3]
-
-			diagnostics = append(diagnostics, Diagnostic{
-				Range:    rangeFromLineCol(l, c, 1),
-				Severity: 1,
-				Source:   "bak-parser",
-				Code:     string(bakdiag.ErrParser),
-				Message:  m,
-				Data:     parserDiagnosticData(m, text, l),
-			})
+		if diag, ok := parserErrorToDiagnostic(msg, text); ok {
+			diagnostics = append(diagnostics, diag)
 		}
 	}
 
@@ -123,34 +87,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 			if typeErr.File != "" && !samePath(typeErr.File, filePath) {
 				continue
 			}
-			severity := 1
-			if typeErr.Tier == typechecker.TierWarning {
-				severity = 2
-			}
-			diag := Diagnostic{
-				Range:    diagnosticRangeForTypeError(typeErr),
-				Severity: severity,
-				Source:   "bak-typechecker",
-				Message:  typeErr.Message,
-			}
-			if typeErr.Code != "" {
-				diag.Code = string(typeErr.Code)
-			}
-			data := DiagnosticData{
-				Help:  typeErr.Help,
-				Notes: typeErrorNotesToLSP(typeErr),
-				Fixes: typeErrorFixesToLSP(typeErr),
-			}
-			if typeErr.Code != "" {
-				mergeDiagnosticCatalogData(&data, typeErr.Code)
-			}
-			if hasDiagnosticData(data) {
-				diag.Data = data
-			}
-			if related := typeErrorRelatedInformation(typeErr); len(related) > 0 {
-				diag.RelatedInformation = related
-			}
-			diagnostics = append(diagnostics, diag)
+			diagnostics = append(diagnostics, typeErrorToDiagnostic(typeErr))
 		}
 	}
 
@@ -192,70 +129,6 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	os.Stdout.Write(msg)
 }
 
-func parserDiagnosticData(message, source string, line int) DiagnosticData {
-	data := DiagnosticData{}
-	mergeDiagnosticCatalogData(&data, bakdiag.ErrParser)
-	switch {
-	case strings.Contains(message, "legacy import alias syntax"):
-		data.Help = `write aliases before the path: import alias "path"`
-		if fix, ok := legacyImportAliasFix(source, line); ok {
-			data.Fixes = append(data.Fixes, fix)
-		}
-	case strings.Contains(message, "expected next token"):
-		data.Help = "check the token at this location and the syntax immediately before it"
-	}
-	return data
-}
-
-func mergeDiagnosticCatalogData(data *DiagnosticData, code bakdiag.DiagnosticCode) {
-	entry, ok := bakdiag.Lookup(code)
-	if !ok {
-		return
-	}
-	if data.Title == "" {
-		data.Title = entry.Title
-	}
-	if data.Description == "" {
-		data.Description = entry.Description
-	}
-	if data.Help == "" {
-		data.Help = entry.Help
-	}
-}
-
-func hasDiagnosticData(data DiagnosticData) bool {
-	return data.Title != "" ||
-		data.Description != "" ||
-		data.Help != "" ||
-		len(data.Notes) > 0 ||
-		len(data.Fixes) > 0
-}
-
-func legacyImportAliasFix(source string, line int) (DiagnosticFix, bool) {
-	if line <= 0 {
-		return DiagnosticFix{}, false
-	}
-	lines := strings.Split(source, "\n")
-	if line > len(lines) {
-		return DiagnosticFix{}, false
-	}
-	text := lines[line-1]
-	matches := legacyImportAliasRegex.FindStringSubmatch(text)
-	if len(matches) != 3 {
-		return DiagnosticFix{}, false
-	}
-	replacement := text[:len(text)-len(strings.TrimLeft(text, " \t"))] +
-		"import " + matches[2] + " \"" + matches[1] + "\""
-	return DiagnosticFix{
-		Title: "Rewrite import alias",
-		Range: Range{
-			Start: Position{Line: line - 1, Character: 0},
-			End:   Position{Line: line - 1, Character: len(text)},
-		},
-		NewText: replacement,
-	}, true
-}
-
 func samePath(a, b string) bool {
 	if a == b {
 		return true
@@ -267,133 +140,6 @@ func samePath(a, b string) bool {
 		b = bb
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
-}
-
-func typeErrorNotesToLSP(typeErr typechecker.TypeError) []DiagnosticNote {
-	if len(typeErr.Notes) == 0 {
-		return nil
-	}
-	notes := make([]DiagnosticNote, 0, len(typeErr.Notes))
-	for _, note := range typeErr.Notes {
-		lspNote := DiagnosticNote{
-			Message: note.Message,
-			Line:    note.Line,
-			Column:  note.Column,
-		}
-		if note.File != "" {
-			lspNote.URI = pathToURI(note.File)
-		}
-		notes = append(notes, lspNote)
-	}
-	return notes
-}
-
-func typeErrorRelatedInformation(typeErr typechecker.TypeError) []DiagnosticRelatedInformation {
-	if len(typeErr.Notes) == 0 {
-		return nil
-	}
-	related := make([]DiagnosticRelatedInformation, 0, len(typeErr.Notes))
-	for _, note := range typeErr.Notes {
-		if note.Message == "" {
-			continue
-		}
-		uri := pathToURI(typeErr.File)
-		if note.File != "" {
-			uri = pathToURI(note.File)
-		}
-		line, column := typeErr.Line, typeErr.Column
-		if note.Line > 0 {
-			line = note.Line
-			column = note.Column
-		}
-		related = append(related, DiagnosticRelatedInformation{
-			Location: Location{
-				URI:   uri,
-				Range: rangeFromLineCol(line, column, 1),
-			},
-			Message: note.Message,
-		})
-	}
-	return related
-}
-
-func diagnosticRangeForTypeError(typeErr typechecker.TypeError) Range {
-	width := diagnosticWidthFromMessage(typeErr.Message)
-	if width < 1 {
-		width = 1
-	}
-	return rangeFromLineCol(typeErr.Line, typeErr.Column, width)
-}
-
-func diagnosticWidthFromMessage(message string) int {
-	if strings.HasPrefix(message, "undefined: ") {
-		return len(strings.TrimSpace(strings.TrimPrefix(message, "undefined: ")))
-	}
-	if quoted := firstSingleQuoted(message); quoted != "" {
-		return len(quoted)
-	}
-	return 1
-}
-
-func firstSingleQuoted(message string) string {
-	start := strings.Index(message, "'")
-	if start < 0 {
-		return ""
-	}
-	rest := message[start+1:]
-	end := strings.Index(rest, "'")
-	if end < 0 {
-		return ""
-	}
-	return rest[:end]
-}
-
-func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {
-	if len(typeErr.Fixes) == 0 {
-		return nil
-	}
-
-	fixes := make([]DiagnosticFix, 0, len(typeErr.Fixes))
-
-	for _, fix := range typeErr.Fixes {
-		fixes = append(fixes, DiagnosticFix{
-			Title: fix.Title,
-			Range: rangeFromLineColBounds(
-				fix.StartLine,
-				fix.StartColumn,
-				fix.EndLine,
-				fix.EndColumn,
-			),
-			NewText: fix.Replacement,
-		})
-	}
-	return fixes
-}
-
-func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
-	severity := 4
-	switch strings.ToLower(finding.Level) {
-	case "error":
-		severity = 1
-	case "warning":
-		severity = 2
-	case "style":
-		severity = 4
-	}
-
-	data := DiagnosticData{}
-	mergeDiagnosticCatalogData(&data, bakdiag.DiagnosticCode(finding.Rule))
-	diag := Diagnostic{
-		Range:    rangeFromLineCol(finding.Line, finding.Column, 1),
-		Severity: severity,
-		Source:   "bak-linter",
-		Code:     finding.Rule,
-		Message:  finding.Message,
-	}
-	if hasDiagnosticData(data) {
-		diag.Data = data
-	}
-	return diag
 }
 
 func uriToPath(uri string) string {

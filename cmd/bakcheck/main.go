@@ -11,6 +11,7 @@ import (
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/internal/analysis"
+	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
@@ -31,39 +32,26 @@ func main() {
 
 	hadErrors := false
 	for _, target := range targets {
-		program, err := packages.ParseProgram(target)
-		if err != nil {
-			if strings.Contains(err.Error(), "package mismatch in ") {
-				if checkFilesInDir(target) {
-					hadErrors = true
-				}
-				continue
-			}
-			printErrors(target, "parse errors", []string{err.Error()})
+		if checkTarget(target) {
 			hadErrors = true
-			continue
-		}
-
-		result, err := analysis.TypecheckProgram(context.Background(), target, program, analysis.Options{
-			InjectPrelude: true,
-		}, nil)
-		if err != nil {
-			printErrors(target, "analysis errors", []string{err.Error()})
-			hadErrors = true
-			continue
-		}
-		typeErrors := result.TypeMessages
-		if len(typeErrors) > 0 {
-			printErrors(target, "type errors", typeErrors)
-			if hasBlockingDiagnostics(typeErrors) {
-				hadErrors = true
-			}
 		}
 	}
 
 	if hadErrors {
 		os.Exit(1)
 	}
+}
+
+func checkTarget(target string) bool {
+	program, err := packages.ParseProgram(target)
+	if err != nil {
+		if strings.Contains(err.Error(), "package mismatch in ") {
+			return checkFilesInDir(target)
+		}
+		printErrors(target, "parse errors", []string{err.Error()})
+		return true
+	}
+	return checkProgram(target, program)
 }
 
 func collectBakFiles(paths []string) ([]string, error) {
@@ -116,47 +104,54 @@ func checkFilesInDir(dir string) bool {
 
 	hadErrors := false
 	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, ".bak") {
-			continue
-		}
-		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
+		if !isCheckableEntry(entry) {
 			continue
 		}
 
-		file := filepath.Join(dir, name)
+		file := filepath.Join(dir, entry.Name())
 		if shouldSkipBakcheckFile(file) {
 			continue
 		}
 
-		program, parseErr := packages.ParseProgram(file)
-		if parseErr != nil {
-			printErrors(file, "parse errors", []string{parseErr.Error()})
+		if checkFile(file) {
 			hadErrors = true
-			continue
-		}
-
-		result, err := analysis.TypecheckProgram(context.Background(), file, program, analysis.Options{
-			InjectPrelude: true,
-		}, nil)
-		if err != nil {
-			printErrors(file, "analysis errors", []string{err.Error()})
-			hadErrors = true
-			continue
-		}
-		typeErrors := result.TypeMessages
-		if len(typeErrors) > 0 {
-			printErrors(file, "type errors", typeErrors)
-			if hasBlockingDiagnostics(typeErrors) {
-				hadErrors = true
-			}
 		}
 	}
 
 	return hadErrors
+}
+
+func isCheckableEntry(entry os.DirEntry) bool {
+	if entry.IsDir() {
+		return false
+	}
+	name := entry.Name()
+	return strings.HasSuffix(name, ".bak") &&
+		!strings.HasPrefix(name, "test_") &&
+		!strings.HasSuffix(name, "_test.bak")
+}
+
+func checkFile(file string) bool {
+	program, err := packages.ParseProgram(file)
+	if err != nil {
+		printErrors(file, "parse errors", []string{err.Error()})
+		return true
+	}
+	return checkProgram(file, program)
+}
+
+func checkProgram(path string, program *ast.Program) bool {
+	result, err := analysis.TypecheckProgram(context.Background(), path, program, analysis.CLIOptions(), nil)
+	if err != nil {
+		printErrors(path, "analysis errors", []string{err.Error()})
+		return true
+	}
+	typeErrors := result.TypeMessages
+	if len(typeErrors) == 0 {
+		return false
+	}
+	printErrors(path, "type errors", typeErrors)
+	return hasBlockingDiagnostics(typeErrors)
 }
 
 func hasBlockingDiagnostics(diags []string) bool {

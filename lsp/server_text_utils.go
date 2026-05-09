@@ -1,13 +1,11 @@
 package main
 
 import (
-	"log"
-	"runtime/debug"
+	"context"
 	"strings"
 
+	"github.com/baxromumarov/bak/internal/analysis"
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/lexer"
-	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -491,37 +489,14 @@ func (s *Server) typecheckForCompletion(text, uri string, pos Position) (*typech
 		}
 	}
 
-	l := lexer.New(modText)
-	p := parser.New(l)
-	p.SetFilename(uriToPath(uri))
-	prog := p.ParseProgram()
-	if prog == nil {
+	filePath := uriToPath(uri)
+	opts := analysis.LSPOptions(filePath)
+	opts.TypecheckParseErrors = true
+	result, err := analysis.AnalyzeSource(context.Background(), filePath, modText, opts)
+	if err != nil || result == nil || result.Program == nil {
 		return nil, nil
 	}
-
-	filePath := uriToPath(uri)
-	tc := typechecker.NewWithPath(filePath)
-	if strings.HasSuffix(filePath, "_test.bak") {
-		tc.SetSuppressUnused(true)
-	}
-	typecheckPanicked := false
-	func() {
-		defer func() {
-			if r := recover(); r != nil {
-				typecheckPanicked = true
-				log.Printf("panic during typecheck(%s): %v\nStack Trace:\n%s", uri, r, debug.Stack())
-			}
-		}()
-		withPreludeForTypecheck(prog, filePath, func() {
-			// Run typechecker with fault tolerance or partial checks
-			// Ideally we use the same Check(prog) but ensure it doesn't stop on errors
-			tc.Check(prog)
-		})
-	}()
-	if typecheckPanicked {
-		return nil, prog
-	}
-	return tc, prog
+	return result.TypeChecker, result.Program
 }
 
 func offsetAt(text string, line, char int) int {
