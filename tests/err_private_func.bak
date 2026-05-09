@@ -6,10 +6,14 @@ import types "tests/typelib/typelib.bak"
 // ERROR TEST: Attempting to call a PRIVATE function from another module  
 // This should fail because internalHelper is not marked as 'pub' in typelib
 // =============================================================================
-
 func main() -> (void) {
     // This should produce an error - internalHelper is private
     var result: int = types.internalHelper()
-    println("This should not print:", result)
+
+    println(
+        "This should not print:",
+        result,
+    )
+
     return void
 }

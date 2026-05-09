@@ -6,6 +6,7 @@ func divide(a: int, b: int) -> (Result<float64, string>) {
     if b == 0 {
         return Err("Division by zero")
     }
+
     // ERROR: a/b is int, but Result expects float64
     return Ok(a / b)
 }

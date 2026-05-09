@@ -20,18 +20,24 @@ struct ApiError {
 func user_to_json(u: User) -> (json.Json) {
     mut var entries: Vec<json.JsonEntry, _> = Vec.new()
 
-    entries.push(json.entry(
-        "id",
-        json.Json.Int(u.id),
-    ))
-    entries.push(json.entry(
-        "name",
-        json.Json.String(u.name),
-    ))
-    entries.push(json.entry(
-        "email",
-        json.Json.String(u.email),
-    ))
+    entries.push(
+        json.entry(
+            "id",
+            json.Json.Int(u.id),
+        ),
+    )
+    entries.push(
+        json.entry(
+            "name",
+            json.Json.String(u.name),
+        ),
+    )
+    entries.push(
+        json.entry(
+            "email",
+            json.Json.String(u.email),
+        ),
+    )
 
     return json.object(entries)
 }
@@ -39,14 +45,18 @@ func user_to_json(u: User) -> (json.Json) {
 func error_to_json(e: ApiError) -> (json.Json) {
     mut var entries: Vec<json.JsonEntry, _> = Vec.new()
 
-    entries.push(json.entry(
-        "code",
-        json.Json.Int(e.code),
-    ))
-    entries.push(json.entry(
-        "message",
-        json.Json.String(e.message),
-    ))
+    entries.push(
+        json.entry(
+            "code",
+            json.Json.Int(e.code),
+        ),
+    )
+    entries.push(
+        json.entry(
+            "message",
+            json.Json.String(e.message),
+        ),
+    )
 
     return json.object(entries)
 }
@@ -70,16 +80,20 @@ func get_user_handler(_req: http.Request) -> (http.Response) {
 func list_users_handler(_req: http.Request) -> (http.Response) {
     mut var users: Vec<User, _> = Vec.new()
 
-    users.push(User{
-        email: "bakhrom@example.com",
-        id:    1,
-        name:  "Bakhrom",
-    })
-    users.push(User{
-        email: "ali@example.com",
-        id:    2,
-        name:  "Ali",
-    })
+    users.push(
+        User{
+            email: "bakhrom@example.com",
+            id:    1,
+            name:  "Bakhrom",
+        },
+    )
+    users.push(
+        User{
+            email: "ali@example.com",
+            id:    2,
+            name:  "Ali",
+        },
+    )
 
     // encode_array maps each User through user_to_json
     var body: json.Json = json.encode_array(

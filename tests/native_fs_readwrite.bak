@@ -6,7 +6,10 @@ import "std/fs"
 func main() -> (void) {
     // Test fs.writeFile
     var test_content: string = "Hello from Bak native fs.writeFile!"
-    var write_result: Result<void, string> = fs.writeFile("/tmp/bak_fs_write_test.txt", test_content)
+    var write_result: Result<void, string> = fs.writeFile(
+        "/tmp/bak_fs_write_test.txt",
+        test_content,
+    )
 
     if write_result.isOk() {
         println("PASS: fs.writeFile succeeded")

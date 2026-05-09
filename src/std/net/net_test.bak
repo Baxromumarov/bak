@@ -5,16 +5,21 @@ import test "std/test"
 
 func test_bind_and_close_listener() -> (void) {
     mut var t: test.T = test.new("test_bind_and_close_listener")
+    var res: Result<net.TcpListener, string> = net.bind(
+        "127.0.0.1",
+        0,
+    )
 
-    var res: Result<net.TcpListener, string> = net.bind("127.0.0.1", 0)
     if res.isOk() {
         mut var listener: net.TcpListener = res.unwrap()
         var close_res: Result<void, string> = net.closeListener(&mut listener)
+
         if close_res.isErr() {
             t.fail("closeListener failed: " + close_res.unwrapErr())
         }
     } else {
         var err: string = res.unwrapErr()
+
         if !err.contains("--allow-net") {
             t.fail("bind failed: " + err)
         }

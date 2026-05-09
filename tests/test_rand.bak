@@ -5,18 +5,25 @@ import rand "std/rand"
 func main() -> (void) {
     // Seed for reproducibility
     rand.seed(42)
-
     // Generate random integers
     println("Random int [0, 100):")
     println(rand.intN(100))
     println(rand.intN(100))
     println(rand.intN(100))
-
     // Random range
     println("Random int [10, 20]:")
-    println(rand.intRange(10, 20))
-    println(rand.intRange(10, 20))
-
+    println(
+        rand.intRange(
+            10,
+            20,
+        ),
+    )
+    println(
+        rand.intRange(
+            10,
+            20,
+        ),
+    )
     // Random boolean
     println("Random bool:")
     println(rand.coin())
@@ -24,6 +31,7 @@ func main() -> (void) {
 
     // Shuffle
     mut var nums: Vec<int, _> = Vec.new()
+
     nums.push(1)
     nums.push(2)
     nums.push(3)
@@ -31,7 +39,9 @@ func main() -> (void) {
     nums.push(5)
     rand.shuffleInts(&mut nums)
     println("Shuffled:")
+
     mut var i: int = 0
+
     while i < nums.len() {
         println(nums[i])
         i = i + 1

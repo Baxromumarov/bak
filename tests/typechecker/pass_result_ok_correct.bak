@@ -6,19 +6,31 @@ func divide(a: int, b: int) -> (Result<int, string>) {
     if b == 0 {
         return Err("Division by zero")
     }
+
     // OK: a/b is int, matches Result<int, string>
     return Ok(a / b)
 }
 
 func main() -> (void) {
-    var result = divide(10, 2)
+    var result = divide(
+        10,
+        2,
+    )
+
     switch result {
         case Ok(v) {
-            println("Result:", v)
+            println(
+                "Result:",
+                v,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
+
     return void
 }

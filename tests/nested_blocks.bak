@@ -2,32 +2,49 @@ package main
 
 func main() -> (void) {
     println("=== Nested Blocks Test ===")
-    
+
     mut var x: int = 10
-    
+
     // Test 1: Mutation of outer var
     {
         x = 20
+
         // Inner scope var
         var y: int = 5
-        println("  Inside block: x=", x, " y=", y)
+
+        println(
+            "  Inside block: x=",
+            x,
+            " y=",
+            y,
+        )
     }
-    println("  Outside block: x=", x) // Should be 20
-    
+    println(
+        "  Outside block: x=",
+        x,
+    )
+
+    // Should be 20
     // Test 2: Variable isolation
     // println(y) // Should define-error if uncommented
-    
     // Test 3: Borrow isolation
     mut var d: int = 100
+
     {
-        var p: &mut int = &mut d;
+        var p: &mut int = &mut d
+
         // Use borrow
         *p = 101
     }
+
     // Borrow should be dead here, so we can borrow again or use d
-    var p2: &mut int = &mut d;
+    var p2: &mut int = &mut d
+
     *p2 = 102
-    
-    println("  After safe borrow turnover: d=", d)
+    println(
+        "  After safe borrow turnover: d=",
+        d,
+    )
+
     return void
 }

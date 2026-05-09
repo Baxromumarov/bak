@@ -4,10 +4,15 @@ func divide(a: int, b: int) -> (Result<int, string>) {
     if b == 0 {
         return Err("division by zero")
     }
+
     return Ok(a / b)
 }
 
 func main() -> (void) {
-    var r: Result<int, string> = divide(10, 2)
+    var r: Result<int, string> = divide(
+        10,
+        2,
+    )
+
     return void
 }

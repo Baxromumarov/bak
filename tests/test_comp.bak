@@ -6,5 +6,6 @@ func main() -> (void) {
     } else {
         print("Not Equal\n")
     }
+
     return void
 }

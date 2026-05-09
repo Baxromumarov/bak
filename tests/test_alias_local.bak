@@ -3,13 +3,11 @@ package main
 // =============================================================================
 // Test: Basic Alias Usage (local, no imports)
 // =============================================================================
-
 // Local alias for primitive
 alias MyInt = int
 alias MyString = string
 alias MyBool = bool
 alias MyFloat = float64
-
 // Local alias for another alias (chained)
 alias AliasOfMyInt = MyInt
 
@@ -19,87 +17,126 @@ func testBasicLocalAlias() -> (void) {
     var b: MyString = "hello"
     var c: MyBool = true
     var d: MyFloat = 3.14
-    
+
     println("Basic alias usage:")
-    println("  MyInt:", a)
-    println("  MyString:", b)
-    println("  MyBool:", c)
-    println("  MyFloat:", d)
-    
+    println(
+        "  MyInt:",
+        a,
+    )
+    println(
+        "  MyString:",
+        b,
+    )
+    println(
+        "  MyBool:",
+        c,
+    )
+    println(
+        "  MyFloat:",
+        d,
+    )
+
     // Use chained alias
     var e: AliasOfMyInt = 100
-    println("  AliasOfMyInt:", e)
-    
+
+    println(
+        "  AliasOfMyInt:",
+        e,
+    )
     println("✓ Basic local alias tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Basic Type Definition Usage (local, no imports)
 // =============================================================================
-
 // Type definitions create distinct types
 type LocalUserID = int
 type LocalEmail = string
 
 func testBasicLocalType() -> (void) {
     println("Basic type definition usage:")
-    
+
     // Type definitions work similarly but create distinct types
     var id: LocalUserID = LocalUserID(123)
     var email: LocalEmail = LocalEmail("test@example.com")
-    
-    println("  LocalUserID:", id)
-    println("  LocalEmail:", email)
-    
+
+    println(
+        "  LocalUserID:",
+        id,
+    )
+    println(
+        "  LocalEmail:",
+        email,
+    )
     println("✓ Basic local type definition tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Alias vs Type Definition Semantics
 // =============================================================================
-
 alias AliasInt = int
 type TypeInt = int
 
 func testAliasVsType() -> (void) {
     println("Alias vs Type semantics:")
-    
+
     // Alias is interchangeable with underlying type
     var aliasVal: AliasInt = 42
-    var regularInt: int = aliasVal  // Should work - alias is just another name
-    println("  Alias interchangeable: AliasInt -> int:", regularInt)
-    
+    var regularInt: int = aliasVal
+
+    // Should work - alias is just another name
+    println(
+        "  Alias interchangeable: AliasInt -> int:",
+        regularInt,
+    )
+
     // Type definition creates distinct type
     var typeVal: TypeInt = TypeInt(42)
-    println("  Type definition value:", typeVal)
-    
+
+    println(
+        "  Type definition value:",
+        typeVal,
+    )
     println("✓ Alias vs Type tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Vec with Aliased Element Types
 // =============================================================================
-
 alias Item = int
 
 func testVecWithAlias() -> (void) {
     println("Vec with aliased element types:")
-    
+
     // Vec with alias element type
-    var items: Vec<Item, _> = Vec.from([1, 2, 3, 4, 5])
-    println("  Vec<Item, _>:", items)
-    
+    var items: Vec<Item, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+    )
+
+    println(
+        "  Vec<Item, _>:",
+        items,
+    )
     println("✓ Vec with alias tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Function Parameters and Returns with Aliases
 // =============================================================================
-
 alias InputNum = int
 alias OutputNum = int
 
@@ -109,36 +146,47 @@ func doubleInput(n: InputNum) -> (OutputNum) {
 
 func testFunctionWithAlias() -> (void) {
     println("Functions with alias params/returns:")
-    
+
     var result: OutputNum = doubleInput(21)
-    println("  doubleInput(21) =", result)
-    
+
+    println(
+        "  doubleInput(21) =",
+        result,
+    )
     println("✓ Function with alias tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Alias in Vec types
 // =============================================================================
-
 alias Score = int
 alias Name = string
 
 func testAliasInVec() -> (void) {
     println("Alias in Vec types:")
-    
+
     mut var scores: Vec<Score, _> = Vec.new()
+
     scores.push(100)
     scores.push(95)
     scores.push(87)
-    println("  Scores:", scores)
-    
+    println(
+        "  Scores:",
+        scores,
+    )
+
     mut var names: Vec<Name, _> = Vec.new()
+
     names.push("Alice")
     names.push("Bob")
-    println("  Names:", names)
-    
+    println(
+        "  Names:",
+        names,
+    )
     println("✓ Alias in Vec tests passed")
+
     return void
 }
 
@@ -147,28 +195,21 @@ func main() -> (void) {
     println("Alias and Type Comprehensive Tests")
     println("========================================")
     println("")
-    
     testBasicLocalAlias()
     println("")
-    
     testBasicLocalType()
     println("")
-    
     testAliasVsType()
     println("")
-    
     testVecWithAlias()
     println("")
-    
     testFunctionWithAlias()
     println("")
-    
     testAliasInVec()
     println("")
-    
     println("========================================")
     println("All local alias/type tests completed!")
     println("========================================")
-    
+
     return void
 }

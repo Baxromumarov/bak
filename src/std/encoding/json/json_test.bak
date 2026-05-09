@@ -4,85 +4,157 @@ import test "std/test"
 import j "std/encoding/json"
 
 struct AppMeta {
-    name: string
+    name:    string
     version: int
-    ok: bool
+    ok:      bool
 }
 
 func app_meta_fields(m: AppMeta) -> (Vec<j.JsonEntry, _>) {
     return Vec.from(
         [
-            j.entryString("name", m.name),
-            j.entryInt("version", m.version),
-            j.entryBool("ok", m.ok),
+            j.entryString(
+                "name",
+                m.name,
+            ),
+            j.entryInt(
+                "version",
+                m.version,
+            ),
+            j.entryBool(
+                "ok",
+                m.ok,
+            ),
         ],
     )
 }
 
 func test_object_getters() -> (void) {
     mut var t: test.T = test.new("test_object_getters")
-    var entries: Vec<j.JsonEntry, _> = Vec.from([j.entry("name", j.Json.String("bak")), j.entry("age", j.Json.Int(3)), j.entry("ok", j.Json.Boolean(true))])
+    var entries: Vec<j.JsonEntry, _> = Vec.from(
+        [
+            j.entry(
+                "name",
+                j.Json.String("bak"),
+            ),
+            j.entry(
+                "age",
+                j.Json.Int(3),
+            ),
+            j.entry(
+                "ok",
+                j.Json.Boolean(true),
+            ),
+        ],
+    )
     var obj: j.Json = j.object(entries)
-    switch j.getString(&obj, "name") {
+
+    switch j.getString(
+        &obj,
+        "name",
+    ) {
         case Ok(v) {
-            t.eqString(v, "bak")
+            t.eqString(
+                v,
+                "bak",
+            )
         }
         case Err(_) {
             t.fail("missing name")
         }
     }
-    switch j.getNumber(&obj, "age") {
+
+    switch j.getNumber(
+        &obj,
+        "age",
+    ) {
         case Ok(v) {
-            t.eqFloat(v, 3.0)
+            t.eqFloat(
+                v,
+                3.0,
+            )
         }
         case Err(_) {
             t.fail("missing age")
         }
     }
-    switch j.getBool(&obj, "ok") {
+
+    switch j.getBool(
+        &obj,
+        "ok",
+    ) {
         case Ok(v) {
-            t.eq(v, true)
+            t.eq(
+                v,
+                true,
+            )
         }
         case Err(_) {
             t.fail("missing ok")
         }
     }
-    switch j.get(&obj, "missing") {
+
+    switch j.get(
+        &obj,
+        "missing",
+    ) {
         case Ok(_) {
             t.fail("expected missing key to be Err")
         }
         case Err(_) {
         }
     }
+
     var pretty: string = j.pretty(obj)
-    t.contains(pretty, "
-")
+
+    t.contains(
+        pretty,
+        "\n",
+    )
     t.finish()
 }
 
 func test_object_helpers() -> (void) {
     mut var t: test.T = test.new("test_object_helpers")
-
     var meta: AppMeta = AppMeta{
-        name: "bak",
-        ok: true,
+        name:    "bak",
+        ok:      true,
         version: 2,
     }
+    var obj: j.Json = j.encode_obj(
+        meta,
+        app_meta_fields,
+    )
+    var compact: string = j.marshal_obj(
+        meta,
+        app_meta_fields,
+    )
 
-    var obj: j.Json = j.encode_obj(meta, app_meta_fields)
-    var compact: string = j.marshal_obj(meta, app_meta_fields)
-
-    switch j.getString(&obj, "name") {
+    switch j.getString(
+        &obj,
+        "name",
+    ) {
         case Ok(name) {
-            t.eqString(name, "bak")
+            t.eqString(
+                name,
+                "bak",
+            )
         }
         case Err(err) {
             t.fail("name missing: " + err)
         }
     }
 
-    t.contains(compact, "\"name\":\"bak\"")
-    t.contains(compact, "\"version\":2")
-    t.contains(compact, "\"ok\":true")
+    t.contains(
+        compact,
+        "\"name\":\"bak\"",
+    )
+    t.contains(
+        compact,
+        "\"version\":2",
+    )
+    t.contains(
+        compact,
+        "\"ok\":true",
+    )
     t.finish()
 }

@@ -9,14 +9,13 @@ pub struct Point {
 
 // Public type alias (interchangeable with int)
 pub alias Integer = int
-
 // Public type alias for a struct
 pub type Coordinate = Point
 
 // Public enum
 pub enum Color {
-    Red,
-    Green,
+    Red
+    Green
     Blue
 }
 

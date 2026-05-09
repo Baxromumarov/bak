@@ -5,27 +5,37 @@ import time "std/time"
 
 func main() -> (void) {
     var x: int = 100
-    
     // Test 1: Capture by value (implicit)
-    var t1 = thread.spawn(func() -> (void) {
-        println("Captured x:", x)
-    })
-    
+    var t1 = thread.spawn(
+        func() -> (void) {
+            println(
+                "Captured x:",
+                x,
+            )
+        },
+    )
     // Test 2: Modify captured global (shared state)
     mut var counter: int = 50
-    var t2 = thread.spawn(func() -> (void) {
-        mut var i: int = 0
-        while i < 10 {
-            counter = counter + 1
-            i = i + 1
-        }
-        println("Thread 2 done incrementing counter")
-    })
-    
+    var t2 = thread.spawn(
+        func() -> (void) {
+            mut var i: int = 0
+
+            while i < 10 {
+                counter = counter + 1
+                i = i + 1
+            }
+
+            println("Thread 2 done incrementing counter")
+        },
+    )
+
     t1.join()
     t2.join()
-    
-    println("Main: final counter is", counter)
+    println(
+        "Main: final counter is",
+        counter,
+    )
+
     if counter == 60 {
         println("SUCCESS: Closure shared global state")
     }

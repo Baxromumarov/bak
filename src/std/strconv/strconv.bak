@@ -4,25 +4,31 @@ package strconv
 // String Conversion for Bak
 // =============================================================================
 // Pure Bak implementation of string-to-number and number-to-string conversions.
-
 // -----------------------------------------------------------------------------
 // Character Constants
 // -----------------------------------------------------------------------------
+pub const CH_0: int = 48
+// '0'
+pub const CH_9: int = 57
+// '9'
+pub const CH_MINUS: int = 45
+// '-'
+pub const CH_PLUS: int = 43
+// '+'
+pub const CH_DOT: int = 46
+// '.'
+pub const CH_A_LOWER: int = 97
+// 'a'
+pub const CH_F_LOWER: int = 102
+// 'f'
+pub const CH_A_UPPER: int = 65
+// 'A'
+pub const CH_F_UPPER: int = 70
 
-pub const CH_0: int = 48           // '0'
-pub const CH_9: int = 57           // '9'
-pub const CH_MINUS: int = 45       // '-'
-pub const CH_PLUS: int = 43        // '+'
-pub const CH_DOT: int = 46         // '.'
-pub const CH_A_LOWER: int = 97     // 'a'
-pub const CH_F_LOWER: int = 102    // 'f'
-pub const CH_A_UPPER: int = 65     // 'A'
-pub const CH_F_UPPER: int = 70     // 'F'
-
+// 'F'
 // -----------------------------------------------------------------------------
 // Integer to String
 // -----------------------------------------------------------------------------
-
 // itoa converts an integer to its decimal string representation
 func itoa(n: int) -> (string) {
     return n.toString()
@@ -31,7 +37,6 @@ func itoa(n: int) -> (string) {
 pub func intToString(n: int) -> (string) {
     return itoa(n)
 }
-
 
 // formatInt formats an integer in the given base (2-36)
 pub func formatInt(n: int, base: int) -> (string) {
@@ -45,18 +50,22 @@ pub func formatInt(n: int, base: int) -> (string) {
 
     mut var value: int = n
     mut var negative: bool = false
+
     if value < 0 {
         negative = true
         value = -value
     }
 
     mut var out: string = ""
+
     while value > 0 {
         var digit: int = value % base
         mut var ch: int = CH_0 + digit
+
         if digit >= 10 {
             ch = CH_A_LOWER + (digit - 10)
         }
+
         out = string(char(ch)) + out
         value = value / base
     }
@@ -64,48 +73,55 @@ pub func formatInt(n: int, base: int) -> (string) {
     if negative {
         return "-" + out
     }
+
     return out
 }
 
-
 // formatBinary formats an integer in binary
 pub func formatBinary(n: int) -> (string) {
-    return formatInt(n, 2)
+    return formatInt(
+        n,
+        2,
+    )
 }
-
 
 // formatOctal formats an integer in octal
 pub func formatOctal(n: int) -> (string) {
-    return formatInt(n, 8)
+    return formatInt(
+        n,
+        8,
+    )
 }
-
 
 // formatHex formats an integer in hexadecimal (lowercase)
 pub func formatHex(n: int) -> (string) {
-    return formatInt(n, 16)
+    return formatInt(
+        n,
+        16,
+    )
 }
-
 
 // -----------------------------------------------------------------------------
 // String to Integer
 // -----------------------------------------------------------------------------
-
 // isDigit checks if a character is a decimal digit
 pub func isDigit(ch: char) -> (bool) {
     var code: int = int(ch)
+
     return code >= CH_0 && code <= CH_9
 }
-
 
 // digitValue returns the numeric value of a digit character
 pub func digitValue(ch: char) -> (int) {
     return int(ch) - CH_0
 }
 
-
 // atoi parses a string as a decimal integer
 pub func atoi(s: &string) -> (Result<int, string>) {
-    return parseInt(s, 10)
+    return parseInt(
+        s,
+        10,
+    )
 }
 
 // parseInt parses a string as an integer in the given base (2-36)
@@ -113,13 +129,14 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
     if s.len() == 0 {
         return Err("empty string")
     }
+
     if base < 2 || base > 36 {
         return Err("invalid base")
     }
-    
+
     mut var idx: int = 0
     mut var negative: bool = false
-    
+
     // Handle sign
     if s[0] == char('-') {
         negative = true
@@ -127,17 +144,18 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
     } else if s[0] == char('+') {
         idx = 1
     }
-    
+
     if idx >= s.len() {
         return Err("invalid syntax")
     }
-    
+
     mut var result: int = 0
+
     while idx < s.len() {
         var _ch: char = s[idx]
         mut var digit: int = -1
-        
         var code: int = int(_ch)
+
         if code >= CH_0 && code <= CH_9 {
             digit = code - CH_0
         } else if code >= CH_A_LOWER && code <= CH_A_LOWER + 25 {
@@ -145,47 +163,55 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
         } else if code >= CH_A_UPPER && code <= CH_A_UPPER + 25 {
             digit = code - CH_A_UPPER + 10
         }
-        
+
         if digit < 0 || digit >= base {
             return Err("invalid character")
         }
-        
+
         result = result * base + digit
         idx = idx + 1
     }
-    
+
     if negative {
         result = -result
     }
+
     return Ok(result)
 }
 
-
 // parseBinary parses a binary string
 pub func parseBinary(s: &string) -> (Result<int, string>) {
-    return parseInt(s, 2)
+    return parseInt(
+        s,
+        2,
+    )
 }
-
 
 // parseOctal parses an octal string
 pub func parseOctal(s: &string) -> (Result<int, string>) {
-    return parseInt(s, 8)
+    return parseInt(
+        s,
+        8,
+    )
 }
-
 
 // parseHex parses a hexadecimal string
 pub func parseHex(s: &string) -> (Result<int, string>) {
-    return parseInt(s, 16)
+    return parseInt(
+        s,
+        16,
+    )
 }
-
 
 // -----------------------------------------------------------------------------
 // Float to String
 // -----------------------------------------------------------------------------
-
 // ftoa converts a float64 to its string representation
 pub func ftoa(f: float64) -> (string) {
-    return formatFloat(f, 6)
+    return formatFloat(
+        f,
+        6,
+    )
 }
 
 // formatFloat formats a float64 with specified decimal precision
@@ -193,13 +219,16 @@ pub func formatFloat(f: float64, precision: int) -> (string) {
     if f != f {
         return "NaN"
     }
+
     mut var prec: int = precision
+
     if prec < 0 {
         prec = 0
     }
 
     mut var negative: bool = false
     mut var value: float64 = f
+
     if value < 0.0 {
         negative = true
         value = -value
@@ -207,11 +236,12 @@ pub func formatFloat(f: float64, precision: int) -> (string) {
 
     var int_part: int = int(value)
     mut var frac: float64 = value - float64(int_part)
-
     mut var result: string = ""
+
     if negative {
         result = "-"
     }
+
     result = result + itoa(int_part)
 
     if prec == 0 {
@@ -219,29 +249,34 @@ pub func formatFloat(f: float64, precision: int) -> (string) {
     }
 
     result = result + "."
+
     mut var i: int = 0
+
     while i < prec {
         frac = frac * 10.0
+
         var _digit: int = int(frac)
+
         result = result + string(char(CH_0 + _digit))
         frac = frac - float64(_digit)
         i = i + 1
     }
+
     return result
 }
-
 
 // -----------------------------------------------------------------------------
 // String to Float
 // -----------------------------------------------------------------------------
-
 // atof parses a string as a float64
 pub func atof(s: &string) -> (Result<float64, string>) {
     if s.len() == 0 {
         return Err("empty string")
     }
+
     mut var idx: int = 0
     mut var negative: bool = false
+
     if s[0] == char('-') {
         negative = true
         idx = 1
@@ -255,6 +290,7 @@ pub func atof(s: &string) -> (Result<float64, string>) {
 
     mut var saw_digit: bool = false
     mut var int_part: float64 = 0.0
+
     while idx < s.len() && isDigit(s[idx]) {
         saw_digit = true
         int_part = int_part * 10.0 + float64(digitValue(s[idx]))
@@ -263,8 +299,10 @@ pub func atof(s: &string) -> (Result<float64, string>) {
 
     mut var frac_part: float64 = 0.0
     mut var scale: float64 = 1.0
+
     if idx < s.len() && s[idx] == char('.') {
         idx = idx + 1
+
         while idx < s.len() && isDigit(s[idx]) {
             saw_digit = true
             scale = scale * 10.0
@@ -276,46 +314,48 @@ pub func atof(s: &string) -> (Result<float64, string>) {
     if !saw_digit {
         return Err("invalid syntax")
     }
+
     if idx != s.len() {
         return Err("invalid character")
     }
 
     mut var value: float64 = int_part + frac_part
+
     if negative {
         value = -value
     }
+
     return Ok(value)
 }
 
 // -----------------------------------------------------------------------------
 // Boolean Conversion
 // -----------------------------------------------------------------------------
-
 // parseBool parses a boolean from string
 pub func parseBool(s: &string) -> (Result<bool, string>) {
     if *s == "true" || *s == "1" || *s == "yes" || *s == "on" {
         return Ok(true)
     }
+
     if *s == "false" || *s == "0" || *s == "no" || *s == "off" {
         return Ok(false)
     }
+
     return Err("invalid boolean")
 }
-
 
 // formatBool formats a boolean as "true" or "false"
 pub func formatBool(b: bool) -> (string) {
     if b {
         return "true"
     }
+
     return "false"
 }
-
 
 // -----------------------------------------------------------------------------
 // Quote/Unquote (simple)
 // -----------------------------------------------------------------------------
-
 // quote wraps a string in double quotes
 pub func quote(s: string) -> (string) {
     return "\"" + s + "\""
@@ -326,11 +366,14 @@ pub func unquote(s: string) -> (string) {
     if s.len() >= 2 && s[0] == char('"') && s[s.len() - 1] == char('"') {
         mut var result: string = ""
         mut var i: int = 1
+
         while i < s.len() - 1 {
             result = result + string(s[i])
             i = i + 1
         }
+
         return result
     }
+
     return s
 }

@@ -16,12 +16,12 @@ enum AnyKind {
 
 // Any stores a tagged payload for limited dynamic use cases.
 pub struct Any {
-    kind: AnyKind
-    int_val: int
-    float_val: float64
-    bool_val: bool
+    kind:       AnyKind
+    int_val:    int
+    float_val:  float64
+    bool_val:   bool
     string_val: string
-    array_val: Vec<Any, _>
+    array_val:  Vec<Any, _>
 }
 
 // Constructors (explicit, no implicit conversions).
@@ -51,96 +51,126 @@ impl Any as a {
         // Type checks.
         return a.kind == AnyKind.Int
     }
+
     pub func isString() -> (bool) {
         return a.kind == AnyKind.String
     }
+
     pub func isBool() -> (bool) {
         return a.kind == AnyKind.Bool
     }
+
     pub func isFloat() -> (bool) {
         return a.kind == AnyKind.Float
     }
+
     pub func isArray() -> (bool) {
         return a.kind == AnyKind.Array
     }
+
     pub func asInt() -> (Result<int, string>) {
         // Safe extraction.
         if a.kind == AnyKind.Int {
             return Ok(a.int_val)
         }
+
         return Err("value is not int")
     }
+
     pub func asString() -> (Result<string, string>) {
         if a.kind == AnyKind.String {
             return Ok(a.string_val)
         }
+
         return Err("value is not string")
     }
+
     pub func asBool() -> (Result<bool, string>) {
         if a.kind == AnyKind.Bool {
             return Ok(a.bool_val)
         }
+
         return Err("value is not bool")
     }
+
     pub func asFloat() -> (Result<float64, string>) {
         if a.kind == AnyKind.Float {
             return Ok(a.float_val)
         }
+
         return Err("value is not float64")
     }
+
     pub func asArray() -> (Vec<Any, _>) {
         if a.kind == AnyKind.Array {
             return a.array_val
         }
+
         return Vec.new()
     }
+
     pub func typeName() -> (string) {
         // Debug helpers.
         if a.kind == AnyKind.Int {
             return "int"
         }
+
         if a.kind == AnyKind.String {
             return "string"
         }
+
         if a.kind == AnyKind.Bool {
             return "bool"
         }
+
         if a.kind == AnyKind.Float {
             return "float64"
         }
+
         if a.kind == AnyKind.Array {
             return "array"
         }
+
         return "unknown"
     }
+
     pub func toString() -> (string) {
         if a.kind == AnyKind.Int {
             return strconv.intToString(a.int_val)
         }
+
         if a.kind == AnyKind.String {
             return a.string_val
         }
+
         if a.kind == AnyKind.Bool {
             if a.bool_val {
                 return "true"
             }
+
             return "false"
         }
+
         if a.kind == AnyKind.Float {
             return strconv.ftoa(a.float_val)
         }
+
         if a.kind == AnyKind.Array {
             mut var out: string = "["
             mut var i: int = 0
+
             while i < a.array_val.len() {
                 if i > 0 {
                     out = out + ", "
                 }
-                out = out + (a.array_val[i]).toString()
+
+                out = out + a.array_val[i].toString()
                 i = i + 1
             }
+
             return out + "]"
         }
+
         return ""
     }
 }

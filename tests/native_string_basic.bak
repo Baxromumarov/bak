@@ -4,11 +4,17 @@ func main() -> (int) {
     var s: string = "hello"
     var a: int = s.len()
     mut var b: int = 0
+
     if s[1] == 'e' {
         b = 1
     }
-    var t: string = s.substring(1, 4)
+
+    var t: string = s.substring(
+        1,
+        4,
+    )
     var c: int = t.len()
     var u: string = "hi" + "!"
+
     return a + b + c + u.len()
 }

@@ -1,7 +1,6 @@
 // Functions in bak
 // All functions must declare return type explicitly
 // Functions return values through `return`, never implicitly
-
 package main
 
 // Simple function with explicit return type
@@ -11,7 +10,10 @@ func add(a: int, b: int) -> (int) {
 
 // Function returning void - no need to return void explicitly
 func greet(name: string) -> (void) {
-    println("Hello,", name)
+    println(
+        "Hello,",
+        name,
+    )
 }
 
 // Recursive function
@@ -45,8 +47,24 @@ func calculate(a: int, b: int, op: string) -> (int) {
 }
 
 func main() -> (void) {
-    println("add(5, 3) =", add(5, 3))
+    println(
+        "add(5, 3) =",
+        add(
+            5,
+            3,
+        ),
+    )
     greet("bak developer")
-    println("factorial(5) =", factorial(5))
-    println("calculate(10, 3, \"mul\") =", calculate(10, 3, "mul"))
+    println(
+        "factorial(5) =",
+        factorial(5),
+    )
+    println(
+        "calculate(10, 3, \"mul\") =",
+        calculate(
+            10,
+            3,
+            "mul",
+        ),
+    )
 }

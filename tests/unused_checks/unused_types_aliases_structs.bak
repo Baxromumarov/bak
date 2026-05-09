@@ -19,20 +19,27 @@ struct UnusedStruct {
 }
 
 func consumesUsedType(x: UsedType) -> (void) {
-    println("consumesUsedType", x)
+    println(
+        "consumesUsedType",
+        x,
+    )
+
     return void
 }
 
 func usesStruct(s: UsedStruct) -> (void) {
     println(s.A)
+
     return void
 }
 
 func main() -> (void) {
     var v: UsedType = UsedType(1)
+
     consumesUsedType(v)
 
-    var s: UsedStruct = UsedStruct{A:1, B:2}
+    var s: UsedStruct = UsedStruct{A: 1, B: 2}
+
     usesStruct(s)
 
     return void

@@ -10,51 +10,68 @@ pub struct Connection {
 // QueryResult represents the result of a SQL query
 pub struct QueryResult {
     pub Columns: Vec<string, _>
-    pub Rows: Vec<Vec<string, _>, _>
+    pub Rows:    Vec<Vec<string, _>, _>
 }
 
 // Row represents a single result row with column names attached.
 pub struct Row {
     Columns: Vec<string, _>
-    Values: Vec<string, _>
+    Values:  Vec<string, _>
 }
 
 // rows builds a Row list with column names attached to each row.
 pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
     mut var out: Vec<Row, _> = Vec.new()
+
     for r in qr.Rows {
         out.push(Row{Columns: qr.Columns, Values: r})
     }
+
     return out
 }
 
-func column_index(cols: &Vec<string, _>, name: &string) -> (Result<int, string>) {
+func column_index(
+    cols: &Vec<string, _>,
+    name: &string,
+) -> (Result<int, string>) {
     mut var i: int = 0
+
     while i < cols.len() {
         if cols[i] == *name {
             return Ok(i)
         }
+
         i = i + 1
     }
+
     return Err("column not found")
 }
 
 impl Row as r {
     pub func get(name: string) -> (Result<string, string>) {
         var cols: Vec<string, _> = r.Columns
-        var idx_result: Result<int, string> = column_index(&cols, &name)
+        var idx_result: Result<int, string> = column_index(
+            &cols,
+            &name,
+        )
+
         switch idx_result {
             case Ok(idx) {
                 if idx < 0 || idx >= r.Values.len() {
                     return Err("column index out of bounds")
                 }
+
                 var v: string = r.Values[idx]
+
                 if v == "NULL" {
                     return Err("column '" + name + "' is NULL")
                 }
+
                 return Ok(v)
             }
-            case Err(err) { return Err(err) }
+            case Err(err) {
+                return Err(err)
+            }
         }
     }
 
@@ -62,24 +79,35 @@ impl Row as r {
         if idx < 0 || idx >= r.Values.len() {
             return Err("column index out of bounds")
         }
+
         var v: string = r.Values[idx]
+
         if v == "NULL" {
             return Err("column value is NULL")
         }
+
         return Ok(v)
     }
 
     pub func getInt(name: string) -> (Result<int, string>) {
         switch r.get(name) {
-            case Ok(v) { return strconv.atoi(&v) }
-            case Err(err) { return Err(err) }
+            case Ok(v) {
+                return strconv.atoi(&v)
+            }
+            case Err(err) {
+                return Err(err)
+            }
         }
     }
 
     pub func getString(name: string) -> (Result<string, string>) {
         switch r.get(name) {
-            case Ok(v) { return Ok(v) }
-            case Err(err) { return Err(err) }
+            case Ok(v) {
+                return Ok(v)
+            }
+            case Err(err) {
+                return Err(err)
+            }
         }
     }
 
@@ -89,30 +117,48 @@ impl Row as r {
                 if v == "t" || v == "true" || v == "1" {
                     return Ok(true)
                 }
+
                 if v == "f" || v == "false" || v == "0" {
                     return Ok(false)
                 }
+
                 return Err("column '" + name + "' has invalid bool value: " + v)
             }
-            case Err(err) { return Err(err) }
+            case Err(err) {
+                return Err(err)
+            }
         }
     }
 
     pub func getFloat(name: string) -> (Result<float64, string>) {
         switch r.get(name) {
-            case Ok(v) { return strconv.atof(&v) }
-            case Err(err) { return Err(err) }
+            case Ok(v) {
+                return strconv.atof(&v)
+            }
+            case Err(err) {
+                return Err(err)
+            }
         }
     }
 }
 
-
 impl Connection as c {
-    func config(max_open: int, max_idle: int, max_life_sec: int) -> (Result<bool, string>) {
-        var config_result: Result<void, string> = __builtin_db_config(c.Handle, max_open, max_idle, max_life_sec)
+    func config(
+        max_open: int,
+        max_idle: int,
+        max_life_sec: int,
+    ) -> (Result<bool, string>) {
+        var config_result: Result<void, string> = __builtin_db_config(
+            c.Handle,
+            max_open,
+            max_idle,
+            max_life_sec,
+        )
+
         if config_result.isErr() {
             return Err(config_result.unwrapErr())
         }
+
         return Ok(true)
     }
 }

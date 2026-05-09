@@ -4,13 +4,14 @@ import "std/os"
 
 func main() -> (void) {
     var args: Vec<string, _> = os.args()
-    
     var count: int = args.len()
+
     print("Argument count: ")
     print(count)
     print("\n")
-    
+
     mut var i: int = 0
+
     while i < count {
         print("Arg: ")
         print(args[i])

@@ -6,7 +6,7 @@ pub struct Mutex {
 
 pub func newMutex() -> (Mutex) {
     return Mutex{
-        handle: __builtin_mutex_new()
+        handle: __builtin_mutex_new(),
     }
 }
 

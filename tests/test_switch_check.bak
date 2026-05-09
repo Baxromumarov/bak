@@ -2,6 +2,7 @@ package main
 
 func main() -> (void) {
     var x: int64 = 6
+
     switch x {
         case 5 {
             println("Five")
@@ -13,5 +14,6 @@ func main() -> (void) {
             println("Hello")
         }
     }
+
     return void
 }

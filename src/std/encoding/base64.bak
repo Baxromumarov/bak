@@ -4,7 +4,6 @@ package base64
 // Base64 Encoding/Decoding for Bak
 // =============================================================================
 // Pure Bak implementation of Base64 encoding (RFC 4648).
-
 // Standard Base64 alphabet
 const ALPHABET: string = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 const PAD_CHAR: char = '='
@@ -12,42 +11,41 @@ const PAD_CHAR: char = '='
 // -----------------------------------------------------------------------------
 // Encoding
 // -----------------------------------------------------------------------------
-
 // encode encodes a string to Base64
 pub func encode(data: &string) -> (string) {
     if data.len() == 0 {
         return ""
     }
-    
+
     mut var result: string = ""
     mut var i: int = 0
-    
+
     // Process 3 bytes at a time
     while i + 2 < data.len() {
         var b0: int = int(data[i])
         var b1: int = int(data[i + 1])
         var b2: int = int(data[i + 2])
-        
         // Split 3 bytes into 4 6-bit groups
-        var c0: int = (b0 / 4) % 64
-        var c1: int = ((b0 % 4) * 16 + (b1 / 16)) % 64
-        var c2: int = ((b1 % 16) * 4 + (b2 / 64)) % 64
+        var c0: int = b0 / 4 % 64
+        var c1: int = (b0 % 4 * 16 + b1 / 16) % 64
+        var c2: int = (b1 % 16 * 4 + b2 / 64) % 64
         var c3: int = b2 % 64
-        
+
         result = result + string(ALPHABET[c0])
         result = result + string(ALPHABET[c1])
         result = result + string(ALPHABET[c2])
         result = result + string(ALPHABET[c3])
-        
         i = i + 3
     }
-    
+
     // Handle remaining bytes
     var remaining: int = data.len() - i
+
     if remaining == 1 {
         var b0: int = int(data[i])
-        var c0: int = (b0 / 4) % 64
-        var c1: int = (b0 % 4) * 16
+        var c0: int = b0 / 4 % 64
+        var c1: int = b0 % 4 * 16
+
         result = result + string(ALPHABET[c0])
         result = result + string(ALPHABET[c1])
         result = result + string(PAD_CHAR)
@@ -55,31 +53,34 @@ pub func encode(data: &string) -> (string) {
     } else if remaining == 2 {
         var b0: int = int(data[i])
         var b1: int = int(data[i + 1])
-        var c0: int = (b0 / 4) % 64
-        var c1: int = ((b0 % 4) * 16 + (b1 / 16)) % 64
-        var c2: int = (b1 % 16) * 4
+        var c0: int = b0 / 4 % 64
+        var c1: int = (b0 % 4 * 16 + b1 / 16) % 64
+        var c2: int = b1 % 16 * 4
+
         result = result + string(ALPHABET[c0])
         result = result + string(ALPHABET[c1])
         result = result + string(ALPHABET[c2])
         result = result + string(PAD_CHAR)
     }
-    
+
     return result
 }
 
 // -----------------------------------------------------------------------------
 // Decoding
 // -----------------------------------------------------------------------------
-
 // index_of_char finds the index of a character in the alphabet
 func index_of_char(ch: char) -> (int) {
     mut var i: int = 0
+
     while i < 64 {
         if ALPHABET[i] == ch {
             return i
         }
+
         i = i + 1
     }
+
     return -1
 }
 
@@ -88,67 +89,73 @@ pub func decode(encoded: &string) -> (Result<string, string>) {
     if encoded.len() == 0 {
         return Ok("")
     }
-    
+
     if encoded.len() % 4 != 0 {
         return Err("invalid base64 length")
     }
-    
+
     mut var result: string = ""
     mut var i: int = 0
-    
+
     while i < encoded.len() {
         var c0: char = encoded[i]
         var c1: char = encoded[i + 1]
         var c2: char = encoded[i + 2]
         var c3: char = encoded[i + 3]
-        
         var v0: int = index_of_char(c0)
         var v1: int = index_of_char(c1)
-        
+
         if v0 < 0 || v1 < 0 {
             return Err("invalid base64 character")
         }
-        
+
         // First byte
         var b0: int = v0 * 4 + v1 / 16
+
         result = result + string(char(b0))
-        
+
         // Second byte (if not padding)
         if c2 != PAD_CHAR {
             var v2: int = index_of_char(c2)
+
             if v2 < 0 {
                 return Err("invalid base64 character")
             }
-            var b1: int = (v1 % 16) * 16 + v2 / 4
+
+            var b1: int = v1 % 16 * 16 + v2 / 4
+
             result = result + string(char(b1))
-            
+
             // Third byte (if not padding)
             if c3 != PAD_CHAR {
                 var v3: int = index_of_char(c3)
+
                 if v3 < 0 {
                     return Err("invalid base64 character")
                 }
-                var b2: int = (v2 % 4) * 64 + v3
+
+                var b2: int = v2 % 4 * 64 + v3
+
                 result = result + string(char(b2))
             }
         }
-        
+
         i = i + 4
     }
-    
+
     return Ok(result)
 }
 
 // -----------------------------------------------------------------------------
 // URL-Safe Variant
 // -----------------------------------------------------------------------------
-
 // encodeUrl encodes to URL-safe Base64
 pub func encodeUrl(data: &string) -> (string) {
     var standard: string = encode(data)
     // Replace + with - and / with _
     mut var result: string = ""
     mut var i: int = 0
+
     while i < standard.len() {
         if standard[i] == char('+') {
             result = result + "-"
@@ -157,8 +164,10 @@ pub func encodeUrl(data: &string) -> (string) {
         } else {
             result = result + string(standard[i])
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -167,6 +176,7 @@ pub func decodeUrl(encoded: &string) -> (Result<string, string>) {
     // Convert URL-safe chars back to standard chars
     mut var standard: string = ""
     mut var i: int = 0
+
     while i < encoded.len() {
         if encoded[i] == char('-') {
             standard = standard + "+"
@@ -175,24 +185,27 @@ pub func decodeUrl(encoded: &string) -> (Result<string, string>) {
         } else {
             standard = standard + string(encoded[i])
         }
+
         i = i + 1
     }
+
     return decode(&standard)
 }
 
 // -----------------------------------------------------------------------------
 // Utility Functions
 // -----------------------------------------------------------------------------
-
 // isValidBase64 checks if a string is valid Base64
 pub func isValidBase64(s: &string) -> (bool) {
     if s.len() % 4 != 0 {
         return false
     }
-    
+
     mut var i: int = 0
+
     while i < s.len() {
         var ch: char = s[i]
+
         if ch == PAD_CHAR {
             // Padding only allowed at end
             if i < s.len() - 2 {
@@ -201,18 +214,20 @@ pub func isValidBase64(s: &string) -> (bool) {
         } else if index_of_char(ch) < 0 {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
 // encodedLen returns the length of the Base64 encoding of a string of given length
 pub func encodedLen(input_len: int) -> (int) {
     // Each 3 bytes becomes 4 characters, rounded up
-    return ((input_len + 2) / 3) * 4
+    return (input_len + 2) / 3 * 4
 }
 
 // decodedLen returns the approximate decoded length (before padding)
 pub func decodedLen(encodedLen: int) -> (int) {
-    return (encodedLen / 4) * 3
+    return encodedLen / 4 * 3
 }

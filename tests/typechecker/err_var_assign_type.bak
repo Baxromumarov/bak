@@ -4,7 +4,9 @@ package main
 
 func main() -> (void) {
     var count: int = 10
+
     // ERROR: cannot assign string to int variable
     count = "hello"
+
     return void
 }

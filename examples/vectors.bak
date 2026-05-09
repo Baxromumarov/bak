@@ -1,46 +1,75 @@
 // Vectors (Vec) in bak
 // The unified sequence type for both fixed and dynamic arrays
-
 package main
 
 func main() -> (void) {
     // Dynamic Vec - heap backed, can grow
     mut var dynamicVec: Vec<int, _> = Vec.from([10, 20, 30])
-    println("Dynamic Vec:", dynamicVec)
-    println("Length:", dynamicVec.len())
-    println("First element:", dynamicVec[0])
 
+    println(
+        "Dynamic Vec:",
+        dynamicVec,
+    )
+    println(
+        "Length:",
+        dynamicVec.len(),
+    )
+    println(
+        "First element:",
+        dynamicVec[0],
+    )
     // Push to dynamic vec (requires mut)
     dynamicVec.push(40)
     dynamicVec.push(50)
-    println("After push:", dynamicVec)
+    println(
+        "After push:",
+        dynamicVec,
+    )
 
     // Pop from dynamic vec
     var popped = dynamicVec.pop()
+
     switch popped {
         case Some(v) {
-            println("Popped:", v)
+            println(
+                "Popped:",
+                v,
+            )
         }
         case None {
             println("Vec was empty")
         }
     }
-    println("After pop:", dynamicVec)
 
+    println(
+        "After pop:",
+        dynamicVec,
+    )
     // Iteration
     println("Iterating over dynamic vec:")
+
     for item in dynamicVec {
-        println("  -", item)
+        println(
+            "  -",
+            item,
+        )
     }
 
     // Vec methods
-    println("Is dynamic vec empty?", dynamicVec.is_empty())
+    println(
+        "Is dynamic vec empty?",
+        dynamicVec.is_empty(),
+    )
 
     // Getting elements safely
     var elem = dynamicVec.get(1)
+
     switch elem {
         case Some(v) {
-            println("Element at index 1:", v)
+            println(
+                "Element at index 1:",
+                v,
+            )
         }
         case None {
             println("Index out of bounds")
@@ -49,9 +78,13 @@ func main() -> (void) {
 
     // Index out of bounds
     var outOfBounds = dynamicVec.get(100)
+
     switch outOfBounds {
         case Some(v) {
-            println("Element:", v)
+            println(
+                "Element:",
+                v,
+            )
         }
         case None {
             println("Index 100 is out of bounds!")

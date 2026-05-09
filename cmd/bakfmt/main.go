@@ -42,6 +42,7 @@ func main() {
 	}
 
 	hadErrors := false
+	hadDiff := false
 	for _, file := range files {
 		original, err := os.ReadFile(file)
 		if err != nil {
@@ -70,6 +71,7 @@ func main() {
 		if *list {
 			if string(original) != formatted {
 				fmt.Println(file)
+				hadDiff = true
 			}
 			continue
 		}
@@ -78,6 +80,9 @@ func main() {
 	}
 
 	if hadErrors {
+		os.Exit(1)
+	}
+	if *list && hadDiff {
 		os.Exit(1)
 	}
 }

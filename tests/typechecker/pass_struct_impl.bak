@@ -8,33 +8,38 @@ struct Point {
 
 struct Rectangle {
     pub topLeft: Point
-    pub width: int
-    pub height: int
+    pub width:   int
+    pub height:  int
 }
 
 impl Rectangle as r {
     func area() -> (int) {
         return r.width * r.height
     }
-    
+
     func contains(p: Point) -> (bool) {
-        return p.x >= r.topLeft.x && 
-               p.x <= r.topLeft.x + r.width &&
-               p.y >= r.topLeft.y &&
-               p.y <= r.topLeft.y + r.height
+        return p.x >= r.topLeft.x && p.x <= r.topLeft.x + r.width && p.y >= r.topLeft.y && p.y <= r.topLeft.y + r.height
     }
 }
 
 func main() -> (void) {
     var origin: Point = Point{x: 0, y: 0}
-    var rect: Rectangle = Rectangle{topLeft: origin, width: 100, height: 50}
-    
-    println("Area:", rect.area())
-    
+    var rect: Rectangle = Rectangle{
+        height:  50,
+        topLeft: origin,
+        width:   100,
+    }
+
+    println(
+        "Area:",
+        rect.area(),
+    )
+
     var p: Point = Point{x: 50, y: 25}
+
     if rect.contains(p) {
         println("Point is inside rectangle")
     }
-    
+
     return void
 }

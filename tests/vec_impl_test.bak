@@ -1,15 +1,15 @@
 package main
 
 // Testing if we can add methods to Vec
-
 impl Vec {
     pub func my_new() -> (Vec<int, _>) {
-         // usage of built-in constructor
-         return Vec.new()
+        // usage of built-in constructor
+        return Vec.new()
     }
 }
 
 func main() -> (void) {
     var v: Vec<int, _> = Vec.my_new()
+
     return void
 }

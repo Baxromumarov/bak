@@ -3,48 +3,94 @@ package main
 
 func main() -> (void) {
     println("=== Testing Built-in Generics ===")
-
     println("\n1. Vec<T> basics:")
-    var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
-    println("  numbers:", numbers)
-    println("  len:", numbers.len())
 
+    var numbers: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+    )
+
+    println(
+        "  numbers:",
+        numbers,
+    )
+    println(
+        "  len:",
+        numbers.len(),
+    )
     println("\n2. Vec<T> push/pop:")
+
     mut var words: Vec<string, _> = Vec.new()
+
     words.push("bak")
     words.push("lang")
-    println("  words:", words)
+    println(
+        "  words:",
+        words,
+    )
+
     switch words.pop() {
         case Ok(v) {
-            println("  pop:", v)
+            println(
+                "  pop:",
+                v,
+            )
         }
         case Err(e) {
-            println("  pop error:", e)
+            println(
+                "  pop error:",
+                e,
+            )
         }
     }
 
     println("\n3. Result<T, E> Ok/Err:")
+
     var ok_result: Result<int, string> = Ok(42)
     var err_result: Result<int, string> = Err("something went wrong")
-    println("  Ok(42):", ok_result)
-    println("  Err('...'):", err_result)
 
+    println(
+        "  Ok(42):",
+        ok_result,
+    )
+    println(
+        "  Err('...'):",
+        err_result,
+    )
     println("\n4. Result<T, E> pattern matching:")
+
     switch ok_result {
         case Ok(v) {
-            println("  ok value:", v)
+            println(
+                "  ok value:",
+                v,
+            )
         }
         case Err(e) {
-            println("  unexpected error:", e)
+            println(
+                "  unexpected error:",
+                e,
+            )
         }
     }
 
     switch err_result {
         case Ok(v) {
-            println("  unexpected value:", v)
+            println(
+                "  unexpected value:",
+                v,
+            )
         }
         case Err(e) {
-            println("  err value:", e)
+            println(
+                "  err value:",
+                e,
+            )
         }
     }
 

@@ -7,23 +7,34 @@ import test "std/test"
 // but we are package 'main' and vec.bak is package 'collections'.
 // We likely need to import it or rely on it being built-in.
 // Given previous errors, Vec seems available globally.
-
 func test_new() -> (void) {
     mut var t: test.T = test.new("test_new")
-    
     mut var v: Vec<int, _> = Vec.new()
-    t.eq(v.len(), 0)
-    t.eq(v.cap(), 0)
+
+    t.eq(
+        v.len(),
+        0,
+    )
+    t.eq(
+        v.cap(),
+        0,
+    )
     t.isTrue(v.isEmpty())
-    
     t.finish()
 }
 
 func test_with_cap() -> (void) {
     mut var t: test.T = test.new("test_with_cap")
     mut var v: Vec<int, _> = Vec.withCap(10)
-    t.eq(v.len(), 0)
-    t.eq(v.cap(), 10)
+
+    t.eq(
+        v.len(),
+        0,
+    )
+    t.eq(
+        v.cap(),
+        10,
+    )
     t.isTrue(v.isEmpty())
     t.finish()
 }
@@ -31,32 +42,69 @@ func test_with_cap() -> (void) {
 func test_from() -> (void) {
     mut var t: test.T = test.new("test_from")
     mut var v: Vec<int, _> = Vec.from([1, 2, 3])
-    t.eq(v.len(), 3)
-    t.eq(v.get(0).unwrap(), 1)
-    t.eq(v.get(1).unwrap(), 2)
-    t.eq(v.get(2).unwrap(), 3)
+
+    t.eq(
+        v.len(),
+        3,
+    )
+    t.eq(
+        v.get(0).unwrap(),
+        1,
+    )
+    t.eq(
+        v.get(1).unwrap(),
+        2,
+    )
+    t.eq(
+        v.get(2).unwrap(),
+        3,
+    )
     t.finish()
 }
 
 func test_push_pop() -> (void) {
     mut var t: test.T = test.new("test_push_pop")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(10)
     v.push(20)
-    
-    t.eq(v.len(), 2)
-    t.eq(v.get(0).unwrap(), 10)
-    t.eq(v.get(1).unwrap(), 20)
-    
+    t.eq(
+        v.len(),
+        2,
+    )
+    t.eq(
+        v.get(0).unwrap(),
+        10,
+    )
+    t.eq(
+        v.get(1).unwrap(),
+        20,
+    )
+
     var p1: Result<int, string> = v.pop()
-    t.eq(p1.unwrap(), 20)
-    t.eq(v.len(), 1)
-    
+
+    t.eq(
+        p1.unwrap(),
+        20,
+    )
+    t.eq(
+        v.len(),
+        1,
+    )
+
     var p2: Result<int, string> = v.pop()
-    t.eq(p2.unwrap(), 10)
-    t.eq(v.len(), 0)
-    
+
+    t.eq(
+        p2.unwrap(),
+        10,
+    )
+    t.eq(
+        v.len(),
+        0,
+    )
+
     var p3: Result<int, string> = v.pop()
+
     t.isTrue(p3.isErr())
     t.finish()
 }
@@ -64,36 +112,66 @@ func test_push_pop() -> (void) {
 func test_grow() -> (void) {
     mut var t: test.T = test.new("test_grow")
     mut var v: Vec<int, _> = Vec.withCap(2)
+
     v.push(1)
     v.push(2)
-    t.eq(v.cap(), 2)
-    
+    t.eq(
+        v.cap(),
+        2,
+    )
     // This should trigger grow
     v.push(3)
-    t.eq(v.len(), 3)
+    t.eq(
+        v.len(),
+        3,
+    )
     t.isTrue(v.cap() >= 3)
-    t.eq(v.get(0).unwrap(), 1)
-    t.eq(v.get(1).unwrap(), 2)
-    t.eq(v.get(2).unwrap(), 3)
+    t.eq(
+        v.get(0).unwrap(),
+        1,
+    )
+    t.eq(
+        v.get(1).unwrap(),
+        2,
+    )
+    t.eq(
+        v.get(2).unwrap(),
+        3,
+    )
     t.finish()
 }
 
 func test_remove() -> (void) {
     mut var t: test.T = test.new("test_remove")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(10)
     v.push(20)
     v.push(30)
-    
+
     // Remove middle element
     var removed: Result<int, string> = v.remove(1)
-    t.eq(removed.unwrap(), 20)
-    t.eq(v.len(), 2)
-    t.eq(v.get(0).unwrap(), 10)
-    t.eq(v.get(1).unwrap(), 30)
-    
+
+    t.eq(
+        removed.unwrap(),
+        20,
+    )
+    t.eq(
+        v.len(),
+        2,
+    )
+    t.eq(
+        v.get(0).unwrap(),
+        10,
+    )
+    t.eq(
+        v.get(1).unwrap(),
+        30,
+    )
+
     // Remove out of bounds
     var invalid: Result<int, string> = v.remove(5)
+
     t.isTrue(invalid.isErr())
     t.finish()
 }
@@ -101,44 +179,58 @@ func test_remove() -> (void) {
 func test_clear() -> (void) {
     mut var t: test.T = test.new("test_clear")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(1)
     v.push(2)
-    
     // Uncomment when method resolution for 'clear' works or is confirmed
     // v.clear()
     // t.eq(v.len(), 0)
     // t.isTrue(v.isEmpty())
-    
     t.finish()
 }
 
 func test_reverse() -> (void) {
     mut var t: test.T = test.new("test_reverse")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(1)
     v.push(2)
     v.push(3)
-    
     v.reverse()
-    t.eq(v.get(0).unwrap(), 3)
-    t.eq(v.get(1).unwrap(), 2)
-    t.eq(v.get(2).unwrap(), 1)
+    t.eq(
+        v.get(0).unwrap(),
+        3,
+    )
+    t.eq(
+        v.get(1).unwrap(),
+        2,
+    )
+    t.eq(
+        v.get(2).unwrap(),
+        1,
+    )
     t.finish()
 }
 
 func test_accessors() -> (void) {
     mut var t: test.T = test.new("test_accessors")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(100)
     v.push(200)
-    
-    t.eq(v.first().unwrap(), 100)
-    t.eq(v.last().unwrap(), 200)
-    
+    t.eq(
+        v.first().unwrap(),
+        100,
+    )
+    t.eq(
+        v.last().unwrap(),
+        200,
+    )
     t.isTrue(v.contains(100))
     t.isFalse(v.contains(300))
-    
+
     mut var empty: Vec<int, _> = Vec.new()
+
     t.isTrue(empty.first().isErr())
     t.isTrue(empty.last().isErr())
     t.finish()
@@ -147,47 +239,122 @@ func test_accessors() -> (void) {
 func test_join() -> (void) {
     mut var t: test.T = test.new("test_join")
     mut var v: Vec<string, _> = Vec.new()
+
     v.push("hello")
     v.push("world")
     v.push("bak")
-    
+
     var s: string = v.join(", ")
-    t.eqString(s, "hello, world, bak")
+
+    t.eqString(
+        s,
+        "hello, world, bak",
+    )
     t.finish()
 }
 
 func main() -> (void) {
     mut var results: Vec<test.TestResult, _> = Vec.new()
-    
+
     test_new()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_with_cap()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_from()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_push_pop()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_grow()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_remove()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_clear()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_reverse()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_accessors()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test_join()
-    switch test.takeLastResult() { case Ok(r) { results.push(r) } case Err(_) {} }
-    
+
+    switch test.takeLastResult() {
+        case Ok(r) {
+            results.push(r)
+        }
+        case Err(_) {
+        }
+    }
+
     test.runTests(results)
 }

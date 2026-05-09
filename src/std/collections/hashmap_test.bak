@@ -6,80 +6,139 @@ import hashmap "std/collections/hashmap"
 // =============================================================================
 // HashMap<K, V> Tests - Full Coverage
 // =============================================================================
-
 // --- Test: HashMap.new() Static Constructor ---
-
 func test_hashmap_new() -> (void) {
     mut var t: test.T = test.new("test_hashmap_new")
-    
     mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
-    
-    t.eq(m.len(), 0)
+
+    t.eq(
+        m.len(),
+        0,
+    )
     t.isTrue(m.isEmpty())
     t.finish()
 }
 
 // --- Test: Insert and Get ---
-
 func test_hashmap_insert_get_string_string() -> (void) {
     mut var t: test.T = test.new("test_hashmap_insert_get_string_string")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
-    m.insert("name", "Alice")
-    m.insert("city", "Boston")
-    m.insert("country", "USA")
-    
-    t.eq(m.len(), 3)
-    
+
+    m.insert(
+        "name",
+        "Alice",
+    )
+    m.insert(
+        "city",
+        "Boston",
+    )
+    m.insert(
+        "country",
+        "USA",
+    )
+    t.eq(
+        m.len(),
+        3,
+    )
+
     switch m.get(&"name") {
-        case Ok(v) { t.eqString(v, "Alice") }
-        case Err(_) { t.fail("expected 'name' to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "Alice",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'name' to exist")
+        }
     }
-    
+
     switch m.get(&"city") {
-        case Ok(v) { t.eqString(v, "Boston") }
-        case Err(_) { t.fail("expected 'city' to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "Boston",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'city' to exist")
+        }
     }
-    
+
     t.finish()
 }
 
 func test_hashmap_insert_get_int_string() -> (void) {
     mut var t: test.T = test.new("test_hashmap_insert_get_int_string")
-    
     mut var m: hashmap.HashMap<int, string> = hashmap.newHashMap()
-    
-    m.insert(1, "one")
-    m.insert(2, "two")
-    m.insert(3, "three")
-    
-    t.eq(m.len(), 3)
-    
+
+    m.insert(
+        1,
+        "one",
+    )
+    m.insert(
+        2,
+        "two",
+    )
+    m.insert(
+        3,
+        "three",
+    )
+    t.eq(
+        m.len(),
+        3,
+    )
+
     switch m.get(&2) {
-        case Ok(v) { t.eqString(v, "two") }
-        case Err(_) { t.fail("expected key 2 to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "two",
+            )
+        }
+        case Err(_) {
+            t.fail("expected key 2 to exist")
+        }
     }
-    
+
     t.finish()
 }
 
 func test_hashmap_insert_get_bool_string() -> (void) {
     mut var t: test.T = test.new("test_hashmap_insert_get_bool_string")
-
     mut var m: hashmap.HashMap<bool, string> = hashmap.newHashMap()
 
-    m.insert(true, "yes")
-    m.insert(false, "no")
+    m.insert(
+        true,
+        "yes",
+    )
+    m.insert(
+        false,
+        "no",
+    )
 
     switch m.get(&true) {
-        case Ok(v) { t.eqString(v, "yes") }
-        case Err(_) { t.fail("expected key true to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "yes",
+            )
+        }
+        case Err(_) {
+            t.fail("expected key true to exist")
+        }
     }
 
     switch m.get(&false) {
-        case Ok(v) { t.eqString(v, "no") }
-        case Err(_) { t.fail("expected key false to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "no",
+            )
+        }
+        case Err(_) {
+            t.fail("expected key false to exist")
+        }
     }
 
     t.finish()
@@ -87,20 +146,39 @@ func test_hashmap_insert_get_bool_string() -> (void) {
 
 func test_hashmap_insert_get_char_string() -> (void) {
     mut var t: test.T = test.new("test_hashmap_insert_get_char_string")
-
     mut var m: hashmap.HashMap<char, string> = hashmap.newHashMap()
 
-    m.insert('a', "alpha")
-    m.insert('b', "bravo")
+    m.insert(
+        'a',
+        "alpha",
+    )
+    m.insert(
+        'b',
+        "bravo",
+    )
 
     switch m.get(&'a') {
-        case Ok(v) { t.eqString(v, "alpha") }
-        case Err(_) { t.fail("expected key 'a' to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "alpha",
+            )
+        }
+        case Err(_) {
+            t.fail("expected key 'a' to exist")
+        }
     }
 
     switch m.get(&'b') {
-        case Ok(v) { t.eqString(v, "bravo") }
-        case Err(_) { t.fail("expected key 'b' to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "bravo",
+            )
+        }
+        case Err(_) {
+            t.fail("expected key 'b' to exist")
+        }
     }
 
     t.finish()
@@ -108,232 +186,345 @@ func test_hashmap_insert_get_char_string() -> (void) {
 
 func test_hashmap_insert_get_string_int() -> (void) {
     mut var t: test.T = test.new("test_hashmap_insert_get_string_int")
-    
     mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
-    
-    m.insert("apples", 5)
-    m.insert("oranges", 10)
-    m.insert("bananas", 7)
-    
-    t.eq(m.len(), 3)
-    
+
+    m.insert(
+        "apples",
+        5,
+    )
+    m.insert(
+        "oranges",
+        10,
+    )
+    m.insert(
+        "bananas",
+        7,
+    )
+    t.eq(
+        m.len(),
+        3,
+    )
+
     switch m.get(&"apples") {
-        case Ok(v) { t.eq(v, 5) }
-        case Err(_) { t.fail("expected 'apples' to exist") }
+        case Ok(v) {
+            t.eq(
+                v,
+                5,
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'apples' to exist")
+        }
     }
-    
+
     t.finish()
 }
 
 // --- Test: Update Existing Key ---
-
 func test_hashmap_update() -> (void) {
     mut var t: test.T = test.new("test_hashmap_update")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
-    m.insert("key", "value1")
-    t.eq(m.len(), 1)
-    
+
+    m.insert(
+        "key",
+        "value1",
+    )
+    t.eq(
+        m.len(),
+        1,
+    )
     // Update same key
-    m.insert("key", "value2")
-    t.eq(m.len(), 1) // Still only 1 entry
-    
+    m.insert(
+        "key",
+        "value2",
+    )
+    t.eq(
+        m.len(),
+        1,
+    )
+
+    // Still only 1 entry
     switch m.get(&"key") {
-        case Ok(v) { t.eqString(v, "value2") }
-        case Err(_) { t.fail("expected 'key' to exist") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "value2",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'key' to exist")
+        }
     }
-    
+
     t.finish()
 }
 
 // --- Test: Remove ---
-
 func test_hashmap_remove() -> (void) {
     mut var t: test.T = test.new("test_hashmap_remove")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
-    m.insert("a", "1")
-    m.insert("b", "2")
-    m.insert("c", "3")
-    
-    t.eq(m.len(), 3)
-    
+
+    m.insert(
+        "a",
+        "1",
+    )
+    m.insert(
+        "b",
+        "2",
+    )
+    m.insert(
+        "c",
+        "3",
+    )
+    t.eq(
+        m.len(),
+        3,
+    )
+
     switch m.remove(&"b") {
-        case Ok(v) { t.eqString(v, "2") }
-        case Err(_) { t.fail("expected 'b' to be removed") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "2",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'b' to be removed")
+        }
     }
-    
-    t.eq(m.len(), 2)
+
+    t.eq(
+        m.len(),
+        2,
+    )
     t.isFalse(m.contains(&"b"))
     t.isTrue(m.contains(&"a"))
     t.isTrue(m.contains(&"c"))
-    
     t.finish()
 }
 
 // --- Test: Contains ---
-
 func test_hashmap_contains() -> (void) {
     mut var t: test.T = test.new("test_hashmap_contains")
-    
     mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
-    
-    m.insert("exists", 42)
-    
+
+    m.insert(
+        "exists",
+        42,
+    )
     t.isTrue(m.contains(&"exists"))
     t.isFalse(m.contains(&"missing"))
-    
     t.finish()
 }
 
 // --- Test: Missing Key Returns Err ---
-
 func test_hashmap_missing_key() -> (void) {
     mut var t: test.T = test.new("test_hashmap_missing_key")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
+
     switch m.get(&"nonexistent") {
-        case Ok(_) { t.fail("expected Err for missing key") }
-        case Err(_) { } // This is expected
+        case Ok(_) {
+            t.fail("expected Err for missing key")
+        }
+        case Err(_) {
+        }
     }
-    
+
+    // This is expected
     t.finish()
 }
 
 // --- Test: Keys ---
-
 func test_hashmap_keys() -> (void) {
     mut var t: test.T = test.new("test_hashmap_keys")
-    
     mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
-    
-    m.insert("x", 1)
-    m.insert("y", 2)
-    m.insert("z", 3)
-    
+
+    m.insert(
+        "x",
+        1,
+    )
+    m.insert(
+        "y",
+        2,
+    )
+    m.insert(
+        "z",
+        3,
+    )
+
     var keys: Vec<string, _> = m.keys()
-    t.eq(keys.len(), 3)
-    
+
+    t.eq(
+        keys.len(),
+        3,
+    )
     t.finish()
 }
 
 // --- Test: is_empty ---
-
 func test_hashmap_is_empty() -> (void) {
     mut var t: test.T = test.new("test_hashmap_is_empty")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
+
     t.isTrue(m.isEmpty())
-    
-    m.insert("key", "value")
+    m.insert(
+        "key",
+        "value",
+    )
     t.isFalse(m.isEmpty())
-    
     m.remove(&"key")
     t.isTrue(m.isEmpty())
-    
     t.finish()
 }
 
 // --- Test: Clear ---
-
 func test_hashmap_clear() -> (void) {
     mut var t: test.T = test.new("test_hashmap_clear")
-    
     mut var m: hashmap.HashMap<string, int> = hashmap.newHashMap()
-    
-    m.insert("a", 1)
-    m.insert("b", 2)
-    m.insert("c", 3)
-    
-    t.eq(m.len(), 3)
-    
+
+    m.insert(
+        "a",
+        1,
+    )
+    m.insert(
+        "b",
+        2,
+    )
+    m.insert(
+        "c",
+        3,
+    )
+    t.eq(
+        m.len(),
+        3,
+    )
     m.clear()
-    
-    t.eq(m.len(), 0)
+    t.eq(
+        m.len(),
+        0,
+    )
     t.isTrue(m.isEmpty())
     t.isFalse(m.contains(&"a"))
-    
     t.finish()
 }
 
 // --- Test: Many Insertions (Trigger Rehash) ---
-
 func test_hashmap_rehash() -> (void) {
     mut var t: test.T = test.new("test_hashmap_rehash")
-    
     mut var m: hashmap.HashMap<int, int> = hashmap.newHashMap()
-    
     // Insert many elements to trigger rehash
     mut var i: int = 0
+
     while i < 100 {
-        m.insert(i, i * 2)
+        m.insert(
+            i,
+            i * 2,
+        )
         i = i + 1
     }
-    
-    t.eq(m.len(), 100)
-    
+
+    t.eq(
+        m.len(),
+        100,
+    )
+
     // Verify some entries still accessible
     switch m.get(&50) {
-        case Ok(v) { t.eq(v, 100) }
-        case Err(_) { t.fail("expected key 50 to exist after rehash") }
+        case Ok(v) {
+            t.eq(
+                v,
+                100,
+            )
+        }
+        case Err(_) {
+            t.fail("expected key 50 to exist after rehash")
+        }
     }
-    
+
     switch m.get(&99) {
-        case Ok(v) { t.eq(v, 198) }
-        case Err(_) { t.fail("expected key 99 to exist after rehash") }
+        case Ok(v) {
+            t.eq(
+                v,
+                198,
+            )
+        }
+        case Err(_) {
+            t.fail("expected key 99 to exist after rehash")
+        }
     }
-    
+
     t.finish()
 }
 
 // --- Test: Remove and Reinsert ---
-
 func test_hashmap_remove_reinsert() -> (void) {
     mut var t: test.T = test.new("test_hashmap_remove_reinsert")
-    
     mut var m: hashmap.HashMap<string, string> = hashmap.newHashMap()
-    
-    m.insert("key", "original")
-    
+
+    m.insert(
+        "key",
+        "original",
+    )
+
     switch m.remove(&"key") {
-        case Ok(v) { t.eqString(v, "original") }
-        case Err(_) { t.fail("expected 'key' to be removed") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "original",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'key' to be removed")
+        }
     }
-    
-    m.insert("key", "new_value")
-    
+
+    m.insert(
+        "key",
+        "new_value",
+    )
+
     switch m.get(&"key") {
-        case Ok(v) { t.eqString(v, "new_value") }
-        case Err(_) { t.fail("expected 'key' to exist after reinsert") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "new_value",
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'key' to exist after reinsert")
+        }
     }
-    
+
     t.finish()
 }
 
 // --- Test: withCap Constructor ---
-
 func test_hashmap_with_cap() -> (void) {
     mut var t: test.T = test.new("test_hashmap_with_cap")
-    
     // Create with larger initial capacity
     mut var m: hashmap.HashMap<string, int> = hashmap.withCapHashMap(64)
-    
-    m.insert("test", 42)
-    
+
+    m.insert(
+        "test",
+        42,
+    )
+
     switch m.get(&"test") {
-        case Ok(v) { t.eq(v, 42) }
-        case Err(_) { t.fail("expected 'test' to exist") }
+        case Ok(v) {
+            t.eq(
+                v,
+                42,
+            )
+        }
+        case Err(_) {
+            t.fail("expected 'test' to exist")
+        }
     }
-    
+
     t.finish()
 }
 
 // --- Main for running tests directly ---
-
 func main() -> (void) {
     test_hashmap_new()
     test_hashmap_insert_get_string_string()
@@ -351,6 +542,5 @@ func main() -> (void) {
     test_hashmap_rehash()
     test_hashmap_remove_reinsert()
     test_hashmap_with_cap()
-    
     println("All HashMap tests passed!")
 }

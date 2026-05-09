@@ -1,27 +1,30 @@
 package lexer
 
 // Simplified lexer test
-
 pub struct Lexer {
     position: int
-    ch: int
+    ch:       int
 }
 
 impl Lexer as l {
     mut func readChar() -> (void) {
         l.ch = l.position
         l.position = l.position + 1
+
         return void
     }
-    
+
     func show() -> (void) {
         println("pos=" + string(l.position) + " ch=" + string(l.ch))
+
         return void
     }
 }
 
 pub func New() -> (Lexer) {
-    mut var lexer: Lexer = Lexer{ position: 0, ch: 0 }
+    mut var lexer: Lexer = Lexer{ch: 0, position: 0}
+
     lexer.readChar()
+
     return lexer
 }

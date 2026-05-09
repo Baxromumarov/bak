@@ -7,34 +7,54 @@ import "std/test"
 // Test PostgreSQL native driver
 // Requires PostgreSQL running locally with:
 // DATABASE_URL=host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable
-
 pub func test_postgres_connect() -> (void) {
     mut var t: test.T = test.new("test_postgres_connect")
     // Connection string for PostgreSQL (native driver format)
     var conn_str: string = "host=localhost port=5432 user=postgres password=postgres dbname=postgres sslmode=disable"
-    
     var conn_result = postgres.connect(conn_str)
+
     if conn_result.isOk() {
         println("Connected successfully!")
 
         var conn: db.Connection = conn_result.unwrap()
         // Test a simple query
-        var queryResult = postgres.query(&conn, "SELECT 1 as test")
+        var queryResult = postgres.query(
+            &conn,
+            "SELECT 1 as test",
+        )
+
         if queryResult.isOk() {
             var result: db.QueryResult = queryResult.unwrap()
-            println("Query returned ", result.Rows.len(), " rows")
-            println("Columns: ", result.Columns.len())
+
+            println(
+                "Query returned ",
+                result.Rows.len(),
+                " rows",
+            )
+            println(
+                "Columns: ",
+                result.Columns.len(),
+            )
         } else {
-            println("Query failed: ", queryResult.unwrapErr())
+            println(
+                "Query failed: ",
+                queryResult.unwrapErr(),
+            )
         }
 
         // Close connection
         var _ = postgres.close(conn)
+
         println("Connection closed")
     } else {
-        println("Skipping: no local DB available: ", conn_result.unwrapErr())
+        println(
+            "Skipping: no local DB available: ",
+            conn_result.unwrapErr(),
+        )
         t.finish()
+
         return void
     }
+
     t.finish()
 }

@@ -240,6 +240,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.UNDERSCORE, p.parseWildcardExpression)
 	p.registerPrefix(token.VEC, p.parseTypeIdentifier)
 	p.registerPrefix(token.RESULT, p.parseTypeIdentifier)
+	p.registerPrefix(token.TYPE, p.parseIdentifier)
 
 	// Type conversion expressions: int(x), string(x), float64(x), etc.
 	p.registerPrefix(token.TYPE_INT, p.parseTypeConversion)
@@ -2870,6 +2871,15 @@ func (p *Parser) parseVecLiteral() ast.Expression {
 			p.nextToken()
 			// Always a 2-element Vec (remove implicit Range behavior for [int, int])
 			return &ast.VecLiteral{NodeBase: ast.NodeBase{Token: startToken}, Elements: []ast.Expression{first, second}}
+		} else if p.peekTokenIs(token.RPAREN) {
+			p.nextToken()
+			return &ast.RangeExpression{
+				NodeBase:       ast.NodeBase{Token: startToken},
+				Start:          first,
+				End:            second,
+				StartInclusive: true,
+				EndInclusive:   false,
+			}
 		} else if p.peekTokenIs(token.COMMA) {
 			// More than 2 elements - this is a Vec, not a range
 			// Continue parsing remaining elements

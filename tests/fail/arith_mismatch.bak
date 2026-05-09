@@ -3,5 +3,6 @@ package main
 // expect: E0300 arithmetic operands must be numeric or (for '+') both strings
 func main() -> (void) {
     var s: string = 1 + "a"
+
     return void
 }

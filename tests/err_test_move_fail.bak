@@ -1,15 +1,19 @@
 package main
 
-func consume(v: Vec<int,_>) -> (int) {
+func consume(v: Vec<int, _>) -> (int) {
     return v.len()
 }
 
 func main() -> (void) {
-    var nums: Vec<int,_> = Vec.from([1,2,3])
-
+    var nums: Vec<int, _> = Vec.from([1, 2, 3])
     var a: int = consume(nums)
-    var b: int = consume(nums)   // ❌ nums was moved
+    var b: int = consume(nums)
 
-    println(a,b)
+    // ❌ nums was moved
+    println(
+        a,
+        b,
+    )
+
     return void
 }

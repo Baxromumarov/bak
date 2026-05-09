@@ -5,41 +5,95 @@ import test "std/test"
 
 func test_db_row_getters_and_errors() -> (void) {
     mut var t: test.T = test.new("test_db_row_getters_and_errors")
-
-    var columns: Vec<string, _> = Vec.from(["id", "name", "active", "balance"])
-    var rows: Vec<Vec<string, _>, _> = Vec.from([
-        Vec.from(["1", "Ada", "true", "10.5"]),
-        Vec.from(["2", "NULL", "false", "0.0"]),
-    ])
+    var columns: Vec<string, _> = Vec.from(
+        [
+            "id",
+            "name",
+            "active",
+            "balance",
+        ],
+    )
+    var rows: Vec<Vec<string, _>, _> = Vec.from(
+        [
+            Vec.from(
+                [
+                    "1",
+                    "Ada",
+                    "true",
+                    "10.5",
+                ],
+            ),
+            Vec.from(
+                [
+                    "2",
+                    "NULL",
+                    "false",
+                    "0.0",
+                ],
+            ),
+        ],
+    )
     var qr: db.QueryResult = db.QueryResult{
         Columns: columns,
-        Rows: rows,
+        Rows:    rows,
     }
-
     var parsed_rows: Vec<db.Row, _> = db.rows(&qr)
-    t.eq(parsed_rows.len(), 2)
+
+    t.eq(
+        parsed_rows.len(),
+        2,
+    )
 
     var first: db.Row = parsed_rows[0]
+
     switch first.getInt("id") {
-        case Ok(v) { t.eq(v, 1) }
-        case Err(err) { t.fail("getInt failed: " + err) }
+        case Ok(v) {
+            t.eq(
+                v,
+                1,
+            )
+        }
+        case Err(err) {
+            t.fail("getInt failed: " + err)
+        }
     }
+
     switch first.getString("name") {
-        case Ok(v) { t.eqString(v, "Ada") }
-        case Err(err) { t.fail("getString failed: " + err) }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "Ada",
+            )
+        }
+        case Err(err) {
+            t.fail("getString failed: " + err)
+        }
     }
+
     switch first.getBool("active") {
-        case Ok(v) { t.isTrue(v) }
-        case Err(err) { t.fail("getBool failed: " + err) }
+        case Ok(v) {
+            t.isTrue(v)
+        }
+        case Err(err) {
+            t.fail("getBool failed: " + err)
+        }
     }
+
     switch first.getFloat("balance") {
-        case Ok(v) { t.eqFloat(v, 10.5) }
-        case Err(err) { t.fail("getFloat failed: " + err) }
+        case Ok(v) {
+            t.eqFloat(
+                v,
+                10.5,
+            )
+        }
+        case Err(err) {
+            t.fail("getFloat failed: " + err)
+        }
     }
 
     var second: db.Row = parsed_rows[1]
+
     t.isTrue(second.get("missing_column").isErr())
     t.isTrue(second.getString("name").isErr())
-
     t.finish()
 }

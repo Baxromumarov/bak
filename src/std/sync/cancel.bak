@@ -23,18 +23,24 @@ impl CancelToken as t {
 
 struct CancelAfterArgs {
     token: CancelToken
-    d: time.Duration
+    d:     time.Duration
 }
 
 func cancel_after_worker(args: CancelAfterArgs) -> (void) {
     thread.sleep(args.d)
     args.token.cancel()
+
     return void
 }
 
 pub func cancelAfter(d: time.Duration) -> (CancelToken) {
     var token: CancelToken = newCancelToken()
-    var args: CancelAfterArgs = CancelAfterArgs{token: token, d: d}
-    thread.spawn(cancel_after_worker, args)
+    var args: CancelAfterArgs = CancelAfterArgs{d: d, token: token}
+
+    thread.spawn(
+        cancel_after_worker,
+        args,
+    )
+
     return token
 }

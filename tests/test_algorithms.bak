@@ -6,30 +6,39 @@ func bubbleSort(arr: Vec<int, _>) -> (Vec<int, _>) {
     mut var result: Vec<int, _> = arr
     var n: int = result.len()
     mut var i: int = 0
+
     while i < n - 1 {
         mut var j: int = 0
+
         while j < n - i - 1 {
             if result[j] > result[j + 1] {
                 var temp: int = result[j]
+
                 result[j] = result[j + 1]
                 result[j + 1] = temp
             }
+
             j = j + 1
         }
+
         i = i + 1
     }
+
     return result
 }
 
 // Linear search
 func linearSearch(arr: &Vec<int, _>, target: int) -> (Result<int, string>) {
     mut var i: int = 0
+
     while i < arr.len() {
         if arr[i] == target {
             return Ok(i)
         }
+
         i = i + 1
     }
+
     return Err("not found")
 }
 
@@ -37,9 +46,10 @@ func linearSearch(arr: &Vec<int, _>, target: int) -> (Result<int, string>) {
 func binarySearch(arr: Vec<int, _>, target: int) -> (Result<int, string>) {
     mut var left: int = 0
     mut var right: int = arr.len() - 1
-    
+
     while left <= right {
         var mid: int = (left + right) / 2
+
         if arr[mid] == target {
             return Ok(mid)
         } else if arr[mid] < target {
@@ -48,6 +58,7 @@ func binarySearch(arr: Vec<int, _>, target: int) -> (Result<int, string>) {
             right = mid - 1
         }
     }
+
     return Err("not found")
 }
 
@@ -56,14 +67,18 @@ func findMin(arr: &Vec<int, _>) -> (Result<int, string>) {
     if arr.len() == 0 {
         return Err("empty array")
     }
+
     mut var min: int = arr[0]
     mut var i: int = 1
+
     while i < arr.len() {
         if arr[i] < min {
             min = arr[i]
         }
+
         i = i + 1
     }
+
     return Ok(min)
 }
 
@@ -71,14 +86,18 @@ func findMax(arr: &Vec<int, _>) -> (Result<int, string>) {
     if arr.len() == 0 {
         return Err("empty array")
     }
+
     mut var max: int = arr[0]
     mut var i: int = 1
+
     while i < arr.len() {
         if arr[i] > max {
             max = arr[i]
         }
+
         i = i + 1
     }
+
     return Ok(max)
 }
 
@@ -87,12 +106,19 @@ func gcd(a: int, b: int) -> (int) {
     if b == 0 {
         return a
     }
-    return gcd(b, a % b)
+
+    return gcd(
+        b,
+        a % b,
+    )
 }
 
 // LCM
 func lcm(a: int, b: int) -> (int) {
-    return (a * b) / gcd(a, b)
+    return a * b / gcd(
+        a,
+        b,
+    )
 }
 
 // Check prime
@@ -100,19 +126,25 @@ func isPrime(n: int) -> (bool) {
     if n < 2 {
         return false
     }
+
     if n == 2 {
         return true
     }
+
     if n % 2 == 0 {
         return false
     }
+
     mut var i: int = 3
+
     while i * i <= n {
         if n % i == 0 {
             return false
         }
+
         i = i + 2
     }
+
     return true
 }
 
@@ -120,12 +152,15 @@ func isPrime(n: int) -> (bool) {
 func countOccurrences(arr: &Vec<int, _>, target: int) -> (int) {
     mut var count: int = 0
     mut var i: int = 0
+
     while i < arr.len() {
         if arr[i] == target {
             count = count + 1
         }
+
         i = i + 1
     }
+
     return count
 }
 
@@ -133,10 +168,12 @@ func countOccurrences(arr: &Vec<int, _>, target: int) -> (int) {
 func reverseArray(arr: &Vec<int, _>) -> (Vec<int, _>) {
     mut var result: Vec<int, _> = Vec.new()
     mut var i: int = arr.len() - 1
+
     while i >= 0 {
         result.push(arr[i])
         i = i - 1
     }
+
     return result
 }
 
@@ -144,98 +181,220 @@ func reverseArray(arr: &Vec<int, _>) -> (Vec<int, _>) {
 func sumOfDigits(n: int) -> (int) {
     mut var sum: int = 0
     mut var num: int = n
+
     while num > 0 {
-        sum = sum + (num % 10)
+        sum = sum + num % 10
         num = num / 10
     }
+
     return sum
 }
 
 func main() -> (void) {
     println("=== Testing Algorithms ===")
-    
     println("\n1. Bubble Sort:")
-    var unsorted: Vec<int, _> = Vec.from([64, 34, 25, 12, 22, 11, 90])
-    println("  Unsorted:", unsorted)
+
+    var unsorted: Vec<int, _> = Vec.from(
+        [
+            64,
+            34,
+            25,
+            12,
+            22,
+            11,
+            90,
+        ],
+    )
+
+    println(
+        "  Unsorted:",
+        unsorted,
+    )
+
     var sorted: Vec<int, _> = bubbleSort(unsorted)
-    println("  Sorted:", sorted)
-    
+
+    println(
+        "  Sorted:",
+        sorted,
+    )
     println("\n2. Linear Search:")
-    var arr: Vec<int, _> = Vec.from([10, 20, 30, 40, 50])
-    switch linearSearch(&arr, 30) {
+
+    var arr: Vec<int, _> = Vec.from(
+        [
+            10,
+            20,
+            30,
+            40,
+            50,
+        ],
+    )
+
+    switch linearSearch(
+        &arr,
+        30,
+    ) {
         case Ok(idx) {
-            println("  Found 30 at index:", idx)
+            println(
+                "  Found 30 at index:",
+                idx,
+            )
         }
         case Err(_) {
             println("  30 not found")
         }
     }
-    switch linearSearch(&arr, 35) {
+
+    switch linearSearch(
+        &arr,
+        35,
+    ) {
         case Ok(idx) {
-            println("  Found 35 at index:", idx)
+            println(
+                "  Found 35 at index:",
+                idx,
+            )
         }
         case Err(_) {
             println("  35 not found")
         }
     }
-    
+
     println("\n3. Binary Search:")
-    switch binarySearch(sorted, 25) {
+
+    switch binarySearch(
+        sorted,
+        25,
+    ) {
         case Ok(idx) {
-            println("  Found 25 at index:", idx)
+            println(
+                "  Found 25 at index:",
+                idx,
+            )
         }
         case Err(_) {
             println("  25 not found")
         }
     }
-    
+
     println("\n4. Min/Max:")
-    var numbers: Vec<int, _> = Vec.from([3, 1, 4, 1, 5, 9, 2, 6])
-    println("  Array:", numbers)
+
+    var numbers: Vec<int, _> = Vec.from(
+        [
+            3,
+            1,
+            4,
+            1,
+            5,
+            9,
+            2,
+            6,
+        ],
+    )
+
+    println(
+        "  Array:",
+        numbers,
+    )
+
     switch findMin(&numbers) {
         case Ok(m) {
-            println("  Min:", m)
+            println(
+                "  Min:",
+                m,
+            )
         }
         case Err(_) {
             println("  Empty array")
         }
     }
+
     switch findMax(&numbers) {
         case Ok(m) {
-            println("  Max:", m)
+            println(
+                "  Max:",
+                m,
+            )
         }
         case Err(_) {
             println("  Empty array")
         }
     }
-    
+
     println("\n5. GCD and LCM:")
-    println("  gcd(48, 18):", gcd(48, 18))
-    println("  lcm(4, 6):", lcm(4, 6))
-    
+    println(
+        "  gcd(48, 18):",
+        gcd(
+            48,
+            18,
+        ),
+    )
+    println(
+        "  lcm(4, 6):",
+        lcm(
+            4,
+            6,
+        ),
+    )
     println("\n6. Prime check:")
     print("  Primes up to 30: ")
+
     mut var n: int = 2
+
     while n <= 30 {
         if isPrime(n) {
-            print(n, " ")
+            print(
+                n,
+                " ",
+            )
         }
+
         n = n + 1
     }
+
     println()
-    
     println("\n7. Count occurrences:")
-    var withDupes: Vec<int, _> = Vec.from([1, 2, 3, 2, 4, 2, 5, 2])
-    println("  Array:", withDupes)
-    println("  Count of 2:", countOccurrences(&withDupes, 2))
-    
+
+    var withDupes: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            2,
+            4,
+            2,
+            5,
+            2,
+        ],
+    )
+
+    println(
+        "  Array:",
+        withDupes,
+    )
+    println(
+        "  Count of 2:",
+        countOccurrences(
+            &withDupes,
+            2,
+        ),
+    )
     println("\n8. Reverse array:")
-    println("  Original:", numbers)
-    println("  Reversed:", reverseArray(&numbers))
-    
+    println(
+        "  Original:",
+        numbers,
+    )
+    println(
+        "  Reversed:",
+        reverseArray(&numbers),
+    )
     println("\n9. Sum of digits:")
-    println("  sumOfDigits(12345):", sumOfDigits(12345))
-    println("  sumOfDigits(9999):", sumOfDigits(9999))
-    
+    println(
+        "  sumOfDigits(12345):",
+        sumOfDigits(12345),
+    )
+    println(
+        "  sumOfDigits(9999):",
+        sumOfDigits(9999),
+    )
     println("\n=== Algorithm tests complete ===")
 }

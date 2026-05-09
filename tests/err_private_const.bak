@@ -6,10 +6,14 @@ import types "tests/typelib/typelib.bak"
 // ERROR TEST: Attempting to access a PRIVATE constant from another module  
 // This should fail because INTERNAL_MAX is not marked as 'pub' in typelib
 // =============================================================================
-
 func main() -> (void) {
     // This should produce an error - INTERNAL_MAX is private
     var max: int = types.INTERNAL_MAX
-    println("This should not print:", max)
+
+    println(
+        "This should not print:",
+        max,
+    )
+
     return void
 }

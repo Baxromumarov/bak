@@ -11,8 +11,11 @@ impl Thread as t {
     }
 }
 
-pub func spawn<T>(f: func(T)->(void), arg: T) -> (Thread) {
-    return __builtin_spawn(f, arg)
+pub func spawn<T>(f: func(T) -> (void), arg: T) -> (Thread) {
+    return __builtin_spawn(
+        f,
+        arg,
+    )
 }
 
 pub func sleep(d: time.Duration) -> (void) {

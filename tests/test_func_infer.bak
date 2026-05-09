@@ -6,6 +6,8 @@ func get_val() -> (int) {
 
 func main() -> (void) {
     var x = get_val()
+
     println(x)
+
     return void
 }

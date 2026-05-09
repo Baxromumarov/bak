@@ -7,135 +7,199 @@ import test "std/test"
 
 func test_string_set_basic() -> (void) {
     mut var t: test.T = test.new("test_string_set_basic")
-
     mut var s: set.StringSet = set.newStringSet()
-    t.isTrue(s.isEmpty())
 
+    t.isTrue(s.isEmpty())
     s.add("a")
     s.add("b")
     s.add("a")
-    t.eq(s.len(), 2)
+    t.eq(
+        s.len(),
+        2,
+    )
     t.isTrue(s.contains("a"))
     t.isFalse(s.contains("c"))
-
     t.isTrue(s.remove("a"))
     t.isFalse(s.contains("a"))
-    t.eq(s.len(), 1)
-
+    t.eq(
+        s.len(),
+        1,
+    )
     s.clear()
     t.isTrue(s.isEmpty())
 }
 
 func test_int_set_basic() -> (void) {
     mut var t: test.T = test.new("test_int_set_basic")
-
     mut var s: set.IntSet = set.newIntSet()
-    t.isTrue(s.isEmpty())
 
+    t.isTrue(s.isEmpty())
     s.add(10)
     s.add(20)
     s.add(10)
-    t.eq(s.len(), 2)
+    t.eq(
+        s.len(),
+        2,
+    )
     t.isTrue(s.contains(10))
     t.isFalse(s.contains(30))
-
     t.isTrue(s.remove(10))
     t.isFalse(s.contains(10))
-    t.eq(s.len(), 1)
+    t.eq(
+        s.len(),
+        1,
+    )
 }
 
 func test_string_set_algebra() -> (void) {
     mut var t: test.T = test.new("test_string_set_algebra")
-
     mut var left: set.StringSet = set.newStringSet()
+
     left.add("a")
     left.add("b")
 
     mut var right: set.StringSet = set.newStringSet()
+
     right.add("b")
     right.add("c")
 
     var u: set.StringSet = left.union(&right)
-    t.eq(u.len(), 3)
+
+    t.eq(
+        u.len(),
+        3,
+    )
     t.isTrue(u.contains("a"))
     t.isTrue(u.contains("b"))
     t.isTrue(u.contains("c"))
 
     var inter: set.StringSet = left.intersection(&right)
-    t.eq(inter.len(), 1)
+
+    t.eq(
+        inter.len(),
+        1,
+    )
     t.isTrue(inter.contains("b"))
 
     var diff: set.StringSet = left.difference(&right)
-    t.eq(diff.len(), 1)
-    t.isTrue(diff.contains("a"))
 
+    t.eq(
+        diff.len(),
+        1,
+    )
+    t.isTrue(diff.contains("a"))
     t.isTrue(inter.isSubsetOf(&u))
     t.isFalse(u.isSubsetOf(&inter))
 }
 
 func test_int_set_algebra() -> (void) {
     mut var t: test.T = test.new("test_int_set_algebra")
-
     mut var left: set.IntSet = set.newIntSet()
+
     left.add(1)
     left.add(2)
 
     mut var right: set.IntSet = set.newIntSet()
+
     right.add(2)
     right.add(3)
 
     var u: set.IntSet = left.union(&right)
-    t.eq(u.len(), 3)
+
+    t.eq(
+        u.len(),
+        3,
+    )
     t.isTrue(u.contains(1))
     t.isTrue(u.contains(2))
     t.isTrue(u.contains(3))
 
     var inter: set.IntSet = left.intersection(&right)
-    t.eq(inter.len(), 1)
+
+    t.eq(
+        inter.len(),
+        1,
+    )
     t.isTrue(inter.contains(2))
 
     var diff: set.IntSet = left.difference(&right)
-    t.eq(diff.len(), 1)
-    t.isTrue(diff.contains(1))
 
+    t.eq(
+        diff.len(),
+        1,
+    )
+    t.isTrue(diff.contains(1))
     t.isTrue(inter.isSubsetOf(&u))
     t.isFalse(u.isSubsetOf(&inter))
 }
 
 func test_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_queue_basic")
-
     mut var q = queue.new_queue()
-    t.isTrue(q.isEmpty())
 
+    t.isTrue(q.isEmpty())
     q.push(1)
     q.push(2)
     q.push(3)
-    t.eq(q.len(), 3)
+    t.eq(
+        q.len(),
+        3,
+    )
 
     switch q.peek() {
-        case Ok(v) { t.eq(v, 1) }
-        case Err(_) { t.fail("expected Ok from peek") }
+        case Ok(v) {
+            t.eq(
+                v,
+                1,
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from peek")
+        }
     }
 
     switch q.pop() {
-        case Ok(v) { t.eq(v, 1) }
-        case Err(_) { t.fail("expected Ok from pop") }
+        case Ok(v) {
+            t.eq(
+                v,
+                1,
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from pop")
+        }
     }
 
     switch q.pop() {
-        case Ok(v) { t.eq(v, 2) }
-        case Err(_) { t.fail("expected Ok from pop") }
+        case Ok(v) {
+            t.eq(
+                v,
+                2,
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from pop")
+        }
     }
 
     switch q.pop() {
-        case Ok(v) { t.eq(v, 3) }
-        case Err(_) { t.fail("expected Ok from pop") }
+        case Ok(v) {
+            t.eq(
+                v,
+                3,
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from pop")
+        }
     }
 
     switch q.pop() {
-        case Ok(_) { t.fail("expected Err from empty pop") }
-        case Err(_) {}
+        case Ok(_) {
+            t.fail("expected Err from empty pop")
+        }
+        case Err(_) {
+        }
     }
 
     t.isTrue(q.isEmpty())
@@ -143,82 +207,182 @@ func test_queue_basic() -> (void) {
 
 func test_string_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_string_queue_basic")
-
     mut var q = queue.new_queue()
+
     q.push("a")
     q.push("b")
 
     switch q.pop() {
-        case Ok(v) { t.eqString(v, "a") }
-        case Err(_) { t.fail("expected Ok from pop") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "a",
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from pop")
+        }
     }
+
     switch q.pop() {
-        case Ok(v) { t.eqString(v, "b") }
-        case Err(_) { t.fail("expected Ok from pop") }
+        case Ok(v) {
+            t.eqString(
+                v,
+                "b",
+            )
+        }
+        case Err(_) {
+            t.fail("expected Ok from pop")
+        }
     }
+
     t.isTrue(q.isEmpty())
 }
 
 func test_vec_map_filter_utils() -> (void) {
     mut var t: test.T = test.new("test_vec_map_filter_utils")
+    var nums: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+        ],
+    )
+    var doubled: Vec<int, _> = vec.map_by(
+        &nums,
+        func(n: &int) -> (int) {
+            return *n * 2
+        },
+    )
 
-    var nums: Vec<int, _> = Vec.from([1, 2, 3, 4])
-    var doubled: Vec<int, _> = vec.map_by(&nums, func(n: &int) -> (int) {
-        return *n * 2
-    })
+    t.eq(
+        doubled.len(),
+        4,
+    )
 
-    t.eq(doubled.len(), 4)
     switch doubled.get(0) {
-        case Ok(v) { t.eq(v, 2) }
-        case Err(_) { t.fail("expected doubled[0]") }
+        case Ok(v) {
+            t.eq(
+                v,
+                2,
+            )
+        }
+        case Err(_) {
+            t.fail("expected doubled[0]")
+        }
     }
+
     switch doubled.get(3) {
-        case Ok(v) { t.eq(v, 8) }
-        case Err(_) { t.fail("expected doubled[3]") }
+        case Ok(v) {
+            t.eq(
+                v,
+                8,
+            )
+        }
+        case Err(_) {
+            t.fail("expected doubled[3]")
+        }
     }
 
-    var evens: Vec<int, _> = vec.filter_by(&nums, func(n: &int) -> (bool) {
-        return (*n % 2) == 0
-    })
+    var evens: Vec<int, _> = vec.filter_by(
+        &nums,
+        func(n: &int) -> (bool) {
+            return *n % 2 == 0
+        },
+    )
 
-    t.eq(evens.len(), 2)
+    t.eq(
+        evens.len(),
+        2,
+    )
+
     switch evens.get(0) {
-        case Ok(v) { t.eq(v, 2) }
-        case Err(_) { t.fail("expected evens[0]") }
+        case Ok(v) {
+            t.eq(
+                v,
+                2,
+            )
+        }
+        case Err(_) {
+            t.fail("expected evens[0]")
+        }
     }
+
     switch evens.get(1) {
-        case Ok(v) { t.eq(v, 4) }
-        case Err(_) { t.fail("expected evens[1]") }
+        case Ok(v) {
+            t.eq(
+                v,
+                4,
+            )
+        }
+        case Err(_) {
+            t.fail("expected evens[1]")
+        }
     }
 
-    var reduced: int = vec.reduce_by(&nums, 0, func(acc: int, n: &int) -> (int) {
-        return acc + *n
-    })
-    t.eq(reduced, 10)
+    var reduced: int = vec.reduce_by(
+        &nums,
+        0,
+        func(acc: int, n: &int) -> (int) {
+            return acc + *n
+        },
+    )
 
-    var any_even: bool = vec.any_by(&nums, func(n: &int) -> (bool) {
-        return (*n % 2) == 0
-    })
+    t.eq(
+        reduced,
+        10,
+    )
+
+    var any_even: bool = vec.any_by(
+        &nums,
+        func(n: &int) -> (bool) {
+            return *n % 2 == 0
+        },
+    )
+
     t.isTrue(any_even)
 
-    var all_positive: bool = vec.all_by(&nums, func(n: &int) -> (bool) {
-        return *n > 0
-    })
+    var all_positive: bool = vec.all_by(
+        &nums,
+        func(n: &int) -> (bool) {
+            return *n > 0
+        },
+    )
+
     t.isTrue(all_positive)
 
-    var found_three: Result<int, string> = vec.find_by(&nums, func(n: &int) -> (bool) {
-        return *n == 3
-    })
+    var found_three: Result<int, string> = vec.find_by(
+        &nums,
+        func(n: &int) -> (bool) {
+            return *n == 3
+        },
+    )
+
     switch found_three {
-        case Ok(v) { t.eq(v, 3) }
-        case Err(_) { t.fail("expected to find 3") }
+        case Ok(v) {
+            t.eq(
+                v,
+                3,
+            )
+        }
+        case Err(_) {
+            t.fail("expected to find 3")
+        }
     }
 
-    var found_missing: Result<int, string> = vec.find_by(&nums, func(n: &int) -> (bool) {
-        return *n == 99
-    })
+    var found_missing: Result<int, string> = vec.find_by(
+        &nums,
+        func(n: &int) -> (bool) {
+            return *n == 99
+        },
+    )
+
     switch found_missing {
-        case Ok(_) { t.fail("expected not found") }
-        case Err(_) {}
+        case Ok(_) {
+            t.fail("expected not found")
+        }
+        case Err(_) {
+        }
     }
 }

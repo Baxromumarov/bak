@@ -4,9 +4,23 @@ import crypto "std/crypto"
 
 func main() -> (void) {
     var h: int = crypto.fnv1a("hello")
-    println("fnv1a(\"hello\"):", h)
+
+    println(
+        "fnv1a(\"hello\"):",
+        h,
+    )
 
     mut var rng: crypto.RNG = crypto.new_rng(123)
-    println("random [0..9]:", rng.next_int(10))
-    println("random range [5..15]:", rng.range(5, 15))
+
+    println(
+        "random [0..9]:",
+        rng.next_int(10),
+    )
+    println(
+        "random range [5..15]:",
+        rng.range(
+            5,
+            15,
+        ),
+    )
 }

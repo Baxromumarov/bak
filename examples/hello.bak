@@ -1,10 +1,10 @@
 // Hello World in bak
 // Demonstrates the basic structure of a bak program
-
 package main
 
 func main() -> (void) {
     println("Hello, World!")
     println("Welcome to bak - a language where everything is explicit!")
+
     return void
 }

@@ -1,6 +1,5 @@
 // Simple bak demonstration
 // This shows basic features that work with the current interpreter
-
 package main
 
 // Constants (defined at package level)
@@ -26,43 +25,85 @@ func main() -> (void) {
     var x: int = 10
     mut var y: int = 20
 
-    println("Immutable x:", x)
-    println("Mutable y:", y)
-
+    println(
+        "Immutable x:",
+        x,
+    )
+    println(
+        "Mutable y:",
+        y,
+    )
     y = y + 5
-    println("After mutation, y:", y)
-
-    println("PI:", PI)
+    println(
+        "After mutation, y:",
+        y,
+    )
+    println(
+        "PI:",
+        PI,
+    )
 
     // Strings
     var greeting: string = "Hello from bak!"
+
     println(greeting)
 
     // Vectors
-    mut var numbers: Vec<int, _> = Vec.from([1, 2, 3, 4, 5])
-    println("Numbers:", numbers)
-    println("Length:", numbers.len())
+    mut var numbers: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+    )
 
+    println(
+        "Numbers:",
+        numbers,
+    )
+    println(
+        "Length:",
+        numbers.len(),
+    )
     // Push to vector
     numbers.push(6)
-    println("After push:", numbers)
+    println(
+        "After push:",
+        numbers,
+    )
 
     // Pop from vector
     var popped: Option<int> = numbers.pop()
+
     if popped.is_some() {
-        println("Popped:", popped.value)
+        println(
+            "Popped:",
+            popped.value,
+        )
     } else {
         println("Popped: None")
     }
-    println("After pop:", numbers)
 
+    println(
+        "After pop:",
+        numbers,
+    )
     // Function calls
-    println("5 + 3 =", add(5, 3))
+    println(
+        "5 + 3 =",
+        add(
+            5,
+            3,
+        ),
+    )
     println(greet("World"))
-
     // While loop
     println("Counting from 1 to 5:")
+
     mut var i: int = 1
+
     while i <= 5 {
         println(i)
         i = i + 1
@@ -70,43 +111,98 @@ func main() -> (void) {
 
     // For loop with range
     println("For loop over range:")
+
     for n in 0..3 {
-        println("n =", n)
+        println(
+            "n =",
+            n,
+        )
     }
 
     // If statement
     var age: int = 21
+
     if age >= 18 {
         println("You are an adult")
     }
 
     // Result type
     var success: Result<int, string> = Ok(42)
-    println("Result:", success)
-    println("Is Ok:", success.is_ok())
+
+    println(
+        "Result:",
+        success,
+    )
+    println(
+        "Is Ok:",
+        success.is_ok(),
+    )
 
     var failure: Result<int, string> = Err("Something went wrong")
-    println("Failure:", failure)
-    println("Is Err:", failure.is_err())
+
+    println(
+        "Failure:",
+        failure,
+    )
+    println(
+        "Is Err:",
+        failure.is_err(),
+    )
 
     // Option type  
     var maybe: Option<int> = Some(100)
-    println("Option:", maybe)
-    println("Has value:", maybe.is_some())
+
+    println(
+        "Option:",
+        maybe,
+    )
+    println(
+        "Has value:",
+        maybe.is_some(),
+    )
 
     var nothing: Option<int> = None()
-    println("Nothing:", nothing)
-    println("Is None:", nothing.is_none())
+
+    println(
+        "Nothing:",
+        nothing,
+    )
+    println(
+        "Is None:",
+        nothing.is_none(),
+    )
 
     // Struct usage
-    var p: Point = Point{ x: 10, y: 20 }
-    println("Point:", p)
-    println("Point.x:", p.x)
-    println("Point.y:", p.y)
+    var p: Point = Point{x: 10, y: 20}
+
+    println(
+        "Point:",
+        p,
+    )
+    println(
+        "Point.x:",
+        p.x,
+    )
+    println(
+        "Point.y:",
+        p.y,
+    )
 
     // Nested expressions
-    var result: int = add(add(1, 2), add(3, 4))
-    println("add(add(1,2), add(3,4)) =", result)
+    var result: int = add(
+        add(
+            1,
+            2,
+        ),
+        add(
+            3,
+            4,
+        ),
+    )
 
+    println(
+        "add(add(1,2), add(3,4)) =",
+        result,
+    )
     println("Done!")
 }

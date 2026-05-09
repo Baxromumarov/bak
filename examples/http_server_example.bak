@@ -1,20 +1,38 @@
 // NOTE: This example needs updating for the current bak API and may not compile.
-
 package main
 
 import http "std/http"
 
 func handle_hello(req: http.Request) -> (http.Response) {
     mut var who: string = "world"
+
     switch req.query("name") {
-        case Some(v) { who = v }
-        case None {}
+        case Some(v) {
+            who = v
+        }
+        case None {
+            who = who
+        }
     }
-    return http.text(200, "Hello, " + who + "!")
+
+    return http.text(
+        200,
+        "Hello, " + who + "!",
+    )
 }
 
 func main() -> (void) {
     mut var router = http.new_router()
-    router.get("/hello", handle_hello)
-    var _ = http.listen_and_serve(":8080", router)
+
+    router.get(
+        "/hello",
+        handle_hello,
+    )
+
+    var _ = http.listen_and_serve(
+        ":8080",
+        router,
+    )
+
+    return void
 }

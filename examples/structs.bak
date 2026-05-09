@@ -1,13 +1,12 @@
 // Structs and Methods in bak
 // No inheritance - composition over inheritance
 // Methods defined in impl blocks
-
 package main
 
 struct Student {
     Name: string
-    Age: int
-    GPA: float64
+    Age:  int
+    GPA:  float64
 }
 
 // impl block defines methods for Student
@@ -16,24 +15,23 @@ impl Student as s {
     func getName() -> (string) {
         return s.Name
     }
-    
+
     func getAge() -> (int) {
         return s.Age
     }
-    
+
     func getGPA() -> (float64) {
         return s.GPA
     }
-    
     // mut func can modify the receiver
     mut func setAge(newAge: int) -> (void) {
         s.Age = newAge
     }
-    
+
     mut func setGPA(newGPA: float64) -> (void) {
         s.GPA = newGPA
     }
-    
+
     func isHonorStudent() -> (bool) {
         return s.GPA >= 3.5
     }
@@ -49,9 +47,10 @@ impl Point as p {
         // Distance formula: sqrt(x^2 + y^2)
         var xSquared: int = p.X * p.X
         var ySquared: int = p.Y * p.Y
+
         return float(xSquared + ySquared)
     }
-    
+
     mut func move(dx: int, dy: int) -> (void) {
         p.X = p.X + dx
         p.Y = p.Y + dy
@@ -60,14 +59,34 @@ impl Point as p {
 
 func main() -> (void) {
     // Create a struct instance
-    var student: Student = Student{Name: "Alice", Age: 20, GPA: 3.8}
-    
-    println("Student:", student.getName())
-    println("Age:", student.getAge())
-    println("GPA:", student.getGPA())
-    println("Honor student:", student.isHonorStudent())
-    
+    var student: Student = Student{
+        Age:  20,
+        GPA:  3.8,
+        Name: "Alice",
+    }
+
+    println(
+        "Student:",
+        student.getName(),
+    )
+    println(
+        "Age:",
+        student.getAge(),
+    )
+    println(
+        "GPA:",
+        student.getGPA(),
+    )
+    println(
+        "Honor student:",
+        student.isHonorStudent(),
+    )
+
     // Create a point
     var point: Point = Point{X: 3, Y: 4}
-    println("Point distance from origin:", point.distanceFromOrigin())
+
+    println(
+        "Point distance from origin:",
+        point.distanceFromOrigin(),
+    )
 }

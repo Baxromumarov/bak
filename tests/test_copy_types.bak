@@ -16,22 +16,43 @@ func use_float(f: float64) -> (float64) {
 func main() -> (void) {
     // Integers are Copy types - can be used multiple times
     var x: int = 42
-    var a: int = use_int(x)  // x is copied, not moved
-    var b: int = use_int(x)  // x can be used again
-    println("x used twice:", a, b)
-    
+    var a: int = use_int(x)
+    // x is copied, not moved
+    var b: int = use_int(x)
+
+    // x can be used again
+    println(
+        "x used twice:",
+        a,
+        b,
+    )
+
     // Booleans are Copy types
     var flag: bool = true
-    var c: bool = use_bool(flag)  // flag is copied
-    var d: bool = use_bool(flag)  // flag can be used again
-    println("flag used twice:", c, d)
-    
+    var c: bool = use_bool(flag)
+    // flag is copied
+    var d: bool = use_bool(flag)
+
+    // flag can be used again
+    println(
+        "flag used twice:",
+        c,
+        d,
+    )
+
     // Floats are Copy types
     var pi: float64 = 3.14
-    var e: float64 = use_float(pi)  // pi is copied
-    var f: float64 = use_float(pi)  // pi can be used again
-    println("pi used twice:", e, f)
-    
+    var e: float64 = use_float(pi)
+    // pi is copied
+    var f: float64 = use_float(pi)
+
+    // pi can be used again
+    println(
+        "pi used twice:",
+        e,
+        f,
+    )
     println("All Copy type tests passed!")
+
     return void
 }

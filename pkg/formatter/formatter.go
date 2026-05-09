@@ -597,7 +597,12 @@ func (p *printer) printSwitchStatement(stmt *ast.SwitchStatement) {
 			p.write("default")
 		} else {
 			p.write("case ")
-			p.printExpressionList(c.Values, false)
+			for i, value := range c.Values {
+				if i > 0 {
+					p.write(", ")
+				}
+				p.printExpression(value, precLowest)
+			}
 		}
 		p.write(" ")
 		p.printBlock(c.Body)
@@ -758,6 +763,16 @@ func (p *printer) printMethodDecl(md *ast.MethodDecl) {
 	}
 	p.write("func ")
 	p.write(md.Name.Value)
+	if len(md.TypeParams) > 0 {
+		p.write("<")
+		for i, param := range md.TypeParams {
+			if i > 0 {
+				p.write(", ")
+			}
+			p.write(param.String())
+		}
+		p.write(">")
+	}
 	p.write("(")
 	returnType := formatType(md.ReturnType)
 	suffixLen := len(") -> (") + len(returnType) + len(") {")

@@ -4,7 +4,7 @@ package main
 // This reproduces the Vec deep-copy bug where nested Vec fields
 // are not properly deep-copied, causing memory corruption.
 struct Inner {
-    Name: string
+    Name:  string
     Value: int
 }
 
@@ -17,28 +17,41 @@ func main() -> (int) {
     mut var containers: Vec<Container, _> = Vec.new()
     // Create a container with items
     mut var items1: Vec<Inner, _> = Vec.new()
+
     items1.push(Inner{Name: "first", Value: 10})
     items1.push(Inner{Name: "second", Value: 20})
+
     var c1: Container = Container{Items: items1, Label: "container1"}
+
     // Push container to containers vec (this triggers the bug)
     containers.push(c1)
     // Access the pushed container - if Vec was shallow-copied,
     // this will read garbage or segfault
     println("containers.len() = " + string(containers.len()))
+
     var c: &Container = &containers[0]
+
     println("c.Label = " + (*c).Label)
     println("c.Items.len() = " + string((*c).Items.len()))
+
     if (*c).Items.len() != 2 {
         println("FAIL: Items.len() should be 2")
+
         return 1
     }
+
     var item: &Inner = &(*c).Items[0]
+
     println("item.Name = " + (*item).Name)
     println("item.Value = " + string((*item).Value))
+
     if (*item).Value != 10 {
         println("FAIL: Items[0].Value should be 10")
+
         return 2
     }
+
     println("PASS: Vec deep-copy works correctly")
+
     return 0
 }

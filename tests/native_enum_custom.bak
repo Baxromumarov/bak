@@ -9,10 +9,18 @@ enum Color {
 func main() -> (int) {
     var c: Color = Green
     mut var result: int = 0
+
     switch c {
-        case Red { result = 1 }
-        case Green { result = 2 }
-        case Blue { result = 3 }
+        case Red {
+            result = 1
+        }
+        case Green {
+            result = 2
+        }
+        case Blue {
+            result = 3
+        }
     }
+
     return result
 }

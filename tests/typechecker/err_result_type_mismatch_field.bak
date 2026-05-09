@@ -9,5 +9,6 @@ struct Container {
 func main() -> (void) {
     // ERROR: Ok(42) produces Result<int, _> but field expects Result<float64, string>
     var _c = Container{value: Ok(42)}
+
     return void
 }

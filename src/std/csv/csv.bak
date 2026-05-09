@@ -7,7 +7,6 @@ import io "std/io"
 // CSV Parser and Writer
 // =============================================================================
 // Simple RFC 4180-style CSV support.
-
 pub struct Record {
     fields: Vec<string, _>
 }
@@ -17,21 +16,28 @@ pub func parse(data: &string) -> (Vec<Record, _>) {
     mut var result: Vec<Record, _> = Vec.new()
     mut var reader: io.Reader = io.newReader(*data)
     mut var line: int = 0
+
     while true {
         var rowRes: Result<string, string> = reader.readLine()
+
         switch rowRes {
-            case Err(_) { return result }
+            case Err(_) {
+                return result
+            }
             case Ok(rowStr) {
                 if line == 0 && rowStr.len() == 0 {
-                    // Skip empty leading line
                 } else {
+                    // Skip empty leading line
                     var rec: Record = parseLine(&rowStr)
+
                     result.push(rec)
                 }
+
                 line = line + 1
             }
         }
     }
+
     return result
 }
 
@@ -41,8 +47,10 @@ pub func parseLine(line: &string) -> (Record) {
     mut var current: string = ""
     mut var inQuotes: bool = false
     mut var i: int = 0
+
     while i < line.len() {
         var ch: char = line[i]
+
         if ch == '"' {
             if inQuotes && i + 1 < line.len() && line[i + 1] == '"' {
                 current = current + "\""
@@ -56,9 +64,12 @@ pub func parseLine(line: &string) -> (Record) {
         } else {
             current = current + string(ch)
         }
+
         i = i + 1
     }
+
     fields.push(current)
+
     return Record{fields: fields}
 }
 
@@ -66,13 +77,17 @@ pub func parseLine(line: &string) -> (Record) {
 pub func write(records: &Vec<Record, _>) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
+
     while i < records.len() {
         result = result + writeRecord(&records[i])
+
         if i < records.len() - 1 {
             result = result + "\n"
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -80,31 +95,44 @@ pub func write(records: &Vec<Record, _>) -> (string) {
 pub func writeRecord(rec: &Record) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
+
     while i < rec.fields.len() {
         var field: string = rec.fields[i]
         // Escape field if it contains comma, quote, or newline
         mut var needsEscape: bool = false
         mut var j: int = 0
+
         while j < field.len() {
             var ch: char = field[j]
+
             if ch == ',' || ch == '"' || ch == '\n' || ch == '\r' {
                 needsEscape = true
                 j = field.len()
             }
+
             j = j + 1
         }
+
         if needsEscape {
             var oldQuote: string = "\""
             var newQuote: string = "\"\""
-            result = result + "\"" + strings.replace(&field, &oldQuote, &newQuote) + "\""
+
+            result = result + "\"" + strings.replace(
+                &field,
+                &oldQuote,
+                &newQuote,
+            ) + "\""
         } else {
             result = result + field
         }
+
         if i < rec.fields.len() - 1 {
             result = result + ","
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -123,5 +151,6 @@ pub func get(rec: &Record, index: int) -> (Result<string, string>) {
     if index < 0 || index >= rec.fields.len() {
         return Err("index out of bounds")
     }
+
     return Ok(rec.fields[index])
 }

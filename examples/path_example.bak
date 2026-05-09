@@ -4,16 +4,42 @@ import "std/path"
 import fp "std/filepath"
 
 func main() -> (void) {
-    var joined: string = path.join("/usr", "local/bin")
-    println("path.join:", joined)
+    var joined: string = path.join(
+        "/usr",
+        "local/bin",
+    )
+
+    println(
+        "path.join:",
+        joined,
+    )
 
     var cleaned: string = path.clean("/usr//local/../bin/")
-    println("path.clean:", cleaned)
+
+    println(
+        "path.clean:",
+        cleaned,
+    )
 
     var sample: string = "/home/user/file.txt"
-    println("path.base:", path.base(&sample))
-    println("path.dir:", path.dir(&sample))
-    println("path.ext:", path.ext(&sample))
 
-    println("filepath.join:", fp.join("a", "b"))
+    println(
+        "path.base:",
+        path.base(&sample),
+    )
+    println(
+        "path.dir:",
+        path.dir(&sample),
+    )
+    println(
+        "path.ext:",
+        path.ext(&sample),
+    )
+    println(
+        "filepath.join:",
+        fp.join(
+            "a",
+            "b",
+        ),
+    )
 }

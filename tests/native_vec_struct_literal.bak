@@ -6,9 +6,12 @@ struct Pair {
 }
 
 func main() -> (int) {
-    mut var v: Vec<Pair, _> = Vec.from([
-        Pair{X: 1, Y: 2},
-        Pair{X: 3, Y: 4},
-    ])
+    mut var v: Vec<Pair, _> = Vec.from(
+        [
+            Pair{X: 1, Y: 2},
+            Pair{X: 3, Y: 4},
+        ],
+    )
+
     return v[0].X + v[0].Y + v[1].X + v[1].Y
 }

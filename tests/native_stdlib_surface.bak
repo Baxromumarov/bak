@@ -24,7 +24,10 @@ func main() -> (int) {
     }
 
     if file_path.len() > 0 {
-        switch fs.writeFile(file_path, "phase3") {
+        switch fs.writeFile(
+            file_path,
+            "phase3",
+        ) {
             case Ok(_) {
                 score = score + 1
             }

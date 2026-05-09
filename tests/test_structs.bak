@@ -9,14 +9,14 @@ struct Point {
 
 // Struct with mixed types
 struct Person {
-    name: string
-    age: int
+    name:   string
+    age:    int
     active: bool
 }
 
 // Nested struct
 struct Rectangle {
-    topLeft: Point
+    topLeft:     Point
     bottomRight: Point
 }
 
@@ -25,13 +25,14 @@ impl Point as p {
     func distance() -> (float64) {
         var x2: float64 = float64(p.x * p.x)
         var y2: float64 = float64(p.y * p.y)
-        return (x2 + y2)
+
+        return x2 + y2
     }
-    
+
     func add(other: Point) -> (Point) {
         return Point{x: p.x + other.x, y: p.y + other.y}
     }
-    
+
     func toString() -> (string) {
         return "(" + p.x.toString() + ", " + p.y.toString() + ")"
     }
@@ -42,11 +43,11 @@ impl Rectangle as r {
     func width() -> (int) {
         return r.bottomRight.x - r.topLeft.x
     }
-    
+
     func height() -> (int) {
         return r.bottomRight.y - r.topLeft.y
     }
-    
+
     func area() -> (int) {
         return r.width() * r.height()
     }
@@ -56,21 +57,24 @@ impl Rectangle as r {
 impl Person as p {
     func describe() -> (string) {
         mut var status: string = "inactive"
+
         if p.active {
             status = "active"
         }
+
         return p.name + " is " + p.age.toString() + " years old (" + status + ")"
     }
-    
+
     mut func haveBirthday() -> (void) {
         p.age = p.age + 1
+
         return void
     }
 }
 
 // Struct with Vec field
 struct Team {
-    name: string
+    name:    string
     members: Vec<string, _>
 }
 
@@ -78,72 +82,151 @@ impl Team as t {
     func size() -> (int) {
         return t.members.len()
     }
-    
+
     func addMember(name: string) -> (void) {
         t.members.push(name)
+
         return void
     }
 }
 
 func main() -> (void) {
     println("=== Testing Structs and Methods ===")
-    
     println("\n1. Simple struct:")
-    var p1: Point = Point{x: 3, y: 4}
-    println("  Point:", p1)
-    println("  p1.x:", p1.x)
-    println("  p1.y:", p1.y)
 
+    var p1: Point = Point{x: 3, y: 4}
+
+    println(
+        "  Point:",
+        p1,
+    )
+    println(
+        "  p1.x:",
+        p1.x,
+    )
+    println(
+        "  p1.y:",
+        p1.y,
+    )
     println("\n1b. Default initialization:")
+
     var pDefault: Point
     var pEmpty: Point = Point{}
     var pPartial: Point = Point{x: 7}
-    println("  pDefault:", pDefault.x, pDefault.y)
-    println("  pEmpty:", pEmpty.x, pEmpty.y)
-    println("  pPartial:", pPartial.x, pPartial.y)
-    
+
+    println(
+        "  pDefault:",
+        pDefault.x,
+        pDefault.y,
+    )
+    println(
+        "  pEmpty:",
+        pEmpty.x,
+        pEmpty.y,
+    )
+    println(
+        "  pPartial:",
+        pPartial.x,
+        pPartial.y,
+    )
     println("\n2. Struct methods:")
-    println("  p1.distance():", p1.distance())
-    println("  p1.toString():", p1.toString())
-    
+    println(
+        "  p1.distance():",
+        p1.distance(),
+    )
+    println(
+        "  p1.toString():",
+        p1.toString(),
+    )
+
     var p2: Point = Point{x: 1, y: 2}
     var p3: Point = p1.add(p2)
-    println("  p1.add(p2):", p3.toString())
-    
+
+    println(
+        "  p1.add(p2):",
+        p3.toString(),
+    )
     println("\n3. Struct with mixed types:")
-    mut var person = Person{name: "Alice", age: 30, active: true}
-    println("  person.describe():", person.describe())
-    
+
+    mut var person = Person{
+        active: true,
+        age:    30,
+        name:   "Alice",
+    }
+
+    println(
+        "  person.describe():",
+        person.describe(),
+    )
     println("\n4. Mutable method:")
     person.haveBirthday()
-    println("  After birthday:", person.describe())
-    
+    println(
+        "  After birthday:",
+        person.describe(),
+    )
     println("\n5. Nested structs:")
+
     var rect: Rectangle = Rectangle{
-        topLeft: Point{x: 0, y: 0},
-        bottomRight: Point{x: 10, y: 5}
+        bottomRight: Point{x: 10, y: 5},
+        topLeft:     Point{x: 0, y: 0},
     }
-    println("  Rectangle:", rect)
-    println("  width:", rect.width())
-    println("  height:", rect.height())
-    println("  area:", rect.area())
-    
+
+    println(
+        "  Rectangle:",
+        rect,
+    )
+    println(
+        "  width:",
+        rect.width(),
+    )
+    println(
+        "  height:",
+        rect.height(),
+    )
+    println(
+        "  area:",
+        rect.area(),
+    )
     println("\n6. Struct with Vec field:")
-    mut var team = Team{name: "Developers", members: []}
+
+    mut var team = Team{
+        members: [],
+        name:    "Developers",
+    }
+
     team.members.push("Alice")
     team.members.push("Bob")
-    println("  Team:", team.name)
-    println("  Size:", team.size())
+    println(
+        "  Team:",
+        team.name,
+    )
+    println(
+        "  Size:",
+        team.size(),
+    )
     team.addMember("Charlie")
-    println("  After adding Charlie:", team.size())
-    println("  Members:", team.members)
-    
+    println(
+        "  After adding Charlie:",
+        team.size(),
+    )
+    println(
+        "  Members:",
+        team.members,
+    )
     println("\n7. Struct literal modification:")
+
     var original: Point = Point{x: 5, y: 10}
     var modified: Point = Point{x: original.x * 2, y: original.y * 2}
-    println("  Original:", original.toString())
-    println("  Modified:", modified.toString())
-    
+
+    println(
+        "  Original:",
+        original.toString(),
+    )
+    println(
+        "  Modified:",
+        modified.toString(),
+    )
     println("\n=== Struct tests complete ===")
+
     return void
 }

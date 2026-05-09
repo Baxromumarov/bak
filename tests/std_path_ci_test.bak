@@ -6,28 +6,70 @@ import test "std/test"
 func test_path_docs_join_clean_and_rel_abs() -> (void) {
     mut var t: test.T = test.new("test_path_docs_join_clean_and_rel_abs")
 
-    t.eqString(path.join("api", "v1"), "api/v1")
-    t.eqString(path.clean("/srv//logs/../app/./today"), "/srv/app/today")
+    t.eqString(
+        path.join(
+            "api",
+            "v1",
+        ),
+        "api/v1",
+    )
+    t.eqString(
+        path.clean("/srv//logs/../app/./today"),
+        "/srv/app/today",
+    )
     t.isTrue(path.isAbs("/tmp/data.txt"))
     t.isTrue(path.isRel("tmp/data.txt"))
-
     t.finish()
 }
 
 func test_path_docs_split_ext_and_rewrite() -> (void) {
     mut var t: test.T = test.new("test_path_docs_split_ext_and_rewrite")
-
     var p: string = "/srv/app/report.json"
     var sp: path.Split = path.split(&p)
-    t.eqString(sp.Dir, "/srv/app")
-    t.eqString(sp.Base, "report.json")
-    t.eqString(path.ext(&p), ".json")
-    t.eqString(path.stem(&p), "report")
-    t.eqString(path.withoutExt(&p), "/srv/app/report")
-    t.eqString(path.withExt(&p, &"txt"), "/srv/app/report.txt")
 
-    var joined: string = path.joinParts(Vec.from(["/srv", "app", "logs", "..", "today.log"]))
-    t.eqString(joined, "/srv/app/today.log")
+    t.eqString(
+        sp.Dir,
+        "/srv/app",
+    )
+    t.eqString(
+        sp.Base,
+        "report.json",
+    )
+    t.eqString(
+        path.ext(&p),
+        ".json",
+    )
+    t.eqString(
+        path.stem(&p),
+        "report",
+    )
+    t.eqString(
+        path.withoutExt(&p),
+        "/srv/app/report",
+    )
+    t.eqString(
+        path.withExt(
+            &p,
+            &"txt",
+        ),
+        "/srv/app/report.txt",
+    )
 
+    var joined: string = path.joinParts(
+        Vec.from(
+            [
+                "/srv",
+                "app",
+                "logs",
+                "..",
+                "today.log",
+            ],
+        ),
+    )
+
+    t.eqString(
+        joined,
+        "/srv/app/today.log",
+    )
     t.finish()
 }

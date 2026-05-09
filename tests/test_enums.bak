@@ -34,6 +34,7 @@ func describeColor(c: Color) -> (string) {
             return "The color is blue"
         }
     }
+
     return "Unknown color"
 }
 
@@ -42,88 +43,174 @@ func processMessage(msg: Message) -> (string) {
         case Quit {
             return "Quitting..."
         }
-        case Move(x, y) {
+        case Move(
+            x,
+            y,
+        ) {
             return "Moving to (" + x.toString() + ", " + y.toString() + ")"
         }
         case Write(text) {
             return "Writing: " + text
         }
-        case ChangeColor(r, g, b) {
+        case ChangeColor(
+            r,
+            g,
+            b,
+        ) {
             return "Color: RGB(" + r.toString() + ", " + g.toString() + ", " + b.toString() + ")"
         }
     }
+
     return "Unknown message"
 }
 
 func main() -> (void) {
     println("=== Testing Enums and Pattern Matching ===")
-    
     println("\n1. Simple enum:")
+
     var red: Color = Red
     var green: Color = Green
     var blue: Color = Blue
-    println("  red:", red)
-    println("  green:", green)
-    println("  blue:", blue)
-    
+
+    println(
+        "  red:",
+        red,
+    )
+    println(
+        "  green:",
+        green,
+    )
+    println(
+        "  blue:",
+        blue,
+    )
     println("\n2. Enum switch:")
-    println("  ", describeColor(red))
-    println("  ", describeColor(green))
-    println("  ", describeColor(blue))
-    
+    println(
+        "  ",
+        describeColor(red),
+    )
+    println(
+        "  ",
+        describeColor(green),
+    )
+    println(
+        "  ",
+        describeColor(blue),
+    )
     println("\n3. Enum with associated data:")
+
     var quit: Message = Quit
-    var move: Message = Move(10, 20)
+    var move: Message = Move(
+        10,
+        20,
+    )
     var write: Message = Write("Hello!")
-    var color: Message = ChangeColor(255, 128, 0)
-    
-    println("  ", processMessage(quit))
-    println("  ", processMessage(move))
-    println("  ", processMessage(write))
-    println("  ", processMessage(color))
-    
+    var color: Message = ChangeColor(
+        255,
+        128,
+        0,
+    )
+
+    println(
+        "  ",
+        processMessage(quit),
+    )
+    println(
+        "  ",
+        processMessage(move),
+    )
+    println(
+        "  ",
+        processMessage(write),
+    )
+    println(
+        "  ",
+        processMessage(color),
+    )
     println("\n4. Built-in Result enum:")
+
     var some: Result<int, string> = Ok(42)
     var none: Result<int, string> = Err("none")
-    println("  Ok(42):", some)
-    println("  Err('none'):", none)
-    
+
+    println(
+        "  Ok(42):",
+        some,
+    )
+    println(
+        "  Err('none'):",
+        none,
+    )
+
     switch some {
         case Ok(val) {
-            println("  Unwrapped:", val)
+            println(
+                "  Unwrapped:",
+                val,
+            )
         }
         case Err(e) {
-            println("  Error:", e)
+            println(
+                "  Error:",
+                e,
+            )
         }
     }
-    
+
     println("\n5. Built-in Result enum (string payload):")
+
     var ok: Result<string, string> = Ok("Success!")
     var err: Result<string, string> = Err("Something went wrong")
-    println("  Ok:", ok)
-    println("  Err:", err)
-    
+
+    println(
+        "  Ok:",
+        ok,
+    )
+    println(
+        "  Err:",
+        err,
+    )
+
     switch ok {
         case Ok(val) {
-            println("  Success value:", val)
+            println(
+                "  Success value:",
+                val,
+            )
         }
         case Err(e) {
-            println("  Error:", e)
+            println(
+                "  Error:",
+                e,
+            )
         }
     }
-    
+
     println("\n6. Custom enum:")
+
     var just: MaybeInt = Just(100)
     var nothing: MaybeInt = Nothing
-    println("  Just(100):", just)
-    println("  Nothing:", nothing)
-    
+
+    println(
+        "  Just(100):",
+        just,
+    )
+    println(
+        "  Nothing:",
+        nothing,
+    )
     println("\n7. Enum comparison:")
+
     var c1: Color = Red
     var c2: Color = Red
     var c3: Color = Blue
-    println("  Red == Red:", c1 == c2)
-    println("  Red == Blue:", c1 == c3)
-    
+
+    println(
+        "  Red == Red:",
+        c1 == c2,
+    )
+    println(
+        "  Red == Blue:",
+        c1 == c3,
+    )
     println("\n=== Enum tests complete ===")
 }

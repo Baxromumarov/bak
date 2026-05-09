@@ -5,43 +5,85 @@ import "tests/typelib.bak"
 
 func main() -> (void) {
     println("=== Testing Type Imports ===")
-    
+
     // Test 1: Using imported struct directly
     var p1: typelib.Point = typelib.Point{X: 10, Y: 20}
-    println("Point p1:", p1.X, p1.Y)
-    
+
+    println(
+        "Point p1:",
+        p1.X,
+        p1.Y,
+    )
+
     // Test 2: Using imported type alias
     var num: typelib.Integer = typelib.makeInteger(42)
-    println("Integer num:", num)
-    
+
+    println(
+        "Integer num:",
+        num,
+    )
+
     // Test 3: Using type alias that references a struct
     var coord: typelib.Coordinate = typelib.Coordinate{X: 5, Y: 15}
-    println("Coordinate:", coord.X, coord.Y)
-    
+
+    println(
+        "Coordinate:",
+        coord.X,
+        coord.Y,
+    )
+
     // Test 4: Using type alias (UserId wraps int)
     var userId: typelib.UserId = typelib.makeUserId(1001)
-    println("UserId:", userId)
-    
+
+    println(
+        "UserId:",
+        userId,
+    )
+
     // Test 5: Calling function that returns aliased type
     var result: typelib.Integer = typelib.makeInteger(100)
-    println("makeInteger(100):", result)
-    
+
+    println(
+        "makeInteger(100):",
+        result,
+    )
+
     // Test 6: Calling function that returns type alias
     var id: typelib.UserId = typelib.makeUserId(2002)
-    println("makeUserId(2002):", id)
-    
+
+    println(
+        "makeUserId(2002):",
+        id,
+    )
+
     // Test 7: Calling function that returns struct
-    var p2: typelib.Point = typelib.makePoint(30, 40)
-    println("makePoint(30, 40):", p2.X, p2.Y)
-    
+    var p2: typelib.Point = typelib.makePoint(
+        30,
+        40,
+    )
+
+    println(
+        "makePoint(30, 40):",
+        p2.X,
+        p2.Y,
+    )
+
     // Test 8: Passing aliased type to function
     var doubled: typelib.Integer = typelib.doubleInteger(50)
-    println("doubleInteger(50):", doubled)
-    
+
+    println(
+        "doubleInteger(50):",
+        doubled,
+    )
+
     // Test 9 Using imported constant
     var maxUsers: int = typelib.MAX_USERS
-    println("MAX_USERS constant:", maxUsers)
-    
+
+    println(
+        "MAX_USERS constant:",
+        maxUsers,
+    )
     println("All type import tests passed!")
+
     return void
 }

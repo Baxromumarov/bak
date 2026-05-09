@@ -5,5 +5,6 @@ package main
 func main() -> (void) {
     // ERROR: Ok("hello") produces Result<string, _> but variable expects Result<int, string>
     var _result: Result<int, string> = Ok("hello")
+
     return void
 }

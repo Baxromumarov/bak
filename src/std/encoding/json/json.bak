@@ -9,7 +9,7 @@ import strconv "std/strconv"
 // JSON Encoding/Decoding
 // =============================================================================
 pub struct JsonEntry {
-    pub key: string
+    pub key:   string
     pub value: Json
 }
 
@@ -29,23 +29,38 @@ pub func entry(key: string, value: Json) -> (JsonEntry) {
 
 // Typed entry helpers for object construction without manual Json.* wrapping.
 pub func entryInt(key: string, value: int) -> (JsonEntry) {
-    return entry(key, Json.Int(value))
+    return entry(
+        key,
+        Json.Int(value),
+    )
 }
 
 pub func entryFloat(key: string, value: float64) -> (JsonEntry) {
-    return entry(key, Json.Float(value))
+    return entry(
+        key,
+        Json.Float(value),
+    )
 }
 
 pub func entryString(key: string, value: string) -> (JsonEntry) {
-    return entry(key, Json.String(value))
+    return entry(
+        key,
+        Json.String(value),
+    )
 }
 
 pub func entryBool(key: string, value: bool) -> (JsonEntry) {
-    return entry(key, Json.Boolean(value))
+    return entry(
+        key,
+        Json.Boolean(value),
+    )
 }
 
 pub func entryJson(key: string, value: Json) -> (JsonEntry) {
-    return entry(key, value)
+    return entry(
+        key,
+        value,
+    )
 }
 
 pub func object(entries: Vec<JsonEntry, _>) -> (Json) {
@@ -58,27 +73,45 @@ pub func array(items: Vec<Json, _>) -> (Json) {
 
 // encode_obj maps a value into a JSON object by using a field encoder function.
 // This is an optional helper; developers can still build Json objects manually.
-pub func encode_obj<T>(value: T, fields: func(T) -> (Vec<JsonEntry, _>)) -> (Json) {
+pub func encode_obj<T>(
+    value: T,
+    fields: func(T) -> (Vec<JsonEntry, _>),
+) -> (Json) {
     return object(fields(value))
 }
 
 // marshal_obj encodes an object value and marshals it to a JSON string.
-pub func marshal_obj<T>(value: T, fields: func(T) -> (Vec<JsonEntry, _>)) -> (string) {
-    return marshal(encode_obj(value, fields))
+pub func marshal_obj<T>(
+    value: T,
+    fields: func(T) -> (Vec<JsonEntry, _>),
+) -> (string) {
+    return marshal(
+        encode_obj(
+            value,
+            fields,
+        ),
+    )
 }
 
 // encode_array maps a Vec<T, _> into a Json array using the provided encoder.
 pub func encode_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
     mut var out: Vec<Json, _> = Vec.new()
+
     for item in items {
         out.push(f(item))
     }
+
     return Json.Array(out)
 }
 
 // marshal_array maps a Vec<T, _> into a Json array and marshals it to a string.
 pub func marshal_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
-    return marshal(encode_array(items, f))
+    return marshal(
+        encode_array(
+            items,
+            f,
+        ),
+    )
 }
 
 // =============================================================================
@@ -90,6 +123,7 @@ pub func isNull(j: Json) -> (bool) {
             return true
         }
     }
+
     return false
 }
 
@@ -97,21 +131,29 @@ pub func get(obj: &Json, key: string) -> (Result<Json, string>) {
     switch *obj {
         case Object(entries) {
             mut var i: int = 0
+
             while i < entries.len() {
-                if (entries[i]).key == key {
-                    return Ok((entries[i]).value)
+                if entries[i].key == key {
+                    return Ok(entries[i].value)
                 }
+
                 i = i + 1
             }
+
             return Err("key not found: " + key)
         }
     }
+
     return Err("expected object")
 }
 
 pub func getString(obj: &Json, key: string) -> (Result<string, string>) {
-	var key_copy: string = clone_string(&key)
-    switch get(obj, key) {
+    var key_copy: string = clone_string(&key)
+
+    switch get(
+        obj,
+        key,
+    ) {
         case Ok(val) {
             switch val {
                 case String(v) {
@@ -123,60 +165,88 @@ pub func getString(obj: &Json, key: string) -> (Result<string, string>) {
             return Err(err)
         }
     }
+
     return Err("expected string at key: " + key_copy)
 }
 
 pub func getNumber(obj: &Json, key: string) -> (Result<float64, string>) {
-	var key_copy: string = clone_string(&key)
-    switch get(obj, key) {
+    var key_copy: string = clone_string(&key)
+
+    switch get(
+        obj,
+        key,
+    ) {
         case Ok(val) {
             switch val {
-                case Int(v) { return Ok(float64(v)) }
-                case Float(v) { return Ok(v) }
+                case Int(v) {
+                    return Ok(float64(v))
+                }
+                case Float(v) {
+                    return Ok(v)
+                }
             }
         }
         case Err(err) {
             return Err(err)
         }
     }
+
     return Err("expected number at key: " + key_copy)
 }
 
 // getInt returns the integer value of a JSON Int field
 pub func getInt(obj: &Json, key: string) -> (Result<int, string>) {
-	var key_copy: string = clone_string(&key)
-    switch get(obj, key) {
+    var key_copy: string = clone_string(&key)
+
+    switch get(
+        obj,
+        key,
+    ) {
         case Ok(val) {
             switch val {
-                case Int(v) { return Ok(v) }
+                case Int(v) {
+                    return Ok(v)
+                }
             }
         }
         case Err(err) {
             return Err(err)
         }
     }
+
     return Err("expected int at key: " + key_copy)
 }
 
 // getFloat returns the float value of a JSON Float field  
 pub func getFloat(obj: &Json, key: string) -> (Result<float64, string>) {
-	var key_copy: string = clone_string(&key)
-    switch get(obj, key) {
+    var key_copy: string = clone_string(&key)
+
+    switch get(
+        obj,
+        key,
+    ) {
         case Ok(val) {
             switch val {
-                case Float(v) { return Ok(v) }
+                case Float(v) {
+                    return Ok(v)
+                }
             }
         }
         case Err(err) {
             return Err(err)
         }
     }
+
     return Err("expected float at key: " + key_copy)
 }
 
 pub func getBool(obj: &Json, key: string) -> (Result<bool, string>) {
-	var key_copy: string = clone_string(&key)
-    switch get(obj, key) {
+    var key_copy: string = clone_string(&key)
+
+    switch get(
+        obj,
+        key,
+    ) {
         case Ok(val) {
             switch val {
                 case Boolean(v) {
@@ -188,6 +258,7 @@ pub func getBool(obj: &Json, key: string) -> (Result<bool, string>) {
             return Err(err)
         }
     }
+
     return Err("expected bool at key: " + key_copy)
 }
 
@@ -197,6 +268,7 @@ pub func asArray(j: Json) -> (Result<Vec<Json, _>, string>) {
             return Ok(items)
         }
     }
+
     return Err("expected JSON array")
 }
 
@@ -206,112 +278,159 @@ pub func asObject(j: Json) -> (Result<Json, string>) {
             return Ok(j)
         }
     }
+
     return Err("expected JSON object")
 }
 
 pub func requireString(obj: &Json, key: string) -> (Result<string, string>) {
     var key_copy: string = clone_string(&key)
-    switch getString(obj, key) {
+
+    switch getString(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return Ok(v)
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return Err("missing or invalid string field: " + key_copy)
 }
 
 pub func requireNumber(obj: &Json, key: string) -> (Result<float64, string>) {
     var key_copy: string = clone_string(&key)
-    switch getNumber(obj, key) {
+
+    switch getNumber(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return Ok(v)
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return Err("missing or invalid number field: " + key_copy)
 }
 
 pub func requireBool(obj: &Json, key: string) -> (Result<bool, string>) {
     var key_copy: string = clone_string(&key)
-    switch getBool(obj, key) {
+
+    switch getBool(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return Ok(v)
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return Err("missing or invalid bool field: " + key_copy)
 }
 
 pub func requireInt(obj: &Json, key: string) -> (Result<int, string>) {
     var key_copy: string = clone_string(&key)
-    switch requireNumber(obj, key) {
+
+    switch requireNumber(
+        obj,
+        key,
+    ) {
         case Err(e) {
             return Err(e)
         }
         case Ok(n) {
             var i: int = int(n)
+
             if float(i) != n {
                 return Err("expected integer field: " + key_copy)
             }
+
             return Ok(i)
         }
     }
+
     return Err("missing or invalid integer field: " + key_copy)
 }
 
 pub func getStringOr(obj: &Json, key: string, fallback: string) -> (string) {
-    switch getString(obj, key) {
+    switch getString(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return v
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return fallback
 }
 
 pub func getNumberOr(obj: &Json, key: string, fallback: float64) -> (float64) {
-    switch getNumber(obj, key) {
+    switch getNumber(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return v
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return fallback
 }
 
 pub func getBoolOr(obj: &Json, key: string, fallback: bool) -> (bool) {
-    switch getBool(obj, key) {
+    switch getBool(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return v
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     return fallback
 }
 
 pub func getIntOr(obj: &Json, key: string, fallback: int) -> (int) {
-    switch requireInt(obj, key) {
+    switch requireInt(
+        obj,
+        key,
+    ) {
         case Ok(v) {
             return v
         }
     }
+
     return fallback
 }
 
 func clone_string(s: &string) -> (string) {
     mut var out: string = ""
     mut var i: int = 0
+
     while i < s.len() {
         out = out + string(s[i])
         i = i + 1
     }
+
     return out
 }
 
 pub struct ObjBuilder {
-    obj: Json
+    obj:       Json
     has_error: bool
-    err: string
+    err:       string
 }
 
 impl ObjBuilder as b {
@@ -320,92 +439,146 @@ impl ObjBuilder as b {
             b.has_error = true
             b.err = msg
         }
+
         return void
     }
+
     pub mut func intField(key: string) -> (int) {
-        switch requireInt(&b.obj, clone_string(&key)) {
+        switch requireInt(
+            &b.obj,
+            clone_string(&key),
+        ) {
             case Ok(v) {
                 return v
             }
             case Err(e) {
                 b.set_err(e)
+
                 return 0
             }
         }
+
         return 0
     }
+
     pub mut func numberField(key: string) -> (float64) {
-        switch requireNumber(&b.obj, clone_string(&key)) {
+        switch requireNumber(
+            &b.obj,
+            clone_string(&key),
+        ) {
             case Ok(v) {
                 return v
             }
             case Err(e) {
                 b.set_err(e)
+
                 return 0.0
             }
         }
+
         return 0.0
     }
+
     pub mut func stringField(key: string) -> (string) {
-        switch requireString(&b.obj, clone_string(&key)) {
+        switch requireString(
+            &b.obj,
+            clone_string(&key),
+        ) {
             case Ok(v) {
                 return v
             }
             case Err(e) {
                 b.set_err(e)
+
                 return ""
             }
         }
+
         return ""
     }
+
     pub mut func boolField(key: string) -> (bool) {
-        switch requireBool(&b.obj, clone_string(&key)) {
+        switch requireBool(
+            &b.obj,
+            clone_string(&key),
+        ) {
             case Ok(v) {
                 return v
             }
             case Err(e) {
                 b.set_err(e)
+
                 return false
             }
         }
+
         return false
     }
+
     pub mut func intOr(key: string, fallback: int) -> (int) {
-        return getIntOr(&b.obj, clone_string(&key), fallback)
+        return getIntOr(
+            &b.obj,
+            clone_string(&key),
+            fallback,
+        )
     }
+
     pub mut func numberOr(key: string, fallback: float64) -> (float64) {
-        return getNumberOr(&b.obj, clone_string(&key), fallback)
+        return getNumberOr(
+            &b.obj,
+            clone_string(&key),
+            fallback,
+        )
     }
+
     pub mut func stringOr(key: string, fallback: string) -> (string) {
-        return getStringOr(&b.obj, clone_string(&key), fallback)
+        return getStringOr(
+            &b.obj,
+            clone_string(&key),
+            fallback,
+        )
     }
+
     pub mut func boolOr(key: string, fallback: bool) -> (bool) {
-        return getBoolOr(&b.obj, clone_string(&key), fallback)
+        return getBoolOr(
+            &b.obj,
+            clone_string(&key),
+            fallback,
+        )
     }
 }
 
-pub func decode_obj<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -> (Result<T, string>) {
+pub func decode_obj<T>(
+    value: Json,
+    f: func(&mut ObjBuilder) -> (T),
+) -> (Result<T, string>) {
     switch asObject(value) {
         case Err(e) {
             return Err(e)
         }
         case Ok(obj) {
             mut var b: ObjBuilder = ObjBuilder{
-                err: "",
+                err:       "",
                 has_error: false,
-                obj: obj,
+                obj:       obj,
             }
             var out = f(&mut b)
+
             if b.has_error {
                 return Err(b.err)
             }
+
             return Ok(out)
         }
     }
+
     return Err("invalid object")
 }
 
-pub func decode_array<T>(value: Json, f: func(Json) -> (Result<T, string>)) -> (Result<Vec<T, _>, string>) {
+pub func decode_array<T>(
+    value: Json,
+    f: func(Json) -> (Result<T, string>),
+) -> (Result<Vec<T, _>, string>) {
     switch asArray(value) {
         case Err(e) {
             return Err(e)
@@ -413,6 +586,7 @@ pub func decode_array<T>(value: Json, f: func(Json) -> (Result<T, string>)) -> (
         case Ok(items) {
             mut var out: Vec<T, _> = Vec.new()
             mut var i: int = 0
+
             while i < items.len() {
                 switch f(items[i]) {
                     case Ok(v) {
@@ -422,15 +596,21 @@ pub func decode_array<T>(value: Json, f: func(Json) -> (Result<T, string>)) -> (
                         return Err(e)
                     }
                 }
+
                 i = i + 1
             }
+
             return Ok(out)
         }
     }
+
     return Err("invalid array")
 }
 
-pub func decode_array_objects<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -> (Result<Vec<T, _>, string>) {
+pub func decode_array_objects<T>(
+    value: Json,
+    f: func(&mut ObjBuilder) -> (T),
+) -> (Result<Vec<T, _>, string>) {
     switch asArray(value) {
         case Err(e) {
             return Err(e)
@@ -438,8 +618,12 @@ pub func decode_array_objects<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -
         case Ok(items) {
             mut var out: Vec<T, _> = Vec.new()
             mut var i: int = 0
+
             while i < items.len() {
-                switch decode_obj(items[i], f) {
+                switch decode_obj(
+                    items[i],
+                    f,
+                ) {
                     case Ok(v) {
                         out.push(v)
                     }
@@ -447,22 +631,28 @@ pub func decode_array_objects<T>(value: Json, f: func(&mut ObjBuilder) -> (T)) -
                         return Err(e)
                     }
                 }
+
                 i = i + 1
             }
+
             return Ok(out)
         }
     }
+
     return Err("invalid array")
 }
+
 mut var builder_active: bool = false
 mut var builder_obj: Json = Null
 mut var builder_has_error: bool = false
 mut var builder_err: string = ""
+
 func builder_begin(obj: Json) -> (void) {
     builder_active = true
     builder_obj = obj
     builder_has_error = false
     builder_err = ""
+
     return void
 }
 
@@ -471,14 +661,17 @@ func builder_fail(msg: string) -> (void) {
         builder_has_error = true
         builder_err = msg
     }
+
     return void
 }
 
 func builder_end() -> (Result<void, string>) {
     builder_active = false
+
     if builder_has_error {
         return Err(builder_err)
     }
+
     return Ok(void)
 }
 
@@ -487,17 +680,24 @@ func builder_end() -> (Result<void, string>) {
 pub func intField(key: string) -> (int) {
     if !builder_active {
         builder_fail("json builder not active")
+
         return 0
     }
-    switch requireInt(&builder_obj, clone_string(&key)) {
+
+    switch requireInt(
+        &builder_obj,
+        clone_string(&key),
+    ) {
         case Ok(v) {
             return v
         }
         case Err(e) {
             builder_fail(e)
+
             return 0
         }
     }
+
     return 0
 }
 
@@ -506,17 +706,24 @@ pub func intField(key: string) -> (int) {
 pub func numberField(key: string) -> (float64) {
     if !builder_active {
         builder_fail("json builder not active")
+
         return 0.0
     }
-    switch requireNumber(&builder_obj, clone_string(&key)) {
+
+    switch requireNumber(
+        &builder_obj,
+        clone_string(&key),
+    ) {
         case Ok(v) {
             return v
         }
         case Err(e) {
             builder_fail(e)
+
             return 0.0
         }
     }
+
     return 0.0
 }
 
@@ -525,17 +732,24 @@ pub func numberField(key: string) -> (float64) {
 pub func stringField(key: string) -> (string) {
     if !builder_active {
         builder_fail("json builder not active")
+
         return ""
     }
-    switch requireString(&builder_obj, clone_string(&key)) {
+
+    switch requireString(
+        &builder_obj,
+        clone_string(&key),
+    ) {
         case Ok(v) {
             return v
         }
         case Err(e) {
             builder_fail(e)
+
             return ""
         }
     }
+
     return ""
 }
 
@@ -544,17 +758,24 @@ pub func stringField(key: string) -> (string) {
 pub func boolField(key: string) -> (bool) {
     if !builder_active {
         builder_fail("json builder not active")
+
         return false
     }
-    switch requireBool(&builder_obj, clone_string(&key)) {
+
+    switch requireBool(
+        &builder_obj,
+        clone_string(&key),
+    ) {
         case Ok(v) {
             return v
         }
         case Err(e) {
             builder_fail(e)
+
             return false
         }
     }
+
     return false
 }
 
@@ -563,7 +784,12 @@ pub func intOr(key: string, fallback: int) -> (int) {
     if !builder_active {
         return fallback
     }
-    return getIntOr(&builder_obj, clone_string(&key), fallback)
+
+    return getIntOr(
+        &builder_obj,
+        clone_string(&key),
+        fallback,
+    )
 }
 
 // numberOr returns the float64 value of the field, or the fallback if missing/invalid.
@@ -571,7 +797,12 @@ pub func numberOr(key: string, fallback: float64) -> (float64) {
     if !builder_active {
         return fallback
     }
-    return getNumberOr(&builder_obj, clone_string(&key), fallback)
+
+    return getNumberOr(
+        &builder_obj,
+        clone_string(&key),
+        fallback,
+    )
 }
 
 // stringOr returns the string value of the field, or the fallback if missing/invalid.
@@ -579,7 +810,12 @@ pub func stringOr(key: string, fallback: string) -> (string) {
     if !builder_active {
         return fallback
     }
-    return getStringOr(&builder_obj, clone_string(&key), fallback)
+
+    return getStringOr(
+        &builder_obj,
+        clone_string(&key),
+        fallback,
+    )
 }
 
 // boolOr returns the boolean value of the field, or the fallback if missing/invalid.
@@ -587,10 +823,18 @@ pub func boolOr(key: string, fallback: bool) -> (bool) {
     if !builder_active {
         return fallback
     }
-    return getBoolOr(&builder_obj, clone_string(&key), fallback)
+
+    return getBoolOr(
+        &builder_obj,
+        clone_string(&key),
+        fallback,
+    )
 }
 
-pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, string>) {
+pub func read_array<T>(
+    path: string,
+    f: func() -> (T),
+) -> (Result<Vec<T, _>, string>) {
     switch fs.readFile(path) {
         case Err(e) {
             return Err(e)
@@ -608,6 +852,7 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
                         case Ok(items) {
                             mut var out: Vec<T, _> = Vec.new()
                             mut var i: int = 0
+
                             while i < items.len() {
                                 switch asObject(items[i]) {
                                     case Err(e) {
@@ -615,7 +860,9 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
                                     }
                                     case Ok(obj) {
                                         builder_begin(obj)
+
                                         var item = f()
+
                                         switch builder_end() {
                                             case Err(e) {
                                                 return Err(e)
@@ -626,8 +873,10 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
                                         }
                                     }
                                 }
+
                                 i = i + 1
                             }
+
                             return Ok(out)
                         }
                     }
@@ -635,6 +884,7 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
             }
         }
     }
+
     return Err("failed to read array")
 }
 
@@ -642,22 +892,35 @@ pub func read_array<T>(path: string, f: func() -> (T)) -> (Result<Vec<T, _>, str
 // Pretty Printing
 // =============================================================================
 pub func pretty(j: Json) -> (string) {
-    return marshalPretty(j, 2)
+    return marshalPretty(
+        j,
+        2,
+    )
 }
 
 pub func marshalPretty(j: Json, indent: int) -> (string) {
     if indent <= 0 {
         return marshal(j)
     }
-    return marshal_pretty_inner(j, 0, indent)
+
+    return marshal_pretty_inner(
+        j,
+        0,
+        indent,
+    )
 }
 
 func indent_str(depth: int, indent: int) -> (string) {
     if indent <= 0 {
         return ""
     }
+
     var space: string = " "
-    return strings.repeat(&space, depth * indent)
+
+    return strings.repeat(
+        &space,
+        depth * indent,
+    )
 }
 
 func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
@@ -669,13 +932,17 @@ func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
             if b {
                 return "true"
             }
+
             return "false"
         }
         case Int(n) {
             return strconv.intToString(n)
         }
         case Float(n) {
-            return strconv.formatFloat(n, 6)
+            return strconv.formatFloat(
+                n,
+                6,
+            )
         }
         case String(s) {
             return quote_string(s)
@@ -684,40 +951,73 @@ func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
             if arr.len() == 0 {
                 return "[]"
             }
+
             mut var out: string = "[\n"
             mut var i: int = 0
+
             while i < arr.len() {
-                out = out + indent_str(depth + 1, indent)
-                out = out + marshal_pretty_inner(arr[i], depth + 1, indent)
+                out = out + indent_str(
+                    depth + 1,
+                    indent,
+                )
+                out = out + marshal_pretty_inner(
+                    arr[i],
+                    depth + 1,
+                    indent,
+                )
+
                 if i + 1 < arr.len() {
                     out = out + ","
                 }
+
                 out = out + "\n"
                 i = i + 1
             }
-            out = out + indent_str(depth, indent) + "]"
+
+            out = out + indent_str(
+                depth,
+                indent,
+            ) + "]"
+
             return out
         }
         case Object(entries) {
             if entries.len() == 0 {
                 return "{{}}"
             }
+
             mut var out: string = "{{\n"
             mut var i: int = 0
+
             while i < entries.len() {
-                out = out + indent_str(depth + 1, indent)
-                out = out + quote_string((entries[i]).key) + ": "
-                out = out + marshal_pretty_inner((entries[i]).value, depth + 1, indent)
+                out = out + indent_str(
+                    depth + 1,
+                    indent,
+                )
+                out = out + quote_string(entries[i].key) + ": "
+                out = out + marshal_pretty_inner(
+                    entries[i].value,
+                    depth + 1,
+                    indent,
+                )
+
                 if i + 1 < entries.len() {
                     out = out + ","
                 }
+
                 out = out + "\n"
                 i = i + 1
             }
-            out = out + indent_str(depth, indent) + "}}"
+
+            out = out + indent_str(
+                depth,
+                indent,
+            ) + "}}"
+
             return out
         }
     }
+
     return ""
 }
 
@@ -731,13 +1031,17 @@ pub func marshal(j: Json) -> (string) {
             if b {
                 return "true"
             }
+
             return "false"
         }
         case Int(n) {
             return strconv.intToString(n)
         }
         case Float(n) {
-            return strconv.formatFloat(n, 6)
+            return strconv.formatFloat(
+                n,
+                6,
+            )
         }
         case String(s) {
             return quote_string(s)
@@ -745,29 +1049,36 @@ pub func marshal(j: Json) -> (string) {
         case Array(arr) {
             mut var out: string = "["
             mut var i: int = 0
+
             while i < arr.len() {
                 if i > 0 {
                     out = out + ","
                 }
+
                 out = out + marshal(arr[i])
                 i = i + 1
             }
+
             return out + "]"
         }
         case Object(entries) {
             mut var out: string = "{{"
             mut var i: int = 0
+
             while i < entries.len() {
                 if i > 0 {
                     out = out + ","
                 }
+
                 // Inline access
-                out = out + quote_string((entries[i]).key) + ":" + marshal((entries[i]).value)
+                out = out + quote_string(entries[i].key) + ":" + marshal(entries[i].value)
                 i = i + 1
             }
+
             return out + "}}"
         }
     }
+
     return ""
 }
 
@@ -775,8 +1086,10 @@ pub func marshal(j: Json) -> (string) {
 func quote_string(s: string) -> (string) {
     mut var out: string = "\""
     mut var i: int = 0
+
     while i < s.len() {
         var c: char = s[i]
+
         if c == '"' {
             out = out + "\\\""
         } else if c == '\\' {
@@ -790,8 +1103,10 @@ func quote_string(s: string) -> (string) {
         } else {
             out = out + string(c)
         }
+
         i = i + 1
     }
+
     return out + "\""
 }
 
@@ -800,98 +1115,127 @@ func quote_string(s: string) -> (string) {
 // =============================================================================
 struct JsonParser {
     code: Vec<char, _>
-    pos: int
-    len: int
+    pos:  int
+    len:  int
 }
 
 pub func unmarshal(s: string) -> (Result<Json, string>) {
     mut var code: Vec<char, _> = Vec.new()
     mut var i: int = 0
+
     while i < s.len() {
         code.push(s[i])
         i = i + 1
     }
+
     mut var parser: JsonParser = JsonParser{
         code: code,
-        len: code.len(),
-        pos: 0,
+        len:  code.len(),
+        pos:  0,
     }
+
     parser.skip_whitespace()
+
     return parser.parse_value()
 }
 
 impl JsonParser as p {
     mut func parse_value() -> (Result<Json, string>) {
         p.skip_whitespace()
+
         if p.pos >= p.len {
             return Err("unexpected end of input")
         }
+
         var c: char = p.code[p.pos]
+
         if c == '{' {
             return p.parse_object()
         }
+
         if c == '[' {
             return p.parse_array()
         }
+
         if c == '"' {
             return p.parse_string()
         }
+
         if c == 't' || c == 'f' {
             return p.parseBool()
         }
+
         if c == 'n' {
             return p.parse_null()
         }
+
         if c == '-' {
             return p.parse_number()
         }
+
         switch c {
             case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                 return p.parse_number()
             }
         }
+
         return Err("invalid character at position " + strconv.intToString(p.pos))
     }
+
     mut func parse_object() -> (Result<Json, string>) {
         p.consume_char()
         // consume {
         p.skip_whitespace()
+
         mut var entries: Vec<JsonEntry, _> = Vec.new()
+
         if p.pos < p.len && p.code[p.pos] == '}' {
             p.consume_char()
+
             return Ok(Json.Object(entries))
         }
+
         while true {
             p.skip_whitespace()
+
             if p.pos >= p.len || p.code[p.pos] != '"' {
                 return Err("expected string key in object")
             }
+
             p.consume_char()
+
             // "
             var key_start: int = p.pos
+
             while p.pos < p.len && p.code[p.pos] != '"' {
-                if p.code[p.pos] == '\' {
+                if p.code[p.pos] == '\'' {
                     p.pos = p.pos + 1
                 }
+
                 p.pos = p.pos + 1
             }
+
             if p.pos >= p.len {
                 return Err("unterminated string")
             }
+
             mut var key: string = ""
             mut var k: int = key_start
+
             while k < p.pos {
                 key = key + string(p.code[k])
                 k = k + 1
             }
+
             p.consume_char()
-            // closing "
             p.skip_whitespace()
+
             if p.pos >= p.len || p.code[p.pos] != ':' {
                 return Err("expected ':' after key")
             }
+
             p.consume_char()
-            // :
+
             switch p.parse_value() {
                 case Ok(val) {
                     entries.push(JsonEntry{key: key, value: val})
@@ -900,28 +1244,37 @@ impl JsonParser as p {
                     return Err(e)
                 }
             }
+
             p.skip_whitespace()
+
             if p.pos < p.len && p.code[p.pos] == '}' {
                 p.consume_char()
+
                 return Ok(Json.Object(entries))
             }
+
             if p.pos >= p.len || p.code[p.pos] != ',' {
                 return Err("expected ',' or '}' in object")
             }
+
             p.consume_char()
         }
-        // ,
+
         return Err("unreachable")
     }
+
     mut func parse_array() -> (Result<Json, string>) {
         p.consume_char()
-        // consume [
         p.skip_whitespace()
+
         mut var elements: Vec<Json, _> = Vec.new()
+
         if p.pos < p.len && p.code[p.pos] == ']' {
             p.consume_char()
+
             return Ok(Json.Array(elements))
         }
+
         while true {
             switch p.parse_value() {
                 case Ok(val) {
@@ -931,34 +1284,48 @@ impl JsonParser as p {
                     return Err(e)
                 }
             }
+
             p.skip_whitespace()
+
             if p.pos < p.len && p.code[p.pos] == ']' {
                 p.consume_char()
+
                 return Ok(Json.Array(elements))
             }
+
             if p.pos >= p.len || p.code[p.pos] != ',' {
                 return Err("expected ',' or ']' in array")
             }
+
             p.consume_char()
         }
-        // ,
+
         return Err("unreachable")
     }
+
     mut func parse_string() -> (Result<Json, string>) {
         p.consume_char()
+
         mut var out: string = ""
+
         while p.pos < p.len {
             var c: char = p.code[p.pos]
+
             if c == '"' {
                 p.consume_char()
+
                 return Ok(Json.String(out))
             }
+
             if c == '\\' {
                 p.consume_char()
+
                 if p.pos >= p.len {
                     return Err("unterminated escape")
                 }
+
                 var esc: char = p.code[p.pos]
+
                 if esc == 'n' {
                     out = out + "\n"
                 } else if esc == 'r' {
@@ -975,10 +1342,13 @@ impl JsonParser as p {
             } else {
                 out = out + string(c)
             }
+
             p.consume_char()
         }
+
         return Err("unterminated string")
     }
+
     mut func parseBool() -> (Result<Json, string>) {
         if p.code[p.pos] == 't' {
             if p.match_keyword("true") {
@@ -987,138 +1357,131 @@ impl JsonParser as p {
         } else if p.match_keyword("false") {
             return Ok(Json.Boolean(false))
         }
+
         return Err("invalid boolean")
     }
+
     mut func parse_null() -> (Result<Json, string>) {
         if p.match_keyword("null") {
             return Ok(Json.Null)
         }
+
         return Err("invalid null")
     }
+
     mut func parse_number() -> (Result<Json, string>) {
         var start: int = p.pos
         mut var has_decimal: bool = false
+
         if p.pos < p.len && p.code[p.pos] == '-' {
             p.consume_char()
         }
+
         while p.pos < p.len {
-            // Inline check
             var c: char = p.code[p.pos]
             mut var is_d: bool = false
+
             switch c {
                 case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                     is_d = true
                 }
             }
+
             if !is_d {
                 break
             }
+
             p.consume_char()
         }
+
         if p.pos < p.len && p.code[p.pos] == '.' {
             has_decimal = true
             p.consume_char()
+
             while p.pos < p.len {
                 var c: char = p.code[p.pos]
                 mut var is_d: bool = false
+
                 switch c {
                     case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                         is_d = true
                     }
                 }
+
                 if !is_d {
                     break
                 }
+
                 p.consume_char()
             }
         }
+
         mut var num_str: string = ""
         mut var k: int = start
+
         while k < p.pos {
             num_str = num_str + string(p.code[k])
             k = k + 1
         }
+
         if has_decimal {
             return Ok(Json.Float(simple_atof(num_str)))
         }
+
         return Ok(Json.Int(simple_atoi(num_str)))
     }
+
     mut func skip_whitespace() -> (void) {
         while p.pos < p.len {
             var c: char = p.code[p.pos]
-            if c == ' ' || c == '
-' || c == '	' || c == '
-' {
+
+            if c == ' ' || c == '\n' || c == '\t' || c == '\n' {
                 p.pos = p.pos + 1
             } else {
                 return
             }
         }
     }
+
     mut func consume_char() -> (void) {
         p.pos = p.pos + 1
+
         return
     }
+
     mut func match_keyword(kw: string) -> (bool) {
         mut var i: int = 0
+
         while i < kw.len() {
             if p.pos + i >= p.len || p.code[p.pos + i] != kw[i] {
                 return false
             }
+
             i = i + 1
         }
+
         p.pos = p.pos + kw.len()
+
         return true
     }
 }
 
-// Minimal integer parser
 func simple_atoi(s: string) -> (int) {
     mut var i: int = 0
     mut var sign: int = 1
+
     if i < s.len() && s[i] == '-' {
         sign = -1
         i = i + 1
     } else if i < s.len() && s[i] == '+' {
         i = i + 1
     }
-    mut var val: int = 0
-    while i < s.len() {
-        mut var d: int = -1
-        switch s[i] {
-            case '0' { d = 0 }
-            case '1' { d = 1 }
-            case '2' { d = 2 }
-            case '3' { d = 3 }
-            case '4' { d = 4 }
-            case '5' { d = 5 }
-            case '6' { d = 6 }
-            case '7' { d = 7 }
-            case '8' { d = 8 }
-            case '9' { d = 9 }
-        }
-        if d == -1 {
-            break
-        }
-        val = val * 10 + d
-        i = i + 1
-    }
-    return sign * val
-}
 
-// Minimal float parser
-func simple_atof(s: string) -> (float64) {
-    mut var i: int = 0
-    mut var sign: float64 = 1.0
-    if i < s.len() && s[i] == '-' {
-        sign = -1.0
-        i = i + 1
-    } else if i < s.len() && s[i] == '+' {
-        i = i + 1
-    }
-    mut var val: float64 = 0.0
+    mut var val: int = 0
+
     while i < s.len() {
         mut var d: int = -1
+
         switch s[i] {
             case '0' {
                 d = 0
@@ -1151,17 +1514,83 @@ func simple_atof(s: string) -> (float64) {
                 d = 9
             }
         }
+
         if d == -1 {
             break
         }
+
+        val = val * 10 + d
+        i = i + 1
+    }
+
+    return sign * val
+}
+
+func simple_atof(s: string) -> (float64) {
+    mut var i: int = 0
+    mut var sign: float64 = 1.0
+
+    if i < s.len() && s[i] == '-' {
+        sign = -1.0
+        i = i + 1
+    } else if i < s.len() && s[i] == '+' {
+        i = i + 1
+    }
+
+    mut var val: float64 = 0.0
+
+    while i < s.len() {
+        mut var d: int = -1
+
+        switch s[i] {
+            case '0' {
+                d = 0
+            }
+            case '1' {
+                d = 1
+            }
+            case '2' {
+                d = 2
+            }
+            case '3' {
+                d = 3
+            }
+            case '4' {
+                d = 4
+            }
+            case '5' {
+                d = 5
+            }
+            case '6' {
+                d = 6
+            }
+            case '7' {
+                d = 7
+            }
+            case '8' {
+                d = 8
+            }
+            case '9' {
+                d = 9
+            }
+        }
+
+        if d == -1 {
+            break
+        }
+
         val = val * 10.0 + float64(d)
         i = i + 1
     }
+
     if i < s.len() && s[i] == '.' {
         i = i + 1
+
         mut var frac: float64 = 0.1
+
         while i < s.len() {
             mut var d: int = -1
+
             switch s[i] {
                 case '0' {
                     d = 0
@@ -1194,13 +1623,16 @@ func simple_atof(s: string) -> (float64) {
                     d = 9
                 }
             }
+
             if d == -1 {
                 break
             }
+
             val = val + float64(d) * frac
             frac = frac * 0.1
             i = i + 1
         }
     }
+
     return val * sign
 }

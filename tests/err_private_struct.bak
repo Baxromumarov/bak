@@ -6,12 +6,16 @@ import types "tests/typelib/typelib.bak"
 // ERROR TEST: Attempting to alias a PRIVATE struct from another module
 // This should fail because InternalData is not marked as 'pub' in typelib
 // =============================================================================
-
 // This should produce an error - InternalData is private
 alias PrivateData = types.InternalData
 
 func main() -> (void) {
     var data: PrivateData = PrivateData{Secret: "secret", Value: 42}
-    println("This should not print:", data)
+
+    println(
+        "This should not print:",
+        data,
+    )
+
     return void
 }

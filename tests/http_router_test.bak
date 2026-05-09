@@ -1,56 +1,77 @@
 // Test HTTP Server with Router Pattern
 // Run this file as: ./bak tests/http_router_test.bak
 // Then in another terminal: curl http://localhost:8080/hello
-
 package main
 
 import http "std/http"
 
 // Handler for /hello
 func handle_hello(_req: http.Request) -> (http.Response) {
-    return http.text(200, "Hello, World!")
+    return http.text(
+        200,
+        "Hello, World!",
+    )
 }
 
 // Handler for /api/users (GET)
 func handle_get_users(_req: http.Request) -> (http.Response) {
-    return http.json(200, "{\"users\": [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]}")
+    return http.json(
+        200,
+        "{\"users\": [{\"id\": 1, \"name\": \"Alice\"}, {\"id\": 2, \"name\": \"Bob\"}]}",
+    )
 }
 
 // Handler for /api/users (POST)
 func handle_create_user(_req: http.Request) -> (http.Response) {
     // In a real app, we'd parse the request body
-    return http.json(201, "{\"id\": 3, \"name\": \"New User\"}")
+    return http.json(
+        201,
+        "{\"id\": 3, \"name\": \"New User\"}",
+    )
 }
 
 // Handler for /health
 func handle_health(_req: http.Request) -> (http.Response) {
-    return http.json(200, "{\"status\": \"ok\"}")
+    return http.json(
+        200,
+        "{\"status\": \"ok\"}",
+    )
 }
 
 // Handler for home page
 func handle_home(_req: http.Request) -> (http.Response) {
-    var html_content: string = "<html><head><title>Bak HTTP Server</title></head>" +
-        "<body><h1>Welcome to Bak HTTP Server!</h1>" +
-        "<p>Available routes:</p>" +
-        "<ul>" +
-        "<li>GET /hello - Hello World</li>" +
-        "<li>GET /health - Health check</li>" +
-        "<li>GET /api/users - List users</li>" +
-        "<li>POST /api/users - Create user</li>" +
-        "</ul></body></html>"
-    return http.html(200, html_content)
+    var html_content: string = "<html><head><title>Bak HTTP Server</title></head>" + "<body><h1>Welcome to Bak HTTP Server!</h1>" + "<p>Available routes:</p>" + "<ul>" + "<li>GET /hello - Hello World</li>" + "<li>GET /health - Health check</li>" + "<li>GET /api/users - List users</li>" + "<li>POST /api/users - Create user</li>" + "</ul></body></html>"
+
+    return http.html(
+        200,
+        html_content,
+    )
 }
 
 func main() -> (void) {
     mut var r = http.newRouter()
-    
+
     // Register routes
-    r.get("/", handle_home)
-    r.get("/hello", handle_hello)
-    r.get("/health", handle_health)
-    r.get("/api/users", handle_get_users)
-    r.post("/api/users", handle_create_user)
-    
+    r.get(
+        "/",
+        handle_home,
+    )
+    r.get(
+        "/hello",
+        handle_hello,
+    )
+    r.get(
+        "/health",
+        handle_health,
+    )
+    r.get(
+        "/api/users",
+        handle_get_users,
+    )
+    r.post(
+        "/api/users",
+        handle_create_user,
+    )
     println("Starting HTTP server with http...")
     println("Routes registered:")
     println("  GET  /")
@@ -59,8 +80,12 @@ func main() -> (void) {
     println("  GET  /api/users")
     println("  POST /api/users")
     println("")
-    
-    var result = http.listenAndServe(":8080", r)
+
+    var result = http.listenAndServe(
+        ":8080",
+        r,
+    )
+
     if result.isErr() {
         println("Server error: " + result.unwrapErr())
     }

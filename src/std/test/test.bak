@@ -24,14 +24,13 @@ import strings "std/strings"
 //   }
 //
 // =============================================================================
-
 // T is the test context object passed to every test function.
 // It tracks test state and collects failure messages.
 pub struct T {
-    failed: bool
-    failures: Vec<string, _>
-    name: string
-    case_desc: string
+    failed:     bool
+    failures:   Vec<string, _>
+    name:       string
+    case_desc:  string
     started_ns: int
 }
 
@@ -40,123 +39,118 @@ mut var quiet_mode: bool = false
 
 pub func setPrefix(prefix: string) -> (void) {
     name_prefix = prefix
+
     return void
 }
 
 pub func setQuiet(quiet: bool) -> (void) {
     quiet_mode = quiet
+
     return void
 }
 
 pub func clearPrefix() -> (void) {
     name_prefix = ""
+
     return void
 }
 
 // Create a new test context with the given test name.
 pub func new(name: string) -> (T) {
     mut var full_name: string = name
+
     if name_prefix != "" && !full_name.contains(":") {
         full_name = name_prefix + ":" + full_name
     }
+
     return T{
-        failed: false,
-        failures: Vec.new(),
-        name: full_name,
-        case_desc: "",
-        started_ns: __builtin_monotonic_now()
+        case_desc:  "",
+        failed:     false,
+        failures:   Vec.new(),
+        name:       full_name,
+        started_ns: __builtin_monotonic_now(),
     }
 }
 
 func formatValue<T>(val: T) -> (string) {
     var typeName: string = typeof(val)
+
     if typeName == "STRING" || typeName == "string" {
         return string(val)
     }
-    if typeName == "CHAR" || 
-        typeName == "char" {
+
+    if typeName == "CHAR" || typeName == "char" {
         return string(char(val))
     }
-    
-    if typeName == "INTEGER" ||
-        typeName == "int" ||
-        typeName == "int8" ||
-        typeName == "int16" ||
-        typeName == "int32" ||
-        typeName == "int64" ||
-        typeName == "uint" ||
-        typeName == "uint8" ||
-        typeName == "uint16" ||
-        typeName == "uint32" ||
-        typeName == "uint64" {
+
+    if typeName == "INTEGER" || typeName == "int" || typeName == "int8" || typeName == "int16" || typeName == "int32" || typeName == "int64" || typeName == "uint" || typeName == "uint8" || typeName == "uint16" || typeName == "uint32" || typeName == "uint64" {
         return strconv.intToString(int(val))
     }
-    if typeName == "FLOAT" ||
-        typeName == "float" ||
-        typeName == "float32" ||
-        typeName == "float64" {
-        return strconv.formatFloat(float64(val), 6)
+
+    if typeName == "FLOAT" || typeName == "float" || typeName == "float32" || typeName == "float64" {
+        return strconv.formatFloat(
+            float64(val),
+            6,
+        )
     }
+
     if typeName == "BOOLEAN" || typeName == "bool" {
         if int(val) == 0 {
             return "false"
         }
+
         return "true"
     }
+
     return "<value>"
 }
 
 impl T as t {
-
     // fail records a failure message but allows the test to continue.
     // Use this for non-fatal assertions where you want to collect
     // multiple failures before the test ends.
     pub mut func fail(msg: string) -> (void) {
         t.failed = true
+
         if t.case_desc != "" {
             t.failures.push("  case: " + t.case_desc + "\n" + msg)
         } else {
             t.failures.push(msg)
         }
     }
-
     // failNow records a failure and marks that the test should stop.
     // In the current implementation, this is the same as fail since
     // we don't have exceptions/panics for early exit.
     pub mut func failNow(msg: string) -> (void) {
         t.fail(msg)
+
         return void
     }
-
     // ok returns true if no failures have been recorded.
     pub func ok() -> (bool) {
         return !t.failed
     }
-
     // hasFailed returns true if any failures have been recorded.
     pub func hasFailed() -> (bool) {
         return t.failed
     }
-
     // getFailures returns a copy of all failure messages.
     pub func getFailures() -> (Vec<string, _>) {
         return t.failures
     }
-
     // getName returns the test name.
     pub func getName() -> (string) {
         return t.name
     }
-
     // failureCount returns the number of recorded failures.
     pub func failureCount() -> (int) {
         return t.failures.len()
     }
-
     // finish checks for failures, prints them, and exits if the test failed.
     pub func finish() -> (void) {
         last_result = finish(&t)
         has_last_result = true
+
         return void
     }
 
@@ -167,11 +161,9 @@ impl T as t {
     pub mut func clearCase() -> (void) {
         t.case_desc = ""
     }
-
     // -----------------------------------------------------------------------------
     // Assertions
     // -----------------------------------------------------------------------------
-
     pub mut func eq<U>(got: U, want: U) -> (void) {
         if got != want {
             t.fail("  expected: " + formatValue(want) + "\n  actual:   " + formatValue(got))
@@ -198,11 +190,21 @@ impl T as t {
 
     pub mut func eqFloat(got: float64, want: float64) -> (void) {
         mut var diff: float64 = got - want
+
         if diff < 0.0 {
             diff = -diff
         }
+
         if diff > 0.000001 {
-            t.fail("  expected: " + strconv.formatFloat(want, 6) + "\n  actual:   " + strconv.formatFloat(got, 6))
+            t.fail(
+                "  expected: " + strconv.formatFloat(
+                    want,
+                    6,
+                ) + "\n  actual:   " + strconv.formatFloat(
+                    got,
+                    6,
+                ),
+            )
         }
     }
 
@@ -247,19 +249,20 @@ impl T as t {
             case Ok(v) {
                 t.fail("  expected: Err\n  actual:   Ok(" + formatValue(v) + ")")
             }
-            case Err(_) {}
+            case Err(_) {
+            }
         }
     }
 
     pub mut func isOk<U>(res: Result<U, string>) -> (void) {
         switch res {
-            case Ok(_) {}
+            case Ok(_) {
+            }
             case Err(_) {
                 t.fail("  expected: Ok\n  actual:   Err")
             }
         }
     }
-    
     // String assertions helpers
     pub mut func contains(haystack: string, needle: string) -> (void) {
         if !haystack.contains(needle) {
@@ -271,13 +274,12 @@ impl T as t {
 // =============================================================================
 // Test TestResult Reporting
 // =============================================================================
-
 // TestResult represents the outcome of a single test.
 // Using struct instead of enum to avoid compiler codegen issues with enum identifiers.
 pub struct TestResult {
-    name: string
-    passed: bool
-    failures: Vec<string, _>
+    name:        string
+    passed:      bool
+    failures:    Vec<string, _>
     duration_ns: int
 }
 
@@ -288,54 +290,103 @@ pub struct TestResult {
 //   var result TestResult = test.finish(&t)
 pub func finish(t: &T) -> (TestResult) {
     mut var elapsed: int = __builtin_monotonic_now() - t.started_ns
+
     if elapsed < 0 {
         elapsed = 0
     }
+
     if !t.failed {
-        return TestResult{name: t.name, passed: true, failures: Vec.new(), duration_ns: elapsed}
+        return TestResult{
+            duration_ns: elapsed,
+            failures:    Vec.new(),
+            name:        t.name,
+            passed:      true,
+        }
     }
-    return TestResult{name: t.name, passed: false, failures: t.failures, duration_ns: elapsed}
+
+    return TestResult{
+        duration_ns: elapsed,
+        failures:    t.failures,
+        name:        t.name,
+        passed:      false,
+    }
 }
 
 mut var has_last_result: bool = false
-mut var last_result: TestResult = TestResult{name: "", passed: true, failures: Vec.new(), duration_ns: 0}
+mut var last_result: TestResult = TestResult{
+    duration_ns: 0,
+    failures:    Vec.new(),
+    name:        "",
+    passed:      true,
+}
 
 pub func takeLastResult() -> (Result<TestResult, string>) {
     if has_last_result {
         has_last_result = false
+
         return Ok(last_result)
     }
+
     return Err("no last result")
 }
 
 pub func failResult(name: string, msg: string) -> (TestResult) {
     mut var failures: Vec<string, _> = Vec.new()
+
     failures.push(msg)
-    return TestResult{name: name, passed: false, failures: failures, duration_ns: 0}
+
+    return TestResult{
+        duration_ns: 0,
+        failures:    failures,
+        name:        name,
+        passed:      false,
+    }
 }
 
 // =============================================================================
 // Simple Console Runner
 // =============================================================================
+func esc() -> (string) {
+    return string(char(27))
+}
 
-func esc() -> (string) { return string(char(27)) }
-func bold() -> (string) { return esc() + "[1m" }
-func red() -> (string) { return esc() + "[31m" }
-func green() -> (string) { return esc() + "[32m" }
-func yellow() -> (string) { return esc() + "[33m" }
-func cyan() -> (string) { return esc() + "[36m" }
-func reset() -> (string) { return esc() + "[0m" }
+func bold() -> (string) {
+    return esc() + "[1m"
+}
+
+func red() -> (string) {
+    return esc() + "[31m"
+}
+
+func green() -> (string) {
+    return esc() + "[32m"
+}
+
+func yellow() -> (string) {
+    return esc() + "[33m"
+}
+
+func cyan() -> (string) {
+    return esc() + "[36m"
+}
+
+func reset() -> (string) {
+    return esc() + "[0m"
+}
 
 func repeatText(unit: string, count: int) -> (string) {
     if count <= 0 {
         return ""
     }
+
     mut var out: string = ""
     mut var i: int = 0
+
     while i < count {
         out = out + unit
         i = i + 1
     }
+
     return out
 }
 
@@ -343,13 +394,18 @@ func padRight(s: string, width: int) -> (string) {
     if s.len() >= width {
         return s
     }
-    return s + repeatText(" ", width - s.len())
+
+    return s + repeatText(
+        " ",
+        width - s.len(),
+    )
 }
 
 func plural(n: int, one: string, many: string) -> (string) {
     if n == 1 {
         return one
     }
+
     return many
 }
 
@@ -357,19 +413,27 @@ func fileLabel() -> (string) {
     if name_prefix == "" {
         return ""
     }
+
     var split: path.Split = path.split(&name_prefix)
+
     if split.Base == "" || split.Base == "." {
         return name_prefix
     }
+
     return split.Base
 }
 
 func displayTestName(full: string) -> (string) {
     var sep: string = ":"
-    var idx: int = strings.lastIndexOf(&full, &sep)
+    var idx: int = strings.lastIndexOf(
+        &full,
+        &sep,
+    )
+
     if idx < 0 || idx + 1 >= full.len() {
         return full
     }
+
     return strings.substring(
         &full,
         idx + 1,
@@ -379,20 +443,31 @@ func displayTestName(full: string) -> (string) {
 
 func displayLocation(full: string) -> (string) {
     var sep: string = ":"
-    var idx: int = strings.lastIndexOf(&full, &sep)
+    var idx: int = strings.lastIndexOf(
+        &full,
+        &sep,
+    )
+
     if idx <= 0 {
         return full
     }
-    return strings.substring(&full, 0, idx)
+
+    return strings.substring(
+        &full,
+        0,
+        idx,
+    )
 }
 
 func formatDurationMs(ns: int) -> (string) {
     if ns <= 0 {
         return "0.0ms"
     }
+
     var tenths_ms: int = (ns + 50000) / 100000
     var whole: int = tenths_ms / 10
     var frac: int = tenths_ms % 10
+
     return strconv.intToString(whole) + "." + strconv.intToString(frac) + "ms"
 }
 
@@ -400,31 +475,42 @@ func failureHint() -> (string) {
     return "re-run this test with --run to isolate the failing case"
 }
 
-func splitFailureMessage(raw: string) -> (string, string) {
+func splitFailureMessage(raw: string) -> ((string, string)) {
     var newline: string = "\n"
-    var lines: Vec<string, _> = strings.split(&raw, &newline)
+    var lines: Vec<string, _> = strings.split(
+        &raw,
+        &newline,
+    )
+
     if lines.len() == 0 {
         return "", raw
     }
 
     var first: string = lines.get(0).unwrap()
     var case_prefix: string = "  case: "
-    if !strings.startsWith(&first, &case_prefix) {
+
+    if !strings.startsWith(
+        &first,
+        &case_prefix,
+    ) {
         return "", raw
     }
 
-    var case_name: string = strings.trim(&strings.substring(
-        &first,
-        case_prefix.len(),
-        first.len(),
-    ))
-
+    var case_name: string = strings.trim(
+        &strings.substring(
+            &first,
+            case_prefix.len(),
+            first.len(),
+        ),
+    )
     mut var body: string = ""
     mut var i: int = 1
+
     while i < lines.len() {
         if i > 1 {
             body = body + "\n"
         }
+
         body = body + lines.get(i).unwrap()
         i = i + 1
     }
@@ -435,7 +521,12 @@ func splitFailureMessage(raw: string) -> (string, string) {
 func indentBlock(text: string, prefix: string) -> (string) {
     var newline: string = "\n"
     var indented_newline: string = "\n" + prefix
-    return strings.replace(&text, &newline, &indented_newline)
+
+    return strings.replace(
+        &text,
+        &newline,
+        &indented_newline,
+    )
 }
 
 func printFailureDetails(r: TestResult) -> (void) {
@@ -448,23 +539,31 @@ func printFailureDetails(r: TestResult) -> (void) {
     println("  " + yellow() + "details" + reset())
 
     mut var j: int = 0
+
     while j < r.failures.len() {
         var failure: string = r.failures.get(j).unwrap()
         var (caseName, message) = splitFailureMessage(failure)
 
         println("    " + bold() + yellow() + "#" + strconv.intToString(j + 1) + reset())
+
         if caseName != "" {
             println("      " + cyan() + "case" + reset() + "    " + caseName)
         }
 
         if message != "" {
             println("      " + red() + "message" + reset())
-            println("        " + indentBlock(message, "        "))
+            println(
+                "        " + indentBlock(
+                    message,
+                    "        ",
+                ),
+            )
         }
 
         if j + 1 < r.failures.len() {
             println("")
         }
+
         j = j + 1
     }
 
@@ -475,8 +574,10 @@ func runQuiet(results: Vec<TestResult, _>) -> (bool) {
     mut var failed_count: int = 0
     mut var failed_names: Vec<string, _> = Vec.new()
     mut var i: int = 0
+
     while i < results.len() {
         var r: TestResult = results.get(i).unwrap()
+
         if r.passed {
             print(".")
         } else {
@@ -484,25 +585,32 @@ func runQuiet(results: Vec<TestResult, _>) -> (bool) {
             failed_count = failed_count + 1
             failed_names.push(r.name)
         }
+
         i = i + 1
     }
+
     println("")
+
     if failed_count == 0 {
         println(strconv.intToString(results.len()) + " ok")
+
         return true
     }
 
     if failed_count == 1 {
         println("1 failed  " + failed_names.get(0).unwrap())
+
         return false
     }
 
     println(strconv.intToString(failed_count) + " failed")
     i = 0
+
     while i < failed_names.len() {
         println("  " + failed_names.get(i).unwrap())
         i = i + 1
     }
+
     return false
 }
 
@@ -514,20 +622,31 @@ pub func runTests(results: Vec<TestResult, _>) -> (bool) {
 
     mut var name_width: int = 0
     mut var i: int = 0
+
     while i < results.len() {
         var current: TestResult = results.get(i).unwrap()
         var n: string = displayTestName(current.name)
+
         if n.len() > name_width {
             name_width = n.len()
         }
+
         i = i + 1
     }
+
     if name_width < 28 {
         name_width = 28
     }
 
     println("")
-    println(cyan() + "━━ Running " + strconv.intToString(results.len()) + " " + plural(results.len(), "test", "tests") + " ━━" + reset())
+    println(
+        cyan() + "━━ Running " + strconv.intToString(results.len()) + " " + plural(
+            results.len(),
+            "test",
+            "tests",
+        ) + " ━━" + reset(),
+    )
+
     if name_prefix != "" {
         println("")
         println("📁 " + fileLabel())
@@ -536,32 +655,45 @@ pub func runTests(results: Vec<TestResult, _>) -> (bool) {
 
     mut var passed_count: int = 0
     mut var failed_count: int = 0
+
     i = 0
+
     while i < results.len() {
         var r: TestResult = results.get(i).unwrap()
         mut var icon: string = green() + "✓" + reset()
+
         if !r.passed {
             icon = red() + "✗" + reset()
         }
-        mut var row: string = "  " + icon + " " + padRight(displayTestName(r.name), name_width) + "  " + formatDurationMs(r.duration_ns)
+
+        mut var row: string = "  " + icon + " " + padRight(
+            displayTestName(r.name),
+            name_width,
+        ) + "  " + formatDurationMs(r.duration_ns)
+
         if r.passed {
             passed_count = passed_count + 1
         } else {
             failed_count = failed_count + 1
             row = row + "  " + red() + "FAIL" + reset()
         }
+
         println(row)
         i = i + 1
     }
+
     println("")
 
     if failed_count > 0 {
         i = 0
+
         while i < results.len() {
             var r2: TestResult = results.get(i).unwrap()
+
             if !r2.passed {
                 printFailureDetails(r2)
             }
+
             i = i + 1
         }
     }
@@ -576,5 +708,6 @@ pub func runTests(results: Vec<TestResult, _>) -> (bool) {
     if failed_count == 0 {
         return true
     }
+
     return false
 }

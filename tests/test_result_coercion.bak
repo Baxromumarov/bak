@@ -2,5 +2,6 @@ package main
 
 func main() -> (void) {
     var x: Result<int64, string> = Ok(5)
+
     return void
 }

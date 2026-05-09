@@ -49,10 +49,12 @@ impl Queue as q {
     pub func toVec() -> (Vec<T, _>) {
         mut var out: Vec<T, _> = Vec.withCap(q.len())
         mut var i: int = q.head
+
         while i < q.items.len() {
             out.push(q.items[i])
             i = i + 1
         }
+
         return out
     }
 
@@ -64,6 +66,7 @@ impl Queue as q {
         if q.head >= q.items.len() {
             return defaultValue
         }
+
         return q.items[q.head]
     }
 
@@ -87,7 +90,9 @@ impl Queue as q {
 
     pub mut func drain() -> (Vec<T, _>) {
         var out: Vec<T, _> = q.toVec()
+
         q.clear()
+
         return out
     }
 

@@ -1,10 +1,16 @@
 package main
 
 // Test: unused private and public functions
-func helper() -> (void) {} // should warn (unused)
-pub func api() -> (void) {} // should NOT warn
+func helper() -> (void) {
+}
 
+// should warn (unused)
+pub func api() -> (void) {
+}
+
+// should NOT warn
 func main() -> (void) {
     api()
+
     return void
 }

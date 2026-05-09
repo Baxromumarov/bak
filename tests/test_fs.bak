@@ -3,87 +3,155 @@ package main
 
 func main() -> (void) {
     println("=== Testing fs module ===")
-    
     // Test fs.readFile
     println("\n1. Reading a file:")
+
     var result: Result<string, string> = fs.readFile("examples/hello.bak")
+
     switch result {
         case Ok(content) {
             println("File read successfully!")
-            println("First 50 chars:", content)
+            println(
+                "First 50 chars:",
+                content,
+            )
         }
         case Err(e) {
-            println("Error reading file:", e)
+            println(
+                "Error reading file:",
+                e,
+            )
         }
     }
-    
+
     // Test fs.exists
     println("\n2. Checking file existence:")
-    println("examples/hello.bak exists:", fs.exists("examples/hello.bak"))
-    println("nonexistent.txt exists:", fs.exists("nonexistent.txt"))
-    
+    println(
+        "examples/hello.bak exists:",
+        fs.exists("examples/hello.bak"),
+    )
+    println(
+        "nonexistent.txt exists:",
+        fs.exists("nonexistent.txt"),
+    )
     // Test fs.isDir
     println("\n3. Checking if path is directory:")
-    println("examples is dir:", fs.isDir("examples"))
-    println("examples/hello.bak is dir:", fs.isDir("examples/hello.bak"))
-    
+    println(
+        "examples is dir:",
+        fs.isDir("examples"),
+    )
+    println(
+        "examples/hello.bak is dir:",
+        fs.isDir("examples/hello.bak"),
+    )
     // Test fs.readDir
     println("\n4. Listing directory contents:")
+
     var entries: Result<Vec<string, _>, string> = fs.readDir("examples")
+
     switch entries {
         case Ok(files) {
-            println("Found", files.len(), "entries in examples/")
+            println(
+                "Found",
+                files.len(),
+                "entries in examples/",
+            )
+
             for file in files {
-                println("  -", file)
+                println(
+                    "  -",
+                    file,
+                )
             }
         }
         case Err(e) {
-            println("Error reading directory:", e)
+            println(
+                "Error reading directory:",
+                e,
+            )
         }
     }
-    
+
     // Test path functions
     println("\n5. Path operations:")
-    println("fs.join('pkg', 'parser', 'parser.go'):", fs.join("pkg", "parser", "parser.go"))
-    println("fs.ext('parser.go'):", fs.ext("parser.go"))
-    println("fs.base('pkg/parser/parser.go'):", fs.base("pkg/parser/parser.go"))
-    println("fs.dir('pkg/parser/parser.go'):", fs.dir("pkg/parser/parser.go"))
-    
+    println(
+        "fs.join('pkg', 'parser', 'parser.go'):",
+        fs.join(
+            "pkg",
+            "parser",
+            "parser.go",
+        ),
+    )
+    println(
+        "fs.ext('parser.go'):",
+        fs.ext("parser.go"),
+    )
+    println(
+        "fs.base('pkg/parser/parser.go'):",
+        fs.base("pkg/parser/parser.go"),
+    )
+    println(
+        "fs.dir('pkg/parser/parser.go'):",
+        fs.dir("pkg/parser/parser.go"),
+    )
     // Test fs.stat
     println("\n6. File info:")
+
     var info: Result<string, string> = fs.stat("examples/hello.bak")
+
     switch info {
         case Ok(stat) {
-            println("File:", stat)
+            println(
+                "File:",
+                stat,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
-    
+
     // Test write operations
     println("\n7. Write operations:")
-    var writeResult: Result<void, string> = fs.writeFile("/tmp/bak_test.txt", "Hello from bak!")
+
+    var writeResult: Result<void, string> = fs.writeFile(
+        "/tmp/bak_test.txt",
+        "Hello from bak!",
+    )
+
     switch writeResult {
         case Ok(v) {
             println("File written successfully!")
+
             var readBack: Result<string, string> = fs.readFile("/tmp/bak_test.txt")
+
             switch readBack {
                 case Ok(content) {
-                    println("Read back:", content)
+                    println(
+                        "Read back:",
+                        content,
+                    )
                 }
                 case Err(e) {
-                    println("Error reading back:", e)
+                    println(
+                        "Error reading back:",
+                        e,
+                    )
                 }
             }
         }
         case Err(e) {
-            println("Error writing file:", e)
+            println(
+                "Error writing file:",
+                e,
+            )
         }
     }
-    
+
     // Cleanup
     fs.remove("/tmp/bak_test.txt")
-    
     println("\n=== fs module tests complete ===")
 }

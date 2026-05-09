@@ -2,16 +2,19 @@ package net
 
 pub struct TcpStream {
     fd: int
-    // In the future: remoteAddr string, etc.
 }
 
+// In the future: remoteAddr string, etc.
 pub struct TcpListener {
     fd: int
-
 }
 
 pub func connect(host: string, port: int) -> (Result<TcpStream, string>) {
-    var res = __builtin_socket_connect(host, port)
+    var res = __builtin_socket_connect(
+        host,
+        port,
+    )
+
     switch res {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})
@@ -22,9 +25,12 @@ pub func connect(host: string, port: int) -> (Result<TcpStream, string>) {
     }
 }
 
-
 pub func connectTls(host: string, port: int) -> (Result<TcpStream, string>) {
-    var res = __builtin_socket_connect_tls(host, port)
+    var res = __builtin_socket_connect_tls(
+        host,
+        port,
+    )
+
     switch res {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})
@@ -36,15 +42,24 @@ pub func connectTls(host: string, port: int) -> (Result<TcpStream, string>) {
 }
 
 pub func setTimeout(s: &mut TcpStream, ms: int) -> (Result<void, string>) {
-    return __builtin_socket_set_timeout((*s).fd, ms)
+    return __builtin_socket_set_timeout(
+        (*s).fd,
+        ms,
+    )
 }
 
 pub func read(s: &mut TcpStream, count: int) -> (Result<Vec<int, _>, string>) {
-    return __builtin_socket_read((*s).fd, count)
+    return __builtin_socket_read(
+        (*s).fd,
+        count,
+    )
 }
 
 pub func write(s: &mut TcpStream, data: Vec<int, _>) -> (Result<void, string>) {
-    return __builtin_socket_write((*s).fd, data)
+    return __builtin_socket_write(
+        (*s).fd,
+        data,
+    )
 }
 
 pub func close(s: &mut TcpStream) -> (Result<void, string>) {
@@ -56,7 +71,11 @@ pub func closeListener(l: &mut TcpListener) -> (Result<void, string>) {
 }
 
 pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
-    var res = __builtin_socket_bind(host, port)
+    var res = __builtin_socket_bind(
+        host,
+        port,
+    )
+
     switch res {
         case Ok(fd) {
             return Ok(TcpListener{fd: fd})
@@ -69,6 +88,7 @@ pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
 
 pub func accept(l: &mut TcpListener) -> (Result<TcpStream, string>) {
     var res = __builtin_socket_accept((*l).fd)
+
     switch res {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})

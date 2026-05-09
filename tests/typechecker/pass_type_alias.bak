@@ -5,7 +5,7 @@ alias UserId = int
 alias Username = string
 
 struct User {
-    pub id: UserId
+    pub id:   UserId
     pub name: Username
 }
 
@@ -16,10 +16,19 @@ func createUser(id: UserId, name: Username) -> (User) {
 func main() -> (void) {
     var id: UserId = 42
     var name: Username = "Alice"
-    var user = createUser(id, name)
-    
-    println("User ID:", user.id)
-    println("Username:", user.name)
-    
+    var user = createUser(
+        id,
+        name,
+    )
+
+    println(
+        "User ID:",
+        user.id,
+    )
+    println(
+        "Username:",
+        user.name,
+    )
+
     return void
 }

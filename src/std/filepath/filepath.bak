@@ -1,13 +1,12 @@
 package filepath
 
 // File path helpers (currently identical to path).
-
 import path "std/path"
 
 pub const Separator: string = path.Separator
 
 pub struct Split {
-    pub Dir: string
+    pub Dir:  string
     pub Base: string
 }
 
@@ -24,7 +23,10 @@ pub func clean(p: string) -> (string) {
 }
 
 pub func join(a: string, b: string) -> (string) {
-    return path.join(a, b)
+    return path.join(
+        a,
+        b,
+    )
 }
 
 pub func joinParts(parts: Vec<string, _>) -> (string) {
@@ -56,10 +58,14 @@ pub func withoutExt(p: string) -> (string) {
 }
 
 pub func withExt(p: string, new_ext: string) -> (string) {
-    return path.withExt(&p, &new_ext)
+    return path.withExt(
+        &p,
+        &new_ext,
+    )
 }
 
 pub func split(p: string) -> (Split) {
     var s: path.Split = path.split(&p)
-    return Split{Dir: s.Dir, Base: s.Base}
+
+    return Split{Base: s.Base, Dir: s.Dir}
 }

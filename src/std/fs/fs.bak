@@ -5,12 +5,13 @@ import path "std/path"
 
 // File represents an open file handle
 pub struct File {
-    path: string
+    path:    string
     content: string
 }
 
 func clone_ref_string(path: &string) -> (string) {
     var bytes: Vec<int, _> = (*path).bytes()
+
     return __builtin_string_from_bytes(
         bytes,
         0,
@@ -25,18 +26,20 @@ pub func readFile(path: string) -> (Result<string, string>) {
     return __builtin_read_file(path)
 }
 
-
 // readFileBytes reads the raw bytes of a file and returns Result<Vec<int,_>, string>.
 pub func readFileBytes(path: &string) -> (Result<Vec<int, _>, string>) {
     var pathValue: string = clone_ref_string(path)
+
     switch readFile(pathValue) {
         case Ok(text) {
             mut var out: Vec<int, _> = Vec.new()
             mut var i: int = 0
+
             while i < text.len() {
                 out.push(int(text[i]))
                 i = i + 1
             }
+
             return Ok(out)
         }
         case Err(err) {
@@ -45,27 +48,36 @@ pub func readFileBytes(path: &string) -> (Result<Vec<int, _>, string>) {
     }
 }
 
-
 // writeFile writes content to a file, creating it if it doesn't exist.
 // Returns void on success, or an error message
 pub func writeFile(path: string, content: string) -> (Result<void, string>) {
-    return __builtin_write_file(path, content)
+    return __builtin_write_file(
+        path,
+        content,
+    )
 }
-
 
 // writeFileBytes writes raw bytes (Vec<int,_>) to a file.
-pub func writeFileBytes(path: &string, data: Vec<int, _>) -> (Result<void, string>) {
+pub func writeFileBytes(
+    path: &string,
+    data: Vec<int, _>,
+) -> (Result<void, string>) {
     // Use builtin to preserve raw bytes.
     var pathValue: string = clone_ref_string(path)
-    return __builtin_write_file_bytes(pathValue, data)
-}
 
+    return __builtin_write_file_bytes(
+        pathValue,
+        data,
+    )
+}
 
 // appendFile appends content to a file.
 pub func appendFile(path: string, content: string) -> (Result<void, string>) {
-    return __builtin_append_file(path, content)
+    return __builtin_append_file(
+        path,
+        content,
+    )
 }
-
 
 // exists checks if a file or directory exists
 pub func exists(path: string) -> (bool) {
@@ -77,12 +89,10 @@ pub func isFile(path: string) -> (bool) {
     return __builtin_is_file(path)
 }
 
-
 // isDir checks if the path is a directory.
 pub func isDir(path: string) -> (bool) {
     return __builtin_is_dir(path)
 }
-
 
 // remove deletes a file or empty directory
 pub func remove(path: string) -> (Result<void, string>) {
@@ -99,26 +109,28 @@ pub func readDir(path: string) -> (Result<Vec<DirEntry, _>, string>) {
     return __builtin_read_dir(path)
 }
 
-
 // DirEntry represents a directory entry
 pub struct DirEntry {
-    pub name: string
+    pub name:  string
     pub isDir: bool
 }
 
 // join joins path components
 pub func join(base: string, elem: string) -> (string) {
     mut var result: string = ""
+
     if base.len() == 0 {
         result = elem
     } else {
         var lastChar: char = base[base.len() - 1]
+
         if lastChar == char('/') {
             result = base + elem
         } else {
             result = base + "/" + elem
         }
     }
+
     return result
 }
 
@@ -130,44 +142,67 @@ pub func joinParts(parts: Vec<string, _>) -> (string) {
 // ext returns the file extension (including the dot)
 pub func ext(path: string) -> (string) {
     mut var dotIndex: int = -1
+
     for i in 0..path.len() {
         if path[i] == char('.') {
             dotIndex = i
         }
     }
+
     if dotIndex == -1 {
         return ""
     }
-    return substring(&path, dotIndex, path.len())
+
+    return substring(
+        &path,
+        dotIndex,
+        path.len(),
+    )
 }
 
 // base returns the last element of the path
 pub func base(path: string) -> (string) {
     mut var lastSlash: int = -1
+
     for i in 0..path.len() {
         if path[i] == char('/') {
             lastSlash = i
         }
     }
+
     mut var result: string = path
+
     if lastSlash != -1 {
-        result = substring(&path, lastSlash + 1, path.len())
+        result = substring(
+            &path,
+            lastSlash + 1,
+            path.len(),
+        )
     }
+
     return result
 }
 
 // dir returns all but the last element of the path
 pub func dir(path: string) -> (string) {
     mut var lastSlash: int = -1
+
     for i in 0..path.len() {
         if path[i] == char('/') {
             lastSlash = i
         }
     }
+
     mut var result: string = "."
+
     if lastSlash != -1 {
-        result = substring(&path, 0, lastSlash)
+        result = substring(
+            &path,
+            0,
+            lastSlash,
+        )
     }
+
     return result
 }
 
@@ -177,15 +212,21 @@ pub func ensureDir(path: string) -> (Result<void, string>) {
     if path.len() == 0 {
         return Err("path is empty")
     }
+
     var existsPath: string = clone_ref_string(&path)
+
     if exists(existsPath) {
         var dirPath: string = clone_ref_string(&path)
+
         if isDir(dirPath) {
             return Ok(void)
         }
+
         var msgPath: string = clone_ref_string(&path)
+
         return Err("path exists and is not a directory: " + msgPath)
     }
+
     return mkdir(path)
 }
 
@@ -203,11 +244,16 @@ pub func readFileOr(path: string, fallback: string) -> (string) {
 
 // writeIfChanged writes file contents only when different.
 // Returns Ok(true) when file was written, Ok(false) when unchanged.
-pub func writeIfChanged(path: string, content: string) -> (Result<bool, string>) {
+pub func writeIfChanged(
+    path: string,
+    content: string,
+) -> (Result<bool, string>) {
     var existsPath: string = clone_ref_string(&path)
     var filePath: string = clone_ref_string(&path)
+
     if exists(existsPath) && isFile(filePath) {
         var readPath: string = clone_ref_string(&path)
+
         switch readFile(readPath) {
             case Ok(current) {
                 if current == content {
@@ -220,7 +266,10 @@ pub func writeIfChanged(path: string, content: string) -> (Result<bool, string>)
         }
     }
 
-    switch writeFile(path, content) {
+    switch writeFile(
+        path,
+        content,
+    ) {
         case Ok(_) {
             return Ok(true)
         }
@@ -233,8 +282,10 @@ pub func writeIfChanged(path: string, content: string) -> (Result<bool, string>)
 // substring returns a substring from start to end (exclusive)
 func substring(s: &string, start: int, end: int) -> (string) {
     mut var result: string = ""
+
     for i in start..end {
         result = result + string(char(s[i]))
     }
+
     return result
 }

@@ -8,22 +8,33 @@ struct Container {
 impl Container as c {
     func printAll() -> (void) {
         mut var count: int = 0
+
         for item in c.items {
-            println("Item:", item)
+            println(
+                "Item:",
+                item,
+            )
             count = count + 1
+
             if count > 5 {
                 println("INFINITE LOOP!")
+
                 return
             }
         }
-        println("Done, count:", count)
+
+        println(
+            "Done, count:",
+            count,
+        )
     }
 }
 
 func main() -> (void) {
     var cont: Container = Container{
-        items: Vec.from(["a", "b", "c"])
+        items: Vec.from(["a", "b", "c"]),
     }
+
     cont.printAll()
     println("Test complete")
 }

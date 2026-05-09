@@ -166,8 +166,9 @@ func main() -> (void) {
         f,
         s,
     )
-    println("
-=== Language features tests complete ===")
+    println(
+        "\n=== Language features tests complete ===",
+    )
 
     return void
 }

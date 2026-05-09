@@ -1,6 +1,8 @@
 package formatter
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -99,6 +101,22 @@ func TestFormatIndexFieldAssignmentRemainsParseable(t *testing.T) {
 	}
 }
 
+func TestFormatHalfOpenBracketRange(t *testing.T) {
+	input := "package main\nfunc main()->(void){for n in [0,10){println(n)}}"
+	want := "package main\n\nfunc main() -> (void) {\n    for n in [0, 10) {\n        println(n)\n    }\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+	if _, errs := Format(got); len(errs) > 0 {
+		t.Fatalf("formatted range should parse again: %v\n%s", errs, got)
+	}
+}
+
 func TestFormatLongFunctionSignature(t *testing.T) {
 	input := "package main\nfunc very_long_function_name(first_parameter_name: verylongtypename, second_parameter_name: verylongtypename) -> (void){return void}"
 	want := "package main\n\nfunc very_long_function_name(\n    first_parameter_name: verylongtypename,\n    second_parameter_name: verylongtypename,\n) -> (void) {\n    return void\n}\n"
@@ -140,6 +158,19 @@ func TestFormatImplMethodSpacing(t *testing.T) {
 	}
 }
 
+func TestFormatGenericMethodPreservesTypeParams(t *testing.T) {
+	input := "package main\nimpl Test as t{pub mut func eq<U>(got: U, want: U)->(void){return void}}"
+	want := "package main\n\nimpl Test as t {\n    pub mut func eq<U>(got: U, want: U) -> (void) {\n        return void\n    }\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+}
+
 func TestFormatImplMethodComments(t *testing.T) {
 	input := "package main\nimpl Foo as f{\n// first\nfunc a()->(void){return void}\n// second\nfunc b()->(void){return void}\n}"
 	want := "package main\n\nimpl Foo as f {\n    // first\n    func a() -> (void) {\n        return void\n    }\n    // second\n    func b() -> (void) {\n        return void\n    }\n}\n"
@@ -166,6 +197,34 @@ func TestFormatIdempotent(t *testing.T) {
 	}
 	if first != second {
 		t.Fatalf("formatting is not idempotent\nfirst:\n%q\nsecond:\n%q", first, second)
+	}
+}
+
+func TestFormatRealSourcesIdempotent(t *testing.T) {
+	paths := []string{
+		filepath.Join("..", "..", "examples", "control_flow.bak"),
+		filepath.Join("..", "..", "src", "std", "encoding", "json", "json.bak"),
+		filepath.Join("..", "..", "tests", "test_control_flow.bak"),
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read source: %v", err)
+			}
+			first, errs := Format(string(data))
+			if len(errs) > 0 {
+				t.Fatalf("unexpected parse errors: %v", errs)
+			}
+			second, errs := Format(first)
+			if len(errs) > 0 {
+				t.Fatalf("unexpected parse errors on second format: %v", errs)
+			}
+			if first != second {
+				t.Fatalf("formatting is not idempotent for %s", path)
+			}
+		})
 	}
 }
 

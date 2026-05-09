@@ -5,6 +5,10 @@ func add(a: int, b: int) -> (int) {
 }
 
 func main() -> (void) {
-    var _x: int = add(1, 2)
+    var _x: int = add(
+        1,
+        2,
+    )
+
     return void
 }

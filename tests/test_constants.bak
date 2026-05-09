@@ -8,15 +8,13 @@ const GREETING: string = "Hello world"
 const DEBUG: bool = true
 const TAB: char = '\t'
 const NEWLINE: char = '\n'
-
 // Block constants
 const (
-    MIN_VALUE int = 0
-    MAX_VALUE int = 100
-    APP_NAME string = "BakLang"
-    VERSION string = "1.0.0"
+    MIN_VALUE: int = 0
+    MAX_VALUE: int = 100
+    APP_NAME: string = "BakLang"
+    VERSION: string = "1.0.0"
 )
-
 // Constant expressions (arithmetic on constants)
 const DOUBLED: int = MAX_USERS * 2
 const HALF: int = MAX_USERS / 2
@@ -25,7 +23,7 @@ const RANGE: int = MAX_VALUE - MIN_VALUE
 func main() -> (void) {
     mut var passed: int = 0
     mut var failed: int = 0
-    
+
     // Test single constants
     if MAX_USERS == 1000 {
         println("[PASS] MAX_USERS == 1000")
@@ -34,7 +32,7 @@ func main() -> (void) {
         println("[FAIL] MAX_USERS != 1000")
         failed = failed + 1
     }
-    
+
     if PI > 3.14 && PI < 3.15 {
         println("[PASS] PI is approximately 3.14159")
         passed = passed + 1
@@ -42,7 +40,7 @@ func main() -> (void) {
         println("[FAIL] PI is not correct")
         failed = failed + 1
     }
-    
+
     if GREETING == "Hello world" {
         println("[PASS] GREETING == \"Hello world\"")
         passed = passed + 1
@@ -50,7 +48,7 @@ func main() -> (void) {
         println("[FAIL] GREETING is not correct")
         failed = failed + 1
     }
-    
+
     if DEBUG == true {
         println("[PASS] DEBUG == true")
         passed = passed + 1
@@ -58,7 +56,7 @@ func main() -> (void) {
         println("[FAIL] DEBUG is not true")
         failed = failed + 1
     }
-    
+
     if TAB.toAscii() == 9 {
         println("[PASS] TAB is tab character (ASCII 9)")
         passed = passed + 1
@@ -66,7 +64,7 @@ func main() -> (void) {
         println("[FAIL] TAB is not tab character")
         failed = failed + 1
     }
-    
+
     if NEWLINE.toAscii() == 10 {
         println("[PASS] NEWLINE is newline character (ASCII 10)")
         passed = passed + 1
@@ -74,7 +72,7 @@ func main() -> (void) {
         println("[FAIL] NEWLINE is not newline character")
         failed = failed + 1
     }
-    
+
     // Test block constants
     if MIN_VALUE == 0 && MAX_VALUE == 100 {
         println("[PASS] Block constants MIN_VALUE and MAX_VALUE")
@@ -83,7 +81,7 @@ func main() -> (void) {
         println("[FAIL] Block constants not correct")
         failed = failed + 1
     }
-    
+
     if APP_NAME == "BakLang" && VERSION == "1.0.0" {
         println("[PASS] Block constants APP_NAME and VERSION")
         passed = passed + 1
@@ -91,7 +89,7 @@ func main() -> (void) {
         println("[FAIL] Block constants strings not correct")
         failed = failed + 1
     }
-    
+
     // Test constant expressions
     if DOUBLED == 2000 {
         println("[PASS] DOUBLED == MAX_USERS * 2")
@@ -100,7 +98,7 @@ func main() -> (void) {
         println("[FAIL] DOUBLED is not correct")
         failed = failed + 1
     }
-    
+
     if HALF == 500 {
         println("[PASS] HALF == MAX_USERS / 2")
         passed = passed + 1
@@ -108,7 +106,7 @@ func main() -> (void) {
         println("[FAIL] HALF is not correct")
         failed = failed + 1
     }
-    
+
     if RANGE == 100 {
         println("[PASS] RANGE == MAX_VALUE - MIN_VALUE")
         passed = passed + 1
@@ -116,18 +114,24 @@ func main() -> (void) {
         println("[FAIL] RANGE is not correct")
         failed = failed + 1
     }
-    
+
     // Summary
     println("")
     println("Constants Test Summary:")
-    println("  Passed:", passed)
-    println("  Failed:", failed)
-    
+    println(
+        "  Passed:",
+        passed,
+    )
+    println(
+        "  Failed:",
+        failed,
+    )
+
     if failed > 0 {
         println("SOME TESTS FAILED!")
     } else {
         println("ALL TESTS PASSED!")
     }
-    
+
     return void
 }

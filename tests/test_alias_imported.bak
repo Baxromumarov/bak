@@ -6,107 +6,154 @@ import math "tests/mathlib.bak"
 // =============================================================================
 // Test: Alias for Imported PUBLIC Structs  
 // =============================================================================
-
 // Alias for imported public struct
 alias Point = types.Point
 alias Person = types.Person
 
 func testImportedPublicAlias() -> (void) {
     println("Imported public type aliases:")
-    
+
     // Use local alias for imported struct - must use full qualified type on both sides
     var p: Point = Point{X: 10, Y: 20}
-    println("  Point (alias for types.Point):", p)
-    
-    var person: Person = Person{Name: "Alice", Age: 30, Active: true}
-    println("  Person:", person)
-    
+
+    println(
+        "  Point (alias for types.Point):",
+        p,
+    )
+
+    var person: Person = Person{
+        Active: true,
+        Age:    30,
+        Name:   "Alice",
+    }
+
+    println(
+        "  Person:",
+        person,
+    )
     println("✓ Imported public alias tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Direct Usage of Imported Types (without local alias)
 // =============================================================================
-
 func testDirectImportedTypes() -> (void) {
     println("Direct imported type usage:")
-    
+
     // Use qualified name directly
     var p: types.Point = types.Point{X: 5, Y: 15}
-    println("  types.Point:", p)
-    
+
+    println(
+        "  types.Point:",
+        p,
+    )
+
     // Use imported function
-    var createdPoint: types.Point = types.createPoint(25, 35)
-    println("  types.createPoint(25, 35):", createdPoint)
-    
+    var createdPoint: types.Point = types.createPoint(
+        25,
+        35,
+    )
+
+    println(
+        "  types.createPoint(25, 35):",
+        createdPoint,
+    )
     // Use imported constant
-    println("  types.MAX_POINTS:", types.MAX_POINTS)
-    
+    println(
+        "  types.MAX_POINTS:",
+        types.MAX_POINTS,
+    )
     println("✓ Direct imported type tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Vec with Imported Types and Aliases
 // =============================================================================
-
 func testVecWithImportedTypes() -> (void) {
     println("Vec with imported types:")
-    
+
     // Vec of imported type via alias
     mut var points: Vec<Point, _> = Vec.new()
+
     points.push(Point{X: 1, Y: 2})
     points.push(Point{X: 3, Y: 4})
     points.push(Point{X: 5, Y: 6})
-    println("  Vec<Point, _>:", points)
-    
+    println(
+        "  Vec<Point, _>:",
+        points,
+    )
     println("✓ Vec with imported type tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Function Using Imported Types
 // =============================================================================
-
 func processPoint(p: &Point) -> (int) {
     return p.X + p.Y
 }
 
 func createPerson(name: string, age: int) -> (Person) {
-    return Person{Name: name, Age: age, Active: true}
+    return Person{
+        Active: true,
+        Age:    age,
+        Name:   name,
+    }
 }
 
 func testFunctionsWithImportedTypes() -> (void) {
     println("Functions with imported types:")
-    
+
     var p: Point = Point{X: 10, Y: 20}
     var sum: int = processPoint(&p)
-    println("  processPoint({{X: 10, Y: 20}}) =", sum)
-    
-    var person: Person = createPerson("Dave", 40)
-    println("  createPerson(Dave, 40) =", person)
-    
+
+    println(
+        "  processPoint({{X: 10, Y: 20}}) =",
+        sum,
+    )
+
+    var person: Person = createPerson(
+        "Dave",
+        40,
+    )
+
+    println(
+        "  createPerson(Dave, 40) =",
+        person,
+    )
     println("✓ Function with imported type tests passed")
+
     return void
 }
 
 // =============================================================================
 // Test: Multiple Imports with Aliases
 // =============================================================================
-
 alias Calculator = math.Calc
 
 func testMultipleImports() -> (void) {
     println("Multiple imports with aliases:")
-    
+
     var calc: Calculator = Calculator{A: 10, B: 20}
-    println("  Calculator (from mathlib):", calc)
-    
+
+    println(
+        "  Calculator (from mathlib):",
+        calc,
+    )
+
     var point: Point = Point{X: 5, Y: 10}
-    println("  Point (from typelib):", point)
-    
+
+    println(
+        "  Point (from typelib):",
+        point,
+    )
     println("✓ Multiple imports tests passed")
+
     return void
 }
 
@@ -115,25 +162,19 @@ func main() -> (void) {
     println("Imported Type Alias Tests")
     println("========================================")
     println("")
-    
     testImportedPublicAlias()
     println("")
-    
     testDirectImportedTypes()
     println("")
-    
     testVecWithImportedTypes()
     println("")
-    
     testFunctionsWithImportedTypes()
     println("")
-    
     testMultipleImports()
     println("")
-    
     println("========================================")
     println("All imported alias tests completed!")
     println("========================================")
-    
+
     return void
 }

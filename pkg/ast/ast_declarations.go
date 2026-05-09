@@ -277,6 +277,15 @@ func (md *MethodDecl) String() string {
 	}
 	out.WriteString("func ")
 	out.WriteString(md.Name.String())
+	if len(md.TypeParams) > 0 {
+		out.WriteString("<")
+		params := []string{}
+		for _, p := range md.TypeParams {
+			params = append(params, p.String())
+		}
+		out.WriteString(strings.Join(params, ", "))
+		out.WriteString(">")
+	}
 	out.WriteString("(")
 	params := []string{}
 	for _, p := range md.Parameters {

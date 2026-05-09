@@ -7,38 +7,55 @@ func runTests() -> (Vec<test.TestResult, _>) {
 
     {
         mut var t: test.T = test.new("vec.reverse")
+
         test_reverse(&mut t)
         results.push(test.finish(&t))
     }
     {
         mut var t: test.T = test.new("vec.contains")
+
         test_contains(&mut t)
         results.push(test.finish(&t))
     }
+
     return results
 }
 
 func test_reverse() -> (void) {
     mut var t: test.T = test.new("test_reverse")
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(1)
     v.push(2)
     v.push(3)
-    
     // Reverse
     v.reverse()
-    
-    t.eq(v[0], 3)
-    t.eq(v[1], 2)
-    t.eq(v[2], 1)
+    t.eq(
+        v[0],
+        3,
+    )
+    t.eq(
+        v[1],
+        2,
+    )
+    t.eq(
+        v[2],
+        1,
+    )
 }
 
 func test_contains() -> (void) {
     mut var t: test.T = test.new("test_contains")
     mut var v: Vec<string, _> = Vec.new()
+
     v.push("a")
     v.push("b")
-    
-    t.eq(v.contains("a"), true)
-    t.eq(v.contains("c"), false)
+    t.eq(
+        v.contains("a"),
+        true,
+    )
+    t.eq(
+        v.contains("c"),
+        false,
+    )
 }

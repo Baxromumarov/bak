@@ -599,6 +599,31 @@ func TestParseFunctionLiteral(t *testing.T) {
 	`))
 }
 
+func TestParseTypeBuiltinExpression(t *testing.T) {
+	t.Parallel()
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			var name: string = type(1)
+			if type(name) == "string" {
+				println(name)
+			}
+		}
+	`))
+}
+
+func TestParseHalfOpenBracketRange(t *testing.T) {
+	t.Parallel()
+	parseValidSource(t, source(`
+		package main
+		func main() -> (void) {
+			for n in [0, 10) {
+				println(n)
+			}
+		}
+	`))
+}
+
 func TestParseResultTypes(t *testing.T) {
 	t.Parallel()
 	parseValidSource(t, source(`

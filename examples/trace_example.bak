@@ -1,20 +1,25 @@
 package main
 
-trace func multiply(a int, b int) -> (int) {
+func multiply(a: int, b: int) -> (int) {
     return a * b
 }
 
-trace func compute(base int) -> (int) {
-    var doubled: int = multiply(base, 2)
+func compute(base: int) -> (int) {
+    var doubled: int = multiply(
+        base,
+        2,
+    )
+
     return doubled + 1
 }
 
 func main() -> (void) {
     var result = compute(10)
-    println("Result of compute(10):", result)
+
+    println(
+        "Result of compute(10):",
+        result,
+    )
 
     return void
 }
-
-
-

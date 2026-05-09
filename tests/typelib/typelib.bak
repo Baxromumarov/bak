@@ -5,7 +5,6 @@ package typelib
 // =============================================================================
 // PUBLIC TYPES - should be accessible from other packages
 // =============================================================================
-
 // Public struct
 pub struct Point {
     pub X: int
@@ -14,20 +13,17 @@ pub struct Point {
 
 // Public struct with multiple fields
 pub struct Person {
-    pub Name: string
-    pub Age: int
+    pub Name:   string
+    pub Age:    int
     pub Active: bool
 }
 
 // Public alias for a primitive
 pub alias Score = int
-
 // Public alias for a struct
 pub alias Coordinate = Point
-
 // Public type definition (distinct type)
 pub type UserID = int
-
 // Public type definition for string
 pub type Username = string
 
@@ -47,16 +43,14 @@ pub func createCoordinate(x: int, y: int) -> (Coordinate) {
 // =============================================================================
 // PRIVATE TYPES - should NOT be accessible from other packages
 // =============================================================================
-
 // Private struct (no pub keyword)
 struct InternalData {
     Secret: string
-    Value: int
+    Value:  int
 }
 
 // Private alias
 alias InternalScore = int
-
 // Private type definition
 type InternalID = int
 

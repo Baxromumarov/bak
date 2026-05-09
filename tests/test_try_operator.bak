@@ -1,40 +1,44 @@
 package main
 
 // --- Result tests ---
-
 func might_fail(ok: bool) -> (Result<int, string>) {
     if ok {
         return Ok(42)
     }
+
     return Err("something went wrong")
 }
 
 func use_result_ok() -> (Result<int, string>) {
-    var val: int = might_fail(true)?
+    var val: int = 
+
     return Ok(val + 1)
 }
 
 func use_result_err() -> (Result<int, string>) {
-    var val: int = might_fail(false)?
+    var val: int = 
+
     return Ok(val + 1)
 }
 
 // --- Additional Result tests ---
-
 func find_value(present: bool) -> (Result<int, string>) {
     if present {
         return Ok(100)
     }
+
     return Err("missing value")
 }
 
 func use_option_some() -> (Result<int, string>) {
-    var val: int = find_value(true)?
+    var val: int = 
+
     return Ok(val + 1)
 }
 
 func use_option_none() -> (Result<int, string>) {
-    var val: int = find_value(false)?
+    var val: int = 
+
     return Ok(val + 1)
 }
 

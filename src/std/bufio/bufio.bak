@@ -6,21 +6,20 @@ import io "std/io"
 // Buffered I/O
 // =============================================================================
 // Buffered wrappers around io.Reader and io.Writer.
-
 pub struct BufferedReader {
     reader: io.Reader
-    buf: string
-    pos: int
-    size: int
+    buf:    string
+    pos:    int
+    size:   int
 }
 
 // newBufferedReader creates a buffered reader wrapping an io.Reader.
 pub func newBufferedReader(r: io.Reader) -> (BufferedReader) {
     return BufferedReader{
+        buf:    "",
+        pos:    0,
         reader: r,
-        buf: "",
-        pos: 0,
-        size: 0
+        size:   0,
     }
 }
 
@@ -28,106 +27,136 @@ impl BufferedReader as br {
     // fill reads more data into the buffer.
     mut func fill() -> (void) {
         var chunk: string = br.reader.read(4096)
+
         if chunk.len() > 0 {
             br.buf = br.buf + chunk
             br.size = br.buf.len()
         }
+
         return void
     }
-
     // readLine returns the next line including newline, or Err on EOF.
     pub mut func readLine() -> (Result<string, string>) {
         mut var line: string = ""
+
         while true {
             // Look for newline in current buffer
             mut var i: int = br.pos
+
             while i < br.size {
                 if br.buf[i] == '\n' {
                     var end: int = i + 1
+
                     if i > br.pos && br.buf[i - 1] == '\r' {
-                        line = line + br.buf.substring(br.pos, i - 1)
+                        line = line + br.buf.substring(
+                            br.pos,
+                            i - 1,
+                        )
                     } else {
-                        line = line + br.buf.substring(br.pos, i)
+                        line = line + br.buf.substring(
+                            br.pos,
+                            i,
+                        )
                     }
+
                     br.pos = end
+
                     return Ok(line)
                 }
+
                 i = i + 1
             }
+
             // No newline found: append rest of buffer and refill
             if br.pos < br.size {
-                line = line + br.buf.substring(br.pos, br.size)
+                line = line + br.buf.substring(
+                    br.pos,
+                    br.size,
+                )
             }
+
             br.fill()
+
             if br.pos >= br.size {
                 if line.len() > 0 {
                     return Ok(line)
                 }
+
                 return Err("eof")
             }
         }
+
         return Err("eof")
     }
-
     // readAll reads all remaining data.
     pub mut func readAll() -> (string) {
         mut var result: string = ""
+
         if br.pos < br.size {
-            result = result + br.buf.substring(br.pos, br.size)
+            result = result + br.buf.substring(
+                br.pos,
+                br.size,
+            )
             br.pos = br.size
         }
+
         while true {
             var chunk: string = br.reader.read(4096)
+
             if chunk.len() == 0 {
                 return result
             }
+
             result = result + chunk
         }
+
         return result
     }
-
     // peek returns the next character without consuming it.
     pub mut func peek() -> (Result<char, string>) {
         if br.pos >= br.size {
             br.fill()
         }
+
         if br.pos >= br.size {
             return Err("eof")
         }
+
         return Ok(br.buf[br.pos])
     }
-
     // isEof returns true if no more data is available.
     pub mut func isEof() -> (bool) {
         if br.pos < br.size {
             return false
         }
+
         br.fill()
+
         return br.pos >= br.size
     }
 }
 
 pub struct BufferedWriter {
     writer: io.Writer
-    buf: string
-    cap: int
+    buf:    string
+    cap:    int
 }
 
 // newBufferedWriter creates a buffered writer with default 4096 byte buffer.
 pub func newBufferedWriter(w: io.Writer) -> (BufferedWriter) {
     return BufferedWriter{
+        buf:    "",
+        cap:    4096,
         writer: w,
-        buf: "",
-        cap: 4096
     }
 }
 
 // newBufferedWriterSized creates a buffered writer with custom buffer size.
 pub func newBufferedWriterSized(w: io.Writer, size: int) -> (BufferedWriter) {
     return BufferedWriter{
+        buf:    "",
+        cap:    size,
         writer: w,
-        buf: "",
-        cap: size
     }
 }
 
@@ -135,28 +164,29 @@ impl BufferedWriter as bw {
     // write appends data to the buffer, flushing if needed.
     pub mut func write(s: string) -> (void) {
         bw.buf = bw.buf + s
+
         if bw.buf.len() >= bw.cap {
             bw.flush()
         }
+
         return void
     }
-
     // writeLine appends a line with newline.
     pub mut func writeLine(s: string) -> (void) {
         bw.write(s)
         bw.write("\n")
+
         return void
     }
-
     // flush writes the buffer to the underlying writer.
     pub mut func flush() -> (void) {
         if bw.buf.len() > 0 {
             bw.writer.write(bw.buf)
             bw.buf = ""
         }
+
         return void
     }
-
     // toString returns the current buffer content without flushing.
     pub func toString() -> (string) {
         return bw.buf

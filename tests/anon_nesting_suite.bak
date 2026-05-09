@@ -5,8 +5,10 @@ func main() -> (void) {
         var inner: func(int) -> (int) = func(y: int) -> (int) {
             return y + 1
         }
+
         return inner(x)
     }
+
     println(outer(100))
 
     // Deeply nested
@@ -15,9 +17,12 @@ func main() -> (void) {
             var d3: func() -> (void) = func() -> (void) {
                 println("deeply nested")
             }
+
             d3()
         }
+
         d2()
     }
+
     deep()
 }

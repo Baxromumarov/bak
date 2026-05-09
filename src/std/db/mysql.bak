@@ -4,25 +4,40 @@ import db "std/db/db"
 
 // Native MySQL driver using built-in database connection.
 // Connection string format: "user:password@tcp(host:port)/database"
-
 // connect opens a MySQL connection and returns a Connection handle.
 pub func connect(conn_str: string) -> (Result<db.Connection, string>) {
     var result = __builtin_mysql_connect(conn_str)
+
     if result.isOk() {
         return Ok(db.Connection{Handle: result.unwrap()})
     }
+
     return Err(result.unwrapErr())
 }
 
 // query executes a SQL query and returns a QueryResult.
-pub func query(conn: &db.Connection, sql: string) -> (Result<db.QueryResult, string>) {
-    return __builtin_mysql_query(conn.Handle, sql)
+pub func query(
+    conn: &db.Connection,
+    sql: string,
+) -> (Result<db.QueryResult, string>) {
+    return __builtin_mysql_query(
+        conn.Handle,
+        sql,
+    )
 }
 
 // queryParams executes a SQL query with parameters and returns a QueryResult.
 // Parameters are passed as a Vec<string, _> to support placeholder binding.
-pub func queryParams(conn: &db.Connection, sql: string, params: Vec<string, _>) -> (Result<db.QueryResult, string>) {
-    return __builtin_mysql_query(conn.Handle, sql, params)
+pub func queryParams(
+    conn: &db.Connection,
+    sql: string,
+    params: Vec<string, _>,
+) -> (Result<db.QueryResult, string>) {
+    return __builtin_mysql_query(
+        conn.Handle,
+        sql,
+        params,
+    )
 }
 
 // close closes the database connection.

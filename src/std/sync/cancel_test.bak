@@ -10,12 +10,14 @@ mut var observed_cancel: bool = false
 func cancel_worker(t: &c.CancelToken) -> (void) {
     while !t.isCancelled() {
     }
+
     observed_cancel = true
 }
 
 func test_cancel_basic() -> (void) {
     mut var t: test.T = test.new("test_cancel_basic")
     var token: c.CancelToken = c.newCancelToken()
+
     t.isFalse(token.isCancelled())
     token.cancel()
     t.isTrue(token.isCancelled())
@@ -26,9 +28,15 @@ func test_cancel_basic() -> (void) {
 
 func test_cancel_thread_visibility() -> (void) {
     mut var t: test.T = test.new("test_cancel_thread_visibility")
+
     observed_cancel = false
+
     var token: c.CancelToken = c.newCancelToken()
-    var thr: thread.Thread = thread.spawn(cancel_worker, &token)
+    var thr: thread.Thread = thread.spawn(
+        cancel_worker,
+        &token,
+    )
+
     token.cancel()
     thr.join()
     t.isTrue(observed_cancel)
@@ -38,6 +46,7 @@ func test_cancel_thread_visibility() -> (void) {
 func test_cancel_after() -> (void) {
     mut var t: test.T = test.new("test_cancel_after")
     var token: c.CancelToken = c.cancelAfter(time.millis(10))
+
     thread.sleep(time.millis(25))
     t.isTrue(token.isCancelled())
     t.finish()
@@ -46,13 +55,11 @@ func test_cancel_after() -> (void) {
 func main() -> (void) {
     println("=== CancelToken Tests ===")
     println("")
-    
     test_cancel_basic()
     test_cancel_thread_visibility()
     test_cancel_after()
-    
     println("")
     println("All CancelToken tests completed!")
+
     return void
 }
-

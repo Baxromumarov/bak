@@ -7,7 +7,9 @@ func consume(s: string) -> (void) {
 // expect: E0100 use of moved value 's'
 func main() -> (void) {
     var s: string = "a"
+
     consume(s)
     consume(s)
+
     return void
 }

@@ -1,7 +1,6 @@
 package math
 
 // Math helpers for Bak programs that need floating-point utilities.
-
 pub const PI: float64 = 3.141592653589793
 pub const Tau: float64 = PI * 2.0
 pub const E: float64 = 2.718281828459045
@@ -9,7 +8,6 @@ pub const Phi: float64 = 1.618033988749895
 pub const Sqrt2: float64 = 1.4142135623730951
 pub const Ln2: float64 = 0.6931471805599453
 pub const Ln10: float64 = 2.302585092994046
-
 pub const EPSILON: float64 = 0.000000000001
 pub const SERIES_LIMIT: int = 60
 
@@ -18,6 +16,7 @@ pub func absInt(value: int) -> (int) {
     if value < 0 {
         return -value
     }
+
     return value
 }
 
@@ -25,9 +24,11 @@ pub func signInt(value: int) -> (int) {
     if value < 0 {
         return -1
     }
+
     if value > 0 {
         return 1
     }
+
     return 0
 }
 
@@ -35,6 +36,7 @@ pub func minInt(left: int, right: int) -> (int) {
     if left < right {
         return left
     }
+
     return right
 }
 
@@ -42,6 +44,7 @@ pub func maxInt(left: int, right: int) -> (int) {
     if left > right {
         return left
     }
+
     return right
 }
 
@@ -49,9 +52,11 @@ pub func clampInt(value: int, minVal: int, maxVal: int) -> (int) {
     if value < minVal {
         return minVal
     }
+
     if value > maxVal {
         return maxVal
     }
+
     return value
 }
 
@@ -60,6 +65,7 @@ pub func absFloat(value: float64) -> (float64) {
     if value < 0.0 {
         return -value
     }
+
     return value
 }
 
@@ -67,9 +73,11 @@ pub func signFloat(value: float64) -> (float64) {
     if value < 0.0 {
         return -1.0
     }
+
     if value > 0.0 {
         return 1.0
     }
+
     return 0.0
 }
 
@@ -77,6 +85,7 @@ pub func minFloat(left: float64, right: float64) -> (float64) {
     if left < right {
         return left
     }
+
     return right
 }
 
@@ -84,35 +93,45 @@ pub func maxFloat(left: float64, right: float64) -> (float64) {
     if left > right {
         return left
     }
+
     return right
 }
 
-pub func clampFloat(value: float64, minVal: float64, maxVal: float64) -> (float64) {
+pub func clampFloat(
+    value: float64,
+    minVal: float64,
+    maxVal: float64,
+) -> (float64) {
     if value < minVal {
         return minVal
     }
+
     if value > maxVal {
         return maxVal
     }
+
     return value
 }
-
 
 pub func floor(value: float64) -> (float64) {
     var truncated: int = int(value)
     var truncatedFloat: float64 = float64(truncated)
+
     if truncatedFloat > value {
         return truncatedFloat - 1.0
     }
+
     return truncatedFloat
 }
 
 pub func ceil(value: float64) -> (float64) {
     var truncated: int = int(value)
     var truncatedFloat: float64 = float64(truncated)
+
     if truncatedFloat < value {
         return truncatedFloat + 1.0
     }
+
     return truncatedFloat
 }
 
@@ -124,6 +143,7 @@ pub func round(value: float64) -> (float64) {
     if value < 0.0 {
         return ceil(value - 0.5)
     }
+
     return floor(value + 0.5)
 }
 
@@ -135,13 +155,16 @@ pub func mod(value: float64, modulus: float64) -> (float64) {
     if modulus == 0.0 {
         return 0.0
     }
+
     var normalized: float64 = trunc(value / modulus)
     mut var result: float64 = value - modulus * normalized
+
     if modulus > 0.0 && result < 0.0 {
         result = result + modulus
     } else if modulus < 0.0 && result > 0.0 {
         result = result + modulus
     }
+
     return result
 }
 
@@ -150,14 +173,18 @@ pub func exp(value: float64) -> (float64) {
     mut var sum: float64 = 1.0
     mut var term: float64 = 1.0
     mut var index: int = 1
+
     while index < SERIES_LIMIT {
         term = term * value / float64(index)
         sum = sum + term
+
         if absFloat(term) < EPSILON {
             break
         }
+
         index = index + 1
     }
+
     return sum
 }
 
@@ -168,10 +195,12 @@ pub func ln(value: float64) -> (float64) {
 
     mut var normalized: float64 = value
     mut var shift: int = 0
+
     while normalized > 2.0 {
         normalized = normalized / E
         shift = shift + 1
     }
+
     while normalized < 0.5 {
         normalized = normalized * E
         shift = shift - 1
@@ -182,13 +211,18 @@ pub func ln(value: float64) -> (float64) {
     mut var term: float64 = z
     mut var sum: float64 = z
     mut var idx: int = 1
+
     while idx < SERIES_LIMIT {
         term = term * zsq
+
         var denom: float64 = float64(2 * idx + 1)
-        sum = sum + term/denom
+
+        sum = sum + term / denom
+
         if absFloat(term) < EPSILON {
             break
         }
+
         idx = idx + 1
     }
 
@@ -203,11 +237,14 @@ pub func log2(value: float64) -> (float64) {
     if value <= 0.0 {
         return 0.0
     }
+
     var result: float64 = ln(value) / Ln2
     var nearest: float64 = round(result)
+
     if absFloat(result - nearest) < EPSILON {
         return nearest
     }
+
     return result
 }
 
@@ -215,11 +252,14 @@ pub func log10(value: float64) -> (float64) {
     if value <= 0.0 {
         return 0.0
     }
+
     var result: float64 = ln(value) / Ln10
     var nearest: float64 = round(result)
+
     if absFloat(result - nearest) < EPSILON {
         return nearest
     }
+
     return result
 }
 
@@ -228,31 +268,38 @@ pub func pow(base: float64, exponent: float64) -> (float64) {
     if exponent == 0.0 {
         return 1.0
     }
+
     if base == 0.0 {
         if exponent > 0.0 {
             return 0.0
         }
+
         return 0.0
     }
 
     var intExp: int = int(exponent)
+
     if float64(intExp) == exponent {
         mut var result: float64 = 1.0
         mut var count: int = absInt(intExp)
         mut var factor: float64 = base
+
         while count > 0 {
             result = result * factor
             count = count - 1
         }
+
         if intExp < 0 {
             result = 1.0 / result
         }
+
         return result
     }
 
     if base < 0.0 {
         return 0.0
     }
+
     return exp(exponent * ln(base))
 }
 
@@ -260,23 +307,32 @@ pub func sqrt(value: float64) -> (float64) {
     if value <= 0.0 {
         return 0.0
     }
+
     mut var guess: float64 = value
+
     if guess < 1.0 {
         guess = 1.0
     }
+
     mut var diff: float64 = 1.0
     mut var iter: int = 0
+
     while absFloat(diff) > EPSILON && iter < SERIES_LIMIT {
-        mut var next: float64 = 0.5 * (guess + value/guess)
+        mut var next: float64 = 0.5 * (guess + value / guess)
+
         diff = next - guess
         guess = next
         iter = iter + 1
     }
+
     return guess
 }
 
 pub func cbrt(value: float64) -> (float64) {
-    return pow(value, 1.0/3.0)
+    return pow(
+        value,
+        1.0 / 3.0,
+    )
 }
 
 pub func hypot(a: float64, b: float64) -> (float64) {
@@ -289,14 +345,18 @@ pub func sin(value: float64) -> (float64) {
     mut var term: float64 = angle
     mut var sum: float64 = angle
     mut var idx: int = 1
+
     while idx < SERIES_LIMIT {
-        term = term * -angle * angle / float64((2 * idx) * (2 * idx + 1))
+        term = term * -angle * angle / float64(2 * idx * (2 * idx + 1))
         sum = sum + term
+
         if absFloat(term) < EPSILON {
             break
         }
+
         idx = idx + 1
     }
+
     return sum
 }
 
@@ -305,22 +365,28 @@ pub func cos(value: float64) -> (float64) {
     mut var term: float64 = 1.0
     mut var sum: float64 = 1.0
     mut var idx: int = 1
+
     while idx < SERIES_LIMIT {
         term = term * -angle * angle / float64((2 * idx - 1) * (2 * idx))
         sum = sum + term
+
         if absFloat(term) < EPSILON {
             break
         }
+
         idx = idx + 1
     }
+
     return sum
 }
 
 pub func tan(value: float64) -> (float64) {
     var cosine: float64 = cos(value)
+
     if cosine == 0.0 {
         return 0.0
     }
+
     return sin(value) / cosine
 }
 
@@ -328,13 +394,17 @@ pub func asin(value: float64) -> (float64) {
     if value <= -1.0 {
         return -PI / 2.0
     }
+
     if value >= 1.0 {
         return PI / 2.0
     }
+
     mut var diff: float64 = 1.0 - value * value
+
     if diff < 0.0 {
         diff = 0.0
     }
+
     return atan(value / sqrt(diff))
 }
 
@@ -346,18 +416,23 @@ pub func atan(value: float64) -> (float64) {
     if value == 0.0 {
         return 0.0
     }
+
     mut var arg: float64 = value
     mut var sign: float64 = 1.0
+
     if arg < 0.0 {
         sign = -1.0
         arg = -arg
     }
+
     mut var result: float64
+
     if arg > 1.0 {
-        result = PI / 2.0 - atanSeries(1.0/arg)
+        result = PI / 2.0 - atanSeries(1.0 / arg)
     } else {
         result = atanSeries(arg)
     }
+
     return result * sign
 }
 
@@ -365,18 +440,23 @@ pub func atan2(y: float64, x: float64) -> (float64) {
     if x > 0.0 {
         return atan(y / x)
     }
+
     if x < 0.0 {
         if y >= 0.0 {
             return atan(y / x) + PI
         }
+
         return atan(y / x) - PI
     }
+
     if y > 0.0 {
         return PI / 2.0
     }
+
     if y < 0.0 {
         return -PI / 2.0
     }
+
     return 0.0
 }
 
@@ -400,9 +480,11 @@ pub func tanh(value: float64) -> (float64) {
     var ePlus: float64 = exp(value)
     var eMinus: float64 = exp(-value)
     mut var denom: float64 = ePlus + eMinus
+
     if denom == 0.0 {
         return 0.0
     }
+
     return (ePlus - eMinus) / denom
 }
 
@@ -411,12 +493,15 @@ func normalizeAngle(value: float64) -> (float64) {
     if value == 0.0 {
         return 0.0
     }
+
     mut var wrapped: float64 = value - Tau * floor(value / Tau)
+
     if wrapped > PI {
         wrapped = wrapped - Tau
     } else if wrapped < -PI {
         wrapped = wrapped + Tau
     }
+
     return wrapped
 }
 
@@ -425,31 +510,39 @@ func atanSeries(value: float64) -> (float64) {
     mut var sum: float64 = value
     var square: float64 = value * value
     mut var idx: int = 1
+
     while idx < SERIES_LIMIT {
         term = term * -square
+
         var denom: float64 = float64(2 * idx + 1)
-        sum = sum + term/denom
+
+        sum = sum + term / denom
+
         if absFloat(term) < EPSILON {
             break
         }
+
         idx = idx + 1
     }
+
     return sum
 }
 
 // =============================================================================
 // Number Theory
 // =============================================================================
-
 // gcd returns the greatest common divisor of a and b (Euclidean algorithm).
 pub func gcd(a: int, b: int) -> (int) {
     mut var x: int = absInt(a)
     mut var y: int = absInt(b)
+
     while y != 0 {
         var t: int = y
+
         y = x % y
         x = t
     }
+
     return x
 }
 
@@ -458,7 +551,13 @@ pub func lcm(a: int, b: int) -> (int) {
     if a == 0 || b == 0 {
         return 0
     }
-    return absInt(a / gcd(a, b) * b)
+
+    return absInt(
+        a / gcd(
+            a,
+            b,
+        ) * b,
+    )
 }
 
 // factorial returns n! (factorial). Returns 1 for n <= 0.
@@ -466,16 +565,20 @@ pub func factorial(n: int) -> (int) {
     if n <= 0 {
         return 1
     }
+
     if n > 20 {
         // Prevent overflow for 64-bit ints
         return 0
     }
+
     mut var result: int = 1
     mut var i: int = 2
+
     while i <= n {
         result = result * i
         i = i + 1
     }
+
     return result
 }
 
@@ -484,18 +587,23 @@ pub func fibonacci(n: int) -> (int) {
     if n <= 0 {
         return 0
     }
+
     if n == 1 {
         return 1
     }
+
     mut var a: int = 0
     mut var b: int = 1
     mut var i: int = 2
+
     while i <= n {
         var t: int = a + b
+
         a = b
         b = t
         i = i + 1
     }
+
     return b
 }
 
@@ -504,19 +612,25 @@ pub func isPrime(n: int) -> (bool) {
     if n < 2 {
         return false
     }
+
     if n == 2 {
         return true
     }
+
     if n % 2 == 0 {
         return false
     }
+
     mut var i: int = 3
+
     while i * i <= n {
         if n % i == 0 {
             return false
         }
+
         i = i + 2
     }
+
     return true
 }
 
@@ -525,13 +639,17 @@ pub func nextPrime(n: int) -> (int) {
     if n <= 2 {
         return 2
     }
+
     mut var candidate: int = n
+
     if candidate % 2 == 0 {
         candidate = candidate + 1
     }
+
     while !isPrime(candidate) {
         candidate = candidate + 2
     }
+
     return candidate
 }
 
@@ -540,18 +658,23 @@ pub func nCr(n: int, mut r: int) -> (int) {
     if r < 0 || r > n {
         return 0
     }
+
     if r == 0 || r == n {
         return 1
     }
+
     if r > n - r {
         r = n - r
     }
+
     mut var result: int = 1
     mut var i: int = 1
+
     while i <= r {
         result = result * (n - r + i) / i
         i = i + 1
     }
+
     return result
 }
 
@@ -560,19 +683,21 @@ pub func nPr(n: int, r: int) -> (int) {
     if r < 0 || r > n {
         return 0
     }
+
     mut var result: int = 1
     mut var i: int = 0
+
     while i < r {
         result = result * (n - i)
         i = i + 1
     }
+
     return result
 }
 
 // =============================================================================
 // Interpolation and Utility
 // =============================================================================
-
 // lerp linearly interpolates between a and b by t (0.0 to 1.0).
 pub func lerp(a: float64, b: float64, t: float64) -> (float64) {
     return a + (b - a) * t
@@ -583,12 +708,27 @@ pub func invLerp(a: float64, b: float64, value: float64) -> (float64) {
     if b == a {
         return 0.0
     }
+
     return (value - a) / (b - a)
 }
 
 // remap maps value from range [inMin, inMax] to [outMin, outMax].
-pub func remap(value: float64, inMin: float64, inMax: float64, outMin: float64, outMax: float64) -> (float64) {
-    return lerp(outMin, outMax, invLerp(inMin, inMax, value))
+pub func remap(
+    value: float64,
+    inMin: float64,
+    inMax: float64,
+    outMin: float64,
+    outMax: float64,
+) -> (float64) {
+    return lerp(
+        outMin,
+        outMax,
+        invLerp(
+            inMin,
+            inMax,
+            value,
+        ),
+    )
 }
 
 // step returns 0.0 if value < edge, otherwise 1.0.
@@ -596,26 +736,35 @@ pub func step(edge: float64, value: float64) -> (float64) {
     if value < edge {
         return 0.0
     }
+
     return 1.0
 }
 
 // smoothstep performs smooth Hermite interpolation between 0 and 1.
-pub func smoothstep(edge0: float64, edge1: float64, value: float64) -> (float64) {
+pub func smoothstep(
+    edge0: float64,
+    edge1: float64,
+    value: float64,
+) -> (float64) {
     if value <= edge0 {
         return 0.0
     }
+
     if value >= edge1 {
         return 1.0
     }
+
     var t: float64 = (value - edge0) / (edge1 - edge0)
+
     return t * t * (3.0 - 2.0 * t)
 }
 
 // copySign returns a value with the magnitude of mag and sign of sign.
 pub func copySign(mag: float64, sign: float64) -> (float64) {
-    if (mag < 0.0 && sign > 0.0) || (mag > 0.0 && sign < 0.0) {
+    if mag < 0.0 && sign > 0.0 || mag > 0.0 && sign < 0.0 {
         return -mag
     }
+
     return mag
 }
 
@@ -632,42 +781,49 @@ pub func toRadians(degrees: float64) -> (float64) {
 // sec returns the secant of value.
 pub func sec(value: float64) -> (float64) {
     var c: float64 = cos(value)
+
     if c == 0.0 {
         return 0.0
     }
+
     return 1.0 / c
 }
 
 // csc returns the cosecant of value.
 pub func csc(value: float64) -> (float64) {
     var s: float64 = sin(value)
+
     if s == 0.0 {
         return 0.0
     }
+
     return 1.0 / s
 }
 
 // cot returns the cotangent of value.
 pub func cot(value: float64) -> (float64) {
     var s: float64 = sin(value)
+
     if s == 0.0 {
         return 0.0
     }
+
     return cos(value) / s
 }
 
 // =============================================================================
 // Statistics for int Vec
 // =============================================================================
-
 // sumFloat returns the sum of a float Vec.
 pub func sumFloat(v: &Vec<float64, _>) -> (float64) {
     mut var total: float64 = 0.0
     mut var i: int = 0
+
     while i < v.len() {
         total = total + v[i]
         i = i + 1
     }
+
     return total
 }
 
@@ -676,12 +832,15 @@ pub func productInt(v: &Vec<int, _>) -> (int) {
     if v.len() == 0 {
         return 0
     }
+
     mut var total: int = 1
     mut var i: int = 0
+
     while i < v.len() {
         total = total * v[i]
         i = i + 1
     }
+
     return total
 }
 
@@ -690,12 +849,15 @@ pub func productFloat(v: &Vec<float64, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     mut var total: float64 = 1.0
     mut var i: int = 0
+
     while i < v.len() {
         total = total * v[i]
         i = i + 1
     }
+
     return total
 }
 
@@ -704,12 +866,15 @@ pub func meanInt(v: &Vec<int, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     mut var total: int = 0
     mut var i: int = 0
+
     while i < v.len() {
         total = total + v[i]
         i = i + 1
     }
+
     return float64(total) / float64(v.len())
 }
 
@@ -718,6 +883,7 @@ pub func meanFloat(v: &Vec<float64, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     return sumFloat(v) / float64(v.len())
 }
 
@@ -726,31 +892,42 @@ pub func medianInt(v: &Vec<int, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     // Create a copy and sort it
     mut var copy: Vec<int, _> = Vec.withCap(v.len())
     mut var i: int = 0
+
     while i < v.len() {
         copy.push(v[i])
         i = i + 1
     }
+
     // Simple bubble sort
     mut var j: int = 0
+
     while j < copy.len() {
         mut var k: int = 0
+
         while k < copy.len() - j - 1 {
             if copy[k] > copy[k + 1] {
                 var t: int = copy[k]
+
                 copy[k] = copy[k + 1]
                 copy[k + 1] = t
             }
+
             k = k + 1
         }
+
         j = j + 1
     }
+
     var mid: int = copy.len() / 2
+
     if copy.len() % 2 == 1 {
         return float64(copy[mid])
     }
+
     return (float64(copy[mid - 1]) + float64(copy[mid])) / 2.0
 }
 
@@ -759,14 +936,18 @@ pub func varianceInt(v: &Vec<int, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     var m: float64 = meanInt(v)
     mut var total: float64 = 0.0
     mut var i: int = 0
+
     while i < v.len() {
         var diff: float64 = float64(v[i]) - m
+
         total = total + diff * diff
         i = i + 1
     }
+
     return total / float64(v.len())
 }
 

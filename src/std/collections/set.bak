@@ -13,13 +13,20 @@ pub func new_set<T>() -> (Set<T>) {
 
 impl Set as s {
     pub mut func add(value: T) -> (void) {
-        s.map.insert(value, true)
+        s.map.insert(
+            value,
+            true,
+        )
     }
 
     pub mut func remove(value: T) -> (bool) {
         switch s.map.remove(&value) {
-            case Ok(_) { return true }
-            case Err(_) { return false }
+            case Ok(_) {
+                return true
+            }
+            case Err(_) {
+                return false
+            }
         }
     }
 
@@ -45,32 +52,39 @@ impl Set as s {
 
     pub func union(other: &Set<T>) -> (Set<T>) {
         mut var out: Set<T> = new_set()
+
         for value in s.values() {
             out.add(value)
         }
+
         for value in other.values() {
             out.add(value)
         }
+
         return out
     }
 
     pub func intersection(other: &Set<T>) -> (Set<T>) {
         mut var out: Set<T> = new_set()
+
         for value in s.values() {
             if other.contains(value) {
                 out.add(value)
             }
         }
+
         return out
     }
 
     pub func difference(other: &Set<T>) -> (Set<T>) {
         mut var out: Set<T> = new_set()
+
         for value in s.values() {
             if !other.contains(value) {
                 out.add(value)
             }
         }
+
         return out
     }
 
@@ -80,6 +94,7 @@ impl Set as s {
                 return false
             }
         }
+
         return true
     }
 
@@ -89,6 +104,7 @@ impl Set as s {
                 return true
             }
         }
+
         return false
     }
 
@@ -96,17 +112,21 @@ impl Set as s {
         if s.len() != other.len() {
             return false
         }
+
         return s.isSubsetOf(other)
     }
 
     pub func containsAll(values: &Vec<T, _>) -> (bool) {
         mut var i: int = 0
+
         while i < values.len() {
             if !s.contains(values[i]) {
                 return false
             }
+
             i = i + 1
         }
+
         return true
     }
 }

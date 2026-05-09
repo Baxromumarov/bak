@@ -3,30 +3,60 @@ package main
 import http "std/http"
 
 func main() -> (void) {
-    var params: Vec<http.QueryParam, _> = Vec.from([
-        http.QueryParam{name: "q", value: "bak"},
-        http.QueryParam{name: "page", value: "1"},
-    ])
-
-    var url: string = http.append_query("http://example.com/search", params)
-    var headers: Vec<http.Header, _> = Vec.from([
-        http.Header{name: "User-Agent", value: "bak-client/0.1"},
-    ])
-
+    var params: Vec<http.QueryParam, _> = Vec.from(
+        [
+            http.QueryParam{name: "q", value: "bak"},
+            http.QueryParam{name: "page", value: "1"},
+        ],
+    )
+    var url: string = http.append_query(
+        "http://example.com/search",
+        params,
+    )
+    var headers: Vec<http.Header, _> = Vec.from(
+        [
+            http.Header{name: "User-Agent", value: "bak-client/0.1"},
+        ],
+    )
     var raw: string = "GET /search?q=bak&page=1 HTTP/1.1\r\nHost: example.com\r\nUser-Agent: bak-client/0.1\r\n\r\n"
 
     switch http.parse_request(raw) {
         case Ok(req) {
-            println("url:", url)
-            println("path:", req.path)
-            println("user-agent header present:", req.header("User-Agent").is_some())
-            println("query count:", req.query_params().len())
-            println("example response:", http.text(200, "ok").body_string())
+            println(
+                "url:",
+                url,
+            )
+            println(
+                "path:",
+                req.path,
+            )
+            println(
+                "user-agent header present:",
+                req.header("User-Agent").is_some(),
+            )
+            println(
+                "query count:",
+                req.query_params().len(),
+            )
+            println(
+                "example response:",
+                http.text(
+                    200,
+                    "ok",
+                ).body_string(
+                ),
+            )
         }
         case Err(e) {
-            println("request parse failed:", e)
+            println(
+                "request parse failed:",
+                e,
+            )
         }
     }
 
-    println("default headers configured:", headers.len())
+    println(
+        "default headers configured:",
+        headers.len(),
+    )
 }

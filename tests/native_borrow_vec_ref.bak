@@ -6,13 +6,22 @@ func vec_len(v: &Vec<int, _>) -> (int) {
 
 func main() -> (int) {
     mut var nums: Vec<int, _> = Vec.new()
+
     nums.push(7)
     nums.push(9)
+
     var got: int = vec_len(&nums)
+
     if got != 2 {
-        println("FAIL: expected len 2, got", got)
+        println(
+            "FAIL: expected len 2, got",
+            got,
+        )
+
         return 1
     }
+
     println("PASS: borrow vec reference")
+
     return 0
 }

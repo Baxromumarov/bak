@@ -1,7 +1,6 @@
 package main
 
 // Simple test for borrowing literals without test framework
-
 // Test borrowing string literals
 func takes_string_ref(s: &string) -> (string) {
     return *s
@@ -11,28 +10,40 @@ func main() -> (void) {
     // Test 1: Borrow a string literal and dereference
     var borrowed: &string = &"hello"
     var value: string = *borrowed
+
     if value == "hello" {
         println("Test 1 PASSED: borrowed string literal")
     } else {
-        println("Test 1 FAILED: expected 'hello', got ", value)
+        println(
+            "Test 1 FAILED: expected 'hello', got ",
+            value,
+        )
     }
-    
+
     // Test 2: Borrow an integer literal and dereference
     var borrowed_int: &int = &42
     var int_value: int = *borrowed_int
+
     if int_value == 42 {
         println("Test 2 PASSED: borrowed int literal")
     } else {
-        println("Test 2 FAILED: expected 42, got ", int_value)
+        println(
+            "Test 2 FAILED: expected 42, got ",
+            int_value,
+        )
     }
-    
+
     // Test 3: Pass borrowed literal directly to function
     var result: string = takes_string_ref(&"world")
+
     if result == "world" {
         println("Test 3 PASSED: passed borrowed literal to function")
     } else {
-        println("Test 3 FAILED: expected 'world', got ", result)
+        println(
+            "Test 3 FAILED: expected 'world', got ",
+            result,
+        )
     }
-    
+
     println("All borrow literal tests completed!")
 }

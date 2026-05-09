@@ -1,7 +1,5 @@
 package os
 
-
-
 // args returns the command-line arguments passed to the program
 pub func args() -> (Vec<string, _>) {
     return __builtin_args()
@@ -24,7 +22,10 @@ pub func getenvResult(key: string) -> (Result<string, string>) {
 
 // setenv sets the value of the environment variable named by the key
 pub func setenv(key: string, value: string) -> (Result<void, string>) {
-    return __builtin_setenv(key, value)
+    return __builtin_setenv(
+        key,
+        value,
+    )
 }
 
 // cwd returns the current working directory
@@ -48,23 +49,32 @@ pub func executable() -> (Result<string, string>) {
 }
 
 pub struct ExecResult {
-    pub Output: string
-    pub Stdout: string
-    pub Stderr: string
-    pub ExitCode: int
-    pub TimedOut: bool
+    pub Output:    string
+    pub Stdout:    string
+    pub Stderr:    string
+    pub ExitCode:  int
+    pub TimedOut:  bool
     pub Truncated: bool
 }
 
 // exec runs an external command directly without invoking a shell.
 // Shell expansion, pipelines, and redirection are not interpreted.
-pub func exec(cmd: string, args: Vec<string, _>) -> (Result<ExecResult, string>) {
-    return __builtin_exec(cmd, args)
+pub func exec(
+    cmd: string,
+    args: Vec<string, _>,
+) -> (Result<ExecResult, string>) {
+    return __builtin_exec(
+        cmd,
+        args,
+    )
 }
 
 // chmod changes file mode bits (e.g. 493 for 0755).
 pub func chmod(path: string, mode: int) -> (Result<void, string>) {
-    return __builtin_chmod(path, mode)
+    return __builtin_chmod(
+        path,
+        mode,
+    )
 }
 
 pub func hostname() -> (Result<string, string>) {
@@ -80,7 +90,7 @@ pub func userHomeDir() -> (Result<string, string>) {
 }
 
 pub struct DirEntry {
-    pub Name: string
+    pub Name:  string
     pub IsDir: bool
-    pub Size: int
+    pub Size:  int
 }

@@ -4,12 +4,10 @@ pub const HTTP_1_0: string = "HTTP/1.0"
 pub const HTTP_1_1: string = "HTTP/1.1"
 pub const HTTP_2_0: string = "HTTP/2.0"
 pub const HTTP_3_0: string = "HTTP/3.0"
-
 pub const CRLF: string = "\r\n"
 pub const CRLFCRLF: string = "\r\n\r\n"
 pub const LF: string = "\n"
 pub const LFLF: string = "\n\n"
-
 const CH_A_UPPER: int = 65
 const CH_Z_UPPER: int = 90
 const CH_CASE_DELTA: int = 32
@@ -18,6 +16,7 @@ func ascii_lower(code: int) -> (int) {
     if code >= CH_A_UPPER && code <= CH_Z_UPPER {
         return code + CH_CASE_DELTA
     }
+
     return code
 }
 
@@ -25,13 +24,17 @@ pub func eqCaseInsensitive(a: &string, b: &string) -> (bool) {
     if a.len() != b.len() {
         return false
     }
+
     mut var i: int = 0
+
     while i < a.len() {
         if ascii_lower(int(a[i])) != ascii_lower(int(b[i])) {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
@@ -40,25 +43,32 @@ pub func indexOf(s: &string, toFind: &string) -> (int) {
     if toFind.len() == 0 {
         return 0
     }
+
     if toFind.len() > s.len() {
         return -1
     }
+
     mut var i: int = 0
+
     while i <= s.len() - toFind.len() {
         mut var match: bool = true
         mut var j: int = 0
+
         while j < toFind.len() {
             if s[i + j] != toFind[j] {
                 match = false
                 j = toFind.len()
             }
+
             j = j + 1
         }
+
         if match {
             return i
         }
+
         i = i + 1
     }
+
     return -1
 }
-

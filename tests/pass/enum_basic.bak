@@ -7,5 +7,6 @@ enum Status {
 
 func main() -> (void) {
     var s: Status = Active
+
     return void
 }

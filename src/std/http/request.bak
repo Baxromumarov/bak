@@ -19,16 +19,21 @@ pub struct Request {
 pub func parseQuery(path: string) -> (Vec<QueryParam, _>) {
     mut var out: Vec<QueryParam, _> = Vec.new()
     var idx_opt = path.indexOf("?")
+
     if idx_opt.isErr() {
         return out
     }
+
     var start: int = idx_opt.unwrap() + 1
+
     if start >= path.len() {
         return out
     }
+
     mut var i: int = start
     mut var segment_start: int = start
     mut var eq_index: int = -1
+
     while i <= path.len() {
         if i == path.len() || path[i] == '&' {
             if i > segment_start {
@@ -41,41 +46,52 @@ pub func parseQuery(path: string) -> (Vec<QueryParam, _>) {
                         eq_index + 1,
                         i,
                     )
+
                     out.push(QueryParam{name: key, value: value})
                 } else {
                     var key: string = path.substring(
                         segment_start,
                         i,
                     )
+
                     out.push(QueryParam{name: key, value: ""})
                 }
             }
+
             segment_start = i + 1
             eq_index = -1
             i = i + 1
             continue
         }
+
         if path[i] == '=' && eq_index == -1 {
             eq_index = i
         }
+
         i = i + 1
     }
+
     return out
 }
 
 pub func buildQuery(params: &Vec<QueryParam, _>) -> (string) {
     mut var out: string = ""
     mut var i: int = 0
+
     while i < params.len() {
         if i > 0 {
             out = out + "&"
         }
-        out = out + (params[i]).name
-        if (params[i]).value.len() > 0 {
-            out = out + "=" + (params[i]).value
+
+        out = out + params[i].name
+
+        if params[i].value.len() > 0 {
+            out = out + "=" + params[i].value
         }
+
         i = i + 1
     }
+
     return out
 }
 
@@ -83,13 +99,17 @@ pub func appendQuery(url: string, params: Vec<QueryParam, _>) -> (string) {
     if params.len() == 0 {
         return url
     }
+
     var qs: string = buildQuery(&params)
+
     if qs.len() == 0 {
         return url
     }
+
     if url.indexOf("?").isOk() {
         return url + "&" + qs
     }
+
     return url + "?" + qs
 }
 
@@ -112,12 +132,15 @@ impl Request as r {
     pub func query(name: string) -> (Result<string, string>) {
         var params: Vec<QueryParam, _> = parseQuery(r.path)
         mut var i: int = 0
+
         while i < params.len() {
-            if (params[i]).name == name {
-                return Ok((params[i]).value)
+            if params[i].name == name {
+                return Ok(params[i].value)
             }
+
             i = i + 1
         }
+
         return Err("query param not found")
     }
 
@@ -127,12 +150,15 @@ impl Request as r {
 
     pub func param(name: string) -> (Result<string, string>) {
         mut var i: int = 0
+
         while i < r.params.len() {
-            if (r.params[i]).name == name {
-                return Ok((r.params[i]).value)
+            if r.params[i].name == name {
+                return Ok(r.params[i].value)
             }
+
             i = i + 1
         }
+
         return Err("path param not found")
     }
 }
@@ -143,6 +169,7 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         &CRLFCRLF,
     )
     mut var sepLen: int = 4
+
     if headerEnd == -1 {
         headerEnd = indexOf(
             &raw,
@@ -150,9 +177,11 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         )
         sepLen = 2
     }
+
     if headerEnd == -1 {
         return Err("invalid request: no header terminator")
     }
+
     var headerPart = raw.substring(
         0,
         headerEnd,
@@ -165,13 +194,17 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         &headerPart,
         &LF,
     )
+
     if statusLineEnd == -1 {
         return Err("invalid request: no request line")
     }
+
     mut var requestLineTrimEnd: int = statusLineEnd
+
     if statusLineEnd > 0 && headerPart[statusLineEnd - 1] == '\r' {
         requestLineTrimEnd = statusLineEnd - 1
     }
+
     var requestLine = headerPart.substring(
         0,
         requestLineTrimEnd,
@@ -184,9 +217,11 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         &requestLine,
         &" ",
     )
+
     if firstSpace == -1 {
         return Err("invalid request line")
     }
+
     var method = requestLine.substring(
         0,
         firstSpace,
@@ -199,9 +234,11 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         &rest,
         &" ",
     )
+
     if secondSpace == -1 {
         return Err("invalid request line: missing HTTP version")
     }
+
     var pathStr = rest.substring(
         0,
         secondSpace,
@@ -212,20 +249,24 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
     )
     mut var headers: Vec<Header, _> = Vec.from([])
     mut var current: string = headersPart
+
     while current.len() > 0 {
         var lineEnd = indexOf(
             &current,
             &LF,
         )
         mut var line: string = ""
+
         if lineEnd == -1 {
             line = current
             current = ""
         } else {
             mut var trimEnd: int = lineEnd
+
             if lineEnd > 0 && current[lineEnd - 1] == '\r' {
                 trimEnd = lineEnd - 1
             }
+
             line = current.substring(
                 0,
                 trimEnd,
@@ -235,13 +276,16 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
                 current.len(),
             )
         }
+
         if line.len() == 0 {
             break
         }
+
         var colonIndex = indexOf(
             &line,
             &":",
         )
+
         if colonIndex != -1 {
             var name = line.substring(
                 0,
@@ -251,22 +295,28 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
                 colonIndex + 1,
                 line.len(),
             )
+
             if value.startsWith(" ") {
                 value = value.substring(
                     1,
                     value.len(),
                 )
             }
+
             headers.push(Header{name: name, value: value})
         }
     }
+
     var body: Vec<int, _> = bodyPart.bytes()
-    return Ok(Request{
-        body:    body,
-        headers: headers,
-        method:  method,
-        params:  Vec.new(),
-        path:    pathStr,
-        version: version,
-    })
+
+    return Ok(
+        Request{
+            body:    body,
+            headers: headers,
+            method:  method,
+            params:  Vec.new(),
+            path:    pathStr,
+            version: version,
+        },
+    )
 }

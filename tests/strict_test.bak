@@ -1,7 +1,6 @@
-
 package main
-// This file tests strict type checking features
 
+// This file tests strict type checking features
 // Unused global variable (should warn)
 var unusedGlobal: int = 10
 
@@ -17,24 +16,20 @@ func unusedFunc() -> (void) {
 
 // Unused import (should warn - implied if we had imports)
 // import "std/math"
-
 func main() -> (void) {
     // Unused local variable (should warn - implementation pending for locals)
     // var unusedLocal = 20
-
     // Strict type mismatch (should error)
     var i: int = 10
     var f: float64 = 20.0
-    
     // Explicit cast required
     // var sum = i + f // Error: int + float64
-    
     // Strict assignment
     var i8: int8 = 10
     var i64: int64 = 20
-    
+
     // i64 = i8 // Error: canonical types differ
-    
     print("Done")
+
     return void
 }

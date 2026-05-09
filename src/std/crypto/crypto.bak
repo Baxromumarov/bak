@@ -1,7 +1,6 @@
 package crypto
 
 // Lightweight crypto helpers: FNV-1a hash and RNG.
-
 import time "std/time"
 
 pub const FNV_OFFSET_32: int = 2166136261
@@ -11,28 +10,36 @@ const U32_MOD: int = 4294967296
 pub func fnv1a(s: string) -> (int) {
     mut var hash: int = FNV_OFFSET_32
     mut var i: int = 0
+
     while i < s.len() {
         hash = hash ^ int(s[i])
-        hash = (hash * FNV_PRIME_32) % U32_MOD
+        hash = hash * FNV_PRIME_32 % U32_MOD
+
         if hash < 0 {
             hash = hash + U32_MOD
         }
+
         i = i + 1
     }
+
     return hash
 }
 
 pub func fnv1aBytes(data: Vec<int, _>) -> (int) {
     mut var hash: int = FNV_OFFSET_32
     mut var i: int = 0
+
     while i < data.len() {
         hash = hash ^ data[i]
-        hash = (hash * FNV_PRIME_32) % U32_MOD
+        hash = hash * FNV_PRIME_32 % U32_MOD
+
         if hash < 0 {
             hash = hash + U32_MOD
         }
+
         i = i + 1
     }
+
     return hash
 }
 
@@ -42,9 +49,11 @@ pub struct RNG {
 
 pub func newRng(seed: int) -> (RNG) {
     mut var init: int = seed
+
     if init == 0 {
         init = 1
     }
+
     return RNG{state: init}
 }
 
@@ -55,13 +64,16 @@ pub func rngFromTime() -> (RNG) {
 impl RNG as r {
     pub mut func nextU32() -> (int) {
         mut var x: int = r.state
-        x = x ^ (x << 13)
-        x = x ^ (x >> 17)
-        x = x ^ (x << 5)
+
+        x = x ^ x << 13
+        x = x ^ x >> 17
+        x = x ^ x << 5
         r.state = x
+
         if x < 0 {
             return -x
         }
+
         return x
     }
 
@@ -69,6 +81,7 @@ impl RNG as r {
         if max <= 0 {
             return 0
         }
+
         return r.nextU32() % max
     }
 
@@ -76,16 +89,19 @@ impl RNG as r {
         if max <= min {
             return min
         }
-        return min + (r.nextU32() % (max - min + 1))
+
+        return min + r.nextU32() % (max - min + 1)
     }
 
     pub mut func bytes(count: int) -> (Vec<int, _>) {
         mut var out: Vec<int, _> = Vec.new()
         mut var i: int = 0
+
         while i < count {
             out.push(r.nextU32() % 256)
             i = i + 1
         }
+
         return out
     }
 }

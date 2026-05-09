@@ -1,17 +1,18 @@
 package main
 
 // Test named return values
-
 // Named single return
 func double(x: int) -> (result: int) {
     result = x * 2
+
     return
 }
 
 // Named multiple returns
-func divide(a: int, b: int) -> (quotient: int, remainder: int) {
+func divide(a: int, b: int) -> ((quotient: int, remainder: int)) {
     quotient = a / b
     remainder = a % b
+
     return
 }
 
@@ -22,20 +23,40 @@ func add(a: int, b: int) -> (int) {
 
 func main() -> (void) {
     println("=== Named Return Values Test ===")
-    
+
     // Test single named return
     var d: int = double(5)
-    println("double(5) = ", d)
-    
+
+    println(
+        "double(5) = ",
+        d,
+    )
+
     // Test multiple named returns
-    var (q, r) = divide(17, 5)
-    println("divide(17, 5) = quotient:", q, " remainder:", r)
-    
+    var (q, r) = divide(
+        17,
+        5,
+    )
+
+    println(
+        "divide(17, 5) = quotient:",
+        q,
+        " remainder:",
+        r,
+    )
+
     // Test unnamed returns
-    var sum: int = add(3, 4)
-    println("add(3, 4) = ", sum)
-    
+    var sum: int = add(
+        3,
+        4,
+    )
+
+    println(
+        "add(3, 4) = ",
+        sum,
+    )
     println("")
     println("All tests passed!")
+
     return void
 }

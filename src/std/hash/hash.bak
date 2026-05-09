@@ -4,15 +4,16 @@ package hash
 // Hash Functions
 // =============================================================================
 // Pure Bak implementations of common non-cryptographic hash functions.
-
 // djb2 hash function for strings.
 pub func djb2(s: &string) -> (int) {
     mut var hash: int = 5381
     mut var i: int = 0
+
     while i < s.len() {
-        hash = ((hash << 5) + hash) + int(s[i])
+        hash = (hash << 5) + hash + int(s[i])
         i = i + 1
     }
+
     return hash
 }
 
@@ -20,10 +21,12 @@ pub func djb2(s: &string) -> (int) {
 pub func djb2a(s: &string) -> (int) {
     mut var hash: int = 5381
     mut var i: int = 0
+
     while i < s.len() {
-        hash = ((hash << 5) + hash) ^ int(s[i])
+        hash = (hash << 5) + hash ^ int(s[i])
         i = i + 1
     }
+
     return hash
 }
 
@@ -31,11 +34,13 @@ pub func djb2a(s: &string) -> (int) {
 pub func fnv1a(s: &string) -> (int) {
     mut var hash: int = 2166136261
     mut var i: int = 0
+
     while i < s.len() {
         hash = hash ^ int(s[i])
         hash = hash * 16777619
         i = i + 1
     }
+
     return hash
 }
 
@@ -43,10 +48,12 @@ pub func fnv1a(s: &string) -> (int) {
 pub func sdbm(s: &string) -> (int) {
     mut var hash: int = 0
     mut var i: int = 0
+
     while i < s.len() {
         hash = int(s[i]) + (hash << 6) + (hash << 16) - hash
         i = i + 1
     }
+
     return hash
 }
 
@@ -54,10 +61,12 @@ pub func sdbm(s: &string) -> (int) {
 pub func javaHash(s: &string) -> (int) {
     mut var hash: int = 0
     mut var i: int = 0
+
     while i < s.len() {
         hash = hash * 31 + int(s[i])
         i = i + 1
     }
+
     return hash
 }
 
@@ -68,5 +77,5 @@ pub func hashInt(i: int) -> (int) {
 
 // combineHashes combines two hash values (like boost::hash_combine).
 pub func combineHashes(h1: int, h2: int) -> (int) {
-    return h1 ^ (h2 + 2654435769 + (h1 << 6) + (h1 >> 2))
+    return h1 ^ h2 + 2654435769 + (h1 << 6) + (h1 >> 2)
 }

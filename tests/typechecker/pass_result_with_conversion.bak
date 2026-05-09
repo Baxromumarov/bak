@@ -6,19 +6,31 @@ func divide(a: int, b: int) -> (Result<float64, string>) {
     if b == 0 {
         return Err("Division by zero")
     }
+
     // OK: float64() conversion makes the result float64
     return Ok(float64(a) / float64(b))
 }
 
 func main() -> (void) {
-    var result = divide(10, 3)
+    var result = divide(
+        10,
+        3,
+    )
+
     switch result {
         case Ok(v) {
-            println("Result:", v)
+            println(
+                "Result:",
+                v,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
+
     return void
 }

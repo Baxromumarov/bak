@@ -2,20 +2,24 @@ package main
 
 func main() -> (int) {
     mut var score: int = 0
-
     mut var v: Vec<int, _> = Vec.new()
+
     if v.pop().unwrapErr() == "vec is empty" {
         score = score + 1
     }
+
     if v.first().unwrapErr() == "vec is empty" {
         score = score + 1
     }
+
     if v.last().unwrapErr() == "vec is empty" {
         score = score + 1
     }
+
     if v.get(0).unwrapErr() == "index out of bounds" {
         score = score + 1
     }
+
     if v.remove(0).unwrapErr() == "index out of bounds" {
         score = score + 1
     }
@@ -27,26 +31,33 @@ func main() -> (int) {
     if v.first().unwrap() == 4 {
         score = score + 1
     }
+
     if v.last().unwrap() == 6 {
         score = score + 1
     }
+
     if v.get(1).unwrap() == 5 {
         score = score + 1
     }
+
     if v.remove(1).unwrap() == 5 {
         score = score + 1
     }
+
     if v.get(-1).unwrapErr() == "index out of bounds" {
         score = score + 1
     }
+
     if v.remove(-1).unwrapErr() == "index out of bounds" {
         score = score + 1
     }
 
     var s: string = "abc"
+
     if s.get(1).unwrap() == char('b') {
         score = score + 1
     }
+
     if s.get(9).unwrapErr() == "index out of bounds" {
         score = score + 1
     }

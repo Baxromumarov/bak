@@ -3,10 +3,10 @@ package main
 // =============================================================================
 // Test Functions with Various Signatures
 // =============================================================================
-
 // No params, no return (void)
 func noParamsNoReturn() -> (void) {
     println("no params, no return")
+
     return void
 }
 
@@ -16,13 +16,14 @@ func noParamsSingleReturn() -> (int) {
 }
 
 // No params, multiple returns (tuple)
-func noParamsMultiReturn() -> (int, string, bool) {
+func noParamsMultiReturn() -> ((int, string, bool)) {
     return 1, "hello", true
 }
 
 // Single param, no return
 func singleParamNoReturn(a: int) -> (void) {
     println(a)
+
     return void
 }
 
@@ -32,13 +33,18 @@ func singleParamSingleReturn(a: int) -> (int) {
 }
 
 // Single param, multiple returns
-func singleParamMultiReturn(a: int) -> (int, string) {
+func singleParamMultiReturn(a: int) -> ((int, string)) {
     return a, "result"
 }
 
 // Multiple params, no return
 func multiParamNoReturn(a: int, b: string, c: bool) -> (void) {
-    println(a, b, c)
+    println(
+        a,
+        b,
+        c,
+    )
+
     return void
 }
 
@@ -48,48 +54,80 @@ func multiParamSingleReturn(_a: int, _b: float64) -> (float64) {
 }
 
 // Multiple params, multiple returns (4 in, 4 out)
-func multiParamMultiReturn(a: int, b: float64, c: string, d: bool) -> (
-    string, 
-    int, 
-    float64, 
-    bool,
-) {
+func multiParamMultiReturn(
+    a: int,
+    b: float64,
+    c: string,
+    d: bool,
+) -> ((string, int, float64, bool)) {
     return c, a, b, d
 }
 
 // Many params (6 parameters)
-func manyParams(a: int, b: int, c: int, d: int, e: int, f: int) -> (int) {
+func manyParams(
+    a: int,
+    b: int,
+    c: int,
+    d: int,
+    e: int,
+    f: int,
+) -> (int) {
     return a + b + c + d + e + f
 }
 
 // =============================================================================
 // CORRECT USAGE TESTS - These should all pass
 // =============================================================================
-
 func testCorrectUsage() -> (void) {
     // No params functions
     noParamsNoReturn()
+
     var _x = noParamsSingleReturn()
     var (_a, _b, _c) = noParamsMultiReturn()
-    
+
     // Single param functions
     singleParamNoReturn(10)
+
     var _y = singleParamSingleReturn(5)
     var (_d, _e) = singleParamMultiReturn(100)
-    
+
     // Multi param functions
-    multiParamNoReturn(1, "test", true)
-    var _z = multiParamSingleReturn(10, 2.5)
-    var (_s, _n, _f, _bl) = multiParamMultiReturn(1, 2.5, "hi", false)
-    
+    multiParamNoReturn(
+        1,
+        "test",
+        true,
+    )
+
+    var _z = multiParamSingleReturn(
+        10,
+        2.5,
+    )
+    var (_s, _n, _f, _bl) = multiParamMultiReturn(
+        1,
+        2.5,
+        "hi",
+        false,
+    )
     // Many params function
-    var sum = manyParams(1, 2, 3, 4, 5, 6)
-    
-    println("All correct usage tests passed!",sum)
+    var sum = manyParams(
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    )
+
+    println(
+        "All correct usage tests passed!",
+        sum,
+    )
+
     return void
 }
 
 func main() -> (void) {
     testCorrectUsage()
+
     return void
 }

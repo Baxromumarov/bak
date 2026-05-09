@@ -16,25 +16,40 @@ pub func emptyQueryResult() -> (QueryResult) {
 
 // Native PostgreSQL driver using built-in database connection.
 // Connection string format: "host=localhost port=5432 user=postgres password=secret dbname=test sslmode=disable"
-
 // connect opens a PostgreSQL connection and returns a Connection handle.
 pub func connect(conn_str: string) -> (Result<Connection, string>) {
     var result = __builtin_pg_connect(conn_str)
+
     if result.isOk() {
         return Ok(db.Connection{Handle: result.unwrap()})
     }
+
     return Err(result.unwrapErr())
 }
 
 // query executes a SQL query and returns a QueryResult.
-pub func query(conn: &Connection, sql: string) -> (Result<QueryResult, string>) {
-    return __builtin_pg_query(conn.Handle, sql)
+pub func query(
+    conn: &Connection,
+    sql: string,
+) -> (Result<QueryResult, string>) {
+    return __builtin_pg_query(
+        conn.Handle,
+        sql,
+    )
 }
 
 // queryParams executes a SQL query with parameters and returns a QueryResult.
 // Parameters are passed as a Vec<string, _> to prevent SQL injection.
-pub func queryParams(conn: &Connection, sql: string, params: Vec<string, _>) -> (Result<QueryResult, string>) {
-    return __builtin_pg_query(conn.Handle, sql, params)
+pub func queryParams(
+    conn: &Connection,
+    sql: string,
+    params: Vec<string, _>,
+) -> (Result<QueryResult, string>) {
+    return __builtin_pg_query(
+        conn.Handle,
+        sql,
+        params,
+    )
 }
 
 // close closes the database connection.
@@ -54,6 +69,9 @@ pub func rowGetIndex(row: &Row, idx: int) -> (Result<string, string>) {
     return row.getIndex(idx)
 }
 
-pub func queryResult(columns: Vec<string, _>, rows: Vec<Vec<string, _>, _>) -> (QueryResult) {
+pub func queryResult(
+    columns: Vec<string, _>,
+    rows: Vec<Vec<string, _>, _>,
+) -> (QueryResult) {
     return db.QueryResult{Columns: columns, Rows: rows}
 }

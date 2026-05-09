@@ -1,28 +1,48 @@
 // Variables and Mutability in bak
 // Demonstrates explicit mutability control
-
 package main
 
 func main() -> (void) {
     // Immutable by default
     var x: int = 10
-    println("x =", x)
-    
+
+    println(
+        "x =",
+        x,
+    )
+
     // Mutable variables require explicit `mut` keyword
     mut var y: int = 20
-    println("y before =", y)
-    
+
+    println(
+        "y before =",
+        y,
+    )
     y = 30
-    println("y after =", y)
-    
+    println(
+        "y after =",
+        y,
+    )
+
     // Constants
     const PI: float64 = 3.14159
-    println("PI =", PI)
-    
+
+    println(
+        "PI =",
+        PI,
+    )
+
     // Type inference is explicit - you must declare types
     var name: string = "bak"
     var age: int = 1
     var active: bool = true
-    
-    println("Language:", name, "Age:", age, "Active:", active)
+
+    println(
+        "Language:",
+        name,
+        "Age:",
+        age,
+        "Active:",
+        active,
+    )
 }

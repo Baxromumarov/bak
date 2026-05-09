@@ -4,11 +4,12 @@ package main
 
 struct Person {
     pub name: string
-    pub age: int
+    pub age:  int
 }
 
 func main() -> (void) {
     // ERROR: 42 is int, but name field expects string
-    var _p = Person{name: 42, age: 25}
+    var _p = Person{age: 25, name: 42}
+
     return void
 }

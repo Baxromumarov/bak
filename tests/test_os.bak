@@ -5,108 +5,180 @@ import os "std/os"
 
 func main() -> (void) {
     println("=== Testing os module ===")
-    
     // Test os.args
     println("\n1. Command-line arguments:")
+
     var args: Vec<string, _> = os.args()
-    println("Number of args:", args.len())
+
+    println(
+        "Number of args:",
+        args.len(),
+    )
+
     mut var i: int = 0
+
     for arg in args {
-        println("  arg[", i, "]:", arg)
+        println(
+            "  arg[",
+            i,
+            "]:",
+            arg,
+        )
         i = i + 1
     }
-    
+
     // Test os.cwd
     println("\n2. Current working directory:")
+
     var cwd: Result<string, string> = os.cwd()
+
     switch cwd {
         case Ok(path) {
-            println("CWD:", path)
+            println(
+                "CWD:",
+                path,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
-    
+
     // Test os.getenv
     println("\n3. Environment variables:")
+
     var home: Result<string, string> = os.getenv("HOME")
+
     switch home {
         case Ok(path) {
-            println("HOME:", path)
+            println(
+                "HOME:",
+                path,
+            )
         }
         case Err(_) {
             println("HOME not set")
         }
     }
-    
+
     var user: Result<string, string> = os.getenv("USER")
+
     switch user {
         case Ok(name) {
-            println("USER:", name)
+            println(
+                "USER:",
+                name,
+            )
         }
         case Err(_) {
             println("USER not set")
         }
     }
-    
+
     // Test environment variable existence via getenv
     println("\n4. Check environment variable existence:")
+
     switch os.getenv("PATH") {
         case Ok(_) {
-            println("PATH exists:", true)
+            println(
+                "PATH exists:",
+                true,
+            )
         }
         case Err(_) {
-            println("PATH exists:", false)
+            println(
+                "PATH exists:",
+                false,
+            )
         }
     }
+
     switch os.getenv("NONEXISTENT_VAR_12345") {
         case Ok(_) {
-            println("NONEXISTENT exists:", true)
+            println(
+                "NONEXISTENT exists:",
+                true,
+            )
         }
         case Err(_) {
-            println("NONEXISTENT exists:", false)
+            println(
+                "NONEXISTENT exists:",
+                false,
+            )
         }
     }
-    
+
     // Test os.executable
     println("\n5. Executable path:")
+
     var exe: Result<string, string> = os.executable()
+
     switch exe {
         case Ok(path) {
-            println("Executable:", path)
+            println(
+                "Executable:",
+                path,
+            )
         }
         case Err(_) {
             println("Could not get executable path")
         }
     }
-    
+
     // Test os.exec
     println("\n6. Execute external command:")
-    var result: Result<os.ExecResult, string> = os.exec("echo", Vec.from(["Hello from shell!"]))
+
+    var result: Result<os.ExecResult, string> = os.exec(
+        "echo",
+        Vec.from(["Hello from shell!"]),
+    )
+
     switch result {
         case Ok(output) {
-            println("Command output:", output.Output)
-            println("Exit code:", output.ExitCode)
+            println(
+                "Command output:",
+                output.Output,
+            )
+            println(
+                "Exit code:",
+                output.ExitCode,
+            )
         }
         case Err(e) {
-            println("Error executing command:", e)
+            println(
+                "Error executing command:",
+                e,
+            )
         }
     }
-    
+
     // Test os.exec with ls
     println("\n7. List current directory:")
-    var lsResult: Result<os.ExecResult, string> = os.exec("ls", Vec.from(["-la", "examples"]))
+
+    var lsResult: Result<os.ExecResult, string> = os.exec(
+        "ls",
+        Vec.from(["-la", "examples"]),
+    )
+
     switch lsResult {
         case Ok(output) {
-            println("Exit code:", output.ExitCode)
+            println(
+                "Exit code:",
+                output.ExitCode,
+            )
             println("Output:")
             println(output.Output)
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
-    
+
     println("\n=== os module tests complete ===")
 }

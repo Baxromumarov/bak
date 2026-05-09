@@ -22,6 +22,7 @@ impl Server as self {
     pub func start() -> (Result<void, string>) {
         var addr: string = self.addr
         var portIdx = addr.lastIndexOf(":")
+
         if portIdx.isErr() {
             return Err("invalid address: missing port")
         }
@@ -30,38 +31,41 @@ impl Server as self {
             0,
             portIdx.unwrap(),
         )
-        
         var portStr: string = addr.substring(
             portIdx.unwrap() + 1,
             addr.len(),
         )
-        
         var portRes = portStr.parseInt()
+
         if portRes.isErr() {
             return Err("invalid port")
         }
-        
+
         var port: int = portRes.unwrap()
-        
         var bindRes = net.bind(
             host,
             port,
         )
+
         if bindRes.isErr() {
             return Err(bindRes.unwrapErr())
         }
-        
+
         mut var listener = bindRes.unwrap()
+
         log.info("Server listening on " + addr)
-        
+
         while true {
             var connRes = net.accept(&mut listener)
+
             if connRes.isOk() {
                 mut var conn = connRes.unwrap()
+
                 self.handle_connection(&mut conn)
             } else {
             }
         }
+
         return Ok(void)
     }
 
@@ -71,17 +75,24 @@ impl Server as self {
             conn,
             4096,
         )
+
         if readRes.isErr() {
             net.close(conn)
+
             return
         }
+
         var data = readRes.unwrap()
+
         if data.len() == 0 {
             net.close(conn)
+
             return
         }
+
         var dataStr: string = strings.fromBytes(data)
         var reqRes = parseRequest(dataStr)
+
         if reqRes.isErr() {
             sendResponse(
                 conn,
@@ -92,11 +103,14 @@ impl Server as self {
                 self.version,
             )
             net.close(conn)
+
             return
         }
+
         var req = reqRes.unwrap()
         // Dispatch to router
         var resp = self.router.dispatch(req)
+
         // Log
         log.info(req.method + " " + req.path + " -> " + string(resp.status) + " " + resp.reason)
         // Send response
@@ -106,6 +120,7 @@ impl Server as self {
             self.version,
         )
         net.close(conn)
+
         return
     }
 }
@@ -125,30 +140,37 @@ func sendResponse(
     version: string,
 ) -> (void) {
     mut var respStr: string = version + " " + string(resp.status) + " " + resp.reason + "\r\n"
+
     // Add standard headers
     respStr = respStr + "Server: bak-http\r\n"
     respStr = respStr + "Connection: close\r\n"
+
     // Add headers from response
     mut var i: int = 0
+
     while i < resp.headers.len() {
         var h: Header = resp.headers[i]
+
         respStr = respStr + h.name + ": " + h.value + "\r\n"
         i = i + 1
     }
-    // Add Content-Length
-    respStr = respStr + "Content-Length: " + string(resp.body.len()) + "\r\n"   
 
+    // Add Content-Length
+    respStr = respStr + "Content-Length: " + string(resp.body.len()) + "\r\n"
     respStr = respStr + "\r\n"
+
     var headBytes = respStr.bytes()
     var _ = net.write(
         conn,
         headBytes,
     )
+
     if resp.body.len() > 0 {
         var _ = net.write(
             conn,
             resp.body,
         )
     }
+
     return
 }

@@ -8,9 +8,10 @@ struct Counter {
 impl Counter as c {
     mut func increment() -> (void) {
         c.value = c.value + 1
+
         return void
     }
-    
+
     func get() -> (int) {
         return c.value
     }
@@ -18,14 +19,18 @@ impl Counter as c {
 
 func main() -> (void) {
     mut var counter: Counter = Counter{value: 0}
-    
-    println("Initial:", counter.get())
-    
+
+    println(
+        "Initial:",
+        counter.get(),
+    )
     counter.increment()
     counter.increment()
     counter.increment()
-    
-    println("After 3 increments:", counter.get())
-    
+    println(
+        "After 3 increments:",
+        counter.get(),
+    )
+
     return void
 }

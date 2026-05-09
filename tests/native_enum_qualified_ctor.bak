@@ -20,12 +20,14 @@ func score(expr: TypeExpr) -> (int) {
             if st.Name == "ok" {
                 return 42
             }
+
             return 1
         }
         case TypeExpr.Generic(gt) {
             if gt.Name == "ok" {
                 return 2
             }
+
             return 3
         }
         default {
@@ -36,6 +38,7 @@ func score(expr: TypeExpr) -> (int) {
 
 func main() -> (int) {
     mut var fields: Vec<TypeExpr, _> = Vec.new()
+
     fields.push(TypeExpr.Simple(SimpleType{Name: "ok"}))
 
     var v: EnumVariant = EnumVariant{

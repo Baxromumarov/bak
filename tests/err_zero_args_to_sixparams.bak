@@ -1,12 +1,21 @@
 package main
 
-func sixParams(a: int, b: int, c: int, d: int, e: int, f: int) -> (int) { 
+func sixParams(
+    a: int,
+    b: int,
+    c: int,
+    d: int,
+    e: int,
+    f: int,
+) -> (int) {
     return a + b + c + d + e + f
 }
 
 func main() -> (void) {
     // ERROR: sixParams expects 6, got 0
     var sum = sixParams()
+
     println(sum)
+
     return void
 }

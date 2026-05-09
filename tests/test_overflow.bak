@@ -2,6 +2,8 @@ package main
 
 func main() -> (void) {
     var x: int8 = 300
+
     println(x)
+
     return void
 }

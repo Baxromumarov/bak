@@ -4,54 +4,110 @@ import test "std/test"
 import p "std/path"
 
 struct CleanCase {
-    input: string
+    input:    string
     expected: string
 }
 
 func test_clean() -> (void) {
     mut var t: test.T = test.new("test_clean")
-    var cases: Vec<CleanCase, _> = Vec.from([
-        CleanCase{input: "", expected: "."},
-        CleanCase{input: "/", expected: "/"},
-        CleanCase{input: "a//b/./c", expected: "a/b/c"},
-        CleanCase{input: "/a/../b", expected: "/b"},
-        CleanCase{input: "a/..", expected: "."},
-        CleanCase{input: "../a", expected: "../a"},
-        CleanCase{input: "/../a", expected: "/a"},
-    ])
+    var cases: Vec<CleanCase, _> = Vec.from(
+        [
+            CleanCase{expected: ".", input: ""},
+            CleanCase{expected: "/", input: "/"},
+            CleanCase{expected: "a/b/c", input: "a//b/./c"},
+            CleanCase{expected: "/b", input: "/a/../b"},
+            CleanCase{expected: ".", input: "a/.."},
+            CleanCase{expected: "../a", input: "../a"},
+            CleanCase{expected: "/a", input: "/../a"},
+        ],
+    )
 
     for c in cases {
         t.setCase("clean(" + c.input + ")")
-        t.eqString(p.clean(c.input), c.expected)
+        t.eqString(
+            p.clean(c.input),
+            c.expected,
+        )
     }
+
     t.finish()
 }
 
 func test_join_and_split() -> (void) {
     mut var t: test.T = test.new("test_join_and_split")
-    t.eqString(p.join("a", "b"), "a/b")
-    t.eqString(p.join("/a", "b"), "/a/b")
-    t.eqString(p.join("a", "/b"), "/b")
+
+    t.eqString(
+        p.join(
+            "a",
+            "b",
+        ),
+        "a/b",
+    )
+    t.eqString(
+        p.join(
+            "/a",
+            "b",
+        ),
+        "/a/b",
+    )
+    t.eqString(
+        p.join(
+            "a",
+            "/b",
+        ),
+        "/b",
+    )
 
     var parts: Vec<string, _> = Vec.from(["a", "b", "c"])
-    t.eqString(p.joinParts(parts), "a/b/c")
+
+    t.eqString(
+        p.joinParts(parts),
+        "a/b/c",
+    )
 
     var path_str: string = "/a/b"
     var sp: p.Split = p.split(&path_str)
-    t.eqString(sp.Dir, "/a")
-    t.eqString(sp.Base, "b")
+
+    t.eqString(
+        sp.Dir,
+        "/a",
+    )
+    t.eqString(
+        sp.Base,
+        "b",
+    )
     t.finish()
 }
 
 func test_base_dir_ext() -> (void) {
     mut var t: test.T = test.new("test_base_dir_ext")
     var sample: string = "/a/b/"
-    t.eqString(p.base(&sample), "b")
-    t.eqString(p.dir(&sample), "/a")
+
+    t.eqString(
+        p.base(&sample),
+        "b",
+    )
+    t.eqString(
+        p.dir(&sample),
+        "/a",
+    )
+
     var file: string = "file.txt"
-    t.eqString(p.base(&file), "file.txt")
-    t.eqString(p.ext(&file), ".txt")
+
+    t.eqString(
+        p.base(&file),
+        "file.txt",
+    )
+    t.eqString(
+        p.ext(&file),
+        ".txt",
+    )
+
     var bashrc: string = ".bashrc"
-    t.eqString(p.ext(&bashrc), "")
+
+    t.eqString(
+        p.ext(&bashrc),
+        "",
+    )
     t.finish()
 }

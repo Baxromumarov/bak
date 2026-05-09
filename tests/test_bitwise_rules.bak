@@ -6,57 +6,89 @@ func main() -> (void) {
 
     // 1. Allowed: integer types
     var a: int = 5 & 3
-    println("AND:", a)
+
+    println(
+        "AND:",
+        a,
+    )
+
     var b: int8 = 12 | 7
-    println("OR :", b)
+
+    println(
+        "OR :",
+        b,
+    )
+
     var c: uint16 = 0xFF ^ 0x0F
-    println("XOR:", c)
+
+    println(
+        "XOR:",
+        c,
+    )
+
     var d: uint8 = !0b10101010
-    println("NOT:", d)
+
+    println(
+        "NOT:",
+        d,
+    )
+
     var e: int32 = 1 << 4
-    println("LSHIFT:", e)
+
+    println(
+        "LSHIFT:",
+        e,
+    )
+
     var f: uint64 = 128 >> 2
-    println("RSHIFT:", f)
+
+    println(
+        "RSHIFT:",
+        f,
+    )
 
     // 2. Forbidden: non-integer types (should error)
     // var x float = 1.0 & 2.0      // ❌
     // var y bool = true | false    // ❌
     // var z string = "a" ^ "b"     // ❌
-
     // 3. Forbidden: mixed types (should error)
     var u8: uint8 = 1
     var u16: uint16 = 2
-    var bad = u8 & u16           // ❌
-    var good = uint16(u8) & u16     // ✅ explicit cast
-
+    var bad = u8 & u16
+    // ❌
+    var good = uint16(u8) & u16
+    // ✅ explicit cast
     // 4. NOT uses ! (not ~)
     var n: uint8 = 0b00001111
-    var m = !n   // 0b11110000
+    var m = !n
+    // 0b11110000
     // var bad_not = ~n            // ❌
-
     // 5. Shift count must be valid
     var s: uint8 = 1
-    var ok1 = s << 7    // ✅
+    var ok1 = s << 7
+    // ✅
     // var bad1 = s << 8         // ❌ compile-time error
     // var bad2 = s << 100       // ❌
     // var bad3 = s << true      // ❌
     // var bad4 = s << 2.5       // ❌
     // var bad5 = s << "hi"      // ❌
-
     // 6. No implicit widening/narrowing
     // var w = u8 << 10          // ❌
-    var w_ok = uint8(u8) << 3   // ✅
-
+    var w_ok = uint8(u8) << 3
+    // ✅
     // 7. Signed vs unsigned shifts
     var si: int8 = -1
-    var sr = si >> 1   // arithmetic shift
+    var sr = si >> 1
+    // arithmetic shift
     var ui: uint8 = 255
-    var ur = ui >> 1   // logical shift
-
+    var ur = ui >> 1
+    // logical shift
     // 8. Overflow behavior (should be defined)
     var ov: uint8 = 255
-    var wrap = ov + 1  // should wrap to 0 if always-wrap
+    var wrap = ov + 1
 
+    // should wrap to 0 if always-wrap
     println("Bitwise rules test complete!")
+
     return void
 }

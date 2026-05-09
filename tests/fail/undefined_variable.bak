@@ -3,5 +3,6 @@ package main
 // expect: E0500 undefined variable
 func main() -> (void) {
     var x: int = y
+
     return void
 }

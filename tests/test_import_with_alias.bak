@@ -5,23 +5,44 @@ import tlib "tests/typelib.bak"
 
 func main() -> (void) {
     println("=== Testing Import with Alias ===")
-    
+
     // Use imported types through custom alias
     var p: tlib.Point = tlib.Point{X: 100, Y: 200}
-    println("Point:", p.X, p.Y)
-    
+
+    println(
+        "Point:",
+        p.X,
+        p.Y,
+    )
+
     var num: tlib.Integer = tlib.makeInteger(999)
-    println("Integer:", num)
-    
+
+    println(
+        "Integer:",
+        num,
+    )
+
     var id: tlib.UserId = tlib.makeUserId(5000)
-    println("UserId:", id)
-    
+
+    println(
+        "UserId:",
+        id,
+    )
+
     var max: int = tlib.MAX_USERS
-    println("MAX_USERS:", max)
-    
+
+    println(
+        "MAX_USERS:",
+        max,
+    )
+
     var result: tlib.Integer = tlib.makeInteger(123)
-    println("makeInteger(123):", result)
-    
+
+    println(
+        "makeInteger(123):",
+        result,
+    )
     println("Import alias tests passed!")
+
     return void
 }

@@ -7,7 +7,13 @@ func double(a: int) -> (int) {
 
 func main() -> (void) {
     // ERROR: double expects 1, got 3
-    var x = double(1, 2, 3)
+    var x = double(
+        1,
+        2,
+        3,
+    )
+
     println(x)
+
     return void
 }

@@ -446,7 +446,7 @@ func join_columns(columns: &Vec<ColumnSpec, _>) -> (string) {
             out = out + ", "
         }
 
-        out = out + (columns[i]).name
+        out = out + columns[i].name
         i = i + 1
     }
 

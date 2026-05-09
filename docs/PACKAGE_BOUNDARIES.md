@@ -33,7 +33,7 @@ Those forms are compatibility, not the preferred authoring style.
 
 New docs and examples should use package paths.
 
-`make format-check` verifies `bakfmt` output for the stable import/stdlib surface. `make language-stability` runs the release gate, LSP verifier, and formatter check together.
+`make format-check` verifies `bakfmt` output for every parseable file under `src/std`, `examples`, and `tests`. Parser-error test fixtures are skipped, but stdlib and example parse errors fail the check. `make language-stability` runs the release gate, LSP verifier, and formatter check together.
 
 ## Not Stable Yet
 

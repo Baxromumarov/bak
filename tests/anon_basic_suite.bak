@@ -13,10 +13,12 @@ func main() -> (void) {
         return a + b
     }
 
-    println(f2(
-        10,
-        20,
-    ))
+    println(
+        f2(
+            10,
+            20,
+        ),
+    )
 
     // Multiple params of different types
     var f3 = func(s: string, n: int) -> (void) {
@@ -32,7 +34,9 @@ func main() -> (void) {
     // Immediate call
     var res = func(x: int) -> (int) {
         return x * x
-    }(5)
+    }(
+        5,
+    )
 
     println(res)
 }

@@ -4,23 +4,39 @@ import "std/test"
 
 func test_implicit_hashmap() -> (void) {
     mut var t: test.T = test.new("implicit_hashmap_test")
-    println("Running HashMap Test");
+
+    println("Running HashMap Test")
+
     // HashMap should be available without import
-    mut var m = HashMap.new();
-    
+    mut var m = HashMap.new()
+
     // Use explicit borrow to avoid moving/consuming m
-    { (&mut m).insert("hello", "world"); }
-    
+    {
+        (&mut m).insert(
+            "hello",
+            "world",
+        )
+    }
     // Verify string map
-    t.isTrue((&m).contains(&"hello"));
-    t.eq((&m).len(), 1);
-    
+    t.isTrue((&m).contains(&"hello"))
+    t.eq(
+        (&m).len(),
+        1,
+    )
+
     // Test capacity constructor
-    mut var m2 = HashMap.withCap(10);
-    
-    { (&mut m2).insert(1, 100); }
-    
-    t.isTrue((&m2).contains(&1));
-    t.eq((&m2).len(), 1);
-    println("HashMap Test Finished");
+    mut var m2 = HashMap.withCap(10)
+
+    {
+        (&mut m2).insert(
+            1,
+            100,
+        )
+    }
+    t.isTrue((&m2).contains(&1))
+    t.eq(
+        (&m2).len(),
+        1,
+    )
+    println("HashMap Test Finished")
 }

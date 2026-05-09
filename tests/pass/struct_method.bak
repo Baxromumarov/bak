@@ -13,5 +13,6 @@ impl Person as p {
 func main() -> (void) {
     var p: Person = Person{name: "A"}
     var _s: string = p.greet()
+
     return void
 }

@@ -4,7 +4,9 @@ package main
 
 func main() -> (void) {
     var x: int = 10
+
     // ERROR: x is immutable, cannot reassign
     x = 20
+
     return void
 }

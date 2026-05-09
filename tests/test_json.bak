@@ -4,24 +4,49 @@ import json "std/encoding/json"
 
 func main() -> (void) {
     println("=== JSON Test ===")
+
     // 1. Test Marshal
     mut var entries: Vec<json.JsonEntry, _> = Vec.new()
+
     entries.push(json.JsonEntry{key: "name", value: json.Json.String("BakUser")})
     entries.push(json.JsonEntry{key: "age", value: json.Json.Float(30.5)})
     entries.push(json.JsonEntry{key: "active", value: json.Json.Boolean(true)})
+
     var obj: json.Json = json.Json.Object(entries)
     var s: string = json.marshal(obj)
-    println("Marshaled: ", s)
+
+    println(
+        "Marshaled: ",
+        s,
+    )
+
     // 2. Test Unmarshal
-    var input: string = "{"x":10.0,"y":[1.0,2.0],"z":null}"
-    println("Input: ", input)
+    var input: string = "{"
+
+    x
+    ":10.0,"
+    y
+    ":[1.0,2.0],"
+    z
+    ":null}"
+    println(
+        "Input: ",
+        input,
+    )
+
     switch json.unmarshal(input) {
         case Ok(val) {
             println("Unmarshaled successfully!")
-            println("Re-marshaled: ", json.marshal(val))
+            println(
+                "Re-marshaled: ",
+                json.marshal(val),
+            )
         }
         case Err(e) {
-            println("Unmarshaling failed: ", e)
+            println(
+                "Unmarshaling failed: ",
+                e,
+            )
         }
     }
 }

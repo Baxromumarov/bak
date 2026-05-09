@@ -4,6 +4,7 @@ func return_result(n: int) -> (Result<int, string>) {
     if n > 0 {
         return Ok(n)
     }
+
     return Err("negative")
 }
 
@@ -11,63 +12,92 @@ func return_option(b: bool) -> (Result<int, string>) {
     if b {
         return Ok(42)
     }
+
     return Err("none")
 }
 
 func test_unwrap_result() -> (Result<int, string>) {
-    var val: int = return_result(5)?
+    var val: int = 
+
     return Ok(val * 2)
 }
 
 func test_unwrap_option() -> (Result<int, string>) {
-    var val2: int = return_option(true)?
+    var val2: int = 
+
     return Ok(val2 + 1)
 }
 
 func main() -> (void) {
     var res: Result<int, string> = test_unwrap_result()
+
     switch res {
         case Ok(v) {
-            println("Ok:", v)
+            println(
+                "Ok:",
+                v,
+            )
         }
         case Err(e) {
-            println("Err:", e)
-        }
-    }
-    
-    var opt: Result<int, string> = test_unwrap_option()
-    switch opt {
-        case Ok(v) {
-            println("Ok:", v)
-        }
-        case Err(e) {
-            println("Err:", e)
+            println(
+                "Err:",
+                e,
+            )
         }
     }
 
-	var val3: Result<int, string> = failing_func()
-    switch val3 {
+    var opt: Result<int, string> = test_unwrap_option()
+
+    switch opt {
         case Ok(v) {
-            println("Success unexpectedly:", v)
+            println(
+                "Ok:",
+                v,
+            )
         }
         case Err(e) {
-            println("Err:", e)
+            println(
+                "Err:",
+                e,
+            )
+        }
+    }
+
+    var val3: Result<int, string> = failing_func()
+
+    switch val3 {
+        case Ok(v) {
+            println(
+                "Success unexpectedly:",
+                v,
+            )
+        }
+        case Err(e) {
+            println(
+                "Err:",
+                e,
+            )
         }
     }
 
     var val4: Result<int, string> = failing_option()
-	switch val4 {
+
+    switch val4 {
         case Ok(v) {
-			println("Success unexpectedly:", v)
-		}
+            println(
+                "Success unexpectedly:",
+                v,
+            )
+        }
         case Err(_) {
             println("Err as expected")
-		}
-	}
+        }
+    }
 }
 
 func failing_func() -> (Result<int, string>) {
-    var res: int = returns_err()?
+    var res: int = 
+
     return Ok(res * 2)
 }
 
@@ -76,7 +106,8 @@ func returns_err() -> (Result<int, string>) {
 }
 
 func failing_option() -> (Result<int, string>) {
-	var res: int = returns_none()?
+    var res: int = 
+
     return Ok(res * 2)
 }
 

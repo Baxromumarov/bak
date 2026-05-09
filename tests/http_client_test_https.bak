@@ -3,31 +3,49 @@ package main
 import "http"
 import "strings"
 
-
 func main() -> (void) {
     println("Testing HTTPS Client...")
-    
     // Test HTTPS GET
     println("\n[GET] https://example.com")
+
     var res = http.get("https://example.com")
-    
+
     if res.isErr() {
-        println("Error:", res.unwrapErr())
+        println(
+            "Error:",
+            res.unwrapErr(),
+        )
+
         return
     }
-    
+
     var response = res.unwrap()
-    println("Status:", response.status, response.reason)
-    
+
+    println(
+        "Status:",
+        response.status,
+        response.reason,
+    )
     // Print headers
     println("Headers:")
+
     for h in response.headers {
-        println("  ", h.name, ":", h.value)
+        println(
+            "  ",
+            h.name,
+            ":",
+            h.value,
+        )
     }
-    
+
     // Validate body content
     var body: string = strings.fromBytes(response.body)
-    println("Body Length:", body.len())
+
+    println(
+        "Body Length:",
+        body.len(),
+    )
+
     if body.indexOf("Example Domain").isSome() {
         println("SUCCESS: Body contains 'Example Domain'")
     } else {

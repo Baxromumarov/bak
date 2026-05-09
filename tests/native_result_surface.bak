@@ -2,11 +2,14 @@ package main
 
 func main() -> (int) {
     mut var score: int = 0
-
     mut var v: Vec<int, _> = Vec.new()
+
     switch v.pop() {
-        case Err(_) { score = score + 1 }
-        case Ok(_) {}
+        case Err(_) {
+            score = score + 1
+        }
+        case Ok(_) {
+        }
     }
 
     v.push(10)
@@ -18,7 +21,8 @@ func main() -> (int) {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
 
     switch v.last() {
@@ -27,7 +31,8 @@ func main() -> (int) {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
 
     switch v.get(1) {
@@ -36,7 +41,8 @@ func main() -> (int) {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
 
     switch v.remove(0) {
@@ -45,57 +51,74 @@ func main() -> (int) {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
 
     switch v.get(99) {
-        case Err(_) { score = score + 1 }
-        case Ok(_) {}
+        case Err(_) {
+            score = score + 1
+        }
+        case Ok(_) {
+        }
     }
 
     var s: string = "abc"
+
     switch s.get(1) {
         case Ok(ch) {
             if ch == char('b') {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
 
     switch s.get(9) {
-        case Err(_) { score = score + 1 }
-        case Ok(_) {}
+        case Err(_) {
+            score = score + 1
+        }
+        case Ok(_) {
+        }
     }
 
     var ok: Result<int, string> = Ok(42)
+
     switch ok {
         case Ok(v) {
             if v == 42 {
                 score = score + 1
             }
         }
-        case Err(_) {}
+        case Err(_) {
+        }
     }
+
     if ok.isOk() {
         score = score + 1
     }
+
     if ok.unwrap() == 42 {
         score = score + 1
     }
 
     var err: Result<int, string> = Err("x")
+
     switch err {
         case Err(msg) {
             if msg.len() == 1 {
                 score = score + 1
             }
         }
-        case Ok(_) {}
+        case Ok(_) {
+        }
     }
+
     if err.isErr() {
         score = score + 1
     }
+
     if err.unwrapErr().len() == 1 {
         score = score + 1
     }

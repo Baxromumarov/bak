@@ -3,16 +3,32 @@ package main
 import "std/encoding/json"
 
 func main() -> (void) {
-    var entries: Vec<json.JsonEntry, _> = Vec.from([
-        json.entry_string("name", "bak"),
-        json.entry_int("version", 1),
-        json.entry_bool("ok", true),
-    ])
-
+    var entries: Vec<json.JsonEntry, _> = Vec.from(
+        [
+            json.entry_string(
+                "name",
+                "bak",
+            ),
+            json.entry_int(
+                "version",
+                1,
+            ),
+            json.entry_bool(
+                "ok",
+                true,
+            ),
+        ],
+    )
     var obj: json.Json = json.object(entries)
+
     println("compact:")
     println(json.marshal(obj))
     println("")
     println("pretty:")
-    println(json.marshal_pretty(obj, 2))
+    println(
+        json.marshal_pretty(
+            obj,
+            2,
+        ),
+    )
 }

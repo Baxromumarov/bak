@@ -7,18 +7,27 @@ func parseValue(s: string) -> (Result<int, string>) {
         // OK: "error message" is string, matches Result<int, string> error type
         return Err("Empty input")
     }
+
     return Ok(42)
 }
 
 func main() -> (void) {
     var result = parseValue("")
+
     switch result {
         case Ok(v) {
-            println("Parsed:", v)
+            println(
+                "Parsed:",
+                v,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
+
     return void
 }

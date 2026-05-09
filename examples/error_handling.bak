@@ -1,6 +1,5 @@
 // Error Handling in bak
 // No exceptions! Errors are values using Result<T, E> and Option<T>
-
 package main
 
 // Function that might fail
@@ -15,61 +14,109 @@ func divide(a: int, b: int) -> (Result<int, string>) {
 // Function that might not have a value
 func findFirst(numbers: &Vec<int, _>, target: int) -> (Option<int>) {
     mut var i: int = 0
+
     while i < numbers.len() {
         if numbers[i] == target {
             return Some(i)
         }
+
         i = i + 1
     }
+
     return None
 }
 
 func main() -> (void) {
     // Using Result - errors must be handled explicitly!
-    var result1: Result<int, string> = divide(10, 2)
+    var result1: Result<int, string> = divide(
+        10,
+        2,
+    )
+
     switch result1 {
         case Ok(v) {
-            println("10 / 2 =", v)
+            println(
+                "10 / 2 =",
+                v,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
-    
-    var result2 = divide(10, 0)
+
+    var result2 = divide(
+        10,
+        0,
+    )
+
     switch result2 {
         case Ok(v) {
-            println("10 / 0 =", v)
+            println(
+                "10 / 0 =",
+                v,
+            )
         }
         case Err(e) {
-            println("Error:", e)
+            println(
+                "Error:",
+                e,
+            )
         }
     }
-    
+
     // Using Option
-    var numbers: Vec<int, _> = Vec.from([10, 20, 30, 40, 50])
-    
-    var found = findFirst(&numbers, 30)
+    var numbers: Vec<int, _> = Vec.from(
+        [
+            10,
+            20,
+            30,
+            40,
+            50,
+        ],
+    )
+    var found = findFirst(
+        &numbers,
+        30,
+    )
+
     switch found {
         case Some(idx) {
-            println("Found 30 at index:", idx)
+            println(
+                "Found 30 at index:",
+                idx,
+            )
         }
         case None {
             println("30 not found")
         }
     }
-    
-    var notFound = findFirst(&numbers, 100)
+
+    var notFound = findFirst(
+        &numbers,
+        100,
+    )
+
     switch notFound {
         case Some(idx) {
-            println("Found 100 at index:", idx)
+            println(
+                "Found 100 at index:",
+                idx,
+            )
         }
         case None {
             println("100 not found")
         }
     }
-    
+
     // Built-in conversion
     var parsed: int = int("42")
-    println("Parsed number:", parsed)
+
+    println(
+        "Parsed number:",
+        parsed,
+    )
 }

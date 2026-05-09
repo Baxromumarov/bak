@@ -4,16 +4,19 @@ package main
 
 func used_func() -> (void) {
     println("used_func called")
+
     return void
 }
 
 func unused_func() -> (void) {
     // intentionally unused
     println("unused_func called")
+
     return void
 }
 
 func main() -> (void) {
     used_func()
+
     return void
 }

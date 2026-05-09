@@ -1,43 +1,44 @@
 // Test file for type and alias declarations
-
 package main
 
 // Test 1: Basic type declaration
 type Status = string
-
 // Test 2: Basic alias declaration
 alias StatusCode = int
-
 // Test 3: Type with numeric underlying type
 type UserID = int
-
 // Test 4: Alias with numeric underlying type
 alias Count = int
 
 func main() -> (void) {
     // Test basic type constructor
     var s: Status = Status("ok")
+
     println(s)
-    
+
     // Test type with int
     var id: UserID = UserID(42)
+
     println(id)
-    
+
     // Test alias - should work directly with underlying type
     var code: StatusCode = 200
+
     println(code)
-    
+
     // Another alias test
     var count: Count = 10
+
     println(count)
-    
+
     // Test type preserves value
     var s2: Status = Status("error")
+
     println(s2)
-    
+
     // Test arithmetic with type (through underlying value)
     var id2: UserID = UserID(100)
+
     println(id2)
-    
     println("All type/alias tests passed!")
 }

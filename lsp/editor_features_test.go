@@ -32,6 +32,53 @@ func TestFormattingReturnsFullDocumentEdit(t *testing.T) {
 	}
 }
 
+func TestFormattingHandlesHalfOpenRanges(t *testing.T) {
+	src := "package main\nfunc main()->(void){for n in [0,10){println(n)}}"
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	params := DocumentFormattingParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}
+	edits := s.handleFormatting(mustRequest(t, params))
+	if len(edits) != 1 {
+		t.Fatalf("expected one text edit, got %d", len(edits))
+	}
+	if !strings.Contains(edits[0].NewText, "for n in [0, 10) {") {
+		t.Fatalf("expected formatted half-open range, got %q", edits[0].NewText)
+	}
+}
+
+func TestFormattingKeepsSwitchCasesParseable(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"func main() -> (void) {",
+		"    var c: char = '1'",
+		"    switch c {",
+		"        case '0','1','2','3','4','5','6','7','8','9' { println(c) }",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	params := DocumentFormattingParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}
+	edits := s.handleFormatting(mustRequest(t, params))
+	if len(edits) != 1 {
+		t.Fatalf("expected one text edit, got %d", len(edits))
+	}
+	if !strings.Contains(edits[0].NewText, "case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {") {
+		t.Fatalf("expected inline switch case values, got %q", edits[0].NewText)
+	}
+}
+
 func TestHoverShowsIdentifierType(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

@@ -2,12 +2,20 @@ package main
 
 func main() -> (int) {
     mut var v: Vec<int, _> = Vec.new()
+
     v.push(42)
+
     var opt: Result<int, string> = v.pop()
     mut var result: int = 0
+
     switch opt {
-        case Ok(val) { result = val }
-        case Err(_) { result = 0 }
+        case Ok(val) {
+            result = val
+        }
+        case Err(_) {
+            result = 0
+        }
     }
+
     return result
 }

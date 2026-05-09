@@ -1,30 +1,72 @@
 package main
 
-
-func main()-> (void){
-    var arr: Vec<string,_> = Vec.from(["apple", "banana", "cherry"])
-    var arr1: Vec<string,_> // empty, non-allocated
+func main() -> (void) {
+    var arr: Vec<string, _> = Vec.from(["apple", "banana", "cherry"])
+    var arr1: Vec<string, _>
+    // empty, non-allocated
     // var arr2 Vec<int, 4> = Vec.from([1, 2, 3, 4, 5]) // exceeding capacity - correctly raises error
+    var arr3: Vec<int, 5> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+    )
+    // correct version with matching size
+    var arr4: Vec<int, 4>
+    // zero-initialized static array
+    mut var arr5: Vec<int, _> = Vec.new()
+    // empty dynamic vec, must be mutable
+    mut var arr6: Vec<int, _> = Vec.withCap(16)
 
-    var arr3: Vec<int,5> = Vec.from([1, 2, 3, 4, 5])// correct version with matching size
-    var arr4: Vec<int, 4> // zero-initialized static array
-    mut var arr5: Vec<int,_> = Vec.new() // empty dynamic vec, must be mutable
-    mut var arr6: Vec<int,_> = Vec.withCap(16) // pre-allocated capacity
-    
-    println("arr:", arr[0], arr[1], arr[2])
-    println("arr1 len:", arr1.len())
-    println("arr3:", arr3[0], arr3[1], arr3[2], arr3[3], arr3[4])
-    println("arr4:", arr4[0], arr4[1], arr4[2], arr4[3])
-    println("arr5 len:", arr5.len())
-    
+    // pre-allocated capacity
+    println(
+        "arr:",
+        arr[0],
+        arr[1],
+        arr[2],
+    )
+    println(
+        "arr1 len:",
+        arr1.len(),
+    )
+    println(
+        "arr3:",
+        arr3[0],
+        arr3[1],
+        arr3[2],
+        arr3[3],
+        arr3[4],
+    )
+    println(
+        "arr4:",
+        arr4[0],
+        arr4[1],
+        arr4[2],
+        arr4[3],
+    )
+    println(
+        "arr5 len:",
+        arr5.len(),
+    )
     arr5.push(42)
     arr5.push(100)
-    println("arr5 after push:", arr5[0], arr5[1])
-    
+    println(
+        "arr5 after push:",
+        arr5[0],
+        arr5[1],
+    )
     arr6.push(1)
     arr6.push(2)
     arr6.push(3)
-    println("arr6:", arr6[0], arr6[1], arr6[2])
-    
+    println(
+        "arr6:",
+        arr6[0],
+        arr6[1],
+        arr6[2],
+    )
+
     return void
 }

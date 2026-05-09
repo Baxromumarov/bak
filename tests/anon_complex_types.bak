@@ -10,23 +10,37 @@ func main() -> (void) {
     var f1 = func(p: Point) -> (int) {
         return p.x + p.y
     }
+
     println(f1(Point{x: 10, y: 20}))
 
     // Tuples
     var f2 = func(t: (int, string)) -> (string) {
         return t.1
     }
-    var t = make_tuple(42, "bak")
+    var t = make_tuple(
+        42,
+        "bak",
+    )
+
     println(f2(t))
 
     // Vecs
-    var f3 = func(v: Vec<int,_>) -> (int) {
+    var f3 = func(v: Vec<int, _>) -> (int) {
         return v.len()
     }
-    mut var my_vec: Vec<int,_> = Vec.from([1, 2, 3, 4, 5])
+    mut var my_vec: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+            5,
+        ],
+    )
+
     println(f3(my_vec))
 }
 
-func make_tuple(a: int, b: string) -> (int, string) {
+func make_tuple(a: int, b: string) -> ((int, string)) {
     return a, b
 }

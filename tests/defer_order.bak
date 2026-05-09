@@ -4,14 +4,21 @@ mut var log: string = ""
 
 func check(expected: string) -> (void) {
     if log != expected {
-        panic("expected " + expected + ", got " + log)
+        panic "expected " + expected + ", got " + log
     }
 }
 
 func main() -> (void) {
-    defer { check("CBA") }
-    defer { log = log + "A" }
-    defer { log = log + "B" }
+    defer {
+        check("CBA")
+    }
+    defer {
+        log = log + "A"
+    }
+    defer {
+        log = log + "B"
+    }
     log = log + "C"
+
     return void
 }

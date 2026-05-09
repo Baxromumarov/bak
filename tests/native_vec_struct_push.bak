@@ -7,7 +7,9 @@ struct Pair {
 
 func main() -> (int) {
     mut var v: Vec<Pair, _> = Vec.new()
+
     v.push(Pair{X: 5, Y: 6})
     v.push(Pair{X: 7, Y: 8})
+
     return v[0].X + v[0].Y + v[1].X + v[1].Y
 }

@@ -3,9 +3,15 @@ package main
 func main() -> (int) {
     var a: Result<int, string> = Err("none")
     mut var result: int = 0
+
     switch a {
-        case Ok(x) { result = x }
-        case Err(_e) { result = 99 }
+        case Ok(x) {
+            result = x
+        }
+        case Err(_e) {
+            result = 99
+        }
     }
+
     return result
 }

@@ -24,10 +24,12 @@ pub func fromVec(v: Vec<int, _>) -> (types.Bytes) {
 pub func fromString(s: string) -> (types.Bytes) {
     mut var out: types.Bytes = types.Bytes{data: Vec.new()}
     mut var i: int = 0
+
     while i < s.len() {
         out.data.push(int(s[i]))
         i = i + 1
     }
+
     return out
 }
 
@@ -35,10 +37,12 @@ pub func fromString(s: string) -> (types.Bytes) {
 pub func toString(b: &types.Bytes) -> (string) {
     mut var out: string = ""
     mut var i: int = 0
+
     while i < b.data.len() {
         out = out + string(char(b.data[i]))
         i = i + 1
     }
+
     return out
 }
 
@@ -46,26 +50,35 @@ pub func toString(b: &types.Bytes) -> (string) {
 pub func toVec(b: &types.Bytes) -> (Vec<int, _>) {
     mut var out: Vec<int, _> = Vec.new()
     mut var i: int = 0
+
     while i < b.data.len() {
         out.push(b.data[i])
         i = i + 1
     }
+
     return out
 }
 
 // view creates an owned view (copy) over `b` from `start` with `length`
-pub func view(b: &types.Bytes, start: int, length: int) -> (Result<types.BytesView, string>) {
+pub func view(
+    b: &types.Bytes,
+    start: int,
+    length: int,
+) -> (Result<types.BytesView, string>) {
     if start < 0 || length < 0 || start + length > b.data.len() {
         return Err("invalid view range")
     }
+
     // create a copy for now for simplicity, or use slice if supported
     mut var out: Vec<int, _> = Vec.new()
     mut var i: int = start
     var end: int = start + length
+
     while i < end {
         out.push(b.data[i])
         i = i + 1
     }
+
     return Ok(types.BytesView{data: out})
 }
 
@@ -80,6 +93,7 @@ pub func get(b: &types.Bytes, i: int) -> (Result<int, string>) {
     if i < 0 || i >= b.data.len() {
         return Err("index out of bounds")
     }
+
     return Ok(b.data[i])
 }
 
@@ -88,14 +102,15 @@ pub func set(b: &mut types.Bytes, i: int, v: int) -> (Result<void, string>) {
     if i < 0 || i >= b.data.len() {
         return Err("index out of bounds")
     }
+
     b.data[i] = v
+
     return Ok(void)
 }
 
 // -----------------------------------------------------------------------------
 // View functions
 // -----------------------------------------------------------------------------
-
 // viewLength for views
 pub func viewLength(v: &types.BytesView) -> (int) {
     return v.data.len()
@@ -106,6 +121,7 @@ pub func viewGet(v: &types.BytesView, i: int) -> (Result<int, string>) {
     if i < 0 || i >= v.data.len() {
         return Err("index out of bounds")
     }
+
     return Ok(v.data[i])
 }
 
@@ -113,30 +129,40 @@ pub func viewGet(v: &types.BytesView, i: int) -> (Result<int, string>) {
 pub func readFile(path: string) -> (Result<types.Bytes, string>) {
     // Prefer reading raw bytes via fs.readFileBytes when available.
     var rb: Result<Vec<int, _>, string> = fs.readFileBytes(&path)
+
     if rb.isOk() {
         return Ok(fromVec(rb.unwrap()))
     }
+
     // fall back to string-based read
     var r: Result<string, string> = fs.readFile(path)
+
     if r.isOk() {
         return Ok(fromString(r.unwrap()))
     }
+
     return Err(r.unwrapErr())
 }
 
 // writeFile writes bytes to a file
 pub func writeFile(path: string, data: &types.Bytes) -> (Result<void, string>) {
     // Prefer writing raw bytes
-    mut var vecData: Vec<int,_> = Vec.new()
+    mut var vecData: Vec<int, _> = Vec.new()
     mut var i: int = 0
+
     while i < data.data.len() {
         vecData.push(data.data[i])
         i = i + 1
     }
 
-    var wres: Result<void, string> = fs.writeFileBytes(&path, vecData)
+    var wres: Result<void, string> = fs.writeFileBytes(
+        &path,
+        vecData,
+    )
+
     if wres.isOk() {
         return Ok(void)
     }
+
     return Err(wres.unwrapErr())
 }

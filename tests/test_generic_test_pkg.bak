@@ -9,23 +9,35 @@ struct Point {
 
 func test_generic_int_eq() -> (void) {
     mut var t: test.T = test.new("test_generic_int")
-    t.eq(10, 10)
+
+    t.eq(
+        10,
+        10,
+    )
+
     if t.hasFailed() {
         println("FAIL: eq<int> failed on equal values")
     } else {
         println("PASS: eq<int> works")
     }
+
     t.finish()
 }
 
 func test_generic_string_eq() -> (void) {
     mut var t: test.T = test.new("test_generic_string")
-    t.eq("hello", "hello")
+
+    t.eq(
+        "hello",
+        "hello",
+    )
+
     if t.hasFailed() {
         println("FAIL: eq<string> failed on equal values")
     } else {
         println("PASS: eq<string> works")
     }
+
     t.finish()
 }
 

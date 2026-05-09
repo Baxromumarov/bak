@@ -65,7 +65,7 @@ func TestBakfmtListWalksDirectories(t *testing.T) {
 	}
 
 	stdout, stderr, exitCode := runBakfmt(t, "", []string{"-l", dir})
-	if exitCode != 0 {
+	if exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d stderr=%q", exitCode, stderr)
 	}
 	if stderr != "" {
@@ -75,6 +75,22 @@ func TestBakfmtListWalksDirectories(t *testing.T) {
 	lines := strings.Fields(strings.TrimSpace(stdout))
 	if len(lines) != 1 || lines[0] != needsFormat {
 		t.Fatalf("unexpected listed files: %q", stdout)
+	}
+}
+
+func TestBakfmtListExitsZeroWhenNoFilesDiffer(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "already_format.bak")
+	if err := os.WriteFile(path, []byte("package main\n\nfunc main() -> (void) {\n    return void\n}\n"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	stdout, stderr, exitCode := runBakfmt(t, "", []string{"-l", dir})
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d stderr=%q", exitCode, stderr)
+	}
+	if stdout != "" || stderr != "" {
+		t.Fatalf("expected no output, stdout=%q stderr=%q", stdout, stderr)
 	}
 }
 

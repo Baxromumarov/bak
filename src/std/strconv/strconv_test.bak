@@ -5,106 +5,191 @@ import test "std/test"
 
 func test_parse_int() -> (void) {
     mut var t: test.T = test.new("test_parse_int")
-
     var a: string = "123"
-    var res_a: Result<int, string> = s.parseInt(&a, 10)
+    var res_a: Result<int, string> = s.parseInt(
+        &a,
+        10,
+    )
+
     if res_a.isOk() {
-        t.eq(res_a.unwrap(), 123)
+        t.eq(
+            res_a.unwrap(),
+            123,
+        )
     } else {
         t.fail("parseInt failed: " + res_a.unwrapErr())
     }
 
     var b: string = "-42"
-    var res_b: Result<int, string> = s.parseInt(&b, 10)
+    var res_b: Result<int, string> = s.parseInt(
+        &b,
+        10,
+    )
+
     if res_b.isOk() {
-        t.eq(res_b.unwrap(), -42)
+        t.eq(
+            res_b.unwrap(),
+            -42,
+        )
     } else {
         t.fail("parseInt failed: " + res_b.unwrapErr())
     }
 
     var c: string = "ff"
-    var res_c: Result<int, string> = s.parseInt(&c, 16)
+    var res_c: Result<int, string> = s.parseInt(
+        &c,
+        16,
+    )
+
     if res_c.isOk() {
-        t.eq(res_c.unwrap(), 255)
+        t.eq(
+            res_c.unwrap(),
+            255,
+        )
     } else {
         t.fail("parseInt failed: " + res_c.unwrapErr())
     }
 
     var d: string = "1011"
-    var res_d: Result<int, string> = s.parseInt(&d, 2)
+    var res_d: Result<int, string> = s.parseInt(
+        &d,
+        2,
+    )
+
     if res_d.isOk() {
-        t.eq(res_d.unwrap(), 11)
+        t.eq(
+            res_d.unwrap(),
+            11,
+        )
     } else {
         t.fail("parseInt failed: " + res_d.unwrapErr())
     }
 
     var bad: string = "12z"
-    var res_bad: Result<int, string> = s.parseInt(&bad, 10)
-    t.isTrue(res_bad.isErr())
+    var res_bad: Result<int, string> = s.parseInt(
+        &bad,
+        10,
+    )
 
+    t.isTrue(res_bad.isErr())
     t.finish()
 }
 
 func test_format_int() -> (void) {
     mut var t: test.T = test.new("test_format_int")
 
-    t.eqString(s.formatInt(10, 2), "1010")
-    t.eqString(s.formatOctal(9), "11")
-    t.eqString(s.formatHex(255), "ff")
-    t.eqString(s.formatInt(-15, 10), "-15")
-
+    t.eqString(
+        s.formatInt(
+            10,
+            2,
+        ),
+        "1010",
+    )
+    t.eqString(
+        s.formatOctal(9),
+        "11",
+    )
+    t.eqString(
+        s.formatHex(255),
+        "ff",
+    )
+    t.eqString(
+        s.formatInt(
+            -15,
+            10,
+        ),
+        "-15",
+    )
     t.finish()
 }
 
 func test_format_float() -> (void) {
     mut var t: test.T = test.new("test_format_float")
 
-    t.eqString(s.formatFloat(1.2345, 2), "1.23")
-    t.eqString(s.formatFloat(-0.5, 3), "-0.500")
-    t.eqString(s.formatFloat(42.0, 0), "42")
-    t.eqString(s.formatFloat(0.0, 2), "0.00")
-
+    t.eqString(
+        s.formatFloat(
+            1.2345,
+            2,
+        ),
+        "1.23",
+    )
+    t.eqString(
+        s.formatFloat(
+            -0.5,
+            3,
+        ),
+        "-0.500",
+    )
+    t.eqString(
+        s.formatFloat(
+            42.0,
+            0,
+        ),
+        "42",
+    )
+    t.eqString(
+        s.formatFloat(
+            0.0,
+            2,
+        ),
+        "0.00",
+    )
     t.finish()
 }
 
 func test_atof() -> (void) {
     mut var t: test.T = test.new("test_atof")
-
     var a: string = "123.25"
     var res_a: Result<float64, string> = s.atof(&a)
+
     if res_a.isOk() {
-        t.eqFloat(res_a.unwrap(), 123.25)
+        t.eqFloat(
+            res_a.unwrap(),
+            123.25,
+        )
     } else {
         t.fail("atof failed: " + res_a.unwrapErr())
     }
 
     var b: string = "-0.5"
     var res_b: Result<float64, string> = s.atof(&b)
+
     if res_b.isOk() {
-        t.eqFloat(res_b.unwrap(), -0.5)
+        t.eqFloat(
+            res_b.unwrap(),
+            -0.5,
+        )
     } else {
         t.fail("atof failed: " + res_b.unwrapErr())
     }
 
     var c: string = ".75"
     var res_c: Result<float64, string> = s.atof(&c)
+
     if res_c.isOk() {
-        t.eqFloat(res_c.unwrap(), 0.75)
+        t.eqFloat(
+            res_c.unwrap(),
+            0.75,
+        )
     } else {
         t.fail("atof failed: " + res_c.unwrapErr())
     }
 
     var d: string = "1."
     var res_d: Result<float64, string> = s.atof(&d)
+
     if res_d.isOk() {
-        t.eqFloat(res_d.unwrap(), 1.0)
+        t.eqFloat(
+            res_d.unwrap(),
+            1.0,
+        )
     } else {
         t.fail("atof failed: " + res_d.unwrapErr())
     }
 
     var bad: string = "1a"
     var res_bad: Result<float64, string> = s.atof(&bad)
-    t.isTrue(res_bad.isErr())
 
+    t.isTrue(res_bad.isErr())
     t.finish()
 }

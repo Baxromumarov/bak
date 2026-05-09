@@ -4,12 +4,17 @@ import test "std/test"
 
 func test_addition() -> (void) {
     mut var t: test.T = test.new("test_addition")
-    t.eq(1 + 1, 2)
+
+    t.eq(
+        1 + 1,
+        2,
+    )
     t.finish()
 }
 
 func test_pass() -> (void) {
     mut var t: test.T = test.new("test_pass")
+
     t.isTrue(true)
     t.finish()
 }

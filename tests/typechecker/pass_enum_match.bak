@@ -19,19 +19,34 @@ func colorName(c: Color) -> (string) {
         case Blue {
             return "Blue"
         }
-        case RGB(_r, _g, _b) {
+        case RGB(
+            _r,
+            _g,
+            _b,
+        ) {
             return "Custom RGB"
         }
     }
+
     return "Unknown"
 }
 
 func main() -> (void) {
     var red: Color = Red
-    var custom: Color = RGB(255, 128, 64)
-    
-    println("Color:", colorName(red))
-    println("Custom:", colorName(custom))
-    
+    var custom: Color = RGB(
+        255,
+        128,
+        64,
+    )
+
+    println(
+        "Color:",
+        colorName(red),
+    )
+    println(
+        "Custom:",
+        colorName(custom),
+    )
+
     return void
 }

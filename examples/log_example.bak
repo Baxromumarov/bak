@@ -5,19 +5,48 @@ import log "std/log"
 func main() -> (void) {
     log.set_prefix("[demo]")
     log.set_level(log.LEVEL_DEBUG)
-
     log.debug("debug message")
     log.info("info message")
     log.test("test message")
     log.warn("warn message")
     log.error("error message")
-
     log.disable_color()
     log.info("color disabled")
+    log.info_kv(
+        "user logged in",
+        Vec.from(
+            [
+                log.kv(
+                    "user",
+                    "bakhrom",
+                ),
+                log.kv(
+                    "role",
+                    "admin",
+                ),
+            ],
+        ),
+    )
 
-    log.info_kv("user logged in", Vec.from([log.kv("user", "bakhrom"), log.kv("role", "admin")]))
+    mut var api: log.Logger = log.module(
+        "api",
+        log.LEVEL_DEBUG,
+    )
 
-    mut var api: log.Logger = log.module("api", log.LEVEL_DEBUG)
-    api.log(log.LEVEL_INFO, "module logger info")
-    api.log_kv(log.LEVEL_DEBUG, "module debug", Vec.from([log.kv("path", "/v1/users")]))
+    api.log(
+        log.LEVEL_INFO,
+        "module logger info",
+    )
+    api.log_kv(
+        log.LEVEL_DEBUG,
+        "module debug",
+        Vec.from(
+            [
+                log.kv(
+                    "path",
+                    "/v1/users",
+                ),
+            ],
+        ),
+    )
 }

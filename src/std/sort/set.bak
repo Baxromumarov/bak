@@ -4,9 +4,19 @@ import collections "std/collections/set"
 import vector "std/sort/vector"
 
 // Sort Set<T> values and return a sorted Vec.
-pub func sort_set<T>(set: &collections.Set<T>, asc: bool, cmp: func(&T, &T) -> (int)) -> (Vec<T, _>) {
+pub func sort_set<T>(
+    set: &collections.Set<T>,
+    asc: bool,
+    cmp: func(&T, &T) -> (int),
+) -> (Vec<T, _>) {
     mut var items: Vec<T, _> = set.values()
-    vector.sort(&mut items, asc, cmp)
+
+    vector.sort(
+        &mut items,
+        asc,
+        cmp,
+    )
+
     return items
 }
 
@@ -14,17 +24,31 @@ pub func sort_set<T>(set: &collections.Set<T>, asc: bool, cmp: func(&T, &T) -> (
 pub func sort_set_by<T>(
     set: &collections.Set<T>,
     asc: bool,
-    less: func(&T, &T) -> (bool)
+    less: func(&T, &T) -> (bool),
 ) -> (Vec<T, _>) {
     mut var items: Vec<T, _> = set.values()
-    vector.sort_by(&mut items, asc, less)
+
+    vector.sort_by(
+        &mut items,
+        asc,
+        less,
+    )
+
     return items
 }
 
 // Sort StringSet values and return a sorted Vec.
-pub func sortStringSet(set: &collections.StringSet, asc: bool) -> (Vec<string, _>) {
+pub func sortStringSet(
+    set: &collections.StringSet,
+    asc: bool,
+) -> (Vec<string, _>) {
     mut var items: Vec<string, _> = set.values()
-    vector.sortStrings(&mut items, asc)
+
+    vector.sortStrings(
+        &mut items,
+        asc,
+    )
+
     return items
 }
 
@@ -32,17 +56,28 @@ pub func sortStringSet(set: &collections.StringSet, asc: bool) -> (Vec<string, _
 pub func sortStringSetBy(
     set: &collections.StringSet,
     asc: bool,
-    less: func(&string, &string) -> (bool)
+    less: func(&string, &string) -> (bool),
 ) -> (Vec<string, _>) {
     mut var items: Vec<string, _> = set.values()
-    vector.sort_by(&mut items, asc, less)
+
+    vector.sort_by(
+        &mut items,
+        asc,
+        less,
+    )
+
     return items
 }
 
 // Sort IntSet values and return a sorted Vec.
 pub func sortIntSet(set: &collections.IntSet, asc: bool) -> (Vec<int, _>) {
     mut var items: Vec<int, _> = set.values()
-    vector.sortInts(&mut items, asc)
+
+    vector.sortInts(
+        &mut items,
+        asc,
+    )
+
     return items
 }
 
@@ -50,9 +85,15 @@ pub func sortIntSet(set: &collections.IntSet, asc: bool) -> (Vec<int, _>) {
 pub func sortIntSetBy(
     set: &collections.IntSet,
     asc: bool,
-    less: func(&int, &int) -> (bool)
+    less: func(&int, &int) -> (bool),
 ) -> (Vec<int, _>) {
     mut var items: Vec<int, _> = set.values()
-    vector.sort_by(&mut items, asc, less)
+
+    vector.sort_by(
+        &mut items,
+        asc,
+        less,
+    )
+
     return items
 }

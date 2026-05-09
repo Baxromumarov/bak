@@ -1,24 +1,39 @@
 package main
 
 // Mixed test - multiple incorrect calls in one file
-func zeroParams() -> (void) { return void }
-func oneParam(a: int) -> (void) { return void }
-func twoParams(a: int, b: string) -> (int) { return a }
-func threeParams(a: int, b: string, c: bool) -> (int, string, bool) { return a, b, c }
+func zeroParams() -> (void) {
+    return void
+}
+
+func oneParam(a: int) -> (void) {
+    return void
+}
+
+func twoParams(a: int, b: string) -> (int) {
+    return a
+}
+
+func threeParams(a: int, b: string, c: bool) -> ((int, string, bool)) {
+    return a, b, c
+}
 
 func main() -> (void) {
     // ERROR 1: zeroParams expects 0, got 1
     zeroParams(1)
-    
     // ERROR 2: oneParam expects 1, got 0
     oneParam()
-    
+
     // ERROR 3: twoParams expects 2, got 1
     var x = twoParams(1)
-    
     // ERROR 4: threeParams expects 3, got 1
     var (a, b, c) = threeParams(42)
-    
-    println(x, a, b, c)
+
+    println(
+        x,
+        a,
+        b,
+        c,
+    )
+
     return void
 }

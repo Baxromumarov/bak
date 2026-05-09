@@ -7,5 +7,6 @@ func main() -> (void) {
     var b: string = "hello"
     // ERROR: cannot add int and string
     var _c = a + b
+
     return void
 }

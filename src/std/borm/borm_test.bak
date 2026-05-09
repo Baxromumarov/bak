@@ -268,7 +268,9 @@ func test_insert_builds_placeholders() -> (void) {
     ).value(
         "balance",
         100,
-    ).exec(&conn)
+    ).exec(
+        &conn,
+    )
 
     b.resetExecHook()
 
@@ -374,7 +376,11 @@ func test_update_with_where() -> (void) {
     var result = b.update("users").set(
         "balance",
         120,
-    ).where(b.col("id").eq(1)).exec(&conn)
+    ).where(
+        b.col("id").eq(1),
+    ).exec(
+        &conn,
+    )
 
     b.resetExecHook()
 
@@ -518,7 +524,11 @@ func test_insert_returning_int() -> (void) {
     ).value(
         "balance",
         10,
-    ).returningInt("id").exec(&conn)
+    ).returningInt(
+        "id",
+    ).exec(
+        &conn,
+    )
 
     b.resetQueryHooks()
 

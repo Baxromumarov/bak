@@ -3,8 +3,16 @@ package mylib
 
 func main() -> (void) {
     println("Testing mylib")
-    var result: int = add(10, 20)
-    println("add(10, 20) =", result)
+
+    var result: int = add(
+        10,
+        20,
+    )
+
+    println(
+        "add(10, 20) =",
+        result,
+    )
     println("Test passed!")
 }
 
@@ -21,10 +29,11 @@ func multiply(a: int, b: int) -> (int) {
 // Public struct with mixed visibility fields
 pub struct User {
     pub name: string
-    pub age: int
-    password: string  // private field
+    pub age:  int
+    password: string
 }
 
+// private field
 // Private struct
 struct InternalCache {
     data: string
@@ -32,13 +41,11 @@ struct InternalCache {
 
 // Public constant
 pub const VERSION: int = 1
-
 // Private constant  
 const MAGIC_NUMBER: int = 42
 
 // Public type
 pub type UserID = int
-
 // Private type
 type CacheKey = string
 
@@ -60,7 +67,11 @@ enum InternalState {
 func internalHelper() -> (int) {
     var cache: InternalCache = InternalCache{data: "cached"}
     var state: InternalState = Loading
-    return multiply(MAGIC_NUMBER, 2)
+
+    return multiply(
+        MAGIC_NUMBER,
+        2,
+    )
 }
 
 // Public function that uses internal items

@@ -5,17 +5,54 @@ import fp "std/filepath"
 
 func test_filepath_wrappers() -> (void) {
     mut var t: test.T = test.new("test_filepath_wrappers")
-    t.eqString(fp.clean("a//b/./c"), "a/b/c")
-    t.eqString(fp.join("/a", "b"), "/a/b")
-    t.eqString(fp.base("/a/b/"), "b")
-    t.eqString(fp.dir("/a/b/"), "/a")
-    t.eqString(fp.ext("file.txt"), ".txt")
+
+    t.eqString(
+        fp.clean("a//b/./c"),
+        "a/b/c",
+    )
+    t.eqString(
+        fp.join(
+            "/a",
+            "b",
+        ),
+        "/a/b",
+    )
+    t.eqString(
+        fp.base("/a/b/"),
+        "b",
+    )
+    t.eqString(
+        fp.dir("/a/b/"),
+        "/a",
+    )
+    t.eqString(
+        fp.ext("file.txt"),
+        ".txt",
+    )
     t.isTrue(fp.isAbs("/tmp/x"))
     t.isTrue(fp.isRel("tmp/x"))
     t.isTrue(fp.hasExt("file.txt"))
-    t.eqString(fp.stem("file.txt"), "file")
-    t.eqString(fp.withoutExt("/a/b/file.txt"), "/a/b/file")
-    t.eqString(fp.withExt("/a/b/file.txt", "bak"), "/a/b/file.bak")
-    t.eqString(fp.withExt("/a/b/file.txt", ".tmp"), "/a/b/file.tmp")
+    t.eqString(
+        fp.stem("file.txt"),
+        "file",
+    )
+    t.eqString(
+        fp.withoutExt("/a/b/file.txt"),
+        "/a/b/file",
+    )
+    t.eqString(
+        fp.withExt(
+            "/a/b/file.txt",
+            "bak",
+        ),
+        "/a/b/file.bak",
+    )
+    t.eqString(
+        fp.withExt(
+            "/a/b/file.txt",
+            ".tmp",
+        ),
+        "/a/b/file.tmp",
+    )
     t.finish()
 }
