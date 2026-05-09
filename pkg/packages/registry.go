@@ -63,6 +63,22 @@ type Package struct {
 	mu              sync.RWMutex
 }
 
+// SymbolSummary is a stable, serializable view of a package symbol.
+type SymbolSummary struct {
+	Name       string
+	Kind       string
+	Visibility string
+}
+
+// GraphNode is a stable snapshot of one package in a registry graph.
+type GraphNode struct {
+	Path            string
+	Name            string
+	Imports         []string
+	ResolvedImports []string
+	Symbols         []SymbolSummary
+}
+
 // NewPackage creates a new Package
 func NewPackage(name, path string, program *ast.Program) *Package {
 	pkg := &Package{
@@ -245,6 +261,65 @@ func (r *Registry) GetPackage(path string) (*Package, bool) {
 	defer r.mu.RUnlock()
 	pkg, exists := r.packages[path]
 	return pkg, exists
+}
+
+// SnapshotGraph returns a deterministic snapshot of the loaded package graph.
+func (r *Registry) SnapshotGraph() []GraphNode {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	paths := make([]string, 0, len(r.packages))
+	for path := range r.packages {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	graph := make([]GraphNode, 0, len(paths))
+	for _, path := range paths {
+		pkg := r.packages[path]
+		if pkg == nil {
+			continue
+		}
+		graph = append(graph, packageGraphNode(pkg))
+	}
+	return graph
+}
+
+func packageGraphNode(pkg *Package) GraphNode {
+	pkg.mu.RLock()
+	defer pkg.mu.RUnlock()
+
+	imports := append([]string(nil), pkg.Imports...)
+	resolved := append([]string(nil), pkg.ResolvedImports...)
+	sort.Strings(imports)
+	sort.Strings(resolved)
+
+	symbolNames := make([]string, 0, len(pkg.Symbols))
+	for name := range pkg.Symbols {
+		symbolNames = append(symbolNames, name)
+	}
+	sort.Strings(symbolNames)
+
+	symbols := make([]SymbolSummary, 0, len(symbolNames))
+	for _, name := range symbolNames {
+		sym := pkg.Symbols[name]
+		if sym == nil {
+			continue
+		}
+		symbols = append(symbols, SymbolSummary{
+			Name:       sym.Name,
+			Kind:       sym.Kind.String(),
+			Visibility: sym.Visibility.String(),
+		})
+	}
+
+	return GraphNode{
+		Path:            pkg.Path,
+		Name:            pkg.Name,
+		Imports:         imports,
+		ResolvedImports: resolved,
+		Symbols:         symbols,
+	}
 }
 
 // IsLoading checks if a package is currently being loaded (for cycle detection)

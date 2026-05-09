@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/baxromumarov/bak/internal/analysis"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/backend/native"
 	"github.com/baxromumarov/bak/pkg/compiler"
@@ -16,7 +17,6 @@ import (
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/trace"
-	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
 
@@ -79,8 +79,11 @@ func (p *Pipeline) Typecheck(ctx context.Context) error {
 		return err
 	}
 
-	tc := typechecker.NewWithPath(p.Filename)
-	typeErrors := tc.Check(p.AST)
+	result, err := analysis.TypecheckProgram(ctx, p.Filename, p.AST, analysis.Options{}, nil)
+	if err != nil {
+		return err
+	}
+	typeErrors := result.TypeMessages
 	p.Warnings = append(p.Warnings[:0], typeErrors...)
 	if len(typeErrors) > 0 {
 		fmt.Fprintln(os.Stderr, strfmt.Named("Type errors ({count}):", "Count", len(typeErrors)))
@@ -95,7 +98,7 @@ func (p *Pipeline) Typecheck(ctx context.Context) error {
 	if len(typeErrors) == 0 {
 		return nil
 	}
-	if hasFatalTypeErrors(tc) {
+	if result.Fatal {
 		return ErrTypecheckFailed
 	}
 	return nil
@@ -201,16 +204,4 @@ func (p *Pipeline) BuildNative(
 	}
 
 	return outputFile, nil
-}
-
-func hasFatalTypeErrors(tc *typechecker.TypeChecker) bool {
-	if tc == nil {
-		return false
-	}
-	for _, typeErr := range tc.GetErrors() {
-		if typeErr.Tier == typechecker.TierFatal {
-			return true
-		}
-	}
-	return false
 }

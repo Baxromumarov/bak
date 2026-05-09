@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
+	"github.com/baxromumarov/bak/internal/analysis"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
-	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
 var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -43,8 +44,15 @@ func main() {
 			continue
 		}
 
-		tc := typechecker.NewWithPath(target)
-		typeErrors := tc.Check(program)
+		result, err := analysis.TypecheckProgram(context.Background(), target, program, analysis.Options{
+			InjectPrelude: true,
+		}, nil)
+		if err != nil {
+			printErrors(target, "analysis errors", []string{err.Error()})
+			hadErrors = true
+			continue
+		}
+		typeErrors := result.TypeMessages
 		if len(typeErrors) > 0 {
 			printErrors(target, "type errors", typeErrors)
 			if hasBlockingDiagnostics(typeErrors) {
@@ -131,8 +139,15 @@ func checkFilesInDir(dir string) bool {
 			continue
 		}
 
-		tc := typechecker.NewWithPath(file)
-		typeErrors := tc.Check(program)
+		result, err := analysis.TypecheckProgram(context.Background(), file, program, analysis.Options{
+			InjectPrelude: true,
+		}, nil)
+		if err != nil {
+			printErrors(file, "analysis errors", []string{err.Error()})
+			hadErrors = true
+			continue
+		}
+		typeErrors := result.TypeMessages
 		if len(typeErrors) > 0 {
 			printErrors(file, "type errors", typeErrors)
 			if hasBlockingDiagnostics(typeErrors) {

@@ -12,11 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/baxromumarov/bak/internal/analysis"
 	bakdiag "github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/formatter"
-	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/linter"
-	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -30,55 +29,39 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	// Ideally we should know the package path relative to workspace.
 	// For now we treat single file as "main" or parse package decl.
 
-	// 1. Parse
-	l := lexer.New(text)
-	p := parser.New(l)
-	p.SetFilename(filePath)
-	prog := p.ParseProgram()
+	var analysisResult *analysis.Result
+	analysisPanicked := false
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				analysisPanicked = true
+				log.Printf("panic during analysis(%s): %v\nStack Trace:\n%s", uri, r, debug.Stack())
+			}
+		}()
+		var err error
+		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.Options{
+			InjectPrelude:       true,
+			IncludePackageFiles: true,
+			RestoreProgram:      true,
+			SuppressUnused:      strings.HasSuffix(filePath, "_test.bak"),
+			InvalidatePackage:   true,
+		})
+		if err != nil && ctx.Err() == nil {
+			log.Printf("analysis failed(%s): %v", uri, err)
+		}
+	}()
+	if analysisPanicked || analysisResult == nil {
+		return
+	}
+
+	prog := analysisResult.Program
+	parserErrors := analysisResult.ParserErrors
+	tc := analysisResult.TypeChecker
 
 	select {
 	case <-ctx.Done():
 		return
 	default:
-	}
-
-	// 2. Type Check with Registry
-	// We need to clear/reload the package in registry?
-	// For now, let's create a fresh registry or update it.
-	// A robust LSP needs a persistent registry.
-	// But `typechecker.New()` creates a fresh environment.
-
-	typechecker.InvalidatePackage(filePath)
-	// log.Printf("Analyzing file: %s from URI: %s", filePath, uri)
-
-	var tc *typechecker.TypeChecker
-	// Attempt type checking even if there are parser errors to support completion
-	// on partial files (e.g. "map.").
-	if len(p.Errors()) == 0 {
-
-		tc = typechecker.NewWithPath(filePath)
-		if strings.HasSuffix(filePath, "_test.bak") {
-			tc.SetSuppressUnused(true)
-		}
-		typecheckPanicked := false
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					typecheckPanicked = true
-					log.Printf("panic during typecheck(%s): %v\nStack Trace:\n%s", uri, r, debug.Stack())
-				}
-			}()
-			if len(p.Errors()) == 0 {
-				withSiblingPackageFiles(prog, filePath, func() {
-					withPreludeForTypecheck(prog, filePath, func() {
-						tc.Check(prog)
-					})
-				})
-			}
-		}()
-		if typecheckPanicked {
-			tc = nil
-		}
 	}
 
 	select {
@@ -108,13 +91,14 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 		RefIndex: refIndex,
 		RefByPos: refByPos,
 		Defs:     defs,
+		Graph:    analysisResult.Graph,
 	}
 
 	// Collect Diagnostics
 	diagnostics := []Diagnostic{}
 
 	// Parser Errors
-	for _, msg := range p.Errors() {
+	for _, msg := range parserErrors {
 		matches := lineColRegex.FindStringSubmatch(msg)
 		if len(matches) == 4 {
 			l, _ := strconv.Atoi(matches[1]) // Line
@@ -144,7 +128,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 				severity = 2
 			}
 			diag := Diagnostic{
-				Range:    rangeFromLineCol(typeErr.Line, typeErr.Column, 1),
+				Range:    diagnosticRangeForTypeError(typeErr),
 				Severity: severity,
 				Source:   "bak-typechecker",
 				Message:  typeErr.Message,
@@ -331,6 +315,37 @@ func typeErrorRelatedInformation(typeErr typechecker.TypeError) []DiagnosticRela
 		})
 	}
 	return related
+}
+
+func diagnosticRangeForTypeError(typeErr typechecker.TypeError) Range {
+	width := diagnosticWidthFromMessage(typeErr.Message)
+	if width < 1 {
+		width = 1
+	}
+	return rangeFromLineCol(typeErr.Line, typeErr.Column, width)
+}
+
+func diagnosticWidthFromMessage(message string) int {
+	if strings.HasPrefix(message, "undefined: ") {
+		return len(strings.TrimSpace(strings.TrimPrefix(message, "undefined: ")))
+	}
+	if quoted := firstSingleQuoted(message); quoted != "" {
+		return len(quoted)
+	}
+	return 1
+}
+
+func firstSingleQuoted(message string) string {
+	start := strings.Index(message, "'")
+	if start < 0 {
+		return ""
+	}
+	rest := message[start+1:]
+	end := strings.Index(rest, "'")
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {

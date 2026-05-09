@@ -6,6 +6,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/linter"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
 
@@ -25,6 +26,7 @@ type AnalysisResult struct {
 	RefIndex map[string][]Location
 	RefByPos map[string]string
 	Defs     map[string]Location
+	Graph    []packages.GraphNode
 }
 
 type SymbolInfo struct {
