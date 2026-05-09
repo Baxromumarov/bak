@@ -1,6 +1,6 @@
 package main
 
-import "std/test/test.bak" as test
+import test "std/test"
 
 // We rely on Vec being available (either builtin or from same-package if compiled together)
 // Since we are compiled as a file in src/std/collections/..., and vec.bak is in the same dir,

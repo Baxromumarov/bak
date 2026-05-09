@@ -1,8 +1,8 @@
 package log
 
-import "src/std/time/time.bak" as time
-import "src/std/fs/fs.bak" as fs
-import "src/std/os/os.bak" as os
+import time "std/time"
+import fs "std/fs"
+import os "std/os"
 
 pub const LEVEL_TRACE: int = 5
 pub const LEVEL_DEBUG: int = 10

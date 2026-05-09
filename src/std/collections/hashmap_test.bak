@@ -1,7 +1,7 @@
 package collections
 
-import "src/std/test/test.bak" as test
-import "src/std/collections/hashmap.bak" as hashmap
+import test "std/test"
+import hashmap "std/collections/hashmap"
 
 // =============================================================================
 // HashMap<K, V> Tests - Full Coverage

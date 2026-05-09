@@ -1,6 +1,6 @@
 package main
 
-import "src/std/strings/strings.bak" as strings
+import strings "std/strings"
 
 func main() -> (int) {
     mut var score: int = 0

@@ -151,3 +151,36 @@ func TestResolveImportPathGoLikeStdAndFilePackages(t *testing.T) {
 		t.Fatalf("expected std/db/postgres to resolve to %q, got %q", postgresPath, resolved)
 	}
 }
+
+func TestResolveImportPathSkipsMixedPackageDirectory(t *testing.T) {
+	root := t.TempDir()
+	bytesDir := filepath.Join(root, "src", "std", "bytes")
+	if err := os.MkdirAll(bytesDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	bytesPath := filepath.Join(bytesDir, "bytes.bak")
+	if err := os.WriteFile(bytesPath, []byte("package bytes\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bytesDir, "types.bak"), []byte("package types\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	if resolved := ResolveImportPathFrom("std/bytes", ""); resolved != bytesPath {
+		t.Fatalf("expected std/bytes to skip mixed directory and resolve to %q, got %q", bytesPath, resolved)
+	}
+}

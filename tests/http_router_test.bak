@@ -4,7 +4,7 @@
 
 package main
 
-import "std/http" as http
+import http "std/http"
 
 // Handler for /hello
 func handle_hello(_req: http.Request) -> (http.Response) {

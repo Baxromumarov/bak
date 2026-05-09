@@ -1,6 +1,6 @@
 package main
 
-import "src/std/fmt/fmt.bak" as fmt
+import fmt "std/fmt"
 
 func main() -> (void) {
     // StringBuilder

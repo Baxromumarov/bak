@@ -1,6 +1,6 @@
 package main
 
-import "src/std/rand/rand.bak" as rand
+import rand "std/rand"
 
 func main() -> (void) {
     // Seed for reproducibility

@@ -232,7 +232,7 @@ func existingPackagePath(path string) string {
 		return ""
 	}
 	if info.IsDir() {
-		if !dirHasBakSource(path) {
+		if !dirHasConsistentBakPackage(path) {
 			return ""
 		}
 		abs, absErr := filepath.Abs(path)
@@ -244,25 +244,9 @@ func existingPackagePath(path string) string {
 	return existingFilePath(path)
 }
 
-func dirHasBakSource(dir string) bool {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if !strings.HasSuffix(name, fileExtn) {
-			continue
-		}
-		if strings.HasPrefix(name, "test_") || strings.HasSuffix(name, "_test.bak") {
-			continue
-		}
-		return true
-	}
-	return false
+func dirHasConsistentBakPackage(dir string) bool {
+	_, err := parseProgramDir(dir)
+	return err == nil
 }
 
 func findProjectRoot(start string) string {

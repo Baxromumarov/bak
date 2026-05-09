@@ -1,7 +1,7 @@
 // File system operations for the Bak standard library.
 package fs
 
-import "src/std/path/path.bak" as path
+import path "std/path"
 
 // File represents an open file handle
 pub struct File {

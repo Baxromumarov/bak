@@ -1,8 +1,8 @@
 package main
 
-import "std/crypto" as crypto
-import "std/fs" as fs
-import "std/os" as os
+import crypto "std/crypto"
+import fs "std/fs"
+import os "std/os"
 
 func main() -> (int) {
     mut var score: int = 0

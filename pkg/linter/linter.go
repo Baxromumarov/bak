@@ -75,6 +75,7 @@ type Rule interface {
 
 var defaultRules = []Rule{
 	&NamingConventionRule{},
+	&ImportStyleRule{},
 	&StyleRule{},
 	&ComplexityRule{},
 	&EmptyBlockRule{},
@@ -206,6 +207,65 @@ func isUpperSnakeOrPascal(s string) bool {
 }
 
 // --- Rules ---
+
+// ImportStyleRule nudges source toward the canonical Go-like package import style.
+type ImportStyleRule struct{}
+
+func (r *ImportStyleRule) Name() string { return "import-style" }
+
+func (r *ImportStyleRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
+	var findings []Finding
+	for _, stmt := range prog.Statements {
+		switch s := stmt.(type) {
+		case *ast.ImportStatement:
+			findings = append(findings, importStyleFinding(s)...)
+		case *ast.ImportBlock:
+			for _, imp := range s.Imports {
+				findings = append(findings, importStyleFinding(imp)...)
+			}
+		}
+	}
+	return findings
+}
+
+func importStyleFinding(imp *ast.ImportStatement) []Finding {
+	if imp == nil {
+		return nil
+	}
+	canonical, ok := canonicalStdImportPath(imp.Path)
+	if !ok || canonical == imp.Path {
+		return nil
+	}
+	return []Finding{{
+		Rule:    "import-style",
+		Level:   "style",
+		Message: strfmt.Named("prefer Go-like import path '{path}'", "Path", canonical),
+		Line:    imp.PathToken.Line,
+		Column:  imp.PathToken.Column,
+	}}
+}
+
+func canonicalStdImportPath(path string) (string, bool) {
+	var rel string
+	switch {
+	case strings.HasPrefix(path, "src/std/"):
+		rel = strings.TrimPrefix(path, "src/")
+	case strings.HasPrefix(path, "std/"):
+		rel = path
+	default:
+		return "", false
+	}
+	rel = strings.TrimSuffix(rel, ".bak")
+	parts := strings.Split(rel, "/")
+	if len(parts) >= 3 && parts[len(parts)-1] == parts[len(parts)-2] {
+		parts = parts[:len(parts)-1]
+	}
+	return strings.Join(parts, "/"), true
+}
 
 // NamingConventionRule checks that identifiers follow naming conventions.
 type NamingConventionRule struct{}

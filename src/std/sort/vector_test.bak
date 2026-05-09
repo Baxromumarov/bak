@@ -1,7 +1,7 @@
 package sort
 
-import "src/std/test/test.bak" as test
-import "src/std/sort/vector.bak" as sortlib
+import test "std/test"
+import sortlib "std/sort/vector"
 
 struct Item {
     key: int

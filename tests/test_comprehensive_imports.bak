@@ -3,7 +3,7 @@ package main
 
 import (
     "tests/typelib.bak"
-    "tests/mathlib.bak" as math
+    math "tests/mathlib.bak"
 )
 
 func main() -> (void) {

@@ -1,6 +1,6 @@
 package http
 
-import "src/std/strings/strings.bak" as strings
+import strings "std/strings"
 
 pub struct QueryParam {
     pub name:  string

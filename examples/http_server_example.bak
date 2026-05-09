@@ -2,7 +2,7 @@
 
 package main
 
-import "std/http" as http
+import http "std/http"
 
 func handle_hello(req: http.Request) -> (http.Response) {
     mut var who: string = "world"

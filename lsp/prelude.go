@@ -7,6 +7,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/prelude"
 )
@@ -133,6 +134,9 @@ func withSiblingPackageFiles(program *ast.Program, filePath string, fn func()) {
 				// Skip imports that point back to the file being analyzed
 				importBase := filepath.Base(is.Path)
 				if importBase == base {
+					continue
+				}
+				if resolved := packages.ResolveImportPathFrom(is.Path, siblingPath); resolved != "" && samePath(resolved, filePath) {
 					continue
 				}
 				// Also check if the import path suffix matches

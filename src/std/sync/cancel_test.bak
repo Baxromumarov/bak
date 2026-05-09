@@ -1,9 +1,9 @@
 package sync
 
-import "src/std/sync/cancel.bak" as c
-import "src/std/test/test.bak" as test
-import "src/std/thread/thread.bak" as thread
-import "src/std/time/time.bak" as time
+import c "std/sync/cancel"
+import test "std/test"
+import thread "std/thread"
+import time "std/time"
 
 mut var observed_cancel: bool = false
 

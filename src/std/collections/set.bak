@@ -1,6 +1,6 @@
 package collections
 
-import "src/std/collections/hashmap.bak" as hashmap
+import hashmap "std/collections/hashmap"
 
 // Set is a generic set backed by HashMap<T, bool>.
 pub struct Set<T> {

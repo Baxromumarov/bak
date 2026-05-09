@@ -1,6 +1,6 @@
 package fmt
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // =============================================================================
 // String Formatting for Bak

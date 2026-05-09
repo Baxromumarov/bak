@@ -1,8 +1,8 @@
 package main
 
-import "src/std/test/test.bak" as test
-import "src/std/collections/queue.bak" as queue
-import "src/std/collections/set.bak" as set
+import test "std/test"
+import queue "std/collections/queue"
+import set "std/collections/set"
 
 func test_vec_core_behaviour() -> (void) {
     mut var t: test.T = test.new("test_vec_core_behaviour")

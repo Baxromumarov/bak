@@ -1,6 +1,6 @@
 package db
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // Connection represents a database connection handle
 pub struct Connection {

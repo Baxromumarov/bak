@@ -1,6 +1,6 @@
 // NOTE: This example needs updating for the current bak API and may not compile.
 
-import "src/std/bytes/bytes.bak" as bytes
+import bytes "std/bytes"
 
 func main() {
     // create bytes from string

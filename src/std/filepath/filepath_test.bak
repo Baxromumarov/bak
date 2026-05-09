@@ -1,7 +1,7 @@
 package filepath
 
-import "src/std/test/test.bak" as test
-import "src/std/filepath/filepath.bak" as fp
+import test "std/test"
+import fp "std/filepath"
 
 func test_filepath_wrappers() -> (void) {
     mut var t: test.T = test.new("test_filepath_wrappers")

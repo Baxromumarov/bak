@@ -1,6 +1,6 @@
 package errors
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // Build ESC character (ASCII 27) for ANSI codes
 // ESC[ is the CSI (Control Sequence Introducer)

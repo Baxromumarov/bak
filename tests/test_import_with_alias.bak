@@ -1,7 +1,7 @@
 // Test importing with custom alias
 package main
 
-import "tests/typelib.bak" as tlib
+import tlib "tests/typelib.bak"
 
 func main() -> (void) {
     println("=== Testing Import with Alias ===")

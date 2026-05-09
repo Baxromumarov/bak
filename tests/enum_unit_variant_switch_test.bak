@@ -1,6 +1,6 @@
 package main
 
-import "src/std/test/test.bak" as test
+import test "std/test"
 
 enum Color {
     Red

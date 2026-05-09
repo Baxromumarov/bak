@@ -1,7 +1,7 @@
 package main
 
-import "tests/typelib/typelib.bak" as types
-import "tests/mathlib.bak" as math
+import types "tests/typelib/typelib.bak"
+import math "tests/mathlib.bak"
 
 // =============================================================================
 // Test: Alias for Imported PUBLIC Structs  

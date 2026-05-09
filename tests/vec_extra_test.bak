@@ -1,6 +1,6 @@
 package main
 
-import "src/std/test/test.bak" as test
+import test "std/test"
 
 func runTests() -> (Vec<test.TestResult, _>) {
     mut var results: Vec<test.TestResult, _> = Vec.new()

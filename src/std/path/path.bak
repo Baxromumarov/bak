@@ -2,7 +2,7 @@ package path
 
 // Path utilities for slash-separated paths.
 
-import "src/std/strings/strings.bak" as strings
+import strings "std/strings"
 
 pub const Separator: string = "/"
 

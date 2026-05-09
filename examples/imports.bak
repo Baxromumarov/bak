@@ -7,8 +7,8 @@ package main
 // Note: These imports are parsed but not yet functional
 // as the module system is not yet implemented
 import (
-    "fmt" as f
-    "github.com/baxromumarov/bak/utils" as utils
+    f "fmt"
+    utils "github.com/baxromumarov/bak/utils"
     "strings"
 )
 
@@ -16,8 +16,8 @@ func main() -> (void) {
     println("Import syntax demonstration")
     println("The bak language supports Go-like imports:")
     println("  import (")
-    println("      \"fmt\" as f")
-    println("      \"github.com/user/pkg\" as pkg")
+    println("      f \"fmt\"")
+    println("      pkg \"github.com/user/pkg\"")
     println("  )")
     println("")
     println("Package declaration: package main")

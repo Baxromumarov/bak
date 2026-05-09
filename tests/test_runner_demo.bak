@@ -1,6 +1,6 @@
 package main
 
-import "src/std/test/test.bak" as test
+import test "std/test"
 
 func test_addition() -> (void) {
     mut var t: test.T = test.new("test_addition")

@@ -2,7 +2,7 @@
 // It is intentionally limited: use it only when static typing is not practical.
 package any
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // AnyKind is an internal tag for the payload stored in Any.
 // It is not exported to keep Any opaque to users.

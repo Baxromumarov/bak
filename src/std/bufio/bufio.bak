@@ -1,6 +1,6 @@
 package bufio
 
-import "src/std/io/io.bak" as io
+import io "std/io"
 
 // =============================================================================
 // Buffered I/O

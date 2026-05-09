@@ -1,9 +1,9 @@
 package json
 
 // JSON values, parsing, and formatting.
-import "src/std/strings/strings.bak" as strings
-import "src/std/fs/fs.bak" as fs
-import "src/std/strconv/strconv.bak" as strconv
+import strings "std/strings"
+import fs "std/fs"
+import strconv "std/strconv"
 
 // =============================================================================
 // JSON Encoding/Decoding

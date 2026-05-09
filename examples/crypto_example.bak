@@ -1,6 +1,6 @@
 package main
 
-import "src/std/crypto/crypto.bak" as crypto
+import crypto "std/crypto"
 
 func main() -> (void) {
     var h: int = crypto.fnv1a("hello")

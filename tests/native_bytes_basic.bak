@@ -1,6 +1,6 @@
 package main
 
-import "src/std/bytes/bytes.bak" as bytes
+import bytes "std/bytes"
 
 func main() -> (int) {
     mut var score: int = 0

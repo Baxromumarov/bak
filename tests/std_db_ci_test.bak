@@ -1,7 +1,7 @@
 package main
 
-import "src/std/db/db.bak" as db
-import "src/std/test/test.bak" as test
+import db "std/db"
+import test "std/test"
 
 func test_db_row_getters_and_errors() -> (void) {
     mut var t: test.T = test.new("test_db_row_getters_and_errors")

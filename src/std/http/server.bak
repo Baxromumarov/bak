@@ -1,8 +1,8 @@
 package http
 
-import "src/std/net/net.bak"
-import "src/std/strings/strings.bak" as strings
-import "src/std/log/log.bak" as log
+import "std/net"
+import strings "std/strings"
+import log "std/log"
 
 pub struct Server {
     pub addr:    string

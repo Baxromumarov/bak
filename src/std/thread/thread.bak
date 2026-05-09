@@ -1,6 +1,6 @@
 package thread
 
-import "src/std/time/time.bak" as time
+import time "std/time"
 
 pub struct Thread {
 }

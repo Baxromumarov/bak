@@ -1,7 +1,7 @@
 package sort
 
-import "src/std/collections/hashmap.bak" as hashmap
-import "src/std/sort/vector.bak" as vector
+import hashmap "std/collections/hashmap"
+import vector "std/sort/vector"
 
 // Return sorted keys from HashMap<K, V>.
 pub func sorted_keys<K, V>(

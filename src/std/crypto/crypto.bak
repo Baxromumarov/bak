@@ -2,7 +2,7 @@ package crypto
 
 // Lightweight crypto helpers: FNV-1a hash and RNG.
 
-import "src/std/time/time.bak" as time
+import time "std/time"
 
 pub const FNV_OFFSET_32: int = 2166136261
 pub const FNV_PRIME_32: int = 16777619

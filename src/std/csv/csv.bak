@@ -1,7 +1,7 @@
 package csv
 
-import "src/std/strings/strings.bak" as strings
-import "src/std/io/io.bak" as io
+import strings "std/strings"
+import io "std/io"
 
 // =============================================================================
 // CSV Parser and Writer

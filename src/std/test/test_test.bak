@@ -1,6 +1,6 @@
 package test_test
 
-import "src/std/test/test.bak" as test
+import test "std/test"
 
 // Tests for the standard test package helpers.
 

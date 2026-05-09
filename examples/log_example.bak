@@ -1,6 +1,6 @@
 package main
 
-import "src/std/log/log.bak" as log
+import log "std/log"
 
 func main() -> (void) {
     log.set_prefix("[demo]")

@@ -1,6 +1,6 @@
 package time
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 pub struct Duration {
     nanos: int

@@ -43,7 +43,7 @@ Source: `src/std/collections/vec.bak`
 Folds a vector into a single value.
 
 ```bak
-import "src/std/collections/vec.bak" as vec
+import vec "std/collections/vec"
 
 var nums: Vec<int, _> = Vec.from([1, 2, 3, 4])
 var sum: int = vec.reduce_by(&nums, 0, func(acc: int, n: &int) -> (int) {

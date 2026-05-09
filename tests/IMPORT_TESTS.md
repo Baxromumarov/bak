@@ -7,7 +7,7 @@ This directory contains comprehensive tests for bak's module import system.
 ### Core Import Tests
 - **test_import_default.bak** - Default imports using filename as module name
 - **test_import_types.bak** - Importing various type definitions
-- **test_import_with_alias.bak** - Using import aliases (`import "path" as alias`)
+- **test_import_with_alias.bak** - Using import aliases (`import alias "path"`)
 - **test_go_style_import.bak** - Multiple imports with different aliases
 - **test_import_nested.bak** - Using imported types in local type definitions
 - **test_comprehensive_imports.bak** - All features combined
@@ -20,7 +20,7 @@ This directory contains comprehensive tests for bak's module import system.
 
 ### ✅ Import Syntax
 - Default import: `import "path/to/module.bak"`
-- With alias: `import "path/to/module.bak" as name`
+- With alias: `import name "path/to/module.bak"`
 
 ### ✅ Qualified Access
 - **Structs**: `module.StructName{field: value}`
@@ -49,7 +49,7 @@ This directory contains comprehensive tests for bak's module import system.
 ## Example Usage
 
 ```bak
-import "tests/mathlib.bak" as math
+import math "tests/mathlib.bak"
 
 func main() -> (void) {
     // Use imported function

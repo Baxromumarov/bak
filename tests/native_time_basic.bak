@@ -1,6 +1,6 @@
 package main
 
-import "src/std/time/time.bak" as time
+import time "std/time"
 
 func main() -> (int) {
     mut var score: int = 0

@@ -1,8 +1,8 @@
 package crypto
 
-import "src/std/test/test.bak" as test
-import "src/std/crypto/crypto.bak" as c
-import "src/std/bytes/bytes.bak" as bytes
+import test "std/test"
+import c "std/crypto"
+import bytes "std/bytes"
 
 func test_fnv1a_hash() -> (void) {
     mut var t: test.T = test.new("test_fnv1a_hash")

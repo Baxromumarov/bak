@@ -1,6 +1,6 @@
 package strings
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // =============================================================================
 // String Utilities for Bak

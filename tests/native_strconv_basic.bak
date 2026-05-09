@@ -1,6 +1,6 @@
 package main
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 func main() -> (int) {
     mut var score: int = 0

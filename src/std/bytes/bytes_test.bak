@@ -1,8 +1,8 @@
 package bytes_test
 
-import "src/std/test/test.bak" as test
-import "src/std/bytes/types.bak" as types
-import "src/std/bytes/bytes.bak" as bytes
+import test "std/test"
+import types "std/bytes/types"
+import bytes "std/bytes"
 
 func test_from_string_and_len() -> (void) {
     mut var t: test.T = test.new("test_from_string_and_len")

@@ -2,7 +2,7 @@ package filepath
 
 // File path helpers (currently identical to path).
 
-import "src/std/path/path.bak" as path
+import path "std/path"
 
 pub const Separator: string = path.Separator
 

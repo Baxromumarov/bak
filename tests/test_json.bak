@@ -1,6 +1,6 @@
 package main
 
-import "src/std/encoding/json/json.bak" as json
+import json "std/encoding/json"
 
 func main() -> (void) {
     println("=== JSON Test ===")

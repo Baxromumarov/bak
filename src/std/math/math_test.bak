@@ -1,8 +1,8 @@
 package math
 
-import "src/std/math/math.bak" as m
-import "src/std/test/test.bak" as test
-import "src/std/strconv/strconv.bak" as strconv
+import m "std/math"
+import test "std/test"
+import strconv "std/strconv"
 
 struct IntUnaryCase {
     label: string

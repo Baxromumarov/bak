@@ -1,6 +1,6 @@
 package mysql
 
-import "std/db/db" as db
+import db "std/db/db"
 
 // Native MySQL driver using built-in database connection.
 // Connection string format: "user:password@tcp(host:port)/database"

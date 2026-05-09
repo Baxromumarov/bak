@@ -1,9 +1,9 @@
 package borm_test
 
-import "src/std/borm/borm.bak" as b
-import "src/std/db/postgres.bak" as postgres
-import "std/strconv/strconv.bak" as strconv
-import "std/test/test.bak" as test
+import b "std/borm"
+import postgres "std/db/postgres"
+import strconv "std/strconv"
+import test "std/test"
 
 struct querySpy {
     called: bool

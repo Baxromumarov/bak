@@ -1,7 +1,7 @@
 // Test importing with alias
 package main
 
-import "tests/mathlib.bak" as math
+import math "tests/mathlib.bak"
 
 func main() -> (void) {
     println("Testing import with alias")

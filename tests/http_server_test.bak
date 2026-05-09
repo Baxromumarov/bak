@@ -1,6 +1,6 @@
 package main
 
-import "std/http" as http
+import http "std/http"
 import "std/strings"
 
 func handler(req: http.Request) -> (http.Response) {

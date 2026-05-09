@@ -102,6 +102,7 @@ func TestAvailableRulesSorted(t *testing.T) {
 	expected := []string{
 		"complexity",
 		"empty-block",
+		"import-style",
 		"naming-convention",
 		"style",
 	}
@@ -113,6 +114,26 @@ func TestAvailableRulesSorted(t *testing.T) {
 			t.Fatalf("unexpected rule at index %d: got=%q want=%q", i, rules[i], expected[i])
 		}
 	}
+}
+
+func TestLintSourceWarnsForLegacyStdImportPath(t *testing.T) {
+	source := strings.Join([]string{
+		"package main",
+		`import "src/std/strings/strings.bak" as strings`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	findings := LintSource("demo.bak", source, nil)
+	for _, f := range findings {
+		if f.Rule == "import-style" && strings.Contains(f.Message, "std/strings") {
+			return
+		}
+	}
+	t.Fatalf("expected import-style finding, got %#v", findings)
 }
 
 func TestApplyDisabledRulesCSV(t *testing.T) {

@@ -1,6 +1,6 @@
 package main
 
-import "std/encoding/json" as json
+import "std/encoding/json"
 
 func main() -> (void) {
     var entries: Vec<json.JsonEntry, _> = Vec.from([

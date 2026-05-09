@@ -1,7 +1,7 @@
 // Input/Output operations for the Bak standard library.
 package io
 
-import "src/std/strconv/strconv.bak" as strconv
+import strconv "std/strconv"
 
 // =============================================================================
 // Standard Output Functions

@@ -1,10 +1,10 @@
 package main
 
-import "src/std/strings/strings.bak" as strings
-import "src/std/path/path.bak" as path
-import "src/std/filepath/filepath.bak" as filepath
-import "src/std/fs/fs.bak" as fs
-import "src/std/test/test.bak" as test
+import strings "std/strings"
+import path "std/path"
+import filepath "std/filepath"
+import fs "std/fs"
+import test "std/test"
 
 func test_strings_enhancements() -> (void) {
     mut var t: test.T = test.new("test_strings_enhancements")

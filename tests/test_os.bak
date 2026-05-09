@@ -1,7 +1,7 @@
 // Test file for os module
 package main
 
-import "std/os" as os
+import os "std/os"
 
 func main() -> (void) {
     println("=== Testing os module ===")

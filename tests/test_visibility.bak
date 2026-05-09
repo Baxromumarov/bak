@@ -5,7 +5,7 @@ package main
 // This file tests that private (non-pub) types cannot be accessed from outside
 // =============================================================================
 
-import "tests/typelib/typelib.bak" as types
+import types "tests/typelib/typelib.bak"
 
 // Try to create alias for private struct - should fail at runtime
 // alias PrivateData = types.InternalData  // This SHOULD cause an error

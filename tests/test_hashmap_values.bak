@@ -1,6 +1,6 @@
 package main
 
-import "src/std/collections/hashmap.bak" as collections
+import collections "std/collections/hashmap"
 
 func main() -> (void) {
     mut var m: collections.HashMap<string, int> = collections.newHashMap()

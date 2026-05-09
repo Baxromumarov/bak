@@ -1,7 +1,7 @@
 package test
 
 import "std/db/postgres"
-import "std/db/db" as db
+import db "std/db/db"
 import "std/test"
 
 // Test PostgreSQL native driver

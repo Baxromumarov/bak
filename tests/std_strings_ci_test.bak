@@ -1,7 +1,7 @@
 package main
 
-import "src/std/strings/strings.bak" as strings
-import "src/std/test/test.bak" as test
+import strings "std/strings"
+import test "std/test"
 
 func test_strings_snake_case_api() -> (void) {
     mut var t: test.T = test.new("test_strings_snake_case_api")

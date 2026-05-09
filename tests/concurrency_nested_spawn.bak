@@ -1,6 +1,6 @@
 package main
 
-import "src/std/thread/thread.bak" as thread
+import thread "std/thread"
 
 func child(id: int) -> (void) {
     println("Child", id, "running")

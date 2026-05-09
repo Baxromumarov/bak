@@ -1,6 +1,6 @@
 package main
 
-import "std/http" as http
+import http "std/http"
 
 func main() -> (void) {
     var params: Vec<http.QueryParam, _> = Vec.from([

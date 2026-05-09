@@ -1,11 +1,11 @@
 package sort
 
-import "src/std/test/test.bak" as test
-import "src/std/collections/set.bak" as collections_set
-import "src/std/collections/hashmap.bak" as hashmap
-import "src/std/sort/set.bak" as sort_set
-import "src/std/sort/map.bak" as sort_map
-import "src/std/sort/vector.bak" as sort_vector
+import test "std/test"
+import collections_set "std/collections/set"
+import hashmap "std/collections/hashmap"
+import sort_set "std/sort/set"
+import sort_map "std/sort/map"
+import sort_vector "std/sort/vector"
 
 func less_len(a: &string, b: &string) -> (bool) {
     return a.len() < b.len()

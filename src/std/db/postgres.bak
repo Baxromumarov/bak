@@ -1,6 +1,6 @@
 package postgres
 
-import "std/db/db" as db
+import db "std/db/db"
 
 pub alias Connection = db.Connection
 pub alias QueryResult = db.QueryResult

@@ -1,8 +1,8 @@
 package test
 
-import "src/std/path/path.bak" as path
-import "src/std/strconv/strconv.bak" as strconv
-import "src/std/strings/strings.bak" as strings
+import path "std/path"
+import strconv "std/strconv"
+import strings "std/strings"
 
 // =============================================================================
 // Test Framework for Bak
@@ -14,7 +14,7 @@ import "src/std/strings/strings.bak" as strings
 // - Tests are functions starting with `test_` that take no arguments
 //
 // Usage:
-//   import "src/std/test/test.bak" as test
+//   import test "std/test"
 //
 //   func test_addition() -> (void) {
 //       mut var t: test.T = test.new("test_addition")

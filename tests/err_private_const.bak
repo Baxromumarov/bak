@@ -1,6 +1,6 @@
 package main
 
-import "tests/typelib/typelib.bak" as types
+import types "tests/typelib/typelib.bak"
 
 // =============================================================================
 // ERROR TEST: Attempting to access a PRIVATE constant from another module  

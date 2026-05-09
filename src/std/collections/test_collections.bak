@@ -1,8 +1,8 @@
 package collections
 
-import "src/std/test/test.bak" as test
-import "src/std/collections/vec.bak" as vec
-import "src/std/collections/hashmap.bak" as hashmap
+import test "std/test"
+import vec "std/collections/vec"
+import hashmap "std/collections/hashmap"
 
 // =============================================================================
 // Vec Tests
