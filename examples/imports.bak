@@ -1,6 +1,5 @@
 // Import example in bak
 // Demonstrates Go-like import syntax with aliases
-
 package main
 
 // Import block with aliases (Go-like syntax)

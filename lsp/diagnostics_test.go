@@ -226,6 +226,52 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	}
 }
 
+func TestAnalyzeAndPublishIncludesImportStyleLintCode(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		`import "std/strings" as strings`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-linter" && fmt.Sprint(diag.Code) == "import-style" {
+			if !strings.Contains(diag.Message, `strings "std/strings"`) {
+				t.Fatalf("unexpected import-style message: %s", diag.Message)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected import-style lint diagnostic, got %#v", params.Diagnostics)
+}
+
 func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {
 	path, err := filepath.Abs(filepath.Join("..", "src", "std", "http", "server.bak"))
 	if err != nil {

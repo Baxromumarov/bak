@@ -714,8 +714,20 @@ func (p *printer) printEnumDecl(ed *ast.EnumDecl) {
 func (p *printer) printImplDecl(id *ast.ImplDecl) {
 	p.write("impl ")
 	p.write(id.TypeName.Value)
-	p.write(" as ")
-	p.write(id.Receiver.Value)
+	if len(id.TypeParams) > 0 {
+		p.write("<")
+		for i, param := range id.TypeParams {
+			if i > 0 {
+				p.write(", ")
+			}
+			p.write(param.String())
+		}
+		p.write(">")
+	}
+	if id.Receiver != nil {
+		p.write(" as ")
+		p.write(id.Receiver.Value)
+	}
 	p.write(" ")
 	p.write("{")
 	p.newline()
@@ -886,7 +898,7 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 		p.printExpressionList(e.Arguments, multiline)
 		p.write(")")
 	case *ast.MethodCallExpression:
-		p.printExpression(e.Object, precDot)
+		p.printExpression(e.Object, precIndex)
 		p.write(".")
 		p.write(e.Method.Value)
 		p.write("(")
@@ -894,7 +906,7 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 		p.printExpressionList(e.Arguments, multiline)
 		p.write(")")
 	case *ast.FieldAccessExpression:
-		p.printExpression(e.Object, precDot)
+		p.printExpression(e.Object, precIndex)
 		p.write(".")
 		p.write(e.Field.Value)
 	case *ast.IndexExpression:

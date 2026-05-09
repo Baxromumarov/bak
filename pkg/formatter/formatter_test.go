@@ -71,6 +71,34 @@ func TestFormatStructFieldAlignment(t *testing.T) {
 	}
 }
 
+func TestFormatImplWithoutReceiver(t *testing.T) {
+	input := "package main\nstruct Box{}\nimpl Box{func new()->(Box){return Box{}}}"
+	want := "package main\n\nstruct Box {\n}\n\nimpl Box {\n    func new() -> (Box) {\n        return Box{}\n    }\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+}
+
+func TestFormatIndexFieldAssignmentRemainsParseable(t *testing.T) {
+	input := "package main\nstruct Bucket{filled: bool}\nstruct Box{items: Vec<Bucket, _>}\nfunc main()->(void){mut var b: Box = Box{items: Vec.new()}\nb.items[0].filled = false\nreturn void}"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if strings.Contains(got, "(b.items[0]).filled") {
+		t.Fatalf("field assignment target should not be parenthesized: %q", got)
+	}
+	if _, errs := Format(got); len(errs) > 0 {
+		t.Fatalf("formatted source should parse again: %v\n%s", errs, got)
+	}
+}
+
 func TestFormatLongFunctionSignature(t *testing.T) {
 	input := "package main\nfunc very_long_function_name(first_parameter_name: verylongtypename, second_parameter_name: verylongtypename) -> (void){return void}"
 	want := "package main\n\nfunc very_long_function_name(\n    first_parameter_name: verylongtypename,\n    second_parameter_name: verylongtypename,\n) -> (void) {\n    return void\n}\n"

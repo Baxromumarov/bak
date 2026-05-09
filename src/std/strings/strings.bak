@@ -43,6 +43,7 @@ pub func len(s: &string) -> (int) {
 // clone returns a distinct string value with the same content.
 pub func clone(s: &string) -> (string) {
     var bytes: Vec<int, _> = (*s).bytes()
+
     return fromBytes(bytes)
 }
 
@@ -88,7 +89,6 @@ pub func find(s: &string, sub: &string) -> (int) {
 }
 
 // indexOf returns the first index of sub in s, or -1 if not found
-
 // indexOf returns the first index of sub in s, or -1 if not found
 pub func indexOf(s: &string, sub: &string) -> (int) {
     if sub.len() == 0 {
@@ -197,11 +197,13 @@ pub func split(s: &string, sep: &string) -> (Vec<string, _>) {
         }
 
         if match {
-            result.push(substring(
-                s,
-                start,
-                i,
-            ))
+            result.push(
+                substring(
+                    s,
+                    start,
+                    i,
+                ),
+            )
             start = i + sep.len()
             i = start
         } else {
@@ -209,11 +211,13 @@ pub func split(s: &string, sep: &string) -> (Vec<string, _>) {
         }
     }
 
-    result.push(substring(
-        s,
-        start,
-        s.len(),
-    ))
+    result.push(
+        substring(
+            s,
+            start,
+            s.len(),
+        ),
+    )
 
     return result
 }
@@ -227,12 +231,10 @@ pub func charAt(s: &string, index: int) -> (Result<char, string>) {
     return Ok(s[index])
 }
 
-
 // substring returns a substring from start to end (exclusive)
 // -----------------------------------------------------------------------------
 // Searching
 // -----------------------------------------------------------------------------
-
 // lastIndexOf returns the last index of sub in s, or -1 if not found
 pub func lastIndexOf(s: &string, sub: &string) -> (int) {
     if sub.len() == 0 {
@@ -269,7 +271,6 @@ pub func lastIndexOf(s: &string, sub: &string) -> (int) {
     return result
 }
 
-
 // startsWith checks if s starts with prefix
 pub func startsWith(s: &string, prefix: &string) -> (bool) {
     if prefix.len() > s.len() {
@@ -288,7 +289,6 @@ pub func startsWith(s: &string, prefix: &string) -> (bool) {
 
     return true
 }
-
 
 // endsWith checks if s ends with suffix
 pub func endsWith(s: &string, suffix: &string) -> (bool) {
@@ -336,11 +336,9 @@ pub func parseInt(s: &string) -> (Result<int, string>) {
     return strconv.atoi(s)
 }
 
-
 pub func parseFloat(s: &string) -> (Result<float64, string>) {
     return strconv.atof(s)
 }
-
 
 // -----------------------------------------------------------------------------
 // Trimming
@@ -359,7 +357,6 @@ pub func trim(s: &string) -> (string) {
     return trimRight(&left)
 }
 
-
 // trimLeft removes leading whitespace
 pub func trimLeft(s: &string) -> (string) {
     mut var start: int = 0
@@ -374,7 +371,6 @@ pub func trimLeft(s: &string) -> (string) {
         s.len(),
     )
 }
-
 
 // trimRight removes trailing whitespace
 pub func trimRight(s: &string) -> (string) {
@@ -391,7 +387,6 @@ pub func trimRight(s: &string) -> (string) {
     )
 }
 
-
 // trimPrefix removes the prefix if present
 pub func trimPrefix(s: &string, prefix: &string) -> (string) {
     if startsWith(
@@ -407,7 +402,6 @@ pub func trimPrefix(s: &string, prefix: &string) -> (string) {
 
     return *s
 }
-
 
 // trimSuffix removes the suffix if present
 pub func trimSuffix(s: &string, suffix: &string) -> (string) {
@@ -428,7 +422,6 @@ pub func trimSuffix(s: &string, suffix: &string) -> (string) {
 // -----------------------------------------------------------------------------
 // Case Conversion
 // -----------------------------------------------------------------------------
-
 // toUpper converts all lowercase letters to uppercase
 pub func toUpper(s: &string) -> (string) {
     mut var result: string = ""
@@ -448,7 +441,6 @@ pub func toUpper(s: &string) -> (string) {
 
     return result
 }
-
 
 // toLower converts all uppercase letters to lowercase
 pub func toLower(s: &string) -> (string) {
@@ -475,7 +467,6 @@ pub func toLower(s: &string) -> (string) {
 // -----------------------------------------------------------------------------
 // replace replaces all occurrences of old with new
 // replaceFirst replaces the first occurrence of old with new
-
 pub func replaceFirst(s: &string, old: &string, new: &string) -> (string) {
     var idx: int = indexOf(
         s,
@@ -520,7 +511,6 @@ pub func repeat(s: &string, n: int) -> (string) {
     return result
 }
 
-
 // padLeft pads s on the left to reach length with the padding character
 pub func padLeft(s: &string, length: int, pad: char) -> (string) {
     if s.len() >= length {
@@ -535,7 +525,6 @@ pub func padLeft(s: &string, length: int, pad: char) -> (string) {
         padCount,
     ) + *s
 }
-
 
 // padRight pads s on the right to reach length with the padding character
 pub func padRight(s: &string, length: int, pad: char) -> (string) {
@@ -556,7 +545,6 @@ pub func padRight(s: &string, length: int, pad: char) -> (string) {
 // Character Classification
 // -----------------------------------------------------------------------------
 // isLetter checks if a character is a letter (a-z, A-Z)
-
 pub func isLetter(ch: char) -> (bool) {
     var code: int = int(ch)
 
@@ -564,7 +552,6 @@ pub func isLetter(ch: char) -> (bool) {
 }
 
 // isDigit checks if a character is a digit (0-9)
-
 pub func isDigit(ch: char) -> (bool) {
     var code: int = int(ch)
 
@@ -572,13 +559,11 @@ pub func isDigit(ch: char) -> (bool) {
 }
 
 // isAlphanumeric checks if a character is a letter or digit
-
 pub func isAlphanumeric(ch: char) -> (bool) {
     return isLetter(ch) || isDigit(ch)
 }
 
 // isUpper checks if a character is uppercase
-
 pub func isUpper(ch: char) -> (bool) {
     var code: int = int(ch)
 
@@ -586,7 +571,6 @@ pub func isUpper(ch: char) -> (bool) {
 }
 
 // isLower checks if a character is lowercase
-
 pub func isLower(ch: char) -> (bool) {
     var code: int = int(ch)
 
@@ -636,7 +620,6 @@ pub func equalIgnoreCase(a: &string, b: &string) -> (bool) {
 
     return aLower == bLower
 }
-
 
 // -----------------------------------------------------------------------------
 // Counting
@@ -690,7 +673,6 @@ pub func fromChars(chars: &Vec<char, _>) -> (string) {
     return result
 }
 
-
 // fromBytes converts a Vec of bytes (integers) to a string.
 pub func fromBytes(bytes: Vec<int, _>) -> (string) {
     return __builtin_string_from_bytes(
@@ -700,7 +682,6 @@ pub func fromBytes(bytes: Vec<int, _>) -> (string) {
     )
 }
 
-
 // fromBytesSlice converts a range of bytes (integers) to a string.
 pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
     return __builtin_string_from_bytes(
@@ -709,7 +690,6 @@ pub func fromBytesSlice(bytes: Vec<int, _>, start: int, end: int) -> (string) {
         end,
     )
 }
-
 
 // toChars converts a string to a Vec of chars.
 pub func toChars(s: &string) -> (Vec<char, _>) {
@@ -723,7 +703,6 @@ pub func toChars(s: &string) -> (Vec<char, _>) {
 
     return result
 }
-
 
 // concat joins multiple strings
 pub func concat(parts: &Vec<string, _>) -> (string) {
@@ -746,79 +725,110 @@ pub func reverse(s: &string) -> (string) {
 
     mut var result: string = ""
     mut var i: int = s.len() - 1
+
     while i >= 0 {
         result = result + string(s[i])
+
         if i == 0 {
             return result
         }
+
         i = i - 1
     }
+
     return result
 }
 
 // hasPrefixAny returns true when s starts with at least one provided prefix.
 pub func hasPrefixAny(s: &string, prefixes: &Vec<string, _>) -> (bool) {
     mut var i: int = 0
+
     while i < prefixes.len() {
-        if startsWith(s, &prefixes[i]) {
+        if startsWith(
+            s,
+            &prefixes[i],
+        ) {
             return true
         }
+
         i = i + 1
     }
+
     return false
 }
 
 // hasSuffixAny returns true when s ends with at least one provided suffix.
 pub func hasSuffixAny(s: &string, suffixes: &Vec<string, _>) -> (bool) {
     mut var i: int = 0
+
     while i < suffixes.len() {
-        if endsWith(s, &suffixes[i]) {
+        if endsWith(
+            s,
+            &suffixes[i],
+        ) {
             return true
         }
+
         i = i + 1
     }
+
     return false
 }
 
 // lines splits by '\n' and trims a trailing '\r' from each line (CRLF-safe).
 pub func lines(s: &string) -> (Vec<string, _>) {
     var newline: string = "\n"
-    mut var raw: Vec<string, _> = split(s, &newline)
+    mut var raw: Vec<string, _> = split(
+        s,
+        &newline,
+    )
     mut var out: Vec<string, _> = Vec.withCap(raw.len())
-
     mut var i: int = 0
+
     while i < raw.len() {
         var line: string = raw[i]
+
         if line.len() > 0 && line[line.len() - 1] == '\r' {
-            out.push(substring(&line, 0, line.len() - 1))
+            out.push(
+                substring(
+                    &line,
+                    0,
+                    line.len() - 1,
+                ),
+            )
         } else {
             out.push(line)
         }
+
         i = i + 1
     }
+
     return out
 }
 
 // =============================================================================
 // Additional String Utilities
 // =============================================================================
-
 // isSpace checks if a character is any Unicode-style whitespace
 // (space, tab, newline, carriage return, form feed, vertical tab)
 pub func isSpace(ch: char) -> (bool) {
     var code: int = int(ch)
+
     return code == CH_SPACE || code == CH_TAB || code == CH_NEWLINE || code == CH_CARRIAGE || code == 12 || code == 11
 }
 
 // isBlank returns true if the string is empty or contains only whitespace.
 pub func isBlank(s: &string) -> (bool) {
     mut var i: int = 0
+
     while i < s.len() {
         if !isWhitespace(s[i]) {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
@@ -827,11 +837,19 @@ pub func center(s: &string, width: int, pad: char) -> (string) {
     if s.len() >= width {
         return *s
     }
+
     var totalPad: int = width - s.len()
     var leftPad: int = totalPad / 2
     var rightPad: int = totalPad - leftPad
     var padStr: string = string(pad)
-    return repeat(&padStr, leftPad) + *s + repeat(&padStr, rightPad)
+
+    return repeat(
+        &padStr,
+        leftPad,
+    ) + *s + repeat(
+        &padStr,
+        rightPad,
+    )
 }
 
 // ljust left-justifies s in a field of the given width, padded on the right.
@@ -839,8 +857,13 @@ pub func ljust(s: &string, width: int, pad: char) -> (string) {
     if s.len() >= width {
         return *s
     }
+
     var padStr: string = string(pad)
-    return *s + repeat(&padStr, width - s.len())
+
+    return *s + repeat(
+        &padStr,
+        width - s.len(),
+    )
 }
 
 // rjust right-justifies s in a field of the given width, padded on the left.
@@ -848,16 +871,23 @@ pub func rjust(s: &string, width: int, pad: char) -> (string) {
     if s.len() >= width {
         return *s
     }
+
     var padStr: string = string(pad)
-    return repeat(&padStr, width - s.len()) + *s
+
+    return repeat(
+        &padStr,
+        width - s.len(),
+    ) + *s
 }
 
 // swapCase swaps uppercase to lowercase and vice versa.
 pub func swapCase(s: &string) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
+
     while i < s.len() {
         var code: int = int(s[i])
+
         if code >= CH_A_LOWER && code <= CH_Z_LOWER {
             result = result + string(char(code - 32))
         } else if code >= CH_A_UPPER && code <= CH_Z_UPPER {
@@ -865,8 +895,10 @@ pub func swapCase(s: &string) -> (string) {
         } else {
             result = result + string(s[i])
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -875,12 +907,15 @@ pub func titleCase(s: &string) -> (string) {
     if s.len() == 0 {
         return ""
     }
+
     mut var result: string = ""
     mut var inWord: bool = false
     mut var i: int = 0
+
     while i < s.len() {
         var ch: char = s[i]
         var code: int = int(ch)
+
         if isLetter(ch) || isDigit(ch) {
             if !inWord {
                 // Start of word: uppercase
@@ -889,21 +924,22 @@ pub func titleCase(s: &string) -> (string) {
                 } else {
                     result = result + string(ch)
                 }
+
                 inWord = true
-            } else {
+            } else if code >= CH_A_UPPER && code <= CH_Z_UPPER {
                 // Inside word: lowercase
-                if code >= CH_A_UPPER && code <= CH_Z_UPPER {
-                    result = result + string(char(code + 32))
-                } else {
-                    result = result + string(ch)
-                }
+                result = result + string(char(code + 32))
+            } else {
+                result = result + string(ch)
             }
         } else {
             result = result + string(ch)
             inWord = false
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -911,13 +947,16 @@ pub func titleCase(s: &string) -> (string) {
 pub func snakeCase(s: &string) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
+
     while i < s.len() {
         var ch: char = s[i]
         var code: int = int(ch)
+
         if code >= CH_A_UPPER && code <= CH_Z_UPPER {
             if i > 0 && result.len() > 0 && result[result.len() - 1] != '_' {
                 result = result + "_"
             }
+
             result = result + string(char(code + 32))
         } else if ch == '-' || ch == ' ' {
             if result.len() > 0 && result[result.len() - 1] != '_' {
@@ -926,8 +965,10 @@ pub func snakeCase(s: &string) -> (string) {
         } else {
             result = result + string(ch)
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -935,13 +976,16 @@ pub func snakeCase(s: &string) -> (string) {
 pub func kebabCase(s: &string) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
+
     while i < s.len() {
         var ch: char = s[i]
         var code: int = int(ch)
+
         if code >= CH_A_UPPER && code <= CH_Z_UPPER {
             if i > 0 && result.len() > 0 && result[result.len() - 1] != '-' {
                 result = result + "-"
             }
+
             result = result + string(char(code + 32))
         } else if ch == '_' || ch == ' ' {
             if result.len() > 0 && result[result.len() - 1] != '-' {
@@ -950,8 +994,10 @@ pub func kebabCase(s: &string) -> (string) {
         } else {
             result = result + string(ch)
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -960,34 +1006,35 @@ pub func camelCase(s: &string) -> (string) {
     mut var result: string = ""
     mut var i: int = 0
     mut var newWord: bool = false
+
     while i < s.len() {
         var ch: char = s[i]
         var code: int = int(ch)
+
         if ch == '_' || ch == '-' || ch == ' ' {
             newWord = true
-        } else {
-            if newWord {
-                if code >= CH_A_LOWER && code <= CH_Z_LOWER {
-                    result = result + string(char(code - 32))
-                } else {
-                    result = result + string(ch)
-                }
-                newWord = false
+        } else if newWord {
+            if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+                result = result + string(char(code - 32))
             } else {
-                if result.len() == 0 {
-                    // First char lowercase
-                    if code >= CH_A_UPPER && code <= CH_Z_UPPER {
-                        result = result + string(char(code + 32))
-                    } else {
-                        result = result + string(ch)
-                    }
-                } else {
-                    result = result + string(ch)
-                }
+                result = result + string(ch)
             }
+
+            newWord = false
+        } else if result.len() == 0 {
+            // First char lowercase
+            if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+                result = result + string(char(code + 32))
+            } else {
+                result = result + string(ch)
+            }
+        } else {
+            result = result + string(ch)
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -996,11 +1043,18 @@ pub func truncate(s: &string, maxLen: int, suffix: &string) -> (string) {
     if s.len() <= maxLen {
         return *s
     }
+
     mut var endPos: int = maxLen - suffix.len()
+
     if endPos < 0 {
         endPos = 0
     }
-    return substring(s, 0, endPos) + *suffix
+
+    return substring(
+        s,
+        0,
+        endPos,
+    ) + *suffix
 }
 
 // wordCount counts the number of whitespace-separated words.
@@ -1008,6 +1062,7 @@ pub func wordCount(s: &string) -> (int) {
     mut var count: int = 0
     mut var inWord: bool = false
     mut var i: int = 0
+
     while i < s.len() {
         if !isWhitespace(s[i]) {
             if !inWord {
@@ -1017,8 +1072,10 @@ pub func wordCount(s: &string) -> (int) {
         } else {
             inWord = false
         }
+
         i = i + 1
     }
+
     return count
 }
 
@@ -1026,26 +1083,40 @@ pub func wordCount(s: &string) -> (int) {
 pub func commonPrefix(a: &string, b: &string) -> (string) {
     mut var i: int = 0
     mut var minLen: int = a.len()
+
     if b.len() < minLen {
         minLen = b.len()
     }
+
     while i < minLen && a[i] == b[i] {
         i = i + 1
     }
-    return substring(a, 0, i)
+
+    return substring(
+        a,
+        0,
+        i,
+    )
 }
 
 // commonSuffix returns the longest common suffix of a and b.
 pub func commonSuffix(a: &string, b: &string) -> (string) {
     mut var i: int = 0
     mut var minLen: int = a.len()
+
     if b.len() < minLen {
         minLen = b.len()
     }
+
     while i < minLen && a[a.len() - 1 - i] == b[b.len() - 1 - i] {
         i = i + 1
     }
-    return substring(a, a.len() - i, a.len())
+
+    return substring(
+        a,
+        a.len() - i,
+        a.len(),
+    )
 }
 
 // rotate rotates s left by n positions (negative n rotates right).
@@ -1053,12 +1124,23 @@ pub func rotate(s: &string, n: int) -> (string) {
     if s.len() == 0 {
         return ""
     }
+
     var len: int = s.len()
     mut var offset: int = n % len
+
     if offset < 0 {
         offset = offset + len
     }
-    return substring(s, offset, len) + substring(s, 0, offset)
+
+    return substring(
+        s,
+        offset,
+        len,
+    ) + substring(
+        s,
+        0,
+        offset,
+    )
 }
 
 // squeeze removes consecutive duplicate occurrences of ch.
@@ -1066,66 +1148,117 @@ pub func squeeze(s: &string, ch: char) -> (string) {
     if s.len() == 0 {
         return ""
     }
+
     mut var result: string = string(s[0])
     mut var i: int = 1
+
     while i < s.len() {
         if s[i] != ch || s[i - 1] != ch {
             result = result + string(s[i])
         }
+
         i = i + 1
     }
+
     return result
 }
 
 pub struct PartitionResult {
     pub before: string
-    pub sep: string
-    pub after: string
+    pub sep:    string
+    pub after:  string
 }
 
 // partition splits s around the first occurrence of sep.
 // If sep is not found, returns {before: s, sep: "", after: ""}.
 pub func partition(s: &string, sep: &string) -> (PartitionResult) {
-    var idx: int = indexOf(s, sep)
+    var idx: int = indexOf(
+        s,
+        sep,
+    )
+
     if idx < 0 {
-        return PartitionResult{before: *s, sep: "", after: ""}
+        return PartitionResult{
+            after:  "",
+            before: *s,
+            sep:    "",
+        }
     }
+
     return PartitionResult{
-        before: substring(s, 0, idx),
-        sep: *sep,
-        after: substring(s, idx + sep.len(), s.len())
+        after:  substring(
+            s,
+            idx + sep.len(),
+            s.len(),
+        ),
+        before: substring(
+            s,
+            0,
+            idx,
+        ),
+        sep:    *sep,
     }
 }
 
 // rpartition splits s around the last occurrence of sep.
 // If sep is not found, returns {before: "", sep: "", after: s}.
 pub func rpartition(s: &string, sep: &string) -> (PartitionResult) {
-    var idx: int = lastIndexOf(s, sep)
+    var idx: int = lastIndexOf(
+        s,
+        sep,
+    )
+
     if idx < 0 {
-        return PartitionResult{before: "", sep: "", after: *s}
+        return PartitionResult{
+            after:  *s,
+            before: "",
+            sep:    "",
+        }
     }
+
     return PartitionResult{
-        before: substring(s, 0, idx),
-        sep: *sep,
-        after: substring(s, idx + sep.len(), s.len())
+        after:  substring(
+            s,
+            idx + sep.len(),
+            s.len(),
+        ),
+        before: substring(
+            s,
+            0,
+            idx,
+        ),
+        sep:    *sep,
     }
 }
 
 // findAll returns all starting indices of sub in s.
 pub func findAll(s: &string, sub: &string) -> (Vec<int, _>) {
     mut var result: Vec<int, _> = Vec.new()
+
     if sub.len() == 0 {
         return result
     }
+
     mut var start: int = 0
+
     while start <= s.len() - sub.len() {
-        var idx: int = indexOf(&substring(s, start, s.len()), sub)
+        var idx: int = indexOf(
+            &substring(
+                s,
+                start,
+                s.len(),
+            ),
+            sub,
+        )
+
         if idx < 0 {
             return result
         }
+
         result.push(start + idx)
         start = start + idx + sub.len()
     }
+
     return result
 }
 
@@ -1133,12 +1266,15 @@ pub func findAll(s: &string, sub: &string) -> (Vec<int, _>) {
 pub func countChar(s: &string, ch: char) -> (int) {
     mut var result: int = 0
     mut var i: int = 0
+
     while i < s.len() {
         if s[i] == ch {
             result = result + 1
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -1149,25 +1285,42 @@ pub func strip(s: &string) -> (string) {
 
 // removePrefix removes prefix if present; otherwise returns a copy.
 pub func removePrefix(s: &string, prefix: &string) -> (string) {
-    return trimPrefix(s, prefix)
+    return trimPrefix(
+        s,
+        prefix,
+    )
 }
 
 // removeSuffix removes suffix if present; otherwise returns a copy.
 pub func removeSuffix(s: &string, suffix: &string) -> (string) {
-    return trimSuffix(s, suffix)
+    return trimSuffix(
+        s,
+        suffix,
+    )
 }
 
 // repeatChar returns a string consisting of n copies of ch.
 pub func repeatChar(ch: char, n: int) -> (string) {
-    return repeat(&string(ch), n)
+    return repeat(
+        &string(ch),
+        n,
+    )
 }
 
 // padLeftChar is padLeft with a char instead of string.
 pub func padLeftChar(s: &string, width: int, pad: char) -> (string) {
-    return padLeft(s, width, pad)
+    return padLeft(
+        s,
+        width,
+        pad,
+    )
 }
 
 // padRightChar is padRight with a char instead of string.
 pub func padRightChar(s: &string, width: int, pad: char) -> (string) {
-    return padRight(s, width, pad)
+    return padRight(
+        s,
+        width,
+        pad,
+    )
 }

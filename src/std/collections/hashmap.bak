@@ -3,43 +3,49 @@ package collections
 // =============================================================================
 // HashMap<K, V> - Generic Swiss Table Implementation
 // =============================================================================
-
 // Control byte rules:
 // 0b1xxxxxxx (negative, int8) = Empty or Deleted
 // 0b0xxxxxxx (positive, int8) = H1 hash (high 7 bits)
-const HASH_CTRL_EMPTY: int = -128 // 0b10000000
-const HASH_CTRL_DELETED: int = -2 // 0b11111110
-
+const HASH_CTRL_EMPTY: int = -128
+// 0b10000000
+const HASH_CTRL_DELETED: int = -2
+// 0b11111110
 const HASH_LOAD_FACTOR_NUM: int = 7
 const HASH_LOAD_FACTOR_DEN: int = 10
 const HASH_INITIAL_CAP: int = 16
 
 // Generic bucket for storing key-value pairs
 struct HashBucket<K, V> {
-    key: K
-    value: V
+    key:    K
+    value:  V
     filled: bool
 }
 
 // Generic HashMap
 pub struct HashMap<K, V> {
-    ctrl: Vec<int8, _>          // Control bytes
-    buckets: Vec<HashBucket<K, V>, _> // Data slots
-    len: int
-    cap: int
+    ctrl:      Vec<int8, _>
+    buckets:   Vec<HashBucket<K, V>, _>
+    len:       int
+    cap:       int
     grow_left: int
 }
 
+// Control bytes
+// Data slots
 // -----------------------------------------------------------------------------
 // Free Functions
 // -----------------------------------------------------------------------------
-
 func hash_next_pow2(n: int) -> (int) {
-    if n <= 1 { return 1 }
+    if n <= 1 {
+        return 1
+    }
+
     mut var p: int = 1
+
     while p < n {
         p = p * 2
     }
+
     return p
 }
 
@@ -54,43 +60,53 @@ func hash_string(s: &string) -> (int) {
     // Simple FNV-1a hash
     mut var hash: int = 2166136261
     mut var i: int = 0
+
     while i < s.len() {
         hash = hash ^ int(s[i])
         hash = hash * 16777619
         i = i + 1
     }
+
     return hash
 }
 
 // Specialized hash for int
 func hash_int(i: int) -> (int) {
-    return i * 2654435761 // Knuth's multiplicative hash
+    return i * 2654435761
 }
 
+// Knuth's multiplicative hash
 // Dispatcher for hashing - uses typeof for runtime type detection
 func hash_dispatch<K>(_k: &K) -> (int) {
     var typeName: string = typeof(*_k)
+
     if typeName == "STRING" {
         // Cast to string and call specialized hasher
         // For now, use string-specific logic inline
         // since we can't easily cast generic &K to &string
         return hash_string_value(*_k)
     }
+
     if typeName == "INTEGER" {
         return hash_int_value(*_k)
     }
+
     if typeName == "BOOLEAN" {
         if bool(*_k) {
             return 1
         }
+
         return 0
     }
+
     if typeName == "CHAR" {
         return int(char(*_k))
     }
+
     // Fallback: use a simple hash based on memory representation
     // This handles other types with a basic hash
     var s: string = string(*_k)
+
     return hash_string(&s)
 }
 
@@ -100,11 +116,13 @@ func hash_string_value<T>(val: T) -> (int) {
     mut var hash: int = 2166136261
     mut var i: int = 0
     var s: string = string(val)
+
     while i < s.len() {
         hash = hash ^ int(s[i])
         hash = hash * 16777619
         i = i + 1
     }
+
     return hash
 }
 
@@ -129,38 +147,37 @@ pub func newHashMap<K, V>() -> (HashMap<K, V>) {
 // Create a new HashMap with specified initial capacity
 pub func withCapHashMap<K, V>(requested_cap: int) -> (HashMap<K, V>) {
     mut var cap: int = hash_next_pow2(requested_cap)
+
     if cap < HASH_INITIAL_CAP {
         cap = HASH_INITIAL_CAP
     }
-    
+
     mut var ctrl: Vec<int8, _> = Vec.withCap(cap)
     mut var buckets: Vec<HashBucket<K, V>, _> = Vec.withCap(cap)
-    
     mut var i: int = 0
+
     while i < cap {
         ctrl.push(int8(HASH_CTRL_EMPTY))
-        buckets.push(HashBucket{ filled: false }) 
+        buckets.push(HashBucket{filled: false})
         i = i + 1
     }
-    
+
     // Determine grow threshold (load factor)
-    var grow_left: int = (cap * HASH_LOAD_FACTOR_NUM) / HASH_LOAD_FACTOR_DEN
-    
+    var grow_left: int = cap * HASH_LOAD_FACTOR_NUM / HASH_LOAD_FACTOR_DEN
+
     return HashMap{
-        ctrl: ctrl,
-        buckets: buckets,
-        len: 0,
-        cap: cap,
-        grow_left: grow_left
+        buckets:   buckets,
+        cap:       cap,
+        ctrl:      ctrl,
+        grow_left: grow_left,
+        len:       0,
     }
 }
 
 // -----------------------------------------------------------------------------
 // Methods
 // -----------------------------------------------------------------------------
-
 impl HashMap as m {
-
     pub func len() -> (int) {
         return m.len
     }
@@ -168,193 +185,220 @@ impl HashMap as m {
     pub func isEmpty() -> (bool) {
         return m.len == 0
     }
-    
+
     pub mut func clear() -> (void) {
         mut var i: int = 0
+
         while i < m.cap {
             m.ctrl[i] = HASH_CTRL_EMPTY
             m.buckets[i].filled = false
             i = i + 1
         }
+
         m.len = 0
-        m.grow_left = (m.cap * HASH_LOAD_FACTOR_NUM) / HASH_LOAD_FACTOR_DEN
+        m.grow_left = m.cap * HASH_LOAD_FACTOR_NUM / HASH_LOAD_FACTOR_DEN
+
         return void
     }
-
     // Find slot for key (for insert or lookup)
     // Returns index if found, or first empty slot if not found (for insert)
     func find_slot(hash: int, key: &K) -> (int) {
         var h2_hash: int8 = h2(hash)
         var mask: int = m.cap - 1
         mut var idx: int = hash & mask
-        
+
         while true {
             var c: int8 = m.ctrl[idx]
-            
+
             if c == HASH_CTRL_EMPTY {
                 return idx
             }
-            
+
             if c == h2_hash {
                 // Potential match, check key
                 if m.buckets[idx].filled && m.buckets[idx].key == *key {
                     return idx
                 }
             }
-            
-            idx = (idx + 1) & mask
+
+            idx = idx + 1 & mask
         }
-        return -1 // Unreachable if load factor maintained
+
+        return -1
     }
-    
+    // Unreachable if load factor maintained
     pub mut func insert(key: K, value: V) -> (void) {
         // Check growth
         if m.len >= m.grow_left {
             m.grow()
         }
-        
+
         var hash: int = hash_dispatch(&key)
-        var idx: int = m.find_slot(hash, &key)
-        
+        var idx: int = m.find_slot(
+            hash,
+            &key,
+        )
         // find_slot returns either existing key index or empty slot
         var c: int8 = m.ctrl[idx]
-        
+
         if c == HASH_CTRL_EMPTY {
             // New entry
             m.ctrl[idx] = h2(hash)
             m.buckets[idx] = HashBucket{
-                key: key,
-                value: value,
-                filled: true
+                filled: true,
+                key:    key,
+                value:  value,
             }
             m.len = m.len + 1
         } else {
             // Update existing
             m.buckets[idx].value = value
         }
+
         return void
     }
-    
+
     pub func get(key: &K) -> (Result<V, string>) {
         var hash: int = hash_dispatch(key)
         var mask: int = m.cap - 1
         mut var idx: int = hash & mask
         var h2_hash: int8 = h2(hash)
-        
+
         while true {
             var c: int8 = m.ctrl[idx]
+
             if c == HASH_CTRL_EMPTY {
                 return Err("key not found")
             }
-            
+
             if c == h2_hash {
-                 if m.buckets[idx].filled && m.buckets[idx].key == *key {
-                     return Ok(m.buckets[idx].value)
-                 }
+                if m.buckets[idx].filled && m.buckets[idx].key == *key {
+                    return Ok(m.buckets[idx].value)
+                }
             }
-            
-            idx = (idx + 1) & mask
+
+            idx = idx + 1 & mask
         }
+
         return Err("key not found")
     }
-    
+
     pub func contains(key: &K) -> (bool) {
         switch m.get(key) {
-            case Ok(_) { return true }
-            case Err(_) { return false }
+            case Ok(_) {
+                return true
+            }
+            case Err(_) {
+                return false
+            }
         }
     }
-    
+
     pub mut func remove(key: &K) -> (Result<V, string>) {
         var hash: int = hash_dispatch(key)
         var mask: int = m.cap - 1
         mut var idx: int = hash & mask
         var h2_hash: int8 = h2(hash)
-        
+
         while true {
             var c: int8 = m.ctrl[idx]
+
             if c == HASH_CTRL_EMPTY {
                 return Err("key not found")
             }
-            
+
             if c == h2_hash {
-                 if m.buckets[idx].filled && m.buckets[idx].key == *key {
-                     // Found
-                     var val: V = m.buckets[idx].value
-                     
-                     // Mark as deleted/tombstone? 
-                     // Swiss tables often use backward shift deletion or special tombstone.
-                     // For simplicity: mark as deleted (special ctrl byte) 
-                     m.ctrl[idx] = HASH_CTRL_DELETED
-                     m.buckets[idx].filled = false
-                     m.len = m.len - 1
-                     return Ok(val)
-                 }
+                if m.buckets[idx].filled && m.buckets[idx].key == *key {
+                    // Found
+                    var val: V = m.buckets[idx].value
+
+                    // Mark as deleted/tombstone? 
+                    // Swiss tables often use backward shift deletion or special tombstone.
+                    // For simplicity: mark as deleted (special ctrl byte) 
+                    m.ctrl[idx] = HASH_CTRL_DELETED
+                    m.buckets[idx].filled = false
+                    m.len = m.len - 1
+
+                    return Ok(val)
+                }
             }
-            
-            idx = (idx + 1) & mask
+
+            idx = idx + 1 & mask
         }
+
         return Err("key not found")
     }
-    
+
     mut func grow() -> (void) {
         var old_cap: int = m.cap
         var old_ctrl: Vec<int8, _> = m.ctrl
         var old_buckets: Vec<HashBucket<K, V>, _> = m.buckets
-        
         var new_cap: int = old_cap * 2
+
         m.cap = new_cap
-        m.grow_left = (new_cap * HASH_LOAD_FACTOR_NUM) / HASH_LOAD_FACTOR_DEN
+        m.grow_left = new_cap * HASH_LOAD_FACTOR_NUM / HASH_LOAD_FACTOR_DEN
         m.len = 0
-        
+
         // Re-init new vectors with explicit type annotation helper variables to aid inference
         mut var new_ctrl: Vec<int8, _> = Vec.withCap(new_cap)
         mut var new_buckets: Vec<HashBucket<K, V>, _> = Vec.withCap(new_cap)
-        
+
         m.ctrl = new_ctrl
         m.buckets = new_buckets
-        
+
         mut var i: int = 0
+
         while i < new_cap {
             m.ctrl.push(int8(HASH_CTRL_EMPTY))
-            m.buckets.push(HashBucket{ filled: false })
+            m.buckets.push(HashBucket{filled: false})
             i = i + 1
         }
-        
+
         // Rehash
         i = 0
+
         while i < old_cap {
-            if (int(old_ctrl[i]) & 0x80) == 0 { // Is occupied (positive h2)
-                 if old_buckets[i].filled {
-                     m.insert(old_buckets[i].key, old_buckets[i].value)
-                 }
+            if int(old_ctrl[i]) & 0x80 == 0 {
+                // Is occupied (positive h2)
+                if old_buckets[i].filled {
+                    m.insert(
+                        old_buckets[i].key,
+                        old_buckets[i].value,
+                    )
+                }
             }
+
             i = i + 1
         }
     }
-    
+
     pub func keys() -> (Vec<K, _>) {
         mut var ks: Vec<K, _> = Vec.new()
         mut var i: int = 0
+
         while i < m.cap {
-            if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+            if int(m.ctrl[i]) & 0x80 == 0 && m.buckets[i].filled {
                 ks.push(m.buckets[i].key)
             }
+
             i = i + 1
         }
+
         return ks
     }
-
     // values returns a Vec of all values in the map.
     pub func values() -> (Vec<V, _>) {
         mut var vs: Vec<V, _> = Vec.new()
         mut var i: int = 0
+
         while i < m.cap {
-            if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+            if int(m.ctrl[i]) & 0x80 == 0 && m.buckets[i].filled {
                 vs.push(m.buckets[i].value)
             }
+
             i = i + 1
         }
+
         return vs
     }
 }
@@ -364,43 +408,65 @@ impl HashMap {
     pub func new() -> (HashMap<K, V>) {
         return newHashMap()
     }
-    
+
     pub func withCap(c: int) -> (HashMap<K, V>) {
         return withCapHashMap(c)
     }
 }
 
-
 // =============================================================================
 // Additional HashMap utilities
 // =============================================================================
-
 // merge inserts all key-value pairs from other into m, overwriting existing keys.
 pub func merge<K, V>(m: &mut HashMap<K, V>, other: &HashMap<K, V>) -> (void) {
     mut var i: int = 0
+
     while i < other.cap {
-        if (int(other.ctrl[i]) & 0x80) == 0 && other.buckets[i].filled {
-            m.insert(other.buckets[i].key, other.buckets[i].value)
+        if int(other.ctrl[i]) & 0x80 == 0 && other.buckets[i].filled {
+            m.insert(
+                other.buckets[i].key,
+                other.buckets[i].value,
+            )
         }
+
         i = i + 1
     }
+
     return void
 }
 
 // getOrDefault returns the value for key, or defaultValue if not present.
-pub func getOrDefault<K, V>(m: &HashMap<K, V>, key: &K, defaultValue: V) -> (V) {
+pub func getOrDefault<K, V>(
+    m: &HashMap<K, V>,
+    key: &K,
+    defaultValue: V,
+) -> (V) {
     switch m.get(key) {
-        case Ok(v) { return v }
-        case Err(_) { return defaultValue }
+        case Ok(v) {
+            return v
+        }
+        case Err(_) {
+            return defaultValue
+        }
     }
 }
 
 // getOrInsert returns the value for key, inserting defaultValue if not present.
-pub func getOrInsert<K, V>(m: &mut HashMap<K, V>, key: K, defaultValue: V) -> (V) {
+pub func getOrInsert<K, V>(
+    m: &mut HashMap<K, V>,
+    key: K,
+    defaultValue: V,
+) -> (V) {
     switch m.get(&key) {
-        case Ok(v) { return v }
+        case Ok(v) {
+            return v
+        }
         case Err(_) {
-            m.insert(key, defaultValue)
+            m.insert(
+                key,
+                defaultValue,
+            )
+
             return defaultValue
         }
     }
@@ -411,20 +477,26 @@ pub func equal<K, V>(a: &HashMap<K, V>, b: &HashMap<K, V>) -> (bool) {
     if a.len != b.len {
         return false
     }
+
     mut var i: int = 0
+
     while i < a.cap {
-        if (int(a.ctrl[i]) & 0x80) == 0 && a.buckets[i].filled {
+        if int(a.ctrl[i]) & 0x80 == 0 && a.buckets[i].filled {
             switch b.get(&a.buckets[i].key) {
                 case Ok(v) {
                     if v != a.buckets[i].value {
                         return false
                     }
                 }
-                case Err(_) { return false }
+                case Err(_) {
+                    return false
+                }
             }
         }
+
         i = i + 1
     }
+
     return true
 }
 
@@ -432,52 +504,81 @@ pub func equal<K, V>(a: &HashMap<K, V>, b: &HashMap<K, V>) -> (bool) {
 pub func clone<K, V>(m: &HashMap<K, V>) -> (HashMap<K, V>) {
     mut var result: HashMap<K, V> = withCapHashMap(m.cap)
     mut var i: int = 0
+
     while i < m.cap {
-        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
-            result.insert(m.buckets[i].key, m.buckets[i].value)
+        if int(m.ctrl[i]) & 0x80 == 0 && m.buckets[i].filled {
+            result.insert(
+                m.buckets[i].key,
+                m.buckets[i].value,
+            )
         }
+
         i = i + 1
     }
+
     return result
 }
 
 // fromPairs creates a HashMap from parallel Vecs of keys and values.
-pub func fromPairs<K, V>(keys: &Vec<K, _>, values: &Vec<V, _>) -> (HashMap<K, V>) {
+pub func fromPairs<K, V>(
+    keys: &Vec<K, _>,
+    values: &Vec<V, _>,
+) -> (HashMap<K, V>) {
     mut var result: HashMap<K, V> = newHashMap()
     mut var i: int = 0
+
     while i < keys.len() && i < values.len() {
-        result.insert(keys[i], values[i])
+        result.insert(
+            keys[i],
+            values[i],
+        )
         i = i + 1
     }
+
     return result
 }
 
 // toPairs returns keys and values as two parallel Vecs.
-pub func toPairs<K, V>(m: &HashMap<K, V>) -> (Vec<K, _>, Vec<V, _>) {
+pub func toPairs<K, V>(m: &HashMap<K, V>) -> ((Vec<K, _>, Vec<V, _>)) {
     mut var ks: Vec<K, _> = Vec.withCap(m.len)
     mut var vs: Vec<V, _> = Vec.withCap(m.len)
     mut var i: int = 0
+
     while i < m.cap {
-        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
+        if int(m.ctrl[i]) & 0x80 == 0 && m.buckets[i].filled {
             ks.push(m.buckets[i].key)
             vs.push(m.buckets[i].value)
         }
+
         i = i + 1
     }
+
     return ks, vs
 }
 
 // filterBy returns a new HashMap with entries satisfying predicate.
-pub func filterBy<K, V>(m: &HashMap<K, V>, predicate: func(&K, &V) -> (bool)) -> (HashMap<K, V>) {
+pub func filterBy<K, V>(
+    m: &HashMap<K, V>,
+    predicate: func(&K, &V) -> (bool),
+) -> (HashMap<K, V>) {
     mut var result: HashMap<K, V> = newHashMap()
     mut var i: int = 0
+
     while i < m.cap {
-        if (int(m.ctrl[i]) & 0x80) == 0 && m.buckets[i].filled {
-            if predicate(&m.buckets[i].key, &m.buckets[i].value) {
-                result.insert(m.buckets[i].key, m.buckets[i].value)
+        if int(m.ctrl[i]) & 0x80 == 0 && m.buckets[i].filled {
+            if predicate(
+                &m.buckets[i].key,
+                &m.buckets[i].value,
+            ) {
+                result.insert(
+                    m.buckets[i].key,
+                    m.buckets[i].value,
+                )
             }
         }
+
         i = i + 1
     }
+
     return result
 }

@@ -1,13 +1,12 @@
 package path
 
 // Path utilities for slash-separated paths.
-
 import strings "std/strings"
 
 pub const Separator: string = "/"
 
 pub struct Split {
-    pub Dir: string
+    pub Dir:  string
     pub Base: string
 }
 
@@ -34,13 +33,17 @@ pub func clean(p: string) -> (string) {
 
     var abs: bool = is_abs_ref(&p)
     var sep: string = Separator
-    var parts: Vec<string, _> = strings.split(&p, &sep)
+    var parts: Vec<string, _> = strings.split(
+        &p,
+        &sep,
+    )
     mut var stack: Vec<string, _> = Vec.new()
 
     for part in parts {
         if part.len() == 0 || part == "." {
             continue
         }
+
         if part == ".." {
             if stack.len() > 0 {
                 if stack[stack.len() - 1] != ".." {
@@ -51,27 +54,36 @@ pub func clean(p: string) -> (string) {
             } else if !abs {
                 stack.push("..")
             }
+
             continue
         }
+
         stack.push(part)
     }
 
-    return join_stack(&stack, abs)
+    return join_stack(
+        &stack,
+        abs,
+    )
 }
 
 pub func join(a: string, b: string) -> (string) {
     if b.len() == 0 {
         return clean(a)
     }
+
     if is_abs_ref(&b) {
         return clean(b)
     }
+
     if a.len() == 0 {
         return clean(b)
     }
+
     if is_sep(a[a.len() - 1]) {
         return clean(a + b)
     }
+
     return clean(a + Separator + b)
 }
 
@@ -82,12 +94,15 @@ pub func joinParts(parts: Vec<string, _>) -> (string) {
 
     mut var out: string = ""
     mut var i: int = 0
+
     while i < parts.len() {
         var part: string = parts[i]
+
         if part.len() == 0 {
             i = i + 1
             continue
         }
+
         if is_abs_ref(&part) {
             out = part
         } else if out.len() == 0 {
@@ -97,8 +112,10 @@ pub func joinParts(parts: Vec<string, _>) -> (string) {
         } else {
             out = out + Separator + part
         }
+
         i = i + 1
     }
+
     return clean(out)
 }
 
@@ -108,6 +125,7 @@ pub func base(p: &string) -> (string) {
     }
 
     mut var end: int = p.len()
+
     while end > 1 && is_sep(p[end - 1]) {
         end = end - 1
     }
@@ -116,13 +134,26 @@ pub func base(p: &string) -> (string) {
         return "/"
     }
 
-    var trimmed: string = strings.substring(p, 0, end)
+    var trimmed: string = strings.substring(
+        p,
+        0,
+        end,
+    )
     var sep: string = Separator
-    var idx: int = strings.lastIndexOf(&trimmed, &sep)
+    var idx: int = strings.lastIndexOf(
+        &trimmed,
+        &sep,
+    )
+
     if idx == -1 {
         return trimmed
     }
-    return strings.substring(&trimmed, idx + 1, trimmed.len())
+
+    return strings.substring(
+        &trimmed,
+        idx + 1,
+        trimmed.len(),
+    )
 }
 
 pub func dir(p: &string) -> (string) {
@@ -131,33 +162,59 @@ pub func dir(p: &string) -> (string) {
     }
 
     mut var end: int = p.len()
+
     while end > 1 && is_sep(p[end - 1]) {
         end = end - 1
     }
 
-    var trimmed: string = strings.substring(p, 0, end)
+    var trimmed: string = strings.substring(
+        p,
+        0,
+        end,
+    )
     var sep: string = Separator
-    var idx: int = strings.lastIndexOf(&trimmed, &sep)
+    var idx: int = strings.lastIndexOf(
+        &trimmed,
+        &sep,
+    )
+
     if idx == -1 {
         return "."
     }
+
     if idx == 0 {
         return "/"
     }
-    return strings.substring(&trimmed, 0, idx)
+
+    return strings.substring(
+        &trimmed,
+        0,
+        idx,
+    )
 }
 
 pub func ext(p: &string) -> (string) {
     var b: string = base(p)
+
     if b == "." || b == "/" {
         return ""
     }
+
     var dot: string = "."
-    var idx: int = strings.lastIndexOf(&b, &dot)
+    var idx: int = strings.lastIndexOf(
+        &b,
+        &dot,
+    )
+
     if idx <= 0 {
         return ""
     }
-    return strings.substring(&b, idx, b.len())
+
+    return strings.substring(
+        &b,
+        idx,
+        b.len(),
+    )
 }
 
 pub func hasExt(p: &string) -> (bool) {
@@ -167,37 +224,49 @@ pub func hasExt(p: &string) -> (bool) {
 pub func stem(p: &string) -> (string) {
     var b: string = base(p)
     var e: string = ext(p)
+
     if e == "" {
         return b
     }
-    return strings.substring(&b, 0, b.len() - e.len())
+
+    return strings.substring(
+        &b,
+        0,
+        b.len() - e.len(),
+    )
 }
 
 pub func withoutExt(p: &string) -> (string) {
     var d: string = dir(p)
     var s: string = stem(p)
+
     if d == "." {
         return s
     }
+
     if d == "/" {
         return "/" + s
     }
+
     return d + Separator + s
 }
 
 pub func withExt(p: &string, new_ext: &string) -> (string) {
     var root: string = withoutExt(p)
+
     if new_ext.len() == 0 {
         return root
     }
+
     if new_ext[0] == '.' {
         return root + *new_ext
     }
+
     return root + "." + *new_ext
 }
 
 pub func split(p: &string) -> (Split) {
-    return Split{Dir: dir(p), Base: base(p)}
+    return Split{Base: base(p), Dir: dir(p)}
 }
 
 func join_stack(parts: &Vec<string, _>, abs: bool) -> (string) {
@@ -205,21 +274,26 @@ func join_stack(parts: &Vec<string, _>, abs: bool) -> (string) {
         if abs {
             return "/"
         }
+
         return "."
     }
 
     mut var out: string = ""
+
     if abs {
         out = "/"
     }
 
     mut var i: int = 0
+
     while i < parts.len() {
         if out.len() > 0 && !is_sep(out[out.len() - 1]) {
             out = out + Separator
         }
+
         out = out + parts[i]
         i = i + 1
     }
+
     return out
 }

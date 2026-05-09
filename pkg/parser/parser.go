@@ -916,6 +916,7 @@ func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
 		}
 		stmt.AliasToken = p.curToken
 		stmt.Alias = p.curToken.Literal
+		stmt.LegacyAlias = true
 	}
 
 	return stmt

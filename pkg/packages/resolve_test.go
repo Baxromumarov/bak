@@ -184,3 +184,17 @@ func TestResolveImportPathSkipsMixedPackageDirectory(t *testing.T) {
 		t.Fatalf("expected std/bytes to skip mixed directory and resolve to %q, got %q", bytesPath, resolved)
 	}
 }
+
+func TestParseProgramDirRequiresEachFileToStartWithPackage(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.bak"), []byte("package demo\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "b.bak"), []byte("func helper() -> (void) {\n    return void\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := ParseProgram(dir); err == nil {
+		t.Fatalf("expected directory parse to reject files without package declarations")
+	}
+}

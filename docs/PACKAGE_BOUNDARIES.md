@@ -16,7 +16,8 @@ import _ "std/test"
 - `import "x"` first looks for a package directory or file at `x`, then for `x.bak`, then for `x/x.bak`.
 - `import "std/path"` maps to the standard library source under `src/std/path`.
 - When an import has no alias, the binding name comes from the imported file's `package` declaration.
-- The compatibility form `import "path" as alias` still parses, but new code should use `import alias "path"`.
+- The compatibility form `import "path" as alias` still parses, but `baklint` reports it with `import-style`; new code should use `import alias "path"`.
+- Every non-test `.bak` file in an imported package directory must start with the same `package name`.
 - `pub` marks declarations that can be accessed from another package.
 - Import cycles are rejected.
 
@@ -31,6 +32,8 @@ import "src/std/strings/strings.bak" as strings
 Those forms are compatibility, not the preferred authoring style.
 
 New docs and examples should use package paths.
+
+`make format-check` verifies `bakfmt` output for the stable import/stdlib surface. `make language-stability` runs the release gate, LSP verifier, and formatter check together.
 
 ## Not Stable Yet
 

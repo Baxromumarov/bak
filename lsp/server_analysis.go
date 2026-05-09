@@ -299,6 +299,7 @@ func lintFindingToDiagnostic(finding linter.Finding) Diagnostic {
 		Range:    rangeFromLineCol(finding.Line, finding.Column, 1),
 		Severity: severity,
 		Source:   "bak-linter",
+		Code:     finding.Rule,
 		Message:  finding.Message,
 	}
 }

@@ -1,10 +1,11 @@
 package collections
+
 // Use __Array primitive as backing store.
 // __Array<T> is a slice-like primitive that holds the data.
 // We manage capacity and length manually in Vec.
 struct Vec<T> {
-    data: __Array<T>
-    length: int
+    data:     __Array<T>
+    length:   int
     capacity: int
 }
 
@@ -14,37 +15,56 @@ impl Vec {
         // Create a dummy value of type T to appease __alloc_array signature.
         // It will be nil/zero at runtime, but size 0 array ignores it.
         var dummy: T
-        var arr = __vec_alloc(0, dummy)
+        var arr = __vec_alloc(
+            0,
+            dummy,
+        )
+
         return Vec{
-            data: arr,
-            length: 0,
             capacity: 0,
+            data:     arr,
+            length:   0,
         }
     }
+
     pub func withCap(cap: int) -> (Vec<T, _>) {
         mut var effective_cap: int = cap
+
         if effective_cap < 0 {
             effective_cap = 0
         }
+
         var dummy: T
-        var arr = __vec_alloc(effective_cap, dummy)
+        var arr = __vec_alloc(
+            effective_cap,
+            dummy,
+        )
+
         return Vec{
-            data: arr,
-            length: 0,
             capacity: effective_cap,
+            data:     arr,
+            length:   0,
         }
     }
-    pub func from<N>(arr: Vec<T, N>) -> (Vec<T, _>) {
+
+    pub func from(arr: Vec<T, N>) -> (Vec<T, _>) {
         // arr is fixed array.
         var len: int = arr.len()
         mut var v: Vec<T, _> = Vec.withCap(len)
         // copy elements
         mut var i: int = 0
+
         while i < len {
-            __vec_set(v.data, i, arr.get(i).unwrap())
+            __vec_set(
+                v.data,
+                i,
+                arr.get(i).unwrap(),
+            )
             i = i + 1
         }
+
         v.length = len
+
         return v
     }
 }
@@ -55,82 +75,146 @@ impl Vec as self {
         if self.length == self.capacity {
             self.grow()
         }
-        __vec_set(self.data, self.length, value)
+
+        __vec_set(
+            self.data,
+            self.length,
+            value,
+        )
         self.length = self.length + 1
+
         return
     }
+
     pub mut func pop() -> (Result<T, string>) {
         if self.length == 0 {
             return Err("vec is empty")
         }
+
         self.length = self.length - 1
-        var val: T = __vec_get(self.data, self.length)
+
+        var val: T = __vec_get(
+            self.data,
+            self.length,
+        )
+
         // We leave the value in the array, but it's inaccessible via length.
         // If we want to zero it for GC?
         // var dummy: T; self.data.set(self.length, dummy);
         return Ok(val)
     }
+
     mut func grow() -> (void) {
         mut var new_cap: int = self.capacity * 2
+
         if new_cap == 0 {
             new_cap = 4
         }
+
         // We need a dummy value for allocation.
         // If `push` called grow, we could pass the value being pushed as hint, 
         // but simple `grow()` takes no args.
         // We use dummy local.
         // var dummy: T
         // Use VM primitive to grow the underlying buffer
-        var new_data = __vec_grow(self.data, new_cap)
+        var new_data = __vec_grow(
+            self.data,
+            new_cap,
+        )
+
         self.data = new_data
         self.capacity = new_cap
+
         return
     }
+
     pub mut func remove(index: int) -> (Result<T, string>) {
         if index < 0 || index >= self.length {
             return Err("index out of bounds")
         }
-        var val: T = __vec_get(self.data, index)
+
+        var val: T = __vec_get(
+            self.data,
+            index,
+        )
         // Shift down
         mut var i: int = index
+
         while i < self.length - 1 {
-            __vec_set(self.data, i, __vec_get(self.data, i + 1))
+            __vec_set(
+                self.data,
+                i,
+                __vec_get(
+                    self.data,
+                    i + 1,
+                ),
+            )
             i = i + 1
         }
+
         self.length = self.length - 1
+
         // Optional: clear last slot
         return Ok(val)
     }
+
     pub mut func clear() -> (void) {
         self.length = 0
+
         return
     }
+
     pub mut func reverse() -> (void) {
         mut var i: int = 0
         mut var j: int = self.length - 1
+
         while i < j {
-            var tmp: T = __vec_get(self.data, i)
-            __vec_set(self.data, i, __vec_get(self.data, j))
-            __vec_set(self.data, j, tmp)
+            var tmp: T = __vec_get(
+                self.data,
+                i,
+            )
+
+            __vec_set(
+                self.data,
+                i,
+                __vec_get(
+                    self.data,
+                    j,
+                ),
+            )
+            __vec_set(
+                self.data,
+                j,
+                tmp,
+            )
             i = i + 1
             j = j - 1
         }
     }
+
     pub func len() -> (int) {
         // --- ACCESSOR METHODS ---
         return self.length
     }
+
     pub func cap() -> (int) {
         return self.capacity
     }
+
     pub func isEmpty() -> (bool) {
         return self.length == 0
     }
+
     pub func first() -> (Result<T, string>) {
         if self.length == 0 {
             return Err("vec is empty")
         }
-        var val: T = __vec_get(self.data, 0)
+
+        var val: T = __vec_get(
+            self.data,
+            0,
+        )
+
         return Ok(val)
     }
 
@@ -138,7 +222,12 @@ impl Vec as self {
         if self.length == 0 {
             return Err("vec is empty")
         }
-        var val: T = __vec_get(self.data, self.length - 1)
+
+        var val: T = __vec_get(
+            self.data,
+            self.length - 1,
+        )
+
         return Ok(val)
     }
 
@@ -146,30 +235,50 @@ impl Vec as self {
         if index < 0 || index >= self.length {
             return Err("index out of bounds")
         }
-        var val: T = __vec_get(self.data, index)
+
+        var val: T = __vec_get(
+            self.data,
+            index,
+        )
+
         return Ok(val)
     }
+
     pub func contains(value: T) -> (bool) {
         mut var i: int = 0
+
         while i < self.length {
-            if __vec_get(self.data, i) == value {
+            if __vec_get(
+                self.data,
+                i,
+            ) == value {
                 return true
             }
+
             i = i + 1
         }
+
         return false
     }
+
     pub func join(separator: string) -> (string) {
         mut var res: string = ""
         mut var i: int = 0
+
         while i < self.length {
             if i > 0 {
                 res = res + separator
             }
-            var val: T = __vec_get(self.data, i)
+
+            var val: T = __vec_get(
+                self.data,
+                i,
+            )
+
             res = res + string(val)
             i = i + 1
         }
+
         return res
     }
 }
@@ -177,17 +286,26 @@ impl Vec as self {
 // =============================================================================
 // Free functions for Vec<T, _> utilities
 // =============================================================================
-
 // indexOf returns the index of the first element matching `value` using `eq`,
 // or -1 if not found.
-pub func indexOf<T>(v: &Vec<T, _>, value: T, eq: func(&T, &T) -> (bool)) -> (int) {
+pub func indexOf<T>(
+    v: &Vec<T, _>,
+    value: T,
+    eq: func(&T, &T) -> (bool),
+) -> (int) {
     mut var i: int = 0
+
     while i < v.len() {
-        if eq(&v[i], &value) {
+        if eq(
+            &v[i],
+            &value,
+        ) {
             return i
         }
+
         i = i + 1
     }
+
     return -1
 }
 
@@ -195,42 +313,64 @@ pub func indexOf<T>(v: &Vec<T, _>, value: T, eq: func(&T, &T) -> (bool)) -> (int
 pub func sum(v: &Vec<int, _>) -> (int) {
     mut var total: int = 0
     mut var i: int = 0
+
     while i < v.len() {
         total = total + v[i]
         i = i + 1
     }
+
     return total
 }
 
 // max_by returns the maximum element using a comparator, or Err if empty.
-pub func max_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, string>) {
+pub func max_by<T>(
+    v: &Vec<T, _>,
+    cmp: func(&T, &T) -> (int),
+) -> (Result<T, string>) {
     if v.len() == 0 {
         return Err("vec is empty")
     }
+
     mut var best: T = v[0]
     mut var i: int = 1
+
     while i < v.len() {
-        if cmp(&v[i], &best) > 0 {
+        if cmp(
+            &v[i],
+            &best,
+        ) > 0 {
             best = v[i]
         }
+
         i = i + 1
     }
+
     return Ok(best)
 }
 
 // min_by returns the minimum element using a comparator, or Err if empty.
-pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, string>) {
+pub func min_by<T>(
+    v: &Vec<T, _>,
+    cmp: func(&T, &T) -> (int),
+) -> (Result<T, string>) {
     if v.len() == 0 {
         return Err("vec is empty")
     }
+
     mut var best: T = v[0]
     mut var i: int = 1
+
     while i < v.len() {
-        if cmp(&v[i], &best) < 0 {
+        if cmp(
+            &v[i],
+            &best,
+        ) < 0 {
             best = v[i]
         }
+
         i = i + 1
     }
+
     return Ok(best)
 }
 
@@ -238,85 +378,115 @@ pub func min_by<T>(v: &Vec<T, _>, cmp: func(&T, &T) -> (int)) -> (Result<T, stri
 pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
     mut var out: Vec<U, _> = Vec.withCap(v.len())
     mut var i: int = 0
+
     while i < v.len() {
         out.push(f(&v[i]))
         i = i + 1
     }
+
     return out
 }
 
 // filter_by keeps elements that satisfy predicate and returns a new Vec<T, _>.
-pub func filter_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Vec<T, _>) {
+pub func filter_by<T>(
+    v: &Vec<T, _>,
+    predicate: func(&T) -> (bool),
+) -> (Vec<T, _>) {
     mut var out: Vec<T, _> = Vec.new()
     mut var i: int = 0
+
     while i < v.len() {
         if predicate(&v[i]) {
             out.push(v[i])
         }
+
         i = i + 1
     }
+
     return out
 }
 
 // reduce_by accumulates elements into a single value using reducer.
-pub func reduce_by<T, U>(v: &Vec<T, _>, initial: U, reducer: func(U, &T) -> (U)) -> (U) {
+pub func reduce_by<T, U>(
+    v: &Vec<T, _>,
+    initial: U,
+    reducer: func(U, &T) -> (U),
+) -> (U) {
     mut var acc: U = initial
     mut var i: int = 0
+
     while i < v.len() {
-        acc = reducer(acc, &v[i])
+        acc = reducer(
+            acc,
+            &v[i],
+        )
         i = i + 1
     }
+
     return acc
 }
 
 // any_by returns true if any element satisfies predicate.
 pub func any_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     mut var i: int = 0
+
     while i < v.len() {
         if predicate(&v[i]) {
             return true
         }
+
         i = i + 1
     }
+
     return false
 }
 
 // all_by returns true if all elements satisfy predicate.
 pub func all_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     mut var i: int = 0
+
     while i < v.len() {
         if !predicate(&v[i]) {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
 // find_by returns the first element satisfying predicate, or Err if not found.
-pub func find_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Result<T, string>) {
+pub func find_by<T>(
+    v: &Vec<T, _>,
+    predicate: func(&T) -> (bool),
+) -> (Result<T, string>) {
     mut var i: int = 0
+
     while i < v.len() {
         if predicate(&v[i]) {
             return Ok(v[i])
         }
+
         i = i + 1
     }
+
     return Err("element not found")
 }
 
 // =============================================================================
 // Additional Vec utilities
 // =============================================================================
-
 // fill creates a Vec<T, _> with n copies of value.
 pub func fill<T>(value: T, n: int) -> (Vec<T, _>) {
     mut var result: Vec<T, _> = Vec.withCap(n)
     mut var i: int = 0
+
     while i < n {
         result.push(value)
         i = i + 1
     }
+
     return result
 }
 
@@ -324,10 +494,12 @@ pub func fill<T>(value: T, n: int) -> (Vec<T, _>) {
 pub func range(start: int, end: int) -> (Vec<int, _>) {
     mut var result: Vec<int, _> = Vec.withCap(end - start)
     mut var i: int = start
+
     while i < end {
         result.push(i)
         i = i + 1
     }
+
     return result
 }
 
@@ -336,18 +508,23 @@ pub func chunk<T>(v: &Vec<T, _>, chunkSize: int) -> (Vec<Vec<T, _>, _>) {
     if chunkSize <= 0 {
         return Vec.new()
     }
+
     mut var result: Vec<Vec<T, _>, _> = Vec.new()
     mut var i: int = 0
+
     while i < v.len() {
         mut var chunk: Vec<T, _> = Vec.new()
         mut var j: int = 0
+
         while j < chunkSize && i + j < v.len() {
             chunk.push(v[i + j])
             j = j + 1
         }
+
         result.push(chunk)
         i = i + chunkSize
     }
+
     return result
 }
 
@@ -356,18 +533,23 @@ pub func window<T>(v: &Vec<T, _>, winSize: int) -> (Vec<Vec<T, _>, _>) {
     if winSize <= 0 || winSize > v.len() {
         return Vec.new()
     }
+
     mut var result: Vec<Vec<T, _>, _> = Vec.new()
     mut var i: int = 0
+
     while i <= v.len() - winSize {
         mut var win: Vec<T, _> = Vec.new()
         mut var j: int = 0
+
         while j < winSize {
             win.push(v[i + j])
             j = j + 1
         }
+
         result.push(win)
         i = i + 1
     }
+
     return result
 }
 
@@ -375,14 +557,18 @@ pub func window<T>(v: &Vec<T, _>, winSize: int) -> (Vec<Vec<T, _>, _>) {
 pub func flatten<T>(v: &Vec<Vec<T, _>, _>) -> (Vec<T, _>) {
     mut var result: Vec<T, _> = Vec.new()
     mut var i: int = 0
+
     while i < v.len() {
         mut var j: int = 0
+
         while j < v[i].len() {
             result.push(v[i][j])
             j = j + 1
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -391,15 +577,21 @@ pub func dedup<T>(v: &Vec<T, _>) -> (Vec<T, _>) {
     if v.len() == 0 {
         return Vec.new()
     }
+
     mut var result: Vec<T, _> = Vec.new()
+
     result.push(v[0])
+
     mut var i: int = 1
+
     while i < v.len() {
         if v[i] != v[i - 1] {
             result.push(v[i])
         }
+
         i = i + 1
     }
+
     return result
 }
 
@@ -407,29 +599,36 @@ pub func dedup<T>(v: &Vec<T, _>) -> (Vec<T, _>) {
 pub func binarySearch(v: &Vec<int, _>, target: int) -> (int) {
     mut var left: int = 0
     mut var right: int = v.len() - 1
+
     while left <= right {
         var mid: int = left + (right - left) / 2
+
         if v[mid] == target {
             return mid
         }
+
         if v[mid] < target {
             left = mid + 1
         } else {
             right = mid - 1
         }
     }
+
     return -1
 }
 
 // isSorted checks if a Vec<int, _> is in non-decreasing order.
 pub func isSorted(v: &Vec<int, _>) -> (bool) {
     mut var i: int = 1
+
     while i < v.len() {
         if v[i] < v[i - 1] {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
@@ -437,10 +636,12 @@ pub func isSorted(v: &Vec<int, _>) -> (bool) {
 pub func sumFloat(v: &Vec<float64, _>) -> (float64) {
     mut var total: float64 = 0.0
     mut var i: int = 0
+
     while i < v.len() {
         total = total + v[i]
         i = i + 1
     }
+
     return total
 }
 
@@ -449,12 +650,15 @@ pub func product(v: &Vec<int, _>) -> (int) {
     if v.len() == 0 {
         return 0
     }
+
     mut var total: int = 1
     mut var i: int = 0
+
     while i < v.len() {
         total = total * v[i]
         i = i + 1
     }
+
     return total
 }
 
@@ -463,84 +667,112 @@ pub func productFloat(v: &Vec<float64, _>) -> (float64) {
     if v.len() == 0 {
         return 0.0
     }
+
     mut var total: float64 = 1.0
     mut var i: int = 0
+
     while i < v.len() {
         total = total * v[i]
         i = i + 1
     }
+
     return total
 }
 
 // findIndex returns the first index where predicate is true, or -1.
 pub func findIndex<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (int) {
     mut var i: int = 0
+
     while i < v.len() {
         if predicate(&v[i]) {
             return i
         }
+
         i = i + 1
     }
+
     return -1
 }
 
 // findLast returns the last element satisfying predicate, or Err.
-pub func findLast<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (Result<T, string>) {
+pub func findLast<T>(
+    v: &Vec<T, _>,
+    predicate: func(&T) -> (bool),
+) -> (Result<T, string>) {
     mut var i: int = v.len() - 1
+
     while i >= 0 {
         if predicate(&v[i]) {
             return Ok(v[i])
         }
+
         i = i - 1
     }
+
     return Err("element not found")
 }
 
 // findLastIndex returns the last index where predicate is true, or -1.
-pub func findLastIndex<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (int) {
+pub func findLastIndex<T>(
+    v: &Vec<T, _>,
+    predicate: func(&T) -> (bool),
+) -> (int) {
     mut var i: int = v.len() - 1
+
     while i >= 0 {
         if predicate(&v[i]) {
             return i
         }
+
         i = i - 1
     }
+
     return -1
 }
 
 // take returns the first n elements.
 pub func take<T>(v: &Vec<T, _>, n: int) -> (Vec<T, _>) {
     mut var count: int = n
+
     if count > v.len() {
         count = v.len()
     }
+
     if count < 0 {
         count = 0
     }
+
     mut var result: Vec<T, _> = Vec.withCap(count)
     mut var i: int = 0
+
     while i < count {
         result.push(v[i])
         i = i + 1
     }
+
     return result
 }
 
 // skip returns all but the first n elements.
 pub func skip<T>(v: &Vec<T, _>, n: int) -> (Vec<T, _>) {
     mut var start: int = n
+
     if start < 0 {
         start = 0
     }
+
     if start > v.len() {
         start = v.len()
     }
+
     mut var result: Vec<T, _> = Vec.withCap(v.len() - start)
     mut var i: int = start
+
     while i < v.len() {
         result.push(v[i])
         i = i + 1
     }
+
     return result
 }
 
@@ -548,13 +780,17 @@ pub func skip<T>(v: &Vec<T, _>, n: int) -> (Vec<T, _>) {
 pub func reversed<T>(v: &Vec<T, _>) -> (Vec<T, _>) {
     mut var result: Vec<T, _> = Vec.withCap(v.len())
     mut var i: int = v.len() - 1
+
     while i >= 0 {
         result.push(v[i])
+
         if i == 0 {
             return result
         }
+
         i = i - 1
     }
+
     return result
 }
 
@@ -563,13 +799,17 @@ pub func equal<T>(a: &Vec<T, _>, b: &Vec<T, _>) -> (bool) {
     if a.len() != b.len() {
         return false
     }
+
     mut var i: int = 0
+
     while i < a.len() {
         if a[i] != b[i] {
             return false
         }
+
         i = i + 1
     }
+
     return true
 }
 
@@ -577,10 +817,12 @@ pub func equal<T>(a: &Vec<T, _>, b: &Vec<T, _>) -> (bool) {
 pub func clone<T>(v: &Vec<T, _>) -> (Vec<T, _>) {
     mut var result: Vec<T, _> = Vec.withCap(v.len())
     mut var i: int = 0
+
     while i < v.len() {
         result.push(v[i])
         i = i + 1
     }
+
     return result
 }
 
@@ -589,9 +831,12 @@ pub func swap<T>(v: &mut Vec<T, _>, i: int, j: int) -> (void) {
     if i < 0 || j < 0 || i >= v.len() || j >= v.len() {
         return void
     }
+
     var tmp: T = v[i]
+
     v[i] = v[j]
     v[j] = tmp
+
     return void
 }
 
@@ -600,11 +845,14 @@ pub func resize<T>(v: &mut Vec<T, _>, newLen: int, value: T) -> (void) {
     if newLen < v.len() {
         // Truncate by adjusting length
         mut var i: int = v.len() - 1
+
         while i >= newLen {
             v.pop()
+
             if i == 0 {
                 return void
             }
+
             i = i - 1
         }
     } else {
@@ -612,5 +860,6 @@ pub func resize<T>(v: &mut Vec<T, _>, newLen: int, value: T) -> (void) {
             v.push(value)
         }
     }
+
     return void
 }

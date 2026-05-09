@@ -23,10 +23,11 @@ func (ps *PackageStatement) String() string {
 type ImportStatement struct {
 	Span Span
 	NodeBase
-	PathToken  token.Token
-	AliasToken token.Token
-	Path       string
-	Alias      string // optional alias using "as" keyword
+	PathToken   token.Token
+	AliasToken  token.Token
+	Path        string
+	Alias       string // optional alias using Go-like alias form or legacy "as" form
+	LegacyAlias bool   // true when parsed from legacy: import "path" as alias
 }
 
 func (is *ImportStatement) statementNode() {}

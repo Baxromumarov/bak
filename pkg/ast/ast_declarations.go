@@ -243,8 +243,10 @@ func (id *ImplDecl) String() string {
 		out.WriteString(strings.Join(params, ", "))
 		out.WriteString(">")
 	}
-	out.WriteString(" as ")
-	out.WriteString(id.Receiver.String())
+	if id.Receiver != nil {
+		out.WriteString(" as ")
+		out.WriteString(id.Receiver.String())
+	}
 	out.WriteString(" {\n")
 	for _, m := range id.Methods {
 		out.WriteString(m.String())

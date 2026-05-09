@@ -92,17 +92,22 @@ func parseProgramDir(dir string) (*ast.Program, error) {
 		if err != nil {
 			return nil, err
 		}
-		for _, stmt := range program.Statements {
-			if ps, ok := stmt.(*ast.PackageStatement); ok {
-				if ps.Name != nil {
-					if pkgName == "" {
-						pkgName = ps.Name.Value
-					} else if pkgName != ps.Name.Value {
-						return nil, fmt.Errorf("package mismatch in %s: %s (expected %s)", filePath, ps.Name.Value, pkgName)
-					}
-				}
+		if len(program.Statements) == 0 {
+			return nil, fmt.Errorf("missing package declaration in %s", filePath)
+		}
+		firstPackage, ok := program.Statements[0].(*ast.PackageStatement)
+		if !ok || firstPackage.Name == nil {
+			return nil, fmt.Errorf("missing package declaration in %s", filePath)
+		}
+		if pkgName == "" {
+			pkgName = firstPackage.Name.Value
+		} else if pkgName != firstPackage.Name.Value {
+			return nil, fmt.Errorf("package mismatch in %s: %s (expected %s)", filePath, firstPackage.Name.Value, pkgName)
+		}
 
-				if pkgName != "" && len(combined.Statements) > 0 {
+		for _, stmt := range program.Statements {
+			if _, ok := stmt.(*ast.PackageStatement); ok {
+				if len(combined.Statements) > 0 {
 					if _, exists := combined.Statements[0].(*ast.PackageStatement); exists {
 						continue
 					}

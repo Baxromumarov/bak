@@ -6,7 +6,6 @@ import strconv "std/strconv"
 // =============================================================================
 // Standard Output Functions
 // =============================================================================
-
 // printStr outputs a string to stdout without a trailing newline
 pub func printStr(value: string) -> (void) {
     __builtin_print(value)
@@ -63,7 +62,6 @@ pub func newline() -> (void) {
 // =============================================================================
 // Standard Input Functions
 // =============================================================================
-
 // readLine reads a single line from stdin (blocking)
 pub func readLine() -> (Result<string, string>) {
     return __builtin_read_line()
@@ -77,6 +75,7 @@ pub func readAll() -> (Result<string, string>) {
 // prompt prints a message and reads a line of input
 pub func prompt(message: string) -> (Result<string, string>) {
     __builtin_print(message)
+
     return __builtin_read_line()
 }
 
@@ -86,11 +85,13 @@ pub func promptDefault(message: string, default_val: string) -> (string) {
     __builtin_print(" [")
     __builtin_print(default_val)
     __builtin_print("]: ")
+
     switch __builtin_read_line() {
         case Ok(line) {
             if line.len() == 0 {
                 return default_val
             }
+
             return line
         }
         case Err(_) {
@@ -102,19 +103,18 @@ pub func promptDefault(message: string, default_val: string) -> (string) {
 // =============================================================================
 // Reader - For reading from strings
 // =============================================================================
-
 pub struct Reader {
     data: string
-    pos: int
-    len: int
+    pos:  int
+    len:  int
 }
 
 // newReader creates a Reader from a string
 pub func newReader(data: string) -> (Reader) {
     return Reader{
         data: data,
-        pos: 0,
-        len: data.len()
+        len:  data.len(),
+        pos:  0,
     }
 }
 
@@ -124,98 +124,121 @@ impl Reader as r {
         if r.pos >= r.len {
             return ""
         }
+
         mut var end: int = r.pos + count
+
         if end > r.len {
             end = r.len
         }
-        var result: string = substring(&r.data, r.pos, end)
+
+        var result: string = substring(
+            &r.data,
+            r.pos,
+            end,
+        )
+
         r.pos = end
+
         return result
     }
-    
     // readByte reads a single byte/character
     pub mut func readByte() -> (Result<char, string>) {
         if r.pos >= r.len {
             return Err("eof")
         }
+
         var ch: char = r.data[r.pos]
+
         r.pos = r.pos + 1
+
         return Ok(ch)
     }
-    
     // readLine reads until newline or end of data
     pub mut func readLine() -> (Result<string, string>) {
         if r.pos >= r.len {
             return Err("eof")
         }
-        
+
         mut var end: int = r.pos
+
         while end < r.len && r.data[end] != char('\n') {
             end = end + 1
         }
-        
-        var line: string = substring(&r.data, r.pos, end)
+
+        var line: string = substring(
+            &r.data,
+            r.pos,
+            end,
+        )
+
         r.pos = end
+
         if r.pos < r.len && r.data[r.pos] == char('\n') {
             r.pos = r.pos + 1
         }
+
         return Ok(line)
     }
-    
     // readAll reads all remaining data
     pub mut func readAll() -> (string) {
         if r.pos >= r.len {
             return ""
         }
-        var result: string = substring(&r.data, r.pos, r.len)
+
+        var result: string = substring(
+            &r.data,
+            r.pos,
+            r.len,
+        )
+
         r.pos = r.len
+
         return result
     }
-    
     // peek returns the next character without consuming it
     pub func peek() -> (Result<char, string>) {
         if r.pos >= r.len {
             return Err("eof")
         }
+
         return Ok(r.data[r.pos])
     }
-    
     // skip advances the position by count characters
     pub mut func skip(count: int) -> (int) {
         mut var skipped: int = count
+
         if r.pos + count > r.len {
             skipped = r.len - r.pos
         }
+
         r.pos = r.pos + skipped
+
         return skipped
     }
-    
     // isEof returns true if at end of data
     pub func isEof() -> (bool) {
         return r.pos >= r.len
     }
-    
     // remaining returns the number of unread characters
     pub func remaining() -> (int) {
         return r.len - r.pos
     }
-    
     // position returns the current read position
     pub func position() -> (int) {
         return r.pos
     }
-    
     // reset resets the reader to the beginning
     pub mut func reset() -> (void) {
         r.pos = 0
     }
-    
     // seek sets the position to a specific offset
     pub mut func seek(offset: int) -> (bool) {
         if offset < 0 || offset > r.len {
             return false
         }
+
         r.pos = offset
+
         return true
     }
 }
@@ -223,7 +246,6 @@ impl Reader as r {
 // =============================================================================
 // Writer - For building strings
 // =============================================================================
-
 pub struct Writer {
     buffer: string
 }
@@ -242,59 +264,55 @@ impl Writer as w {
     // write appends a string
     pub mut func write(s: string) -> (int) {
         w.buffer = w.buffer + s
+
         return s.len()
     }
-    
     // writeByte appends a single character
     pub mut func writeByte(ch: char) -> (void) {
         w.buffer = w.buffer + string(ch)
     }
-    
     // writeLine appends a string followed by a newline
     pub mut func writeLine(s: string) -> (int) {
         w.buffer = w.buffer + s + "\n"
+
         return s.len() + 1
     }
-    
     // writeBytes appends multiple characters from a Vec
     pub mut func writeBytes(chars: &Vec<char, _>) -> (int) {
         mut var i: int = 0
+
         while i < chars.len() {
             w.buffer = w.buffer + string(chars[i])
             i = i + 1
         }
+
         return chars.len()
     }
-    
     // writeInt appends an integer as a string
     pub mut func writeInt(n: int) -> (void) {
         w.buffer = w.buffer + strconv.intToString(n)
     }
-    
     // writeRepeated appends a string repeated n times
     pub mut func writeRepeated(s: string, count: int) -> (void) {
         mut var i: int = 0
+
         while i < count {
             w.buffer = w.buffer + s
             i = i + 1
         }
     }
-    
     // toString returns the accumulated string
     pub func toString() -> (string) {
         return w.buffer
     }
-    
     // len returns the length of the buffer
     pub func len() -> (int) {
         return w.buffer.len()
     }
-    
     // clear empties the buffer
     pub mut func clear() -> (void) {
         w.buffer = ""
     }
-    
     // is_empty returns true if buffer is empty
     pub func isEmpty() -> (bool) {
         return w.buffer.len() == 0
@@ -304,18 +322,18 @@ impl Writer as w {
 // =============================================================================
 // BufferedWriter - For efficient batch writing
 // =============================================================================
-
 pub struct BufferedWriter {
-    parts: Vec<string, _>
+    parts:     Vec<string, _>
     total_len: int
 }
 
 // newBufferedWriter creates a BufferedWriter
 pub func newBufferedWriter() -> (BufferedWriter) {
     mut var initial_parts: Vec<string, _> = Vec.new()
+
     return BufferedWriter{
-        parts: initial_parts,
-        total_len: 0
+        parts:     initial_parts,
+        total_len: 0,
     }
 }
 
@@ -325,33 +343,33 @@ impl BufferedWriter as bw {
         bw.parts.push(s)
         bw.total_len = bw.total_len + s.len()
     }
-    
     // writeLine adds a string with newline
     pub mut func writeLine(s: string) -> (void) {
         bw.parts.push(s)
         bw.parts.push("\n")
         bw.total_len = bw.total_len + s.len() + 1
     }
-    
     // flush concatenates all buffered strings and returns the result
     pub mut func flush() -> (string) {
         mut var result: string = ""
         mut var i: int = 0
+
         while i < bw.parts.len() {
             result = result + bw.parts[i]
             i = i + 1
         }
+
         mut var reset_parts: Vec<string, _> = Vec.new()
+
         bw.parts = reset_parts
         bw.total_len = 0
+
         return result
     }
-    
     // len returns the total buffered length
     pub func len() -> (int) {
         return bw.total_len
     }
-    
     // count returns the number of buffered strings
     pub func count() -> (int) {
         return bw.parts.len()
@@ -361,7 +379,6 @@ impl BufferedWriter as bw {
 // =============================================================================
 // Lines - Iterator for lines in a string
 // =============================================================================
-
 pub struct Lines {
     reader: Reader
 }
@@ -376,23 +393,24 @@ impl Lines as l {
     pub mut func next() -> (Result<string, string>) {
         return l.reader.readLine()
     }
-    
     // hasMore returns true if more lines are available
     pub func hasMore() -> (bool) {
         return !l.reader.isEof()
     }
-    
     // collect reads all remaining lines into a Vec
     pub mut func collect() -> (Vec<string, _>) {
         mut var result: Vec<string, _> = Vec.new()
+
         while !l.reader.isEof() {
             switch l.reader.readLine() {
                 case Ok(line) {
                     result.push(line)
                 }
-                case Err(_) {}
+                case Err(_) {
+                }
             }
         }
+
         return result
     }
 }
@@ -400,20 +418,22 @@ impl Lines as l {
 // =============================================================================
 // Utility Functions
 // =============================================================================
-
 // substring returns a substring from start to end (exclusive)
 func substring(s: &string, start: int, end: int) -> (string) {
     mut var result: string = ""
     mut var i: int = start
+
     while i < end {
         result = result + string(s[i])
         i = i + 1
     }
+
     return result
 }
 
 // copy copies from a Reader to a Writer, returns bytes copied
 pub func copy(src: &mut Reader, dst: &mut Writer) -> (int) {
     var data: string = src.readAll()
+
     return dst.write(data)
 }

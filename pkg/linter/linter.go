@@ -236,17 +236,28 @@ func importStyleFinding(imp *ast.ImportStatement) []Finding {
 	if imp == nil {
 		return nil
 	}
+	findings := []Finding{}
+	if imp.LegacyAlias && imp.Alias != "" {
+		findings = append(findings, Finding{
+			Rule:    "import-style",
+			Level:   "style",
+			Message: strfmt.Named("prefer Go-like alias import '{alias} \"{path}\"'", "Alias", imp.Alias, "Path", imp.Path),
+			Line:    imp.AliasToken.Line,
+			Column:  imp.AliasToken.Column,
+		})
+	}
 	canonical, ok := canonicalStdImportPath(imp.Path)
 	if !ok || canonical == imp.Path {
-		return nil
+		return findings
 	}
-	return []Finding{{
+	findings = append(findings, Finding{
 		Rule:    "import-style",
 		Level:   "style",
 		Message: strfmt.Named("prefer Go-like import path '{path}'", "Path", canonical),
 		Line:    imp.PathToken.Line,
 		Column:  imp.PathToken.Column,
-	}}
+	})
+	return findings
 }
 
 func canonicalStdImportPath(path string) (string, bool) {

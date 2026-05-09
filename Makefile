@@ -29,7 +29,17 @@ TEST_SCRIPTS := \
 
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check test-comprehensive test-parity test-lsp-verify test-lanes test-all test-all-go release-check clean clean-binaries clean-cache distclean
+FORMAT_CHECK_FILES := \
+	src/std/collections/hashmap.bak \
+	src/std/collections/vec.bak \
+	src/std/errors/errors.bak \
+	src/std/io/io.bak \
+	src/std/path/path.bak \
+	src/std/strings/strings.bak \
+	tests/test_go_style_import.bak \
+	examples/imports.bak
+
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -60,9 +70,11 @@ help:
 	@echo "  make test-imports     Run package/import guardrails"
 	@echo "  make test-stdlib      Run Bak stdlib tests"
 	@echo "  make examples-check   Check stable v0.1 examples"
+	@echo "  make format-check     Verify bakfmt output for stable language files"
 	@echo "  make test-parity      Run VM/native parity guardrails"
 	@echo "  make test-lsp-verify  Run the LSP smoke verifier"
 	@echo "  make test-lanes       Run unit + scripts + stdlib + parity"
+	@echo "  make language-stability Run release gate + LSP + formatter checks"
 	@echo "  make test-comprehensive Run the comprehensive release gate"
 	@echo "  make release-check    Build tools and run release-quality checks"
 	@echo "  make test-all         Alias for test-lanes"
@@ -130,6 +142,17 @@ test-stdlib: build-root-bak
 examples-check: build-root-bak
 	@BAK_BIN=./bak bash scripts/check_examples.sh
 
+format-check: build-bakfmt
+	@if ! out="$$( $(BAKFMT_BIN) -l $(FORMAT_CHECK_FILES) )"; then \
+		echo "$$out"; \
+		exit 1; \
+	fi; \
+	if [ -n "$$out" ]; then \
+		echo "$$out"; \
+		echo "Run: $(BAKFMT_BIN) -w $(FORMAT_CHECK_FILES)"; \
+		exit 1; \
+	fi
+
 test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"
 	@bash $(COMPREHENSIVE_SCRIPT)
@@ -143,11 +166,13 @@ test-lsp-verify: build-lsp
 
 test-lanes: test-unit test-scripts test-imports test-stdlib examples-check test-parity
 
+language-stability: test-comprehensive test-lsp-verify format-check
+
 test-all: test-lanes
 
 test-all-go: test-unit test-parity
 
-release-check: build test-comprehensive test-lsp-verify
+release-check: build language-stability
 
 clean: clean-binaries
 	@rm -f coverage.out *.prof *.cov
