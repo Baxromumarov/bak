@@ -92,8 +92,10 @@ const (
 	ErrUnusedVariable    DiagnosticCode = "E0503"
 
 	// Import errors (E07xx)
-	ErrUnusedImport   DiagnosticCode = "E0700"
-	ErrImportNotFound DiagnosticCode = "E0701"
+	ErrUnusedImport    DiagnosticCode = "E0700"
+	ErrImportNotFound  DiagnosticCode = "E0701"
+	ErrDuplicateImport DiagnosticCode = "E0702"
+	ErrSelfImport      DiagnosticCode = "E0703"
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly DiagnosticCode = "E0600"

@@ -189,28 +189,6 @@ func TestStripDebugEscapesFlag(t *testing.T) {
 	}
 }
 
-func TestResolveProjectFeatureStateDefaultsToCliFeaturesOnly(t *testing.T) {
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	defer func() {
-		_ = os.Chdir(oldWD)
-	}()
-
-	if err := os.Chdir(t.TempDir()); err != nil {
-		t.Fatalf("chdir temp dir: %v", err)
-	}
-
-	features, err := resolveProjectFeatureState(nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(features) != 0 {
-		t.Fatalf("expected no active features by default, got %#v", features)
-	}
-}
-
 func TestRunDoctorFailsWhenRequiredStdlibFileIsMissing(t *testing.T) {
 	var out bytes.Buffer
 	if runDoctor(&out, t.TempDir()) {

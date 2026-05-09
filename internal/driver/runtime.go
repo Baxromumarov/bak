@@ -16,13 +16,13 @@ import (
 )
 
 // RunFile executes a Bak source file; traceEnabled chooses VM path when true.
-func RunFile(filename string, scriptArgs []string, permissions runtimecap.Permissions, cliFeatures []string, traceEnabled bool) error {
-	return RunFileVM(filename, scriptArgs, traceEnabled, permissions, cliFeatures)
+func RunFile(filename string, scriptArgs []string, permissions runtimecap.Permissions, traceEnabled bool) error {
+	return RunFileVM(filename, scriptArgs, traceEnabled, permissions)
 }
 
 // RunFileVM runs the VM for a source file.
-func RunFileVM(filename string, scriptArgs []string, traceEnabled bool, permissions runtimecap.Permissions, cliFeatures []string) error {
-	permissions = config.LoadProjectRuntimePermissions(permissions, cliFeatures)
+func RunFileVM(filename string, scriptArgs []string, traceEnabled bool, permissions runtimecap.Permissions) error {
+	permissions = config.LoadProjectRuntimePermissions(permissions)
 	p, err := pipeline.LoadFile(filename)
 	if err != nil {
 		return err
@@ -31,8 +31,8 @@ func RunFileVM(filename string, scriptArgs []string, traceEnabled bool, permissi
 }
 
 // CheckFile typechecks a file and returns an error on failure.
-func CheckFile(filename string, cliFeatures []string) error {
-	config.LoadProjectRuntimePermissions(runtimecap.Permissions{}, cliFeatures)
+func CheckFile(filename string) error {
+	config.LoadProjectRuntimePermissions(runtimecap.Permissions{})
 	p, err := pipeline.LoadFile(filename)
 	if err != nil {
 		return err
@@ -41,8 +41,8 @@ func CheckFile(filename string, cliFeatures []string) error {
 }
 
 // BuildFile builds either native or bytecode output and returns errors.
-func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnabled bool, permissions runtimecap.Permissions, cliFeatures []string) error {
-	permissions = config.LoadProjectRuntimePermissions(permissions, cliFeatures)
+func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnabled bool, permissions runtimecap.Permissions) error {
+	permissions = config.LoadProjectRuntimePermissions(permissions)
 	p, err := pipeline.LoadFile(filename)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func BuildFile(filename string, outputFile string, nativeBuild bool, traceEnable
 }
 
 // RunTests runs test files and returns an error on failures.
-func RunTests(paths []string, permissions runtimecap.Permissions, cliFeatures []string, packageFilters map[string]struct{}, runPattern string) error {
+func RunTests(paths []string, permissions runtimecap.Permissions, packageFilters map[string]struct{}, runPattern string) error {
 	opts := testpkg.Options{Targets: paths, RunPattern: runPattern}
 	if len(packageFilters) > 0 {
 		pf := make([]string, 0, len(packageFilters))
@@ -92,5 +92,5 @@ func RunTests(paths []string, permissions runtimecap.Permissions, cliFeatures []
 		}
 		opts.PackageFilters = pf
 	}
-	return testpkg.Run(paths, config.LoadProjectRuntimePermissions(permissions, cliFeatures), cliFeatures, opts)
+	return testpkg.Run(paths, config.LoadProjectRuntimePermissions(permissions), opts)
 }

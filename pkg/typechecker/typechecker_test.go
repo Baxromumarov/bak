@@ -30,7 +30,7 @@ func TestCheck_MissingImportReportsTriedPaths(t *testing.T) {
 	mainPath := filepath.Join(dir, "main.bak")
 	source := `
 package main
-import "./missing.bak" as missing
+import missing "./missing.bak"
 
 func main() -> (void) {
 	return void
@@ -126,6 +126,88 @@ func main() -> (void) {
 	if len(errs) > 0 {
 		t.Fatalf("expected package-name import to typecheck, got:\n%s", strings.Join(errs, "\n"))
 	}
+}
+
+func TestCheck_DuplicateImportAliasIsError(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libAPath := filepath.Join(dir, "a.bak")
+	libBPath := filepath.Join(dir, "b.bak")
+	if err := os.WriteFile(libAPath, []byte("package a\npub func one() -> (int) { return 1 }\n"), 0644); err != nil {
+		t.Fatalf("write a.bak: %v", err)
+	}
+	if err := os.WriteFile(libBPath, []byte("package b\npub func two() -> (int) { return 2 }\n"), 0644); err != nil {
+		t.Fatalf("write b.bak: %v", err)
+	}
+	source := `
+package main
+import math "./a.bak"
+import math "./b.bak"
+
+func main() -> (void) {
+	return void
+}
+`
+	if err := os.WriteFile(mainPath, []byte(source), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	errs := tc.GetErrors()
+	for _, err := range errs {
+		if err.Code == diagnostics.ErrDuplicateImport {
+			if !strings.Contains(err.Note, "first imported here") {
+				t.Fatalf("expected previous import note, got %#v", err)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected ErrDuplicateImport, got %#v", errs)
+}
+
+func TestCheck_SelfImportIsError(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	source := `
+package main
+import "./main.bak"
+
+func main() -> (void) {
+	return void
+}
+`
+	if err := os.WriteFile(mainPath, []byte(source), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	errs := tc.GetErrors()
+	for _, err := range errs {
+		if err.Code == diagnostics.ErrSelfImport {
+			return
+		}
+	}
+	t.Fatalf("expected ErrSelfImport, got %#v", errs)
 }
 
 func checkSourceStructured(t *testing.T, source string) []TypeError {

@@ -1,6 +1,6 @@
 # Core Language Spec (Frozen v0.1)
 
-Last updated: 2026-04-22
+Last updated: 2026-05-09
 
 This document is the canonical compatibility contract for the Bak language.
 
@@ -9,7 +9,7 @@ If `README.md`, design notes, experiments, examples, or parser behavior disagree
 `Frozen v0.1` means:
 
 - the stable language surface defined here should not change incompatibly without a version bump,
-- parser support for extra syntax does not make that syntax stable,
+- syntax not listed here should be rejected rather than carried as an experimental user-facing feature,
 - implementation work should prioritize correctness, diagnostics, tooling, runtime behavior, and native/VM parity over adding new language constructs.
 
 ## Compatibility Rules
@@ -19,7 +19,7 @@ If `README.md`, design notes, experiments, examples, or parser behavior disagree
   - migration notes,
   - updated docs, examples, and tests.
 - Additive changes may be accepted only if they do not change the meaning of existing valid programs.
-- Any syntax or behavior not listed here is outside the frozen compatibility promise.
+- Any syntax or behavior not listed here is unsupported in user code.
 
 ## Backend Conformance
 
@@ -55,8 +55,11 @@ If this behavior changes, treat it as a user-visible compatibility event:
 
 - Each source file starts with a `package` declaration.
 - Imports use Go-like package paths. `import "x"` binds to the imported package declaration, and `import name "x"` sets an explicit alias.
-- Direct `.bak` file imports and `import "x" as name` are compatibility forms, not the preferred v0.1 style.
+- The legacy alias form `import "x" as name` is rejected. Use `import name "x"`.
+- Import paths may name package directories or single `.bak` package files.
 - `pub` marks exported declarations.
+- Duplicate import aliases are rejected.
+- A package cannot import itself.
 - Import cycles are rejected.
 
 ### Declarations
@@ -100,7 +103,7 @@ Stable composite/value forms:
 - `Vec<T, _>` as a standard-library collection type
 - borrows: `&T` and `&mut T`
 
-Note: `Result<T, E>` and `Vec<T, _>` are part of the frozen user-facing language surface. That does not imply that general user-defined generics are frozen.
+Note: `Result<T, E>`, `Vec<T, _>`, and user-defined generic structs/functions/methods are part of the frozen user-facing language surface.
 
 > **Deprecation:** `Option<T>` (and `Some`/`None`) are legacy constructs. The v0.1 surface prefers `Result<T, string>` with `Ok(...)` and `Err(...)` for optional-value patterns. `Option<T>` syntax is still parsed for backward compatibility but is rejected by the typechecker; migrate existing `Option` code to `Result`. `Option<T>` may be removed in a future version bump.
 
@@ -130,6 +133,7 @@ Stable control-flow forms:
 - `continue`
 - `defer`
 - `panic`
+- `unsafe` blocks
 
 ### Ownership and borrowing (v1)
 
@@ -170,20 +174,18 @@ Diagnostic wording may improve over time. Exact message text is not frozen, but 
 - contextual notes for key ownership/type failures (`where inferred`, `where moved`, or borrow origin),
 - a concrete fix hint in `help` when a safe rewrite is known.
 
-## Explicitly Not Frozen
+## Unsupported Surface
 
-The repository may contain parser support, AST nodes, design notes, or experiments for features that are not part of the frozen v0.1 language contract.
+Bak v0.1 does not expose experimental user-facing features. Syntax or runtime behavior not described above should be treated as unsupported and rejected with a diagnostic.
 
-These are currently not frozen:
+Unsupported examples include:
 
-- `unsafe`
-- user-defined generics beyond the stable built-in surface already listed above
-- any internal runtime-only compatibility representation of `Option`/`Some`/`None`
-- FFI
-- callback/async cross-language interop
-- any syntax or semantics documented only in design-note files
-
-Support for any of the above may change, be removed, or remain internal without a language version bump until they are promoted into this spec.
+- `cfg("feature")` compile-time feature gating,
+- legacy import aliases: `import "path" as alias`,
+- `Option<T>` / `Some` / `None` as user-facing APIs,
+- FFI,
+- callback/async cross-language interop,
+- package manifests, lockfiles, remote package fetching, and package installation commands.
 
 ## Out of Scope for This Contract
 

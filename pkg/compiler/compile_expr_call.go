@@ -1,11 +1,6 @@
 package compiler
 
-import (
-	"fmt"
-
-	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
-)
+import "github.com/baxromumarov/bak/pkg/ast"
 
 func (c *Compiler) compileCallExpression(ce *ast.CallExpression) error {
 	if handled, err := c.compileSpecialCallExpression(ce); handled {
@@ -26,9 +21,6 @@ func (c *Compiler) compileCallExpression(ce *ast.CallExpression) error {
 
 func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, error) {
 	if ident, ok := ce.Function.(*ast.Identifier); ok {
-		if handled, err := c.compileCfgCall(ce.Arguments, ident.Value); handled {
-			return true, err
-		}
 		if builtinID, isBuiltin := LookupBuiltinID(ident.Value); isBuiltin {
 			if err := c.compileBuiltinCall(builtinID, ce.Arguments); err != nil {
 				return true, err
@@ -47,21 +39,6 @@ func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, e
 	}
 
 	return false, nil
-}
-
-func (c *Compiler) compileCfgCall(args []ast.Expression, name string) (bool, error) {
-	if name != "cfg" {
-		return false, nil
-	}
-	if len(args) != 1 {
-		return true, fmt.Errorf("cfg() expects exactly 1 string literal argument")
-	}
-	featureName, ok := args[0].(*ast.StringLiteral)
-	if !ok {
-		return true, fmt.Errorf("cfg() requires a string literal feature name")
-	}
-	c.emitConstant(NewBool(runtimecap.CurrentFeatureEnabled(featureName.Value)))
-	return true, nil
 }
 
 func (c *Compiler) compileBuiltinCall(builtinID BuiltinID, args []ast.Expression) error {

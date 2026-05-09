@@ -531,7 +531,7 @@ func TestCompletionSuggestsImportedPackageMembersAfterTypedPrefix(t *testing.T) 
 	src := strings.Join([]string{
 		"package main",
 		"",
-		"import \"std/strconv/strconv.bak\" as strconv",
+		"import strconv \"std/strconv/strconv.bak\"",
 		"",
 		"func main() -> (void) {",
 		"    strconv.",
@@ -765,7 +765,7 @@ func TestDocumentLinkResolvesImports(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
 		"",
-		"import \"lib\" as lib",
+		"import lib \"lib\"",
 		"",
 		"func main() -> (void) {",
 		"    println(lib.id())",
@@ -797,7 +797,7 @@ func TestDocumentLinkResolvesImports(t *testing.T) {
 	if links[0].Target != pathToURI(absLib) {
 		t.Fatalf("unexpected document link target: got %q want %q", links[0].Target, pathToURI(absLib))
 	}
-	if links[0].Range.Start.Line != 2 || links[0].Range.Start.Character != len("import ") {
+	if links[0].Range.Start.Line != 2 || links[0].Range.Start.Character != len(`import lib `) {
 		t.Fatalf("unexpected document link range: %#v", links[0].Range)
 	}
 }

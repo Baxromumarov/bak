@@ -104,7 +104,6 @@ func init() {
 		// Miscellaneous
 		"isErr":                {ReturnType: ast.NewSimpleType("bool")},
 		"isOk":                 {ReturnType: ast.NewSimpleType("bool")},
-		"cfg":                  {Params: []ast.TypeExpression{ast.NewSimpleType("string")}, ReturnType: ast.NewSimpleType("bool")},
 		"__alloc_array":        {Params: []ast.TypeExpression{ast.NewSimpleType("int"), ast.NewSimpleType("any")}, ReturnType: ast.NewSimpleType("any")},
 		"__alloc_array_zeroed": {Params: []ast.TypeExpression{ast.NewSimpleType("int"), ast.NewSimpleType("any")}, ReturnType: ast.NewSimpleType("any")},
 

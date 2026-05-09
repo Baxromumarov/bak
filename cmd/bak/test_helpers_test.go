@@ -102,10 +102,6 @@ func parseTestCommandOptions(args []string) (testCommandOptions, []string, error
 	return out, rest, nil
 }
 
-func resolveProjectFeatureState(cliFeatures []string) ([]string, error) {
-	return config.ResolveProjectFeatureState(cliFeatures)
-}
-
 func collectTestFilesForTargets(paths []string) ([]string, []error) {
 	if len(paths) == 0 {
 		paths = []string{"."}
@@ -235,7 +231,7 @@ func packageNameFromFile(path string) (string, error) {
 
 func runTestFile(filename string, permissions runtimecap.Permissions, runPattern string) testFileRunResult {
 	opts := testpkg.Options{Targets: []string{filename}, RunPattern: runPattern}
-	err := testpkg.Run([]string{filename}, permissions, nil, opts)
+	err := testpkg.Run([]string{filename}, permissions, opts)
 	if err != nil {
 		return testFileRunResult{Executed: true, Passed: false}
 	}

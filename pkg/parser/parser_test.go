@@ -554,6 +554,20 @@ func TestParseGoStyleImportAlias(t *testing.T) {
 	}
 }
 
+func TestRejectLegacyImportAliasSyntax(t *testing.T) {
+	t.Parallel()
+	p := parseSourceWithErrors(source(`
+		package main
+		import "std/math" as math
+	`))
+	if len(p.Errors()) == 0 {
+		t.Fatalf("expected parser error")
+	}
+	if !strings.Contains(strings.Join(p.Errors(), "\n"), "legacy import alias syntax is not supported") {
+		t.Fatalf("expected legacy alias parser error, got %v", p.Errors())
+	}
+}
+
 func TestParseBorrowExpression(t *testing.T) {
 	t.Parallel()
 	parseValidSource(t, source(`

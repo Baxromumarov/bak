@@ -155,7 +155,7 @@ func main() -> (void) {
 func TestBuiltinSignature_StdFsWriteFileArityIsChecked(t *testing.T) {
 	expectError(t, `
 package main
-import "src/std/fs/fs.bak" as fs
+import fs "src/std/fs/fs.bak"
 func main() -> (void) {
 	var r: Result<void, string> = fs.writeFile("only-path")
 	println(r)
@@ -166,7 +166,7 @@ func main() -> (void) {
 func TestBuiltinSignature_StdOsExecTypesAreChecked(t *testing.T) {
 	expectError(t, `
 package main
-import "src/std/os/os.bak" as os
+import os "src/std/os/os.bak"
 func main() -> (void) {
 	var args: Vec<string, _> = Vec.from(["bak"])
 	var r: Result<os.ExecResult, string> = os.exec(1, args)

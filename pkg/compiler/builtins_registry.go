@@ -88,7 +88,6 @@ const (
 	BUILTIN_VEC_GET            = 87
 	BUILTIN_VEC_SET            = 88
 	BUILTIN_VEC_GROW           = 89
-	BUILTIN_CFG                = 90
 )
 
 // builtinNames maps builtin names to their IDs.
@@ -151,7 +150,6 @@ var builtinNames = map[string]BuiltinID{
 	"__vec_get":                    BUILTIN_VEC_GET,
 	"__vec_set":                    BUILTIN_VEC_SET,
 	"__vec_grow":                   BUILTIN_VEC_GROW,
-	"cfg":                          BUILTIN_CFG,
 	"__builtin_print":              BUILTIN_PRINT,
 	"__builtin_println":            BUILTIN_PRINTLN,
 	"__builtin_eprint":             BUILTIN_EPRINT,

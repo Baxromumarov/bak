@@ -72,6 +72,7 @@ type TypeDef struct {
 type ImportInfo struct {
 	Path   string
 	Alias  string
+	File   string
 	Line   int
 	Column int
 }

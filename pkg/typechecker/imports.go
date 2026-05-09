@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -22,6 +23,17 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		return
 	}
 	importPath := resolution.Resolved
+
+	if sameResolvedImportPath(tc.currentPkgPath, importPath) {
+		diag := tc.baseDiagnostic(
+			diagnostics.ErrSelfImport,
+			ast.Position{Line: is.Token.Line, Column: is.Token.Column},
+			strfmt.Named("package cannot import itself: {importPath}", "ImportPath", is.Path),
+		)
+		diag.Help = "remove the self import or move shared code to another package"
+		tc.emitError(diag)
+		return
+	}
 
 	if tc.currentPkgPath != "" {
 		tc.registry.RecordResolvedImport(tc.currentPkgPath, importPath)
@@ -97,12 +109,35 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 			alias = extractPackageName(importPath)
 		}
 
+		importFile := is.Token.Filename
+		if importFile == "" {
+			importFile = tc.currentPkgPath
+		}
+
+		if prior, ok := tc.imports[alias]; ok && sameResolvedImportPath(prior.File, importFile) {
+			diag := tc.baseDiagnostic(
+				diagnostics.ErrDuplicateImport,
+				ast.Position{Line: is.Token.Line, Column: is.Token.Column},
+				strfmt.Named("duplicate import alias: '{alias}'", "Alias", alias),
+			)
+			diag.Help = "use one import per alias or rename one import"
+			diag.Notes = []diagnostics.Note{{
+				Message: strfmt.Named("first imported here as '{alias}'", "Alias", alias),
+				File:    prior.File,
+				Line:    prior.Line,
+				Column:  prior.Column,
+			}}
+			tc.emitError(diag)
+			return
+		}
+
 		tc.importAliases[importPath] = alias
 		tc.importedPkgPaths[alias] = importPath
 		if alias != "" {
 			tc.imports[alias] = ImportInfo{
 				Path:   is.Path,
 				Alias:  alias,
+				File:   importFile,
 				Line:   is.Token.Line,
 				Column: is.Token.Column,
 			}
@@ -115,6 +150,21 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		publicSymbols := pkg.GetPublicSymbols()
 		tc.importedSymbols[alias] = publicSymbols
 	}
+}
+
+func sameResolvedImportPath(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	aa, err := filepath.Abs(a)
+	if err == nil {
+		a = aa
+	}
+	bb, err := filepath.Abs(b)
+	if err == nil {
+		b = bb
+	}
+	return filepath.Clean(a) == filepath.Clean(b)
 }
 
 func (tc *TypeChecker) checkImportBlock(ib *ast.ImportBlock) {

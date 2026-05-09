@@ -13,7 +13,7 @@ func FuzzTypeCheckerCheck(f *testing.F) {
 		"package main\nstruct Point { x: int }\nfunc main() -> (void) { var p: Point = Point{x: 1} }\n",
 		"package main\nfunc takes(v Vec<int,_>) -> (void) { return void }\nfunc main() -> (void) { var xs: Vec<int,_> = Vec.from([1]); takes(xs); println(xs.len()) }\n",
 		"package main\nfunc main() -> (void) { var x }\n",
-		"package main\nimport \"src/std/os/os.bak\" as os\nfunc main() -> (void) { var _ = os.executable() }\n",
+		"package main\nimport os \"src/std/os/os.bak\"\nfunc main() -> (void) { var _ = os.executable() }\n",
 	}
 	for _, seed := range seeds {
 		f.Add(seed)

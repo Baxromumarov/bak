@@ -138,7 +138,7 @@ func TestVMNativeOutputParityMatrix(t *testing.T) {
 func TestVMNativeExecPermissionContract(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
-	source := strfmt.Named("package main\n\nimport {osImport} as os\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n    if result.isErr() {{\n        return 7\n    }}\n    return 1\n}}\n", "OsImport", strconv.Quote(osImport))
+	source := strfmt.Named("package main\n\nimport os {osImport}\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"bak\"])\n    if result.isErr() {{\n        return 7\n    }}\n    return 1\n}}\n", "OsImport", strconv.Quote(osImport))
 	sourcePath := writeTempParityProgram(t, "parity_exec_permission_denied.bak", source)
 	permissions := runtimecap.Permissions{}
 
@@ -162,7 +162,7 @@ func TestVMNativeExecPermissionContract(t *testing.T) {
 func TestVMNativeFsWriteFilePermissionContract(t *testing.T) {
 	root := findRepoRoot(t)
 	fsImport := filepath.Join(root, "src", "std", "fs", "fs.bak")
-	source := strfmt.Named("package main\n\nimport {fsImport} as fs\n\nfunc main() -> (int) {{\n    var result: Result<void, string> = fs.writeFile(\"parity_permission_gate.tmp\", \"bak\")\n    if result.isErr() {{\n        return 19\n    }}\n    return 1\n}}\n", "FsImport", strconv.Quote(fsImport))
+	source := strfmt.Named("package main\n\nimport fs {fsImport}\n\nfunc main() -> (int) {{\n    var result: Result<void, string> = fs.writeFile(\"parity_permission_gate.tmp\", \"bak\")\n    if result.isErr() {{\n        return 19\n    }}\n    return 1\n}}\n", "FsImport", strconv.Quote(fsImport))
 	sourcePath := writeTempParityProgram(t, "parity_fs_write_permission_denied.bak", source)
 	permissions := runtimecap.Permissions{}
 

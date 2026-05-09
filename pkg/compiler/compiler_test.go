@@ -8,7 +8,6 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
 // helper: parse and compile, fail on any error
@@ -26,10 +25,8 @@ func compileSource(t *testing.T, source string) {
 	}
 }
 
-func compileSourceWithFeatures(t *testing.T, source string, features []string) *BytecodeModule {
+func compileSourceToModule(t *testing.T, source string) *BytecodeModule {
 	t.Helper()
-	restore := runtimecap.SetCurrentFeatures(features)
-	t.Cleanup(restore)
 
 	l := lexer.New(source)
 	p := parser.New(l)
@@ -74,37 +71,12 @@ func main() -> (void) {
 `)
 }
 
-func TestCompileCfgFoldsToBooleanLiteral(t *testing.T) {
-	module := compileSourceWithFeatures(t, `
-package main
-
-const feature_enabled bool = cfg("feature-enabled")
-`, []string{"feature-enabled"})
-
-	var initFn *FunctionObj
-	for _, fn := range module.Functions {
-		if fn.Name == "__bak_init" {
-			initFn = fn
-			break
-		}
-	}
-	if initFn == nil {
-		t.Fatalf("expected init function to be generated")
-	}
-	if bytes.Contains(initFn.Code, []byte{byte(OP_BUILTIN), byte(BUILTIN_CFG)}) {
-		t.Fatalf("expected cfg() to fold to a boolean constant, got builtin opcode in init function")
-	}
-	if len(initFn.Constants) != 1 || initFn.Constants[0].Type != VAL_BOOL || !initFn.Constants[0].AsBool {
-		t.Fatalf("expected one folded true boolean constant, got %#v", initFn.Constants)
-	}
-}
-
 func TestCompileConstantFoldsIntegerComparison(t *testing.T) {
-	module := compileSourceWithFeatures(t, `
+	module := compileSourceToModule(t, `
 package main
 
 const lt bool = 2 < 3
-`, nil)
+`)
 
 	var initFn *FunctionObj
 	for _, fn := range module.Functions {
@@ -125,11 +97,11 @@ const lt bool = 2 < 3
 }
 
 func TestCompileConstantFoldsIntegerShift(t *testing.T) {
-	module := compileSourceWithFeatures(t, `
+	module := compileSourceToModule(t, `
 package main
 
 const shifted int = 2 << 3
-`, nil)
+`)
 
 	var initFn *FunctionObj
 	for _, fn := range module.Functions {
@@ -150,11 +122,11 @@ const shifted int = 2 << 3
 }
 
 func TestCompileConstantFoldsBooleanLiteralAnd(t *testing.T) {
-	module := compileSourceWithFeatures(t, `
+	module := compileSourceToModule(t, `
 package main
 
 const folded bool = true && false
-`, nil)
+`)
 
 	var initFn *FunctionObj
 	for _, fn := range module.Functions {
@@ -262,7 +234,7 @@ func TestCompileResolvesRelativeImportsFromProgramPath(t *testing.T) {
 
 	mainSource := `package main
 
-import "./lib.bak" as lib
+import lib "./lib.bak"
 
 func main() -> (int) {
 	return lib.answer()

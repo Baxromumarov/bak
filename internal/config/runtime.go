@@ -2,14 +2,11 @@ package config
 
 import (
 	"fmt"
-	"os"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/baxromumarov/bak/pkg/runtimecap"
-	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
 func StripTraceFlag(args []string) ([]string, bool) {
@@ -109,35 +106,6 @@ func ParseRuntimePermissions(args []string) (runtimecap.Permissions, []string, e
 	return permissions, rest, nil
 }
 
-func ResolveProjectFeatureState(cliFeatures []string) ([]string, error) {
-	return mergeFeatureLists(nil, cliFeatures), nil
-}
-
-func LoadProjectRuntimePermissions(base runtimecap.Permissions, cliFeatures []string) runtimecap.Permissions {
-	features, err := ResolveProjectFeatureState(cliFeatures)
-	if err != nil {
-		runtimecap.SetCurrentFeatures(nil)
-		_, _ = strfmt.Fprintln(os.Stderr, "Error resolving runtime feature flags: ", err)
-		return base
-	}
-	runtimecap.SetCurrentFeatures(features)
+func LoadProjectRuntimePermissions(base runtimecap.Permissions) runtimecap.Permissions {
 	return base
-}
-
-func mergeFeatureLists(base []string, extra []string) []string {
-	seen := make(map[string]struct{}, len(base)+len(extra))
-	merged := make([]string, 0, len(base)+len(extra))
-	for _, feature := range append(append([]string(nil), base...), extra...) {
-		feature = strings.TrimSpace(feature)
-		if feature == "" {
-			continue
-		}
-		if _, ok := seen[feature]; ok {
-			continue
-		}
-		seen[feature] = struct{}{}
-		merged = append(merged, feature)
-	}
-	sort.Strings(merged)
-	return merged
 }

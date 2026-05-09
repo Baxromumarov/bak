@@ -29,13 +29,6 @@ func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 	case *ast.CallExpression:
 		// Allow type constructor calls like ValueType(0) if the argument is constant
 		if ident, ok := e.Function.(*ast.Identifier); ok {
-			if ident.Value == "cfg" {
-				if len(e.Arguments) != 1 {
-					return false
-				}
-				_, ok := e.Arguments[0].(*ast.StringLiteral)
-				return ok
-			}
 			// Check if this is a type constructor (type definition)
 			if _, found := tc.env.LookupTypeDef(ident.Value); found {
 				// All arguments must be compile-time constants

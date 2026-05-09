@@ -1,6 +1,6 @@
 # Language Stability Policy
 
-Last updated: 2026-04-20
+Last updated: 2026-05-09
 
 Bak is now operating under a language freeze for the `v0.1` line.
 
@@ -37,11 +37,11 @@ Stable means:
 - incompatible changes require a version bump,
 - examples, tests, and tooling should treat it as supported surface.
 
-### Outside the Core Spec
+### Unsupported
 
-Any syntax or behavior not listed in `docs/CORE_LANGUAGE_SPEC.md` is outside the frozen contract.
+Any syntax or behavior not listed in `docs/CORE_LANGUAGE_SPEC.md` is unsupported in user code.
 
-Those areas are implementation details or historical notes only until they are added to the core spec.
+Unsupported user-facing syntax should be rejected rather than accepted as experimental surface.
 
 ### Internal
 
@@ -51,11 +51,11 @@ Anything used only for compiler implementation, native runtime plumbing, or desi
 
 During the `v0.1` freeze:
 
-- no new syntax should land unless it closes a release-blocking product gap,
+- no new syntax should land unless it closes a release-blocking product gap and is added to the stable spec in the same change,
 - no incompatible change to stable syntax or semantics should land without a versioned migration plan,
 - implementation work should prefer correctness, diagnostics, determinism, native/VM parity, package safety, and tooling polish.
 
-Accepted parser support is not a release decision. A feature is part of the language only when the spec says it is.
+Accepted parser support is not a release decision. If syntax is not part of the stable spec, it should not remain accepted by default.
 
 ## Change admission rules
 
@@ -110,4 +110,4 @@ As of 2026-04-19:
 - the frozen language line is `Bak v0.1`,
 - the Go implementation in `pkg/` and `cmd/` is the supported compiler,
 - `src/std` contains the Bak standard library sources,
-- features not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as internal.
+- syntax not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as unsupported in user code.

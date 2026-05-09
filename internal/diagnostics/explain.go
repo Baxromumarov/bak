@@ -14,6 +14,10 @@ var diagnosticCatalog = map[string]string{
 	"E0101": "borrow after move",
 	"E0200": "mutability required",
 	"E0300": "type mismatch",
+	"E0701": "import not found",
+	"E0702": "duplicate import alias",
+	"E0703": "self import",
+	"P0001": "parse error",
 }
 
 // ExplainCode writes an explanation for a diagnostic code and returns true when known.

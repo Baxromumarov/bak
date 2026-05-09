@@ -38,7 +38,7 @@ func TestCollectTestFilesForTargetsPrefersTestFiles(t *testing.T) {
 func TestBuildTestRunnerIncludesExpectedCalls(t *testing.T) {
 	src := `package main
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func testAlpha() -> (void) {
 	mut var t: test.T = test.new("testAlpha")

@@ -3,20 +3,24 @@
 package main
 
 // Import block with aliases (Go-like syntax)
-// Note: These imports are parsed but not yet functional
-// as the module system is not yet implemented
 import (
     f "fmt"
-    utils "github.com/baxromumarov/bak/utils"
     "strings"
 )
 
 func main() -> (void) {
+    var upper: string = strings.toUpper(&"imports")
+    var rendered: string = f.format1(
+        "stable {}",
+        upper,
+    )
+
     println("Import syntax demonstration")
+    println(rendered)
     println("The bak language supports Go-like imports:")
     println("  import (")
     println("      f \"fmt\"")
-    println("      pkg \"github.com/user/pkg\"")
+    println("      \"strings\"")
     println("  )")
     println("")
     println("Package declaration: package main")

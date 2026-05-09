@@ -600,17 +600,6 @@ func (tc *TypeChecker) resolveBuiltinSig(
 	ast.TypeExpression,
 	bool,
 ) {
-	if funcName == "cfg" && len(ce.Arguments) == 1 {
-		if _, ok := ce.Arguments[0].(*ast.StringLiteral); !ok {
-
-			tc.addError(
-				ce.Token.Line,
-				ce.Token.Column,
-				"cfg() requires a string literal feature name",
-			)
-		}
-	}
-
 	builtinSpec, ok := tc.getBuiltinCallSpec(funcName)
 	if !ok {
 		for _, arg := range ce.Arguments {

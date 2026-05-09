@@ -53,8 +53,10 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrUnusedVariable:    {LevelWarning, "unused variable: '{varName}'", "prefix with _ to ignore: '_{varName}'"},
 
 	// Import errors (E07xx)
-	ErrUnusedImport:   {LevelWarning, "unused import: '{importPath}'", "remove this import if it's not used"},
-	ErrImportNotFound: {LevelError, "import not found: '{importPath}'", "check the import path exists and is accessible"},
+	ErrUnusedImport:    {LevelWarning, "unused import: '{importPath}'", "remove this import if it's not used"},
+	ErrImportNotFound:  {LevelError, "import not found: '{importPath}'", "check the import path exists and is accessible"},
+	ErrDuplicateImport: {LevelError, "duplicate import alias: '{alias}'", "use one import per alias or rename one import"},
+	ErrSelfImport:      {LevelError, "package cannot import itself", "remove the self import or move shared code to another package"},
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly: {LevelError, "cannot call '{method}' on fixed-size {vecType}", "use Vec<T, _> for dynamic arrays"},
@@ -62,7 +64,7 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrVecInvalidInit: {LevelError, "invalid vector initialization", ""},
 
 	// Feature-gating errors (E08xx)
-	ErrGeneric: {LevelError, "feature not supported", ""},
+	ErrGeneric: {LevelError, "unsupported construct", ""},
 
 	// Parser errors (P00xx)
 	ErrParser:     {LevelError, "parse error", ""},

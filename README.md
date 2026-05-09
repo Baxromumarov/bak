@@ -239,7 +239,7 @@ Bak is developed as a Go-implemented language toolchain:
 ## Stability Notes
 
 - Prefer the frozen `v0.1` surface for examples, libraries, and tests.
-- `cfg("feature")` is available for feature gating, but only the frozen surface is covered by the compatibility contract.
+- Bak does not expose experimental user-facing features in the stable line; unsupported syntax should be rejected with diagnostics.
 - Project manifest support is not part of the current stable CLI surface.
 
 ## Tooling
@@ -247,10 +247,10 @@ Bak is developed as a Go-implemented language toolchain:
 - `bak run`, `bak check`, `bak build`, `bak test`, `bak doctor`, `bak explain`, and `bak repl` are the current CLI commands.
 - `bakfmt` formats Bak source files.
 - `baklint` reports style and correctness findings.
-- Compile-time feature flags are currently provided by the toolchain runtime, not a stable project manifest.
 
 See:
 
+- `docs/STABLE_LANGUAGE.md`
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/BACKEND_CONFORMANCE.md`

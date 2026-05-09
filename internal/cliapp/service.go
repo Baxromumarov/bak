@@ -35,7 +35,7 @@ func (s *commandService) Run(path string, ctx *cli.Context) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("'run' requires a file argument")
 	}
-	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions, ctx.Features)
+	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions)
 	p, err := pipeline.LoadFile(path)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (s *commandService) Build(path, output string, ctx *cli.Context) error {
 		}
 	}
 
-	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions, ctx.Features)
+	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions)
 	p, err := pipeline.LoadFile(source)
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (s *commandService) Check(path string, ctx *cli.Context) error {
 	if strings.TrimSpace(path) == "" {
 		return fmt.Errorf("'check' requires a file argument")
 	}
-	_ = config.LoadProjectRuntimePermissions(ctx.Permissions, ctx.Features)
+	_ = config.LoadProjectRuntimePermissions(ctx.Permissions)
 	p, err := pipeline.LoadFile(path)
 	if err != nil {
 		return err
@@ -98,7 +98,6 @@ func (s *commandService) Test(opts commandpkg.TestOptions, ctx *cli.Context) err
 	return internaltest.Run(
 		opts.Targets,
 		ctx.Permissions,
-		ctx.Features,
 		internaltest.Options{
 			Targets:        opts.Targets,
 			RunPattern:     opts.RunPattern,
@@ -126,7 +125,7 @@ func (s *commandService) Explain(opts commandpkg.ExplainOptions, _ *cli.Context)
 }
 
 func (s *commandService) REPL(ctx *cli.Context) error {
-	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions, ctx.Features)
+	permissions := config.LoadProjectRuntimePermissions(ctx.Permissions)
 	return runREPL(s.stdout, permissions)
 }
 

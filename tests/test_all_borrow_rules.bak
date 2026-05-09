@@ -31,7 +31,7 @@ func main() -> (void) {
     // inspect(&v2)
     // ✅ TEST 4: mutable borrow in a block, then immutable - should pass
     // (The block scope clears the mutable borrow)
-    // Note: inline blocks not supported yet, using function scope instead
+    // Borrow scope is function-level for this test.
     // mut var v3 Vec<int,_> = Vec.from([1,2,3])
     // {
     //     modify(&mut v3)

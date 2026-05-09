@@ -881,7 +881,7 @@ func (p *Parser) parseImportBlock() ast.Statement {
 		return block
 	}
 
-	// Single import: import "path" or import "path" as alias
+	// Single import: import "path" or import alias "path".
 	p.nextToken()
 	return p.parseSingleImport(importToken)
 }
@@ -909,15 +909,13 @@ func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
 	stmt.PathToken = p.curToken
 	stmt.Path = p.curToken.Literal
 
-	// Compatibility alias form: import "path" as alias.
 	if p.peekTokenIs(token.AS) {
-		p.nextToken() // consume "as"
-		if !p.expectPeek(token.IDENT) {
-			return nil
-		}
-		stmt.AliasToken = p.curToken
-		stmt.Alias = p.curToken.Literal
-		stmt.LegacyAlias = true
+		p.errors = append(p.errors, p.formatMessage(
+			tokenPos(p.peekToken),
+			`legacy import alias syntax is not supported; use import alias "path"`,
+			"",
+		))
+		return nil
 	}
 
 	return stmt

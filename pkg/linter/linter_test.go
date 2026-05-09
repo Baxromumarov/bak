@@ -119,7 +119,7 @@ func TestAvailableRulesSorted(t *testing.T) {
 func TestLintSourceWarnsForLegacyStdImportPath(t *testing.T) {
 	source := strings.Join([]string{
 		"package main",
-		`import "src/std/strings/strings.bak" as strings`,
+		`import strings "src/std/strings/strings.bak"`,
 		"",
 		"func main() -> (void) {",
 		"    return void",
@@ -134,26 +134,6 @@ func TestLintSourceWarnsForLegacyStdImportPath(t *testing.T) {
 		}
 	}
 	t.Fatalf("expected import-style finding, got %#v", findings)
-}
-
-func TestLintSourceWarnsForLegacyAliasSyntax(t *testing.T) {
-	source := strings.Join([]string{
-		"package main",
-		`import "std/strings" as strings`,
-		"",
-		"func main() -> (void) {",
-		"    return void",
-		"}",
-		"",
-	}, "\n")
-
-	findings := LintSource("demo.bak", source, nil)
-	for _, f := range findings {
-		if f.Rule == "import-style" && strings.Contains(f.Message, `strings "std/strings"`) {
-			return
-		}
-	}
-	t.Fatalf("expected legacy alias import-style finding, got %#v", findings)
 }
 
 func TestApplyDisabledRulesCSV(t *testing.T) {

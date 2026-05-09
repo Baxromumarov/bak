@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/baxromumarov/bak/internal/config"
 	"github.com/baxromumarov/bak/internal/pipeline"
 	"github.com/baxromumarov/bak/pkg/compiler"
 	"github.com/baxromumarov/bak/pkg/lexer"
@@ -42,11 +41,8 @@ type testFileRunResult struct {
 func Run(
 	targets []string,
 	permissions runtimecap.Permissions,
-	cliFeatures []string,
 	opts Options,
 ) error {
-
-	permissions = config.LoadProjectRuntimePermissions(permissions, cliFeatures)
 	files, pathErrors := collectTestFilesForTargets(targets)
 	if len(opts.PackageFilters) > 0 {
 		filteredFiles, filterErrors := filterTestFilesByPackage(files, opts.PackageFilters)

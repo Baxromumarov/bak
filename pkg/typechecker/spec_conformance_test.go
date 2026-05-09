@@ -6,14 +6,10 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 )
 
-func parseAndCheckSource(t *testing.T, source string, features []string) ([]string, []string) {
+func parseAndCheckSource(t *testing.T, source string) ([]string, []string) {
 	t.Helper()
-
-	restore := runtimecap.SetCurrentFeatures(features)
-	t.Cleanup(restore)
 
 	l := lexer.New(source)
 	p := parser.New(l)
@@ -68,7 +64,7 @@ func main() -> (int) {
     }
 }`
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}
@@ -87,12 +83,12 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, _ := parseAndCheckSource(t, source, nil)
+	parseErrs, _ := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("expected unsafe to parse without opt-in, got %v", parseErrs)
 	}
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 || len(typeErrs) > 0 {
 		t.Fatalf("expected unsafe to typecheck, parse=%v type=%v", parseErrs, typeErrs)
 	}
@@ -112,12 +108,12 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, _ := parseAndCheckSource(t, source, nil)
+	parseErrs, _ := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("expected generics to parse without opt-in, got %v", parseErrs)
 	}
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 || len(typeErrs) > 0 {
 		t.Fatalf("expected user generics to typecheck, parse=%v type=%v", parseErrs, typeErrs)
 	}
@@ -144,7 +140,7 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, _ := parseAndCheckSource(t, source, nil)
+	parseErrs, _ := parseAndCheckSource(t, source)
 	if len(parseErrs) == 0 {
 		t.Fatalf("expected parser to reject removed declaration/colon-impl syntax from the frozen public surface, got %v", parseErrs)
 	}
@@ -161,7 +157,7 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}
@@ -180,7 +176,7 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}
@@ -188,7 +184,7 @@ func main() -> (void) {
 	if !strings.Contains(joined, "undefined method 'split' for string") {
 		t.Fatalf("expected split undefined-method diagnostic, got %v", typeErrs)
 	}
-	if !strings.Contains(joined, "import \"src/std/strings/strings.bak\" as strings") || !strings.Contains(joined, "strings.split(&value, &sep)") {
+	if !strings.Contains(joined, "import strings \"src/std/strings/strings.bak\"") || !strings.Contains(joined, "strings.split(&value, &sep)") {
 		t.Fatalf("expected stdlib replacement hint, got %v", typeErrs)
 	}
 }
@@ -202,7 +198,7 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		joinedParse := strings.Join(parseErrs, "\n")
 		if !strings.Contains(joinedParse, "Option") {
@@ -225,7 +221,7 @@ func main() -> (void) {
     return void
 }`
 
-	parseErrs, typeErrs := parseAndCheckSource(t, source, nil)
+	parseErrs, typeErrs := parseAndCheckSource(t, source)
 	if len(parseErrs) > 0 {
 		t.Fatalf("unexpected parser errors: %v", parseErrs)
 	}

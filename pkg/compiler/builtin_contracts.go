@@ -342,7 +342,6 @@ var builtinContractsByID = map[BuiltinID]BuiltinContract{
 	BUILTIN_VEC_GET:            fixedArity("__vec_get", 2),
 	BUILTIN_VEC_SET:            fixedArity("__vec_set", 3),
 	BUILTIN_VEC_GROW:           fixedArity("__vec_grow", 2),
-	BUILTIN_CFG:                fixedArity("cfg", 1),
 }
 
 var builtinModuleMethodAliases = map[string]string{

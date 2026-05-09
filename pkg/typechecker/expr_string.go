@@ -5,29 +5,29 @@ import "github.com/baxromumarov/bak/pkg/ast"
 func stringStdlibReplacementHint(method string) string {
 	switch method {
 	case "split":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.split(&value, &sep)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.split(&value, &sep)"
 	case "trim":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trim(&value)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.trim(&value)"
 	case "trimLeft":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimLeft(&value)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.trimLeft(&value)"
 	case "trimRight":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimRight(&value)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.trimRight(&value)"
 	case "trimPrefix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimPrefix(&value, &prefix)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.trimPrefix(&value, &prefix)"
 	case "trimSuffix":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.trimSuffix(&value, &suffix)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.trimSuffix(&value, &suffix)"
 	case "toUpper":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.toUpper(&value)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.toUpper(&value)"
 	case "toLower":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.toLower(&value)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.toLower(&value)"
 	case "replaceFirst":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.replaceFirst(&value, &old, &new)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.replaceFirst(&value, &old, &new)"
 	case "count":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.count(&value, &sub)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.count(&value, &sub)"
 	case "compare":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.compare(&a, &b)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.compare(&a, &b)"
 	case "equalIgnoreCase":
-		return "import \"src/std/strings/strings.bak\" as strings and call strings.equalIgnoreCase(&a, &b)"
+		return "import strings \"src/std/strings/strings.bak\" and call strings.equalIgnoreCase(&a, &b)"
 	default:
 		return ""
 	}

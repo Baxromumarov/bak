@@ -18,7 +18,7 @@ func TestRunEndToEnd_SimplePassing(t *testing.T) {
 	dir := t.TempDir()
 	src := `package main
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func test_one() -> (void) {
     mut var t: test.T = test.new("test_one")
@@ -44,7 +44,7 @@ func test_one() -> (void) {
 	}()
 
 	opts := Options{Targets: []string{dir}}
-	err := Run([]string{dir}, runtimecap.Permissions{}, nil, opts)
+	err := Run([]string{dir}, runtimecap.Permissions{}, opts)
 
 	// Flush pipes
 	wOut.Close()
@@ -69,7 +69,7 @@ func TestRunEndToEnd_FailingTest(t *testing.T) {
 	dir := t.TempDir()
 	src := `package main
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func test_bad() -> (void) {
     // does not call t.finish()
@@ -93,7 +93,7 @@ func test_bad() -> (void) {
 	}()
 
 	opts := Options{Targets: []string{dir}}
-	err := Run([]string{dir}, runtimecap.Permissions{}, nil, opts)
+	err := Run([]string{dir}, runtimecap.Permissions{}, opts)
 
 	wOut.Close()
 	wErr.Close()
@@ -117,7 +117,7 @@ func TestRunEndToEnd_RunPatternFilter(t *testing.T) {
 	dir := t.TempDir()
 	src := `package main
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func test_alpha() -> (void) {
     mut var t: test.T = test.new("test_alpha")
@@ -146,7 +146,7 @@ func test_beta() -> (void) {
 	}()
 
 	opts := Options{Targets: []string{dir}, RunPattern: "alpha"}
-	err := Run([]string{dir}, runtimecap.Permissions{}, nil, opts)
+	err := Run([]string{dir}, runtimecap.Permissions{}, opts)
 
 	wOut.Close()
 	wErr.Close()
@@ -175,7 +175,7 @@ func TestRunEndToEnd_PackageFilter(t *testing.T) {
 	}
 	aSrc := `package a
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func test_a() -> (void) {
     mut var t: test.T = test.new("test_a")
@@ -184,7 +184,7 @@ func test_a() -> (void) {
 `
 	bSrc := `package b
 
-import "src/std/test/test.bak" as test
+import test "src/std/test/test.bak"
 
 func test_b() -> (void) {
     mut var t: test.T = test.new("test_b")
@@ -211,7 +211,7 @@ func test_b() -> (void) {
 	}()
 
 	opts := Options{Targets: []string{root}, PackageFilters: []string{"a"}}
-	err := Run([]string{root}, runtimecap.Permissions{}, nil, opts)
+	err := Run([]string{root}, runtimecap.Permissions{}, opts)
 
 	wOut.Close()
 	wErr.Close()

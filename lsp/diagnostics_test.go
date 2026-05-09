@@ -229,7 +229,7 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 func TestAnalyzeAndPublishIncludesImportStyleLintCode(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
-		`import "std/strings" as strings`,
+		`import strings "src/std/strings/strings.bak"`,
 		"",
 		"func main() -> (void) {",
 		"    return void",
@@ -263,13 +263,60 @@ func TestAnalyzeAndPublishIncludesImportStyleLintCode(t *testing.T) {
 
 	for _, diag := range params.Diagnostics {
 		if diag.Source == "bak-linter" && fmt.Sprint(diag.Code) == "import-style" {
-			if !strings.Contains(diag.Message, `strings "std/strings"`) {
+			if !strings.Contains(diag.Message, `std/strings`) {
 				t.Fatalf("unexpected import-style message: %s", diag.Message)
 			}
 			return
 		}
 	}
 	t.Fatalf("expected import-style lint diagnostic, got %#v", params.Diagnostics)
+}
+
+func TestAnalyzeAndPublishLegacyImportAliasParserDiagnosticHasHelp(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		`import "std/strings" as strings`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source == "bak-parser" && fmt.Sprint(diag.Code) == "P0001" {
+			data, ok := diag.Data.(map[string]any)
+			if !ok || !strings.Contains(fmt.Sprint(data["help"]), `import alias "path"`) {
+				t.Fatalf("expected parser diagnostic help, got %#v", diag)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected parser diagnostic for legacy import alias, got %#v", params.Diagnostics)
 }
 
 func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {

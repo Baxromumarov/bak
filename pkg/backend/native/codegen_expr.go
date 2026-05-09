@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/compiler"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"math"
 )
 
@@ -831,22 +830,6 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		funcName = fn.Value
 	default:
 		return fmt.Errorf("native: unsupported call target %T at line %d col %d, source=%v", e.Function, e.Token.Line, e.Token.Column, e.Function)
-	}
-
-	if funcName == "cfg" {
-		if len(e.Arguments) != 1 {
-			return fmt.Errorf("native: cfg expects 1 argument")
-		}
-		featureName, ok := e.Arguments[0].(*ast.StringLiteral)
-		if !ok {
-			return fmt.Errorf("native: cfg requires a string literal feature name")
-		}
-		if runtimecap.CurrentFeatureEnabled(featureName.Value) {
-			emitFoldedInt(&s.Code, 1)
-		} else {
-			emitFoldedInt(&s.Code, 0)
-		}
-		return nil
 	}
 
 	if contract, ok := compiler.BuiltinContractByName(funcName); ok {

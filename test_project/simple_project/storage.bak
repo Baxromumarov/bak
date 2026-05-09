@@ -1,6 +1,6 @@
 package storage
 
-import "test/project/simple_project/item.bak" as items
+import items "test/project/simple_project/item.bak"
 
 pub struct Vault {
     pub Products: Vec<items.Product, _>
@@ -13,19 +13,25 @@ impl Vault as v {
 
     pub func GetTotalValue() -> (float64) {
         mut var total: float64 = 0.0
+
         for p in v.Products {
             total = total + p.Rate
         }
+
         return total
     }
 
-    pub func Filter(f: func(&items.Product) -> (bool)) -> (Vec<items.Product, _>) {
+    pub func Filter(
+        f: func(&items.Product) -> (bool),
+    ) -> (Vec<items.Product, _>) {
         mut var results: Vec<items.Product, _> = Vec.new()
+
         for p in v.Products {
             if f(&p) {
                 results.push(p)
             }
         }
+
         return results
     }
 }

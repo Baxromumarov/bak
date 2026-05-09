@@ -40,7 +40,7 @@ func newVMWithExecStruct(permissions runtimecap.Permissions) *VM {
 func TestVMDeniesExecWithoutPermission(t *testing.T) {
 	src := `package main
 
-import "../../src/std/os/os.bak" as os
+import os "../../src/std/os/os.bak"
 
 func main() -> (Result<os.ExecResult, string>) {
     return os.exec("printf", Vec.from(["bak"]))

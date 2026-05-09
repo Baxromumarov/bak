@@ -24,7 +24,6 @@ func buildContext(rawArgs []string) (*cli.Context, []string, error) {
 
 	ctx := &cli.Context{
 		Permissions:  permissions,
-		Features:     nil,
 		Trace:        traceEnabled,
 		DebugEscapes: debugEscapes,
 		WorkingDir:   workingDir,

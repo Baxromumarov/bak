@@ -123,7 +123,9 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 				Range:    rangeFromLineCol(l, c, 1),
 				Severity: 1,
 				Source:   "bak-parser",
+				Code:     "P0001",
 				Message:  m,
+				Data:     parserDiagnosticData(m),
 			})
 		}
 	}
@@ -199,6 +201,17 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 
 	msg := EncodeMessage(notification)
 	os.Stdout.Write(msg)
+}
+
+func parserDiagnosticData(message string) DiagnosticData {
+	data := DiagnosticData{}
+	switch {
+	case strings.Contains(message, "legacy import alias syntax"):
+		data.Help = `write aliases before the path: import alias "path"`
+	case strings.Contains(message, "expected next token"):
+		data.Help = "check the token at this location and the syntax immediately before it"
+	}
+	return data
 }
 
 func samePath(a, b string) bool {

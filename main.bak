@@ -1,9 +1,9 @@
 package main
 
-import "std/http" as http
-import "src/std/db/postgres.bak" as postgres
-import "src/std/db/db.bak" as db
-import "src/std/encoding/json/json.bak" as json
+import http "std/http"
+import postgres "src/std/db/postgres.bak"
+import db "src/std/db/db.bak"
+import json "src/std/encoding/json/json.bak"
 
 pub struct Task {
     pub id:        int
@@ -494,12 +494,10 @@ func main() -> (void) {
         "/tasks/:id/toggle",
         toggleTaskHandler,
     )
-
     router.delete(
         "/tasks/:id",
         deleteTaskHandler,
     )
-    
     println("API listening on 0.0.0.0:8080")
     println()
     println("PUT /tasks/:id/toggle")

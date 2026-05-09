@@ -104,13 +104,13 @@ func demo() -> (void) {
 }
 
 func TestCompileReturnBorrowOfLocalUsesHeapBackedBorrow(t *testing.T) {
-	module := compileSourceWithFeatures(t, `package main
+	module := compileSourceToModule(t, `package main
 
 func leak() -> (&int) {
     var x: int = 1
     return &x
 }
-`, nil)
+`)
 
 	leak := findFunctionObj(t, module, "leak")
 	if !bytes.Contains(leak.Code, []byte{byte(OP_BORROW_STACK)}) {
@@ -122,14 +122,14 @@ func leak() -> (&int) {
 }
 
 func TestCompileEscapingLocalAssignmentStoresThroughHeapCell(t *testing.T) {
-	module := compileSourceWithFeatures(t, `package main
+	module := compileSourceToModule(t, `package main
 
 func leak() -> (&int) {
     var x: int = 1
     x = 2
     return &x
 }
-`, nil)
+`)
 
 	leak := findFunctionObj(t, module, "leak")
 	if !bytes.Contains(leak.Code, []byte{byte(OP_STORE_DEREF)}) {
@@ -138,13 +138,13 @@ func leak() -> (&int) {
 }
 
 func TestCompileStructFieldRecursiveSelfMarkedHeapBacked(t *testing.T) {
-	module := compileSourceWithFeatures(t, `package main
+	module := compileSourceToModule(t, `package main
 
 struct Node {
     next: Node
     value: int
 }
-`, nil)
+`)
 
 	def, ok := module.StructDefs["Node"]
 	if !ok {
