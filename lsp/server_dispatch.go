@@ -34,62 +34,68 @@ func NewServer() *Server {
 	}
 }
 
-func (s *Server) Handle(req Request) any {
+func (s *Server) Handle(req Request) (any, *ResponseError) {
 	switch req.Method {
 	case "initialize":
-		return s.handleInitialize(req)
+		return s.handleInitialize(req), nil
 	case "initialized":
-		return nil
+		return nil, nil
 	case "textDocument/didOpen":
 		s.handleDidOpen(req)
-		return nil
+		return nil, nil
 	case "textDocument/didChange":
 		s.handleDidChange(req)
-		return nil
+		return nil, nil
+	case "textDocument/didClose":
+		s.handleDidClose(req)
+		return nil, nil
 	case "textDocument/didSave":
-		return nil
+		return nil, nil
 	case "textDocument/hover":
-		return s.handleHover(req)
+		return s.handleHover(req), nil
 	case "textDocument/definition":
-		return s.handleDefinition(req)
+		return s.handleDefinition(req), nil
 	case "textDocument/typeDefinition":
-		return s.handleTypeDefinition(req)
+		return s.handleTypeDefinition(req), nil
 	case "textDocument/implementation":
-		return s.handleImplementation(req)
+		return s.handleImplementation(req), nil
 	case "textDocument/references":
-		return s.handleReferences(req)
+		return s.handleReferences(req), nil
 	case "textDocument/documentSymbol":
-		return s.handleDocumentSymbol(req)
+		return s.handleDocumentSymbol(req), nil
 	case "workspace/symbol":
-		return s.handleWorkspaceSymbol(req)
+		return s.handleWorkspaceSymbol(req), nil
 	case "textDocument/prepareRename":
-		return s.handlePrepareRename(req)
+		return s.handlePrepareRename(req), nil
 	case "textDocument/rename":
-		return s.handleRename(req)
+		return s.handleRename(req), nil
 	case "textDocument/completion":
-		return s.handleCompletion(req)
+		return s.handleCompletion(req), nil
 	case "textDocument/signatureHelp":
-		return s.handleSignatureHelp(req)
+		return s.handleSignatureHelp(req), nil
 	case "textDocument/semanticTokens/full":
-		return s.handleSemanticTokensFull(req)
+		return s.handleSemanticTokensFull(req), nil
 	case "textDocument/inlayHint":
-		return s.handleInlayHint(req)
+		return s.handleInlayHint(req), nil
 	case "textDocument/formatting":
-		return s.handleFormatting(req)
+		return s.handleFormatting(req), nil
 	case "textDocument/documentHighlight":
-		return s.handleDocumentHighlight(req)
+		return s.handleDocumentHighlight(req), nil
 	case "textDocument/codeAction":
-		return s.handleCodeAction(req)
+		return s.handleCodeAction(req), nil
 	case "textDocument/documentLink":
-		return s.handleDocumentLink(req)
+		return s.handleDocumentLink(req), nil
 	case "textDocument/foldingRange":
-		return s.handleFoldingRange(req)
+		return s.handleFoldingRange(req), nil
 	case "shutdown":
-		return nil
+		return nil, nil
 	case "exit":
-		return nil
+		return nil, nil
 	}
-	return nil
+	return nil, &ResponseError{
+		Code:    CodeMethodNotFound,
+		Message: "method not found: " + req.Method,
+	}
 }
 
 func (s *Server) handleInitialize(req Request) InitializeResult {
@@ -148,14 +154,14 @@ func (s *Server) handleDidOpen(req Request) {
 
 	defer recoverAndLog("textDocument/didOpen")
 
-	s.Documents[params.TextDocument.URI] = params.TextDocument.Text
-
-	if cancel, ok := s.pendingCancel[params.TextDocument.URI]; ok {
-		cancel()
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	s.pendingCancel[params.TextDocument.URI] = cancel
-	s.analyzeAndPublish(ctx, params.TextDocument.URI, params.TextDocument.Text)
+	uri := params.TextDocument.URI
+	text := params.TextDocument.Text
+	s.setDocument(uri, text)
+	s.invalidateAnalysisForURI(uri)
+	s.invalidatePublicIndexesForURI(uri)
+	s.resetPendingAnalysis(uri, 0, func(ctx context.Context) {
+		s.analyzeAndPublish(ctx, uri, text)
+	})
 }
 
 func (s *Server) handleDidChange(req Request) {
@@ -169,23 +175,30 @@ func (s *Server) handleDidChange(req Request) {
 	defer recoverAndLog("textDocument/didChange")
 
 	if len(params.ContentChanges) > 0 {
+		uri := params.TextDocument.URI
 		text := params.ContentChanges[0].Text
-		s.Documents[params.TextDocument.URI] = text
+		s.setDocument(uri, text)
+		s.invalidateAnalysisForURI(uri)
+		s.invalidatePublicIndexesForURI(uri)
 
-		typechecker.InvalidatePackage(uriToPath(params.TextDocument.URI))
+		typechecker.InvalidatePackage(uriToPath(uri))
 
-		// Debounce analysis: cancel any in-flight analysis for this URI
-		if cancel, ok := s.pendingCancel[params.TextDocument.URI]; ok {
-			cancel()
-		}
-		if timer, ok := s.pendingLocks[params.TextDocument.URI]; ok {
-			timer.Stop()
-		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-		s.pendingCancel[params.TextDocument.URI] = cancel
-		s.pendingLocks[params.TextDocument.URI] = time.AfterFunc(200*time.Millisecond, func() {
-			s.analyzeAndPublish(ctx, params.TextDocument.URI, text)
+		s.resetPendingAnalysis(uri, 200*time.Millisecond, func(ctx context.Context) {
+			s.analyzeAndPublish(ctx, uri, text)
 		})
 	}
+}
+
+func (s *Server) handleDidClose(req Request) {
+	var params DidCloseTextDocumentParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		log.Printf("Error unmarshalling didClose: %v", err)
+		return
+	}
+
+	defer recoverAndLog("textDocument/didClose")
+
+	uri := params.TextDocument.URI
+	s.closeDocument(uri)
+	s.publishDiagnostics(uri, nil)
 }

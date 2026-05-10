@@ -136,13 +136,17 @@ func loadPublicFileIndex(path, uri string) *FileIndex {
 	if err != nil {
 		return nil
 	}
-	l := lexer.New(string(data))
+	return publicIndexFromText(string(data), uri)
+}
+
+func publicIndexFromText(text, uri string) *FileIndex {
+	l := lexer.New(text)
 	p := parser.New(l)
 	prog := p.ParseProgram()
 	if len(p.Errors()) > 0 {
 		return nil
 	}
-	comments := formatter.ScanComments(string(data))
+	comments := formatter.ScanComments(text)
 	return indexProgram(prog, uri, comments, false)
 }
 
@@ -183,20 +187,25 @@ func (s *Server) getOrIndexFile(path string) *FileIndex {
 	}
 	uri := pathToURI(path)
 	// Use PublicIndexes for external module lookups (public symbols only)
-	if idx, ok := s.PublicIndexes[uri]; ok {
+	if idx, ok := s.publicIndex(uri); ok {
 		return idx
 	}
-	idx := loadPublicFileIndex(path, uri)
+	var idx *FileIndex
+	if text, ok := s.document(uri); ok {
+		idx = publicIndexFromText(text, uri)
+	} else {
+		idx = loadPublicFileIndex(path, uri)
+	}
 	if idx == nil {
 		return nil
 	}
-	s.PublicIndexes[uri] = idx
+	s.setPublicIndex(uri, idx)
 	return idx
 }
 
 func (s *Server) getOrIndexDir(dirPath string) *FileIndex {
 	uri := pathToURI(dirPath)
-	if idx, ok := s.PublicIndexes[uri]; ok {
+	if idx, ok := s.publicIndex(uri); ok {
 		return idx
 	}
 	merged := &FileIndex{
@@ -220,18 +229,23 @@ func (s *Server) getOrIndexDir(dirPath string) *FileIndex {
 		}
 		filePath := filepath.Join(dirPath, entry.Name())
 		fileURI := pathToURI(filePath)
-		if idx, ok := s.PublicIndexes[fileURI]; ok {
+		if idx, ok := s.publicIndex(fileURI); ok {
 			mergeFileIndex(merged, idx)
 			continue
 		}
-		idx := loadPublicFileIndex(filePath, fileURI)
+		var idx *FileIndex
+		if text, ok := s.document(fileURI); ok {
+			idx = publicIndexFromText(text, fileURI)
+		} else {
+			idx = loadPublicFileIndex(filePath, fileURI)
+		}
 		if idx == nil {
 			continue
 		}
-		s.PublicIndexes[fileURI] = idx
+		s.setPublicIndex(fileURI, idx)
 		mergeFileIndex(merged, idx)
 	}
-	s.PublicIndexes[uri] = merged
+	s.setPublicIndex(uri, merged)
 	return merged
 }
 

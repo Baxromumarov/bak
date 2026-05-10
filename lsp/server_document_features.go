@@ -23,7 +23,7 @@ func (s *Server) handlePrepareRename(req Request) *PrepareRenameResult {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result == nil || result.AST == nil {
 		return nil
 	}
@@ -157,10 +157,10 @@ func (s *Server) handleDocumentLink(req Request) []DocumentLink {
 }
 
 func (s *Server) resultForDocument(uri string) *AnalysisResult {
-	if result := s.Cache[uri]; result != nil {
+	if result, _ := s.analysisResult(uri); result != nil {
 		return result
 	}
-	text := s.Documents[uri]
+	text, _ := s.document(uri)
 	if text == "" {
 		data, err := os.ReadFile(uriToPath(uri))
 		if err != nil {
@@ -200,7 +200,7 @@ func (s *Server) handleFoldingRange(req Request) []FoldingRange {
 		return nil
 	}
 
-	text := s.Documents[params.TextDocument.URI]
+	text, _ := s.document(params.TextDocument.URI)
 	if text == "" {
 		if data, err := os.ReadFile(uriToPath(params.TextDocument.URI)); err == nil {
 			text = string(data)

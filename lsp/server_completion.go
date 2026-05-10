@@ -18,7 +18,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		return out
 	}
 
-	text, ok := s.Documents[params.TextDocument.URI]
+	text, ok := s.document(params.TextDocument.URI)
 	if !ok {
 		return out
 	}
@@ -57,7 +57,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 	items := []CompletionItem{}
 	if !isDotCompletion {
-		result := s.Cache[params.TextDocument.URI]
+		result, _ := s.analysisResult(params.TextDocument.URI)
 		if structItems := s.completeStructLiteralFields(result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
 			out.Items = structItems
 			return out
@@ -65,7 +65,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	}
 
 	if qualifier != "" || isDotCompletion {
-		result := s.Cache[params.TextDocument.URI]
+		result, _ := s.analysisResult(params.TextDocument.URI)
 		if result != nil {
 			if qualifier != "" && isDotCompletion {
 				if importItems, handled := s.completeImportedModuleMembers(result, params.TextDocument.URI, qualifier, memberPrefix); handled {
@@ -238,7 +238,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		}
 	}
 
-	if result := s.Cache[params.TextDocument.URI]; result != nil && result.Index != nil {
+	if result, _ := s.analysisResult(params.TextDocument.URI); result != nil && result.Index != nil {
 		seen := make(map[string]bool)
 		for _, sym := range sortedSymbols(result.Index) {
 			insertText := sym.Name

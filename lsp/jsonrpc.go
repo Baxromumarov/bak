@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 )
 
 // JSONRPC Message Types
@@ -45,6 +46,13 @@ type ResponseError struct {
 	Data    any    `json:"data,omitempty"`
 }
 
+const (
+	CodeParseError     = -32700
+	CodeInvalidRequest = -32600
+	CodeMethodNotFound = -32601
+	CodeInternalError  = -32603
+)
+
 func EncodeMessage(msg any) []byte {
 	content, err := json.Marshal(msg)
 	if err != nil {
@@ -81,25 +89,7 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 		}
 	}
 
-	// Parse content length
-	headerStr := string(header)
-	var contentLength int
-	var err error
-
-	// Simple parsing for Content-Length
-	for _, line := range splitLines(headerStr) {
-		if len(line) >= 16 &&
-			line[:16] == "Content-Length: " {
-
-			contentLength, err = strconv.Atoi(line[16:])
-			if err != nil {
-				return nil, 0, fmt.Errorf("invalid content length: %v", err)
-			}
-
-			break
-		}
-	}
-
+	contentLength, err := parseContentLength(string(header))
 	if contentLength <= 0 {
 		return nil, 0, fmt.Errorf("missing content length")
 	}
@@ -116,6 +106,24 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 	}
 
 	return content, contentLength, nil
+}
+
+func parseContentLength(header string) (int, error) {
+	for _, line := range splitLines(header) {
+		name, value, ok := strings.Cut(line, ":")
+		if !ok || !strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
+			continue
+		}
+
+		contentLength, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil {
+			return 0, fmt.Errorf("invalid content length: %v", err)
+		}
+
+		return contentLength, nil
+	}
+
+	return 0, nil
 }
 
 func splitLines(s string) []string {

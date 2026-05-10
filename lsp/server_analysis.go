@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"os"
 	"path/filepath"
 	"runtime/debug"
 	"sort"
@@ -49,7 +48,6 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	comments := formatter.ScanComments(text)
 	index := indexProgram(prog, uri, comments, true)
 	imports := collectImports(prog)
-	s.Indexes[uri] = index
 	refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, index, s)
 
 	select {
@@ -57,9 +55,11 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 		return
 	default:
 	}
+	if currentText, ok := s.document(uri); ok && currentText != text {
+		return
+	}
 
-	// Update Cache
-	s.Cache[uri] = &AnalysisResult{
+	s.setAnalysisResult(uri, index, &AnalysisResult{
 		AST:      prog,
 		TC:       tc,
 		Index:    index,
@@ -68,7 +68,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 		RefByPos: refByPos,
 		Defs:     defs,
 		Graph:    analysisResult.Graph,
-	}
+	})
 
 	// Collect Diagnostics
 	diagnostics := []Diagnostic{}
@@ -111,7 +111,13 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 		return diagnostics[i].Message < diagnostics[j].Message
 	})
 
-	// Publish
+	if currentText, ok := s.document(uri); ok && currentText != text {
+		return
+	}
+	s.publishDiagnostics(uri, diagnostics)
+}
+
+func (s *Server) publishDiagnostics(uri string, diagnostics []Diagnostic) {
 	notification := Notification{
 		BaseMessage: BaseMessage{JSONRPC: "2.0"},
 		Method:      "textDocument/publishDiagnostics",
@@ -125,8 +131,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	paramsBytes, _ := json.Marshal(params)
 	notification.Params = paramsBytes
 
-	msg := EncodeMessage(notification)
-	os.Stdout.Write(msg)
+	s.writeEncodedMessage(notification)
 }
 
 func samePath(a, b string) bool {

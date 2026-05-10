@@ -224,12 +224,12 @@ func (s *Server) handleSignatureHelp(req Request) *SignatureHelp {
 		return nil
 	}
 
-	text, ok := s.Documents[params.TextDocument.URI]
+	text, ok := s.document(params.TextDocument.URI)
 	if !ok {
 		return nil
 	}
 
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result == nil {
 		return nil
 	}
@@ -248,7 +248,7 @@ func (s *Server) handleFormatting(req Request) []TextEdit {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	text, ok := s.Documents[params.TextDocument.URI]
+	text, ok := s.document(params.TextDocument.URI)
 	if !ok {
 		return nil
 	}
@@ -279,12 +279,12 @@ func (s *Server) handleInlayHint(req Request) []InlayHint {
 
 	defer recoverAndLog("textDocument/inlayHint")
 
-	text, ok := s.Documents[params.TextDocument.URI]
+	text, ok := s.document(params.TextDocument.URI)
 	if !ok {
 		return nil
 	}
 
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok ||
 		result == nil ||
 		result.AST == nil ||

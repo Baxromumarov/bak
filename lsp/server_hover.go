@@ -17,9 +17,9 @@ func (s *Server) handleHover(req Request) *Hover {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	text, _ := s.Documents[params.TextDocument.URI]
+	text, _ := s.document(params.TextDocument.URI)
 
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil {
 		return nil
 	}

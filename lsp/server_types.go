@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"io"
+	"sync"
 	"time"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -92,6 +94,7 @@ type VarInfo struct {
 	Doc     string
 }
 type Server struct {
+	stateMu        sync.RWMutex
 	Documents      map[string]string
 	Cache          map[string]*AnalysisResult
 	Indexes        map[string]*FileIndex
@@ -102,4 +105,6 @@ type Server struct {
 	pendingLocks   map[string]*time.Timer
 	pendingCancel  map[string]context.CancelFunc
 	lintConfig     *linter.Config
+	outputMu       sync.Mutex
+	output         io.Writer
 }

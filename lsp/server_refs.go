@@ -197,7 +197,7 @@ func (s *Server) forEachBakFile(fn func(path, uri string)) {
 
 func (s *Server) ensureWorkspaceRefIndex() {
 	s.forEachBakFile(func(path, uri string) {
-		res := s.Cache[uri]
+		res := s.analysisResultOrNil(uri)
 		if res != nil && res.RefIndex != nil && res.Defs != nil {
 			return
 		}
@@ -234,29 +234,29 @@ func (s *Server) ensureWorkspaceRefIndex() {
 				Structs: make(map[string]StructInfo),
 			}
 		}
-		s.Indexes[uri] = idx
-		refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, idx, s)
-		if res == nil {
-			res = &AnalysisResult{}
-			s.Cache[uri] = res
+		updated := res
+		if updated == nil {
+			updated = &AnalysisResult{}
 		}
-		res.AST = prog
-		res.TC = tc
-		res.Index = idx
-		res.Imports = imports
-		res.RefIndex = refIndex
-		res.RefByPos = refByPos
-		res.Defs = defs
+		refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, idx, s)
+		updated.AST = prog
+		updated.TC = tc
+		updated.Index = idx
+		updated.Imports = imports
+		updated.RefIndex = refIndex
+		updated.RefByPos = refByPos
+		updated.Defs = defs
+		s.setAnalysisResult(uri, idx, updated)
 	})
 }
 
 func (s *Server) ensureWorkspaceIndexes() {
 	s.forEachBakFile(func(path, uri string) {
-		if _, ok := s.Indexes[uri]; ok {
+		if _, ok := s.indexSnapshot()[uri]; ok {
 			return
 		}
 		if idx := s.getOrIndexFile(path); idx != nil {
-			s.Indexes[uri] = idx
+			s.setIndex(uri, idx)
 		}
 	})
 }
@@ -318,7 +318,7 @@ func referenceTarget(s *Server, uri string, node ast.Node) (name, modulePath str
 		}
 		name = n.Method.Value
 		if ident, ok := n.Object.(*ast.Identifier); ok {
-			if res, ok := s.Cache[uri]; ok && res.Imports != nil {
+			if res, ok := s.analysisResult(uri); ok && res.Imports != nil {
 				if importPath, ok := res.Imports[ident.Value]; ok {
 					modulePath = s.resolveImportPath(uriToPath(uri), importPath)
 				}
@@ -327,7 +327,7 @@ func referenceTarget(s *Server, uri string, node ast.Node) (name, modulePath str
 		return name, modulePath, false, true
 	case *ast.Identifier:
 		name = n.Value
-		if res, ok := s.Cache[uri]; ok && res.Index != nil {
+		if res, ok := s.analysisResult(uri); ok && res.Index != nil {
 			if sym, ok := res.Index.Symbols[name]; ok {
 				if sym.Location.URI == uri && sym.Location.Range.Start.Line == n.Token.Line-1 {
 					return name, uriToPath(uri), false, true
@@ -368,14 +368,14 @@ func collectWorkspaceReferences(s *Server, uri string, node ast.Node) []Location
 	}
 
 	if localOnly {
-		if res, ok := s.Cache[uri]; ok && res.AST != nil {
+		if res, ok := s.analysisResult(uri); ok && res.AST != nil {
 			return collectReferences(res.AST, uri, name)
 		}
 		return nil
 	}
 
 	var refs []Location
-	for fileURI, res := range s.Cache {
+	for fileURI, res := range s.cacheSnapshot() {
 		refs = append(refs, referencesFromFile(s, fileURI, res, modulePath, name)...)
 	}
 	return refs

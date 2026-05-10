@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -31,4 +32,40 @@ func TestDecodeMessageRejectsOversizedContentLength(t *testing.T) {
 	if _, _, err := DecodeMessage(strings.NewReader(msg)); err == nil {
 		t.Fatalf("expected oversized content-length error")
 	}
+}
+
+func TestDecodeMessageAcceptsCaseInsensitiveContentLength(t *testing.T) {
+	msg := "content-length: 2\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{}"
+	content, length, err := DecodeMessage(strings.NewReader(msg))
+	if err != nil {
+		t.Fatalf("decode message: %v", err)
+	}
+	if length != 2 || string(content) != "{}" {
+		t.Fatalf("expected 2-byte body, got length=%d content=%q", length, content)
+	}
+}
+
+func TestDecodeMessageTrimsContentLengthWhitespace(t *testing.T) {
+	msg := "Content-Length:\t 2 \r\n\r\n{}"
+	content, length, err := DecodeMessage(strings.NewReader(msg))
+	if err != nil {
+		t.Fatalf("decode message: %v", err)
+	}
+	if length != 2 || string(content) != "{}" {
+		t.Fatalf("expected 2-byte body, got length=%d content=%q", length, content)
+	}
+}
+
+func decodeFramedResponse(t *testing.T, framed string) map[string]any {
+	t.Helper()
+
+	content, _, err := DecodeMessage(strings.NewReader(framed))
+	if err != nil {
+		t.Fatalf("decode framed response: %v", err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(content, &out); err != nil {
+		t.Fatalf("decode response json: %v", err)
+	}
+	return out
 }

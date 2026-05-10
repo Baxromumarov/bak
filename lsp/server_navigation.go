@@ -45,7 +45,7 @@ const (
 )
 
 func (s *Server) documentText(uri string) string {
-	if text := s.Documents[uri]; text != "" {
+	if text, ok := s.document(uri); ok && text != "" {
 		return text
 	}
 	data, err := os.ReadFile(uriToPath(uri))
@@ -362,7 +362,7 @@ func (s *Server) implementationLocations(typeName string) []Location {
 		return nil
 	}
 	locs := []Location{}
-	for uri, res := range s.Cache {
+	for uri, res := range s.cacheSnapshot() {
 		if res == nil || res.AST == nil {
 			continue
 		}
@@ -386,7 +386,7 @@ func (s *Server) lookupWorkspaceSymbol(result *AnalysisResult, originURI, name s
 		return sym.Location, true
 	}
 	originPath := uriToPath(originURI)
-	for _, res := range s.Cache {
+	for _, res := range s.cacheSnapshot() {
 		if res == nil || res.Index == nil {
 			continue
 		}
@@ -406,7 +406,7 @@ func (s *Server) handleDefinition(req Request) []Location {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil || result.Index == nil {
 		return nil
 	}
@@ -457,7 +457,7 @@ func (s *Server) handleTypeDefinition(req Request) []Location {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil || result.TC == nil {
 		return nil
 	}
@@ -501,7 +501,7 @@ func (s *Server) handleImplementation(req Request) []Location {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil {
 		return nil
 	}
@@ -526,7 +526,7 @@ func (s *Server) handleReferences(req Request) []Location {
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return nil
 	}
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil {
 		return nil
 	}
@@ -542,7 +542,7 @@ func (s *Server) handleReferences(req Request) []Location {
 				s.ensureWorkspaceRefIndex()
 				refs := []Location{}
 				if params.Context.IncludeDeclaration {
-					for _, res := range s.Cache {
+					for _, res := range s.cacheSnapshot() {
 						if res == nil || res.Defs == nil {
 							continue
 						}
@@ -552,7 +552,7 @@ func (s *Server) handleReferences(req Request) []Location {
 						}
 					}
 				}
-				for _, res := range s.Cache {
+				for _, res := range s.cacheSnapshot() {
 					if res == nil || res.RefIndex == nil {
 						continue
 					}
@@ -575,7 +575,7 @@ func (s *Server) handleDocumentSymbol(req Request) []DocumentSymbol {
 		return nil
 	}
 
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result.AST == nil {
 		return nil
 	}
@@ -591,7 +591,7 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 	s.ensureWorkspaceIndexes()
 	query := strings.ToLower(params.Query)
 	items := []SymbolInformation{}
-	for _, idx := range s.Indexes {
+	for _, idx := range s.indexSnapshot() {
 		if idx == nil {
 			continue
 		}
@@ -616,7 +616,7 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 		return nil
 	}
 
-	result, ok := s.Cache[params.TextDocument.URI]
+	result, ok := s.analysisResult(params.TextDocument.URI)
 	if !ok || result == nil || result.AST == nil || !isRenameableIdentifier(params.NewName) {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
@@ -699,7 +699,7 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 
 	actions = addAutoImportActions(
 		actions,
-		s.Cache[params.TextDocument.URI],
+		s.analysisResultOrNil(params.TextDocument.URI),
 		params.TextDocument.URI,
 		params.Context.Diagnostics,
 	)

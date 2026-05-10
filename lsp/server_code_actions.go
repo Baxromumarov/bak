@@ -229,7 +229,7 @@ func addAutoImportActions(actions []CodeAction, result *AnalysisResult, uri stri
 }
 
 func (s *Server) getOrganizeImportsEdit(uri string) *WorkspaceEdit {
-	result := s.Cache[uri]
+	result := s.analysisResultOrNil(uri)
 	if result == nil || result.AST == nil {
 		return nil
 	}
