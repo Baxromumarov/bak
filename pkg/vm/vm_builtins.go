@@ -791,12 +791,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 
 		structVal, sErr := makeStruct("os.ExecResult", map[string]compiler.Value{
-			"Output":    compiler.NewString(execResult.Output),
-			"Stdout":    compiler.NewString(execResult.Stdout),
-			"Stderr":    compiler.NewString(execResult.Stderr),
-			"ExitCode":  compiler.NewInt(execResult.ExitCode),
-			"TimedOut":  compiler.NewBool(execResult.TimedOut),
-			"Truncated": compiler.NewBool(execResult.Truncated),
+			"output":    compiler.NewString(execResult.Output),
+			"stdout":    compiler.NewString(execResult.Stdout),
+			"stderr":    compiler.NewString(execResult.Stderr),
+			"exitCode":  compiler.NewInt(execResult.ExitCode),
+			"timedOut":  compiler.NewBool(execResult.TimedOut),
+			"truncated": compiler.NewBool(execResult.Truncated),
 		})
 		if sErr != nil {
 			return makeResult(false, compiler.NewString(sErr.Error())), nil
@@ -1275,7 +1275,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("spawn() arg count mismatch: expected %d, got %d", fnObj.Arity, len(spawnArgs))
 		}
 
-		newVM := New(vm.module)
+		newVM := NewWithPermissions(vm.module, vm.permissions)
 		tid := int(atomic.AddInt64(&threadIDCounter, 1))
 		newVM.threadID = tid
 		newVM.SetTracer(vm.tracer)
@@ -1309,6 +1309,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		go func() {
 			defer close(thread.Done)
 			if _, err := newVM.run(); err != nil {
+				thread.Err = err.Error()
 				_, _ = strfmt.Fprintln(os.Stderr, "Thread ", tid, " panic: ", err)
 			}
 		}()
@@ -1324,6 +1325,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		thread := args[0].AsObject.(*compiler.ThreadInstance)
 		<-thread.Done
+		if thread.Err != "" {
+			return compiler.NewNil(), fmt.Errorf("thread %d failed: %s", thread.ID, thread.Err)
+		}
 		return compiler.NewNil(), nil
 
 	case compiler.BUILTIN_SLEEP:

@@ -1,0 +1,37 @@
+package main
+
+import db "std/db/db"
+import mysql "std/db/mysql"
+import os "std/os"
+
+func main() -> (void) {
+    var dsnResult: Result<string, string> = os.getenv("BAK_MYSQL_DSN")
+    if dsnResult.isErr() {
+        println("mysql env: skipped")
+        return void
+    }
+
+    var connResult: Result<db.Connection, string> = mysql.connect(dsnResult.unwrap())
+    if connResult.isErr() {
+        println("mysql env: connect failed: " + connResult.unwrapErr())
+        return void
+    }
+
+    var conn: db.Connection = connResult.unwrap()
+    var queryResult: Result<db.QueryResult, string> = mysql.query(&conn, "select 1 as value")
+    if queryResult.isErr() {
+        println("mysql env: query failed: " + queryResult.unwrapErr())
+        mysql.close(conn)
+        return void
+    }
+
+    var rows = db.rows(&queryResult.unwrap())
+    if rows.len() == 1 {
+        println("mysql env: ok")
+    } else {
+        println("mysql env: bad row count")
+    }
+
+    mysql.close(conn)
+    return void
+}

@@ -100,7 +100,7 @@ func test_vec_error_paths() -> (void) {
 
 func test_queue_helpers() -> (void) {
     mut var t: test.T = test.new("test_queue_helpers")
-    mut var q = queue.new_queue()
+    mut var q = queue.newQueue()
 
     t.isTrue(q.isEmpty())
     t.eq(

@@ -2,12 +2,25 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BAK_BIN="${BAK_BIN:-$ROOT/bak}"
+DEFAULT_BAK_BIN="$ROOT/bak"
+if [[ -x "$ROOT/bin/bak" ]]; then
+  DEFAULT_BAK_BIN="$ROOT/bin/bak"
+fi
+BAK_BIN="${BAK_BIN:-$DEFAULT_BAK_BIN}"
 
 projects=(
   "test_project/calculator_cli/main.bak"
   "test_project/http_service/main.bak"
   "test_project/tcp_probe/main.bak"
+  "test_project/runtime/http_roundtrip/main.bak"
+  "test_project/runtime/tcp_echo/main.bak"
+  "test_project/runtime/file_io_roundtrip/main.bak"
+  "test_project/runtime/db_contract/main.bak"
+  "test_project/runtime/perf_baseline/main.bak"
+  "test_project/runtime/memory_ownership_stress/main.bak"
+  "test_project/runtime/postgres_env/main.bak"
+  "test_project/runtime/mysql_env/main.bak"
+  "test_project/camelcase_stdlib/main.bak"
   "test_project/database_report/main.bak"
   "test_project/file_pipeline/main.bak"
   "test_project/memory_pressure/main.bak"

@@ -416,11 +416,11 @@ func fileLabel() -> (string) {
 
     var split: path.Split = path.split(&name_prefix)
 
-    if split.Base == "" || split.Base == "." {
+    if split.base == "" || split.base == "." {
         return name_prefix
     }
 
-    return split.Base
+    return split.base
 }
 
 func displayTestName(full: string) -> (string) {

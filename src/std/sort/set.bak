@@ -4,7 +4,7 @@ import collections "std/collections/set"
 import vector "std/sort/vector"
 
 // Sort Set<T> values and return a sorted Vec.
-pub func sort_set<T>(
+pub func sortSet<T>(
     set: &collections.Set<T>,
     asc: bool,
     cmp: func(&T, &T) -> (int),
@@ -21,14 +21,14 @@ pub func sort_set<T>(
 }
 
 // Sort Set<T> values with a custom less function.
-pub func sort_set_by<T>(
+pub func sortSetBy<T>(
     set: &collections.Set<T>,
     asc: bool,
     less: func(&T, &T) -> (bool),
 ) -> (Vec<T, _>) {
     mut var items: Vec<T, _> = set.values()
 
-    vector.sort_by(
+    vector.sortBy(
         &mut items,
         asc,
         less,
@@ -60,7 +60,7 @@ pub func sortStringSetBy(
 ) -> (Vec<string, _>) {
     mut var items: Vec<string, _> = set.values()
 
-    vector.sort_by(
+    vector.sortBy(
         &mut items,
         asc,
         less,
@@ -89,7 +89,7 @@ pub func sortIntSetBy(
 ) -> (Vec<int, _>) {
     mut var items: Vec<int, _> = set.values()
 
-    vector.sort_by(
+    vector.sortBy(
         &mut items,
         asc,
         less,

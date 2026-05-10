@@ -71,30 +71,30 @@ pub func array(items: Vec<Json, _>) -> (Json) {
     return Json.Array(items)
 }
 
-// encode_obj maps a value into a JSON object by using a field encoder function.
+// encodeObj maps a value into a JSON object by using a field encoder function.
 // This is an optional helper; developers can still build Json objects manually.
-pub func encode_obj<T>(
+pub func encodeObj<T>(
     value: T,
     fields: func(T) -> (Vec<JsonEntry, _>),
 ) -> (Json) {
     return object(fields(value))
 }
 
-// marshal_obj encodes an object value and marshals it to a JSON string.
-pub func marshal_obj<T>(
+// marshalObj encodes an object value and marshals it to a JSON string.
+pub func marshalObj<T>(
     value: T,
     fields: func(T) -> (Vec<JsonEntry, _>),
 ) -> (string) {
     return marshal(
-        encode_obj(
+        encodeObj(
             value,
             fields,
         ),
     )
 }
 
-// encode_array maps a Vec<T, _> into a Json array using the provided encoder.
-pub func encode_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
+// encodeArray maps a Vec<T, _> into a Json array using the provided encoder.
+pub func encodeArray<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
     mut var out: Vec<Json, _> = Vec.new()
 
     for item in items {
@@ -104,10 +104,10 @@ pub func encode_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (Json) {
     return Json.Array(out)
 }
 
-// marshal_array maps a Vec<T, _> into a Json array and marshals it to a string.
-pub func marshal_array<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
+// marshalArray maps a Vec<T, _> into a Json array and marshals it to a string.
+pub func marshalArray<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
     return marshal(
-        encode_array(
+        encodeArray(
             items,
             f,
         ),
@@ -548,7 +548,7 @@ impl ObjBuilder as b {
     }
 }
 
-pub func decode_obj<T>(
+pub func decodeObj<T>(
     value: Json,
     f: func(&mut ObjBuilder) -> (T),
 ) -> (Result<T, string>) {
@@ -575,7 +575,7 @@ pub func decode_obj<T>(
     return Err("invalid object")
 }
 
-pub func decode_array<T>(
+pub func decodeArray<T>(
     value: Json,
     f: func(Json) -> (Result<T, string>),
 ) -> (Result<Vec<T, _>, string>) {
@@ -607,7 +607,7 @@ pub func decode_array<T>(
     return Err("invalid array")
 }
 
-pub func decode_array_objects<T>(
+pub func decodeArrayObjects<T>(
     value: Json,
     f: func(&mut ObjBuilder) -> (T),
 ) -> (Result<Vec<T, _>, string>) {
@@ -620,7 +620,7 @@ pub func decode_array_objects<T>(
             mut var i: int = 0
 
             while i < items.len() {
-                switch decode_obj(
+                switch decodeObj(
                     items[i],
                     f,
                 ) {
@@ -831,7 +831,7 @@ pub func boolOr(key: string, fallback: bool) -> (bool) {
     )
 }
 
-pub func read_array<T>(
+pub func readArray<T>(
     path: string,
     f: func() -> (T),
 ) -> (Result<Vec<T, _>, string>) {

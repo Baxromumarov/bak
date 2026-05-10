@@ -34,8 +34,8 @@ func test_db_row_getters_and_errors() -> (void) {
         ],
     )
     var qr: db.QueryResult = db.QueryResult{
-        Columns: columns,
-        Rows:    rows,
+        columns: columns,
+        rows:    rows,
     }
     var parsed_rows: Vec<db.Row, _> = db.rows(&qr)
 

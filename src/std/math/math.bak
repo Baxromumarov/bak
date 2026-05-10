@@ -1,15 +1,15 @@
 package math
 
 // Math helpers for Bak programs that need floating-point utilities.
-pub const PI: float64 = 3.141592653589793
-pub const Tau: float64 = PI * 2.0
-pub const E: float64 = 2.718281828459045
-pub const Phi: float64 = 1.618033988749895
-pub const Sqrt2: float64 = 1.4142135623730951
-pub const Ln2: float64 = 0.6931471805599453
-pub const Ln10: float64 = 2.302585092994046
-pub const EPSILON: float64 = 0.000000000001
-pub const SERIES_LIMIT: int = 60
+pub const pi: float64 = 3.141592653589793
+pub const tau: float64 = pi * 2.0
+pub const e: float64 = 2.718281828459045
+pub const phi: float64 = 1.618033988749895
+pub const sqrt2: float64 = 1.4142135623730951
+pub const ln2: float64 = 0.6931471805599453
+pub const ln10: float64 = 2.302585092994046
+pub const epsilon: float64 = 0.000000000001
+pub const seriesLimit: int = 60
 
 // Basic integer utilities
 pub func absInt(value: int) -> (int) {
@@ -174,11 +174,11 @@ pub func exp(value: float64) -> (float64) {
     mut var term: float64 = 1.0
     mut var index: int = 1
 
-    while index < SERIES_LIMIT {
+    while index < seriesLimit {
         term = term * value / float64(index)
         sum = sum + term
 
-        if absFloat(term) < EPSILON {
+        if absFloat(term) < epsilon {
             break
         }
 
@@ -197,12 +197,12 @@ pub func ln(value: float64) -> (float64) {
     mut var shift: int = 0
 
     while normalized > 2.0 {
-        normalized = normalized / E
+        normalized = normalized / e
         shift = shift + 1
     }
 
     while normalized < 0.5 {
-        normalized = normalized * E
+        normalized = normalized * e
         shift = shift - 1
     }
 
@@ -212,14 +212,14 @@ pub func ln(value: float64) -> (float64) {
     mut var sum: float64 = z
     mut var idx: int = 1
 
-    while idx < SERIES_LIMIT {
+    while idx < seriesLimit {
         term = term * zsq
 
         var denom: float64 = float64(2 * idx + 1)
 
         sum = sum + term / denom
 
-        if absFloat(term) < EPSILON {
+        if absFloat(term) < epsilon {
             break
         }
 
@@ -230,7 +230,7 @@ pub func ln(value: float64) -> (float64) {
 }
 
 pub func exp2(value: float64) -> (float64) {
-    return exp(value * Ln2)
+    return exp(value * ln2)
 }
 
 pub func log2(value: float64) -> (float64) {
@@ -238,10 +238,10 @@ pub func log2(value: float64) -> (float64) {
         return 0.0
     }
 
-    var result: float64 = ln(value) / Ln2
+    var result: float64 = ln(value) / ln2
     var nearest: float64 = round(result)
 
-    if absFloat(result - nearest) < EPSILON {
+    if absFloat(result - nearest) < epsilon {
         return nearest
     }
 
@@ -253,10 +253,10 @@ pub func log10(value: float64) -> (float64) {
         return 0.0
     }
 
-    var result: float64 = ln(value) / Ln10
+    var result: float64 = ln(value) / ln10
     var nearest: float64 = round(result)
 
-    if absFloat(result - nearest) < EPSILON {
+    if absFloat(result - nearest) < epsilon {
         return nearest
     }
 
@@ -317,7 +317,7 @@ pub func sqrt(value: float64) -> (float64) {
     mut var diff: float64 = 1.0
     mut var iter: int = 0
 
-    while absFloat(diff) > EPSILON && iter < SERIES_LIMIT {
+    while absFloat(diff) > epsilon && iter < seriesLimit {
         mut var next: float64 = 0.5 * (guess + value / guess)
 
         diff = next - guess
@@ -346,11 +346,11 @@ pub func sin(value: float64) -> (float64) {
     mut var sum: float64 = angle
     mut var idx: int = 1
 
-    while idx < SERIES_LIMIT {
+    while idx < seriesLimit {
         term = term * -angle * angle / float64(2 * idx * (2 * idx + 1))
         sum = sum + term
 
-        if absFloat(term) < EPSILON {
+        if absFloat(term) < epsilon {
             break
         }
 
@@ -366,11 +366,11 @@ pub func cos(value: float64) -> (float64) {
     mut var sum: float64 = 1.0
     mut var idx: int = 1
 
-    while idx < SERIES_LIMIT {
+    while idx < seriesLimit {
         term = term * -angle * angle / float64((2 * idx - 1) * (2 * idx))
         sum = sum + term
 
-        if absFloat(term) < EPSILON {
+        if absFloat(term) < epsilon {
             break
         }
 
@@ -392,11 +392,11 @@ pub func tan(value: float64) -> (float64) {
 
 pub func asin(value: float64) -> (float64) {
     if value <= -1.0 {
-        return -PI / 2.0
+        return -pi / 2.0
     }
 
     if value >= 1.0 {
-        return PI / 2.0
+        return pi / 2.0
     }
 
     mut var diff: float64 = 1.0 - value * value
@@ -409,7 +409,7 @@ pub func asin(value: float64) -> (float64) {
 }
 
 pub func acos(value: float64) -> (float64) {
-    return PI / 2.0 - asin(value)
+    return pi / 2.0 - asin(value)
 }
 
 pub func atan(value: float64) -> (float64) {
@@ -428,7 +428,7 @@ pub func atan(value: float64) -> (float64) {
     mut var result: float64
 
     if arg > 1.0 {
-        result = PI / 2.0 - atanSeries(1.0 / arg)
+        result = pi / 2.0 - atanSeries(1.0 / arg)
     } else {
         result = atanSeries(arg)
     }
@@ -443,29 +443,29 @@ pub func atan2(y: float64, x: float64) -> (float64) {
 
     if x < 0.0 {
         if y >= 0.0 {
-            return atan(y / x) + PI
+            return atan(y / x) + pi
         }
 
-        return atan(y / x) - PI
+        return atan(y / x) - pi
     }
 
     if y > 0.0 {
-        return PI / 2.0
+        return pi / 2.0
     }
 
     if y < 0.0 {
-        return -PI / 2.0
+        return -pi / 2.0
     }
 
     return 0.0
 }
 
 pub func deg2rad(degrees: float64) -> (float64) {
-    return degrees * PI / 180.0
+    return degrees * pi / 180.0
 }
 
 pub func rad2deg(radians: float64) -> (float64) {
-    return radians * 180.0 / PI
+    return radians * 180.0 / pi
 }
 
 pub func sinh(value: float64) -> (float64) {
@@ -494,12 +494,12 @@ func normalizeAngle(value: float64) -> (float64) {
         return 0.0
     }
 
-    mut var wrapped: float64 = value - Tau * floor(value / Tau)
+    mut var wrapped: float64 = value - tau * floor(value / tau)
 
-    if wrapped > PI {
-        wrapped = wrapped - Tau
-    } else if wrapped < -PI {
-        wrapped = wrapped + Tau
+    if wrapped > pi {
+        wrapped = wrapped - tau
+    } else if wrapped < -pi {
+        wrapped = wrapped + tau
     }
 
     return wrapped
@@ -511,14 +511,14 @@ func atanSeries(value: float64) -> (float64) {
     var square: float64 = value * value
     mut var idx: int = 1
 
-    while idx < SERIES_LIMIT {
+    while idx < seriesLimit {
         term = term * -square
 
         var denom: float64 = float64(2 * idx + 1)
 
         sum = sum + term / denom
 
-        if absFloat(term) < EPSILON {
+        if absFloat(term) < epsilon {
             break
         }
 

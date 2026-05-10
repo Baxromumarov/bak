@@ -232,7 +232,7 @@ func test_select_typed_mapper() -> (void) {
 
     selectSpy.called = false
 
-    var result = b.selectRaw(columns).from("users").load_map(
+    var result = b.selectRaw(columns).from("users").loadMap(
         &conn,
         decode_user,
     )

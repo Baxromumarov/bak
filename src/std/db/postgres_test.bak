@@ -28,12 +28,12 @@ pub func test_postgres_connect() -> (void) {
 
             println(
                 "Query returned ",
-                result.Rows.len(),
+                result.rows.len(),
                 " rows",
             )
             println(
-                "Columns: ",
-                result.Columns.len(),
+                "columns: ",
+                result.columns.len(),
             )
         } else {
             println(

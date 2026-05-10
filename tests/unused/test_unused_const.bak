@@ -3,11 +3,11 @@ package main
 // Test: unused private and public constants
 const X: int = 10
 // should warn (unused)
-pub const PI: int = 3
+pub const pi: int = 3
 
 // should NOT warn
 func main() -> (void) {
-    print(PI)
+    print(pi)
 
     return void
 }

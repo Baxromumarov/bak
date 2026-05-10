@@ -18,7 +18,7 @@ func TestStdlibCorePublicSymbolContracts(t *testing.T) {
 	}{
 		{
 			path: filepath.Join(std, "math", "math.bak"),
-			want: []string{"PI", "absInt", "sqrt", "sin", "cos", "gcd"},
+			want: []string{"pi", "absInt", "sqrt", "sin", "cos", "gcd"},
 		},
 		{
 			path: filepath.Join(std, "collections", "hashmap.bak"),

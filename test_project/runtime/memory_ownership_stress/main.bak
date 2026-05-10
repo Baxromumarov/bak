@@ -1,0 +1,50 @@
+package main
+
+struct Blob {
+    id:   int
+    data: Vec<int, _>
+}
+
+func makeBlob(id: int, width: int) -> (Blob) {
+    mut var data: Vec<int, _> = Vec.new()
+    mut var i: int = 0
+
+    while i < width {
+        data.push((id + i) % 251)
+        i = i + 1
+    }
+
+    return Blob{id: id, data: data}
+}
+
+func sumBlob(blob: &Blob) -> (int) {
+    mut var total: int = blob.id
+
+    for value in *blob.data {
+        total = total + value
+    }
+
+    return total
+}
+
+func churn(rounds: int, width: int) -> (int) {
+    mut var checksum: int = 0
+    mut var blobs: Vec<Blob, _> = Vec.new()
+    mut var i: int = 0
+
+    while i < rounds {
+        blobs.push(makeBlob(i, width + (i % 7)))
+        i = i + 1
+    }
+
+    for blob in blobs {
+        checksum = (checksum + sumBlob(&blob)) % 1000003
+    }
+
+    return checksum
+}
+
+func main() -> (void) {
+    println("memory ownership checksum: " + churn(80, 32).toString())
+    return void
+}

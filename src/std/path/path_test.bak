@@ -69,11 +69,11 @@ func test_join_and_split() -> (void) {
     var sp: p.Split = p.split(&path_str)
 
     t.eqString(
-        sp.Dir,
+        sp.dir,
         "/a",
     )
     t.eqString(
-        sp.Base,
+        sp.base,
         "b",
     )
     t.finish()

@@ -28,11 +28,11 @@ func test_path_docs_split_ext_and_rewrite() -> (void) {
     var sp: path.Split = path.split(&p)
 
     t.eqString(
-        sp.Dir,
+        sp.dir,
         "/srv/app",
     )
     t.eqString(
-        sp.Base,
+        sp.base,
         "report.json",
     )
     t.eqString(

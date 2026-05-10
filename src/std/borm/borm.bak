@@ -562,7 +562,7 @@ impl SelectRaw as s {
         }
     }
 
-    pub func load_map<T>(
+    pub func loadMap<T>(
         conn: &postgres.Connection,
         decode: func(&postgres.Row) -> (Result<T, string>),
     ) -> (Result<Vec<T, _>, string>) {
@@ -589,11 +589,11 @@ impl SelectRaw as s {
         }
     }
 
-    pub func one_map<T>(
+    pub func oneMap<T>(
         conn: &postgres.Connection,
         decode: func(&postgres.Row) -> (Result<T, string>),
     ) -> (Result<T, string>) {
-        switch s.load_map(
+        switch s.loadMap(
             conn,
             decode,
         ) {

@@ -18,11 +18,13 @@ struct Ledger {
 impl Ledger as l {
     mut func add(entry: Entry) -> (void) {
         l.entries.push(entry)
+
         return void
     }
 
     func balance(account: string) -> (int) {
         mut var total: int = 0
+
         for entry in l.entries {
             if entry.account == account {
                 if entry.kind == EntryKind.Credit {
@@ -32,6 +34,7 @@ impl Ledger as l {
                 }
             }
         }
+
         return total
     }
 }
@@ -42,10 +45,31 @@ func newLedger() -> (Ledger) {
 
 func main() -> (void) {
     mut var ledger: Ledger = newLedger()
-    ledger.add(Entry{account: "cash", kind: EntryKind.Credit, amount: 100})
-    ledger.add(Entry{account: "cash", kind: EntryKind.Debit, amount: 35})
-    ledger.add(Entry{account: "bank", kind: EntryKind.Credit, amount: 80})
+
+    ledger.add(
+        Entry{
+            account: "cash",
+            amount:  100,
+            kind:    EntryKind.Credit,
+        },
+    )
+
+    ledger.add(
+        Entry{
+            account: "cash",
+            amount:  35,
+            kind:    EntryKind.Debit,
+        },
+    )
+    ledger.add(
+        Entry{
+            account: "bank",
+            amount:  80,
+            kind:    EntryKind.Credit,
+        },
+    )
     println("cash balance: " + ledger.balance("cash").toString())
     println("bank balance: " + ledger.balance("bank").toString())
+
     return void
 }

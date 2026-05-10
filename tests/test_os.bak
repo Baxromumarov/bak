@@ -140,11 +140,11 @@ func main() -> (void) {
         case Ok(output) {
             println(
                 "Command output:",
-                output.Output,
+                output.output,
             )
             println(
                 "Exit code:",
-                output.ExitCode,
+                output.exitCode,
             )
         }
         case Err(e) {
@@ -167,10 +167,10 @@ func main() -> (void) {
         case Ok(output) {
             println(
                 "Exit code:",
-                output.ExitCode,
+                output.exitCode,
             )
-            println("Output:")
-            println(output.Output)
+            println("output:")
+            println(output.output)
         }
         case Err(e) {
             println(

@@ -23,7 +23,7 @@ pub enum Color {
 pub type UserId = int
 
 // Public constant
-pub const MAX_USERS: int = 100
+pub const maxUsers: int = 100
 
 // Public function that returns an aliased type (alias is interchangeable)
 pub func makeInteger(x: int) -> (Integer) {

@@ -1,0 +1,73 @@
+package main
+
+import net "std/net"
+import strings "std/strings"
+import thread "std/thread"
+import time "std/time"
+
+func echoOnce(port: int) -> (void) {
+    var bindResult = net.bind("127.0.0.1", port)
+    if bindResult.isErr() {
+        println("tcp server bind failed: " + bindResult.unwrapErr())
+        return void
+    }
+
+    mut var listener: net.TcpListener = bindResult.unwrap()
+    var acceptResult = net.accept(&mut listener)
+    if acceptResult.isErr() {
+        println("tcp server accept failed: " + acceptResult.unwrapErr())
+        net.closeListener(&mut listener)
+        return void
+    }
+
+    mut var socket: net.TcpStream = acceptResult.unwrap()
+    var readResult = net.read(&mut socket, 128)
+    if readResult.isOk() {
+        net.write(&mut socket, readResult.unwrap())
+    }
+
+    net.close(&mut socket)
+    net.closeListener(&mut listener)
+    return void
+}
+
+func callEcho(port: int, message: string) -> (Result<string, string>) {
+    var connectResult = net.connect("127.0.0.1", port)
+    if connectResult.isErr() {
+        return Err(connectResult.unwrapErr())
+    }
+
+    mut var socket: net.TcpStream = connectResult.unwrap()
+    net.setTimeout(&mut socket, 1000)
+
+    var writeResult: Result<void, string> = net.write(&mut socket, message.bytes())
+    if writeResult.isErr() {
+        return Err(writeResult.unwrapErr())
+    }
+
+    var readResult = net.read(&mut socket, 128)
+    net.close(&mut socket)
+
+    if readResult.isErr() {
+        return Err(readResult.unwrapErr())
+    }
+
+    return Ok(strings.fromBytes(readResult.unwrap()))
+}
+
+func main() -> (void) {
+    var port: int = 19181
+    var server = thread.spawn(echoOnce, port)
+    thread.sleep(time.millis(50))
+
+    var echoed: Result<string, string> = callEcho(port, "ping")
+    server.join()
+
+    if echoed.isOk() && echoed.unwrap() == "ping" {
+        println("tcp echo: ok")
+    } else {
+        println("tcp echo: failed")
+    }
+
+    return void
+}

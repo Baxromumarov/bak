@@ -7,11 +7,11 @@ pub alias QueryResult = db.QueryResult
 pub alias Row = db.Row
 
 pub func connectionFromHandle(handle: int) -> (Connection) {
-    return db.Connection{Handle: handle}
+    return db.Connection{handle: handle}
 }
 
 pub func emptyQueryResult() -> (QueryResult) {
-    return db.QueryResult{Columns: Vec.new(), Rows: Vec.new()}
+    return db.QueryResult{columns: Vec.new(), rows: Vec.new()}
 }
 
 // Native PostgreSQL driver using built-in database connection.
@@ -21,7 +21,7 @@ pub func connect(conn_str: string) -> (Result<Connection, string>) {
     var result = __builtin_pg_connect(conn_str)
 
     if result.isOk() {
-        return Ok(db.Connection{Handle: result.unwrap()})
+        return Ok(db.Connection{handle: result.unwrap()})
     }
 
     return Err(result.unwrapErr())
@@ -33,7 +33,7 @@ pub func query(
     sql: string,
 ) -> (Result<QueryResult, string>) {
     return __builtin_pg_query(
-        conn.Handle,
+        conn.handle,
         sql,
     )
 }
@@ -46,7 +46,7 @@ pub func queryParams(
     params: Vec<string, _>,
 ) -> (Result<QueryResult, string>) {
     return __builtin_pg_query(
-        conn.Handle,
+        conn.handle,
         sql,
         params,
     )
@@ -54,7 +54,7 @@ pub func queryParams(
 
 // close closes the database connection.
 pub func close(conn: Connection) -> (Result<void, string>) {
-    return __builtin_pg_close(conn.Handle)
+    return __builtin_pg_close(conn.handle)
 }
 
 pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
@@ -73,5 +73,5 @@ pub func queryResult(
     columns: Vec<string, _>,
     rows: Vec<Vec<string, _>, _>,
 ) -> (QueryResult) {
-    return db.QueryResult{Columns: columns, Rows: rows}
+    return db.QueryResult{columns: columns, rows: rows}
 }

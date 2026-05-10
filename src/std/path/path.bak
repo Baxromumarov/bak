@@ -3,11 +3,11 @@ package path
 // Path utilities for slash-separated paths.
 import strings "std/strings"
 
-pub const Separator: string = "/"
+pub const separator: string = "/"
 
 pub struct Split {
-    pub Dir:  string
-    pub Base: string
+    pub dir:  string
+    pub base: string
 }
 
 func is_sep(ch: char) -> (bool) {
@@ -32,7 +32,7 @@ pub func clean(p: string) -> (string) {
     }
 
     var abs: bool = is_abs_ref(&p)
-    var sep: string = Separator
+    var sep: string = separator
     var parts: Vec<string, _> = strings.split(
         &p,
         &sep,
@@ -84,7 +84,7 @@ pub func join(a: string, b: string) -> (string) {
         return clean(a + b)
     }
 
-    return clean(a + Separator + b)
+    return clean(a + separator + b)
 }
 
 pub func joinParts(parts: Vec<string, _>) -> (string) {
@@ -110,7 +110,7 @@ pub func joinParts(parts: Vec<string, _>) -> (string) {
         } else if is_sep(out[out.len() - 1]) {
             out = out + part
         } else {
-            out = out + Separator + part
+            out = out + separator + part
         }
 
         i = i + 1
@@ -139,7 +139,7 @@ pub func base(p: &string) -> (string) {
         0,
         end,
     )
-    var sep: string = Separator
+    var sep: string = separator
     var idx: int = strings.lastIndexOf(
         &trimmed,
         &sep,
@@ -172,7 +172,7 @@ pub func dir(p: &string) -> (string) {
         0,
         end,
     )
-    var sep: string = Separator
+    var sep: string = separator
     var idx: int = strings.lastIndexOf(
         &trimmed,
         &sep,
@@ -248,7 +248,7 @@ pub func withoutExt(p: &string) -> (string) {
         return "/" + s
     }
 
-    return d + Separator + s
+    return d + separator + s
 }
 
 pub func withExt(p: &string, new_ext: &string) -> (string) {
@@ -266,7 +266,7 @@ pub func withExt(p: &string, new_ext: &string) -> (string) {
 }
 
 pub func split(p: &string) -> (Split) {
-    return Split{Base: base(p), Dir: dir(p)}
+    return Split{base: base(p), dir: dir(p)}
 }
 
 func join_stack(parts: &Vec<string, _>, abs: bool) -> (string) {
@@ -288,7 +288,7 @@ func join_stack(parts: &Vec<string, _>, abs: bool) -> (string) {
 
     while i < parts.len() {
         if out.len() > 0 && !is_sep(out[out.len() - 1]) {
-            out = out + Separator
+            out = out + separator
         }
 
         out = out + parts[i]

@@ -4,12 +4,12 @@ import time "std/time"
 import fs "std/fs"
 import os "std/os"
 
-pub const LEVEL_TRACE: int = 5
-pub const LEVEL_DEBUG: int = 10
-pub const LEVEL_INFO: int = 20
-pub const LEVEL_TEST: int = 30
-pub const LEVEL_WARN: int = 40
-pub const LEVEL_ERROR: int = 50
+pub const levelTrace: int = 5
+pub const levelDebug: int = 10
+pub const levelInfo: int = 20
+pub const levelTest: int = 30
+pub const levelWarn: int = 40
+pub const levelError: int = 50
 const COLOR_RESET: string = "\x1b[0m"
 const COLOR_RED: string = "\x1b[31m"
 const COLOR_GREEN: string = "\x1b[32m"
@@ -20,11 +20,11 @@ const COLOR_CYAN: string = "\x1b[36m"
 const COLOR_GRAY: string = "\x1b[90m"
 
 pub struct Logger {
-    pub min_level:  int
-    pub use_color:  bool
-    pub show_time:  bool
+    pub minLevel:  int
+    pub useColor:  bool
+    pub showTime:  bool
     pub prefix:     string
-    pub file_path:  string
+    pub filePath:  string
     pub appendFile: bool
 }
 
@@ -32,150 +32,150 @@ pub struct Logger {
 pub func new() -> (Logger) {
     return Logger{
         appendFile: true,
-        file_path:  "",
-        min_level:  LEVEL_INFO,
+        filePath:  "",
+        minLevel:  levelInfo,
         prefix:     "",
-        show_time:  true,
-        use_color:  true,
+        showTime:  true,
+        useColor:  true,
     }
 }
 
-// default_logger is the global logger used by package-level helpers.
-mut var default_logger: Logger = new()
+// defaultLogger is the global logger used by package-level helpers.
+mut var defaultLogger: Logger = new()
 
 pub func setLevel(level: int) -> (void) {
-    default_logger.min_level = level
+    defaultLogger.minLevel = level
 }
 
 pub func enableColor() -> (void) {
-    default_logger.use_color = true
+    defaultLogger.useColor = true
 }
 
 pub func disableColor() -> (void) {
-    default_logger.use_color = false
+    defaultLogger.useColor = false
 }
 
 pub func setShowTime(enabled: bool) -> (void) {
-    default_logger.show_time = enabled
+    defaultLogger.showTime = enabled
 }
 
 pub func setPrefix(p: string) -> (void) {
-    default_logger.prefix = p
+    defaultLogger.prefix = p
 }
 
 pub func setFile(path: string) -> (void) {
-    default_logger.file_path = path
+    defaultLogger.filePath = path
 }
 
 pub func clearFile() -> (void) {
-    default_logger.file_path = ""
+    defaultLogger.filePath = ""
 }
 
 pub func setAppend(enabled: bool) -> (void) {
-    default_logger.appendFile = enabled
+    defaultLogger.appendFile = enabled
 }
 
 pub func traceLog(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_TRACE,
+    defaultLogger.log(
+        levelTrace,
         msg,
     )
 }
 
 pub func debug(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_DEBUG,
+    defaultLogger.log(
+        levelDebug,
         msg,
     )
 }
 
 pub func info(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_INFO,
+    defaultLogger.log(
+        levelInfo,
         msg,
     )
 }
 
 pub func test(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_TEST,
+    defaultLogger.log(
+        levelTest,
         msg,
     )
 }
 
 pub func warn(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_WARN,
+    defaultLogger.log(
+        levelWarn,
         msg,
     )
 }
 
 pub func error(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_ERROR,
+    defaultLogger.log(
+        levelError,
         msg,
     )
 }
 
 pub func fatal(msg: string) -> (void) {
-    default_logger.log(
-        LEVEL_ERROR,
+    defaultLogger.log(
+        levelError,
         msg,
     )
     os.exit(1)
 }
 
 pub func traceKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_TRACE,
+    defaultLogger.logKv(
+        levelTrace,
         msg,
         fields,
     )
 }
 
 pub func debugKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_DEBUG,
+    defaultLogger.logKv(
+        levelDebug,
         msg,
         fields,
     )
 }
 
 pub func infoKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_INFO,
+    defaultLogger.logKv(
+        levelInfo,
         msg,
         fields,
     )
 }
 
 pub func testKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_TEST,
+    defaultLogger.logKv(
+        levelTest,
         msg,
         fields,
     )
 }
 
 pub func warnKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_WARN,
+    defaultLogger.logKv(
+        levelWarn,
         msg,
         fields,
     )
 }
 
 pub func errorKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_ERROR,
+    defaultLogger.logKv(
+        levelError,
         msg,
         fields,
     )
 }
 
 pub func fatalKv(msg: string, fields: Vec<Field, _>) -> (void) {
-    default_logger.logKv(
-        LEVEL_ERROR,
+    defaultLogger.logKv(
+        levelError,
         msg,
         fields,
     )
@@ -196,21 +196,21 @@ pub func kvInt(key: string, value: int) -> (Field) {
 }
 
 pub func kvBool(key: string, value: bool) -> (Field) {
-    return Field{key: key, value: bool_to_string(value)}
+    return Field{key: key, value: boolToString(value)}
 }
 
 pub func kvFloat(key: string, value: float64) -> (Field) {
-    return Field{key: key, value: float_to_string(value)}
+    return Field{key: key, value: floatToString(value)}
 }
 
 pub func withPrefix(prefix: string, level: int) -> (Logger) {
     return Logger{
-        appendFile: default_logger.appendFile,
-        file_path:  default_logger.file_path,
-        min_level:  level,
+        appendFile: defaultLogger.appendFile,
+        filePath:  defaultLogger.filePath,
+        minLevel:  level,
         prefix:     prefix,
-        show_time:  default_logger.show_time,
-        use_color:  default_logger.use_color,
+        showTime:  defaultLogger.showTime,
+        useColor:  defaultLogger.useColor,
     }
 }
 
@@ -235,41 +235,41 @@ impl Logger as l {
         msg: string,
         fields: Vec<Field, _>,
     ) -> (void) {
-        if level < l.min_level {
+        if level < l.minLevel {
             return void
         }
 
-        var level_name: string = level_to_name(level)
+        var levelName: string = levelToName(level)
         var prefix: string = l.prefix
-        mut var time_part: string = ""
+        mut var timePart: string = ""
 
-        if l.show_time {
-            time_part = time.now().format(time.FormatDateTime) + " "
+        if l.showTime {
+            timePart = time.now().format(time.formatDateTime) + " "
         }
 
-        mut var line: string = time_part
+        mut var line: string = timePart
 
         if prefix.len() > 0 {
             line = line + prefix + " "
         }
 
-        mut var fields_part: string = format_fields(&fields)
+        mut var fieldsPart: string = formatFields(&fields)
 
-        if l.use_color {
-            line = line + level_to_color(level) + "[" + level_name + "]" + COLOR_RESET + " " + msg + fields_part
+        if l.useColor {
+            line = line + levelToColor(level) + "[" + levelName + "]" + COLOR_RESET + " " + msg + fieldsPart
         } else {
-            line = line + "[" + level_name + "] " + msg + fields_part
+            line = line + "[" + levelName + "] " + msg + fieldsPart
         }
 
-        if l.file_path.len() > 0 {
+        if l.filePath.len() > 0 {
             if l.appendFile {
                 var _ = fs.appendFile(
-                    l.file_path,
+                    l.filePath,
                     line + "\n",
                 )
             } else {
                 var _ = fs.writeFile(
-                    l.file_path,
+                    l.filePath,
                     line + "\n",
                 )
             }
@@ -280,42 +280,42 @@ impl Logger as l {
 
     pub mut func traceLog(msg: string) -> (void) {
         l.log(
-            LEVEL_TRACE,
+            levelTrace,
             msg,
         )
     }
 
     pub mut func debug(msg: string) -> (void) {
         l.log(
-            LEVEL_DEBUG,
+            levelDebug,
             msg,
         )
     }
 
     pub mut func info(msg: string) -> (void) {
         l.log(
-            LEVEL_INFO,
+            levelInfo,
             msg,
         )
     }
 
     pub mut func warn(msg: string) -> (void) {
         l.log(
-            LEVEL_WARN,
+            levelWarn,
             msg,
         )
     }
 
     pub mut func error(msg: string) -> (void) {
         l.log(
-            LEVEL_ERROR,
+            levelError,
             msg,
         )
     }
 
     pub mut func fatal(msg: string) -> (void) {
         l.log(
-            LEVEL_ERROR,
+            levelError,
             msg,
         )
         os.exit(1)
@@ -323,7 +323,7 @@ impl Logger as l {
 
     pub mut func traceKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_TRACE,
+            levelTrace,
             msg,
             fields,
         )
@@ -331,7 +331,7 @@ impl Logger as l {
 
     pub mut func debugKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_DEBUG,
+            levelDebug,
             msg,
             fields,
         )
@@ -339,7 +339,7 @@ impl Logger as l {
 
     pub mut func infoKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_INFO,
+            levelInfo,
             msg,
             fields,
         )
@@ -347,7 +347,7 @@ impl Logger as l {
 
     pub mut func warnKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_WARN,
+            levelWarn,
             msg,
             fields,
         )
@@ -355,7 +355,7 @@ impl Logger as l {
 
     pub mut func errorKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_ERROR,
+            levelError,
             msg,
             fields,
         )
@@ -363,7 +363,7 @@ impl Logger as l {
 
     pub mut func fatalKv(msg: string, fields: Vec<Field, _>) -> (void) {
         l.logKv(
-            LEVEL_ERROR,
+            levelError,
             msg,
             fields,
         )
@@ -371,63 +371,63 @@ impl Logger as l {
     }
 }
 
-func level_to_name(level: int) -> (string) {
-    if level == LEVEL_TRACE {
+func levelToName(level: int) -> (string) {
+    if level == levelTrace {
         return "TRACE"
     }
 
-    if level == LEVEL_DEBUG {
+    if level == levelDebug {
         return "DEBUG"
     }
 
-    if level == LEVEL_INFO {
+    if level == levelInfo {
         return "INFO"
     }
 
-    if level == LEVEL_TEST {
+    if level == levelTest {
         return "TEST"
     }
 
-    if level == LEVEL_WARN {
+    if level == levelWarn {
         return "WARN"
     }
 
-    if level == LEVEL_ERROR {
+    if level == levelError {
         return "ERROR"
     }
 
     return "LOG"
 }
 
-func level_to_color(level: int) -> (string) {
-    if level == LEVEL_TRACE {
+func levelToColor(level: int) -> (string) {
+    if level == levelTrace {
         return COLOR_GRAY
     }
 
-    if level == LEVEL_DEBUG {
+    if level == levelDebug {
         return COLOR_CYAN
     }
 
-    if level == LEVEL_INFO {
+    if level == levelInfo {
         return COLOR_GREEN
     }
 
-    if level == LEVEL_TEST {
+    if level == levelTest {
         return COLOR_MAGENTA
     }
 
-    if level == LEVEL_WARN {
+    if level == levelWarn {
         return COLOR_YELLOW
     }
 
-    if level == LEVEL_ERROR {
+    if level == levelError {
         return COLOR_RED
     }
 
     return COLOR_BLUE
 }
 
-func format_fields(fields: &Vec<Field, _>) -> (string) {
+func formatFields(fields: &Vec<Field, _>) -> (string) {
     if fields.len() == 0 {
         return ""
     }
@@ -450,7 +450,7 @@ func format_fields(fields: &Vec<Field, _>) -> (string) {
 // =============================================================================
 // HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)
 // =============================================================================
-const CH_0: int = 48
+const ch0: int = 48
 
 func intToString(n: int) -> (string) {
     if n == 0 {
@@ -470,7 +470,7 @@ func intToString(n: int) -> (string) {
     while num > 0 {
         var digit: int = num % 10
 
-        digits.push(char(CH_0 + digit))
+        digits.push(char(ch0 + digit))
         num = num / 10
     }
 
@@ -490,7 +490,7 @@ func intToString(n: int) -> (string) {
     return result
 }
 
-func bool_to_string(b: bool) -> (string) {
+func boolToString(b: bool) -> (string) {
     if b {
         return "true"
     }
@@ -498,7 +498,7 @@ func bool_to_string(b: bool) -> (string) {
     return "false"
 }
 
-func float_to_string(f: float64) -> (string) {
+func floatToString(f: float64) -> (string) {
     if f != f {
         return "NaN"
     }
@@ -512,15 +512,15 @@ func float_to_string(f: float64) -> (string) {
         value = -value
     }
 
-    var int_part: int = int(value)
-    mut var frac: float64 = value - float64(int_part)
+    var intPart: int = int(value)
+    mut var frac: float64 = value - float64(intPart)
     mut var result: string = ""
 
     if negative {
         result = "-"
     }
 
-    result = result + intToString(int_part)
+    result = result + intToString(intPart)
     result = result + "."
 
     mut var i: int = 0
@@ -530,7 +530,7 @@ func float_to_string(f: float64) -> (string) {
 
         var digit: int = int(frac)
 
-        result = result + string(char(CH_0 + digit))
+        result = result + string(char(ch0 + digit))
         frac = frac - float64(digit)
         i = i + 1
     }

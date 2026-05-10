@@ -40,7 +40,7 @@ struct InternalCache {
 }
 
 // Public constant
-pub const VERSION: int = 1
+pub const version: int = 1
 // Private constant  
 const MAGIC_NUMBER: int = 42
 

@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,12 +28,12 @@ func requireVMResult(t *testing.T, val compiler.Value) *compiler.ResultInstance 
 func newVMWithExecStruct(permissions runtimecap.Permissions) *VM {
 	module := compiler.NewBytecodeModule()
 	module.AddStruct("os.ExecResult", []compiler.FieldDef{
-		{Name: "Output"},
-		{Name: "Stdout"},
-		{Name: "Stderr"},
-		{Name: "ExitCode"},
-		{Name: "TimedOut"},
-		{Name: "Truncated"},
+		{Name: "output"},
+		{Name: "stdout"},
+		{Name: "stderr"},
+		{Name: "exitCode"},
+		{Name: "timedOut"},
+		{Name: "truncated"},
 	})
 	return NewWithPermissions(module, permissions)
 }
@@ -209,6 +210,66 @@ func TestVMFileMutatorsDeniedWithoutPermission(t *testing.T) {
 	}
 }
 
+func TestVMSpawnedThreadInheritsPermissions(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "thread-write.txt")
+	src := `package main
+
+func writePath(_unused: int) -> (void) {
+    var result: Result<void, string> = __builtin_write_file(` + strconv.Quote(target) + `, "thread-ok")
+    if result.isErr() {
+        println(result.unwrapErr())
+    }
+    return void
+}
+
+func main() -> (Result<string, string>) {
+    var t = __builtin_spawn(writePath, 0)
+    __builtin_join(t)
+    return __builtin_read_file(` + strconv.Quote(target) + `)
+}
+`
+
+	module := compileModule(t, src)
+	v := NewWithPermissions(module, runtimecap.Permissions{AllowFSMutate: true})
+	val, err := v.Run()
+	if err != nil {
+		t.Fatalf("unexpected VM error: %v", err)
+	}
+
+	result := requireVMResult(t, val)
+	if result.IsErr {
+		t.Fatalf("expected spawned thread to inherit fs mutation permission, got %q", result.Value.AsString)
+	}
+	if got, want := result.Value.AsString, "thread-ok"; got != want {
+		t.Fatalf("unexpected file contents: got %q want %q", got, want)
+	}
+}
+
+func TestVMJoinPropagatesThreadPanic(t *testing.T) {
+	src := `package main
+
+func fail(_unused: int) -> (void) {
+    panic "worker exploded"
+}
+
+func main() -> (void) {
+    var t = __builtin_spawn(fail, 0)
+    __builtin_join(t)
+    return void
+}
+`
+
+	module := compileModule(t, src)
+	v := NewWithPermissions(module, runtimecap.Permissions{})
+	_, err := v.Run()
+	if err == nil {
+		t.Fatalf("expected join to propagate spawned thread panic")
+	}
+	if got := err.Error(); !strings.Contains(got, "thread") || !strings.Contains(got, "worker exploded") {
+		t.Fatalf("unexpected join error: %v", err)
+	}
+}
+
 func TestVMFileMutatorsAllowedWithPermission(t *testing.T) {
 	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{AllowFSMutate: true})
 	tempDir := t.TempDir()
@@ -303,13 +364,13 @@ func TestVMExecReturnsSeparatedOutput(t *testing.T) {
 		t.Fatalf("expected ExecResult struct, got %T", result.Value.AsObject)
 	}
 	if got := execResult.Fields[0].AsString; got != "bak" {
-		t.Fatalf("unexpected Output: %q", got)
+		t.Fatalf("unexpected output: %q", got)
 	}
 	if got := execResult.Fields[1].AsString; got != "bak" {
-		t.Fatalf("unexpected Stdout: %q", got)
+		t.Fatalf("unexpected stdout: %q", got)
 	}
 	if got := execResult.Fields[2].AsString; got != "" {
-		t.Fatalf("unexpected Stderr: %q", got)
+		t.Fatalf("unexpected stderr: %q", got)
 	}
 	if execResult.Fields[4].AsBool {
 		t.Fatalf("did not expect timeout")

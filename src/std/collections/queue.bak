@@ -6,7 +6,7 @@ pub struct Queue<T> {
     head:  int
 }
 
-pub func new_queue<T>() -> (Queue<T>) {
+pub func newQueue<T>() -> (Queue<T>) {
     mut var items: Vec<T, _> = Vec.new()
 
     return Queue{head: 0, items: items}

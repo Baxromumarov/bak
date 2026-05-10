@@ -18,17 +18,17 @@ const CH_NEWLINE: int = 10
 // '\n'
 const CH_CARRIAGE: int = 13
 // '\r'
-const CH_A_LOWER: int = 97
+const chALower: int = 97
 // 'a'
 const CH_Z_LOWER: int = 122
 // 'z'
-const CH_A_UPPER: int = 65
+const chAUpper: int = 65
 // 'A'
 const CH_Z_UPPER: int = 90
 // 'Z'
-const CH_0: int = 48
+const ch0: int = 48
 // '0'
-const CH_9: int = 57
+const ch9: int = 57
 
 // '9'
 // -----------------------------------------------------------------------------
@@ -430,7 +430,7 @@ pub func toUpper(s: &string) -> (string) {
     while i < s.len() {
         var code: int = int(s[i])
 
-        if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+        if code >= chALower && code <= CH_Z_LOWER {
             result = result + string(char(code - 32))
         } else {
             result = result + string(s[i])
@@ -450,7 +450,7 @@ pub func toLower(s: &string) -> (string) {
     while i < s.len() {
         var code: int = int(s[i])
 
-        if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+        if code >= chAUpper && code <= CH_Z_UPPER {
             result = result + string(char(code + 32))
         } else {
             result = result + string(s[i])
@@ -548,14 +548,14 @@ pub func padRight(s: &string, length: int, pad: char) -> (string) {
 pub func isLetter(ch: char) -> (bool) {
     var code: int = int(ch)
 
-    return code >= CH_A_LOWER && code <= CH_Z_LOWER || code >= CH_A_UPPER && code <= CH_Z_UPPER
+    return code >= chALower && code <= CH_Z_LOWER || code >= chAUpper && code <= CH_Z_UPPER
 }
 
 // isDigit checks if a character is a digit (0-9)
 pub func isDigit(ch: char) -> (bool) {
     var code: int = int(ch)
 
-    return code >= CH_0 && code <= CH_9
+    return code >= ch0 && code <= ch9
 }
 
 // isAlphanumeric checks if a character is a letter or digit
@@ -567,14 +567,14 @@ pub func isAlphanumeric(ch: char) -> (bool) {
 pub func isUpper(ch: char) -> (bool) {
     var code: int = int(ch)
 
-    return code >= CH_A_UPPER && code <= CH_Z_UPPER
+    return code >= chAUpper && code <= CH_Z_UPPER
 }
 
 // isLower checks if a character is lowercase
 pub func isLower(ch: char) -> (bool) {
     var code: int = int(ch)
 
-    return code >= CH_A_LOWER && code <= CH_Z_LOWER
+    return code >= chALower && code <= CH_Z_LOWER
 }
 
 // -----------------------------------------------------------------------------
@@ -775,7 +775,7 @@ pub func hasSuffixAny(s: &string, suffixes: &Vec<string, _>) -> (bool) {
     return false
 }
 
-// lines splits by '\n' and trims a trailing '\r' from each line (CRLF-safe).
+// lines splits by '\n' and trims a trailing '\r' from each line (crlf-safe).
 pub func lines(s: &string) -> (Vec<string, _>) {
     var newline: string = "\n"
     mut var raw: Vec<string, _> = split(
@@ -888,9 +888,9 @@ pub func swapCase(s: &string) -> (string) {
     while i < s.len() {
         var code: int = int(s[i])
 
-        if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+        if code >= chALower && code <= CH_Z_LOWER {
             result = result + string(char(code - 32))
-        } else if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+        } else if code >= chAUpper && code <= CH_Z_UPPER {
             result = result + string(char(code + 32))
         } else {
             result = result + string(s[i])
@@ -919,14 +919,14 @@ pub func titleCase(s: &string) -> (string) {
         if isLetter(ch) || isDigit(ch) {
             if !inWord {
                 // Start of word: uppercase
-                if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+                if code >= chALower && code <= CH_Z_LOWER {
                     result = result + string(char(code - 32))
                 } else {
                     result = result + string(ch)
                 }
 
                 inWord = true
-            } else if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+            } else if code >= chAUpper && code <= CH_Z_UPPER {
                 // Inside word: lowercase
                 result = result + string(char(code + 32))
             } else {
@@ -952,7 +952,7 @@ pub func snakeCase(s: &string) -> (string) {
         var ch: char = s[i]
         var code: int = int(ch)
 
-        if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+        if code >= chAUpper && code <= CH_Z_UPPER {
             if i > 0 && result.len() > 0 && result[result.len() - 1] != '_' {
                 result = result + "_"
             }
@@ -981,7 +981,7 @@ pub func kebabCase(s: &string) -> (string) {
         var ch: char = s[i]
         var code: int = int(ch)
 
-        if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+        if code >= chAUpper && code <= CH_Z_UPPER {
             if i > 0 && result.len() > 0 && result[result.len() - 1] != '-' {
                 result = result + "-"
             }
@@ -1014,7 +1014,7 @@ pub func camelCase(s: &string) -> (string) {
         if ch == '_' || ch == '-' || ch == ' ' {
             newWord = true
         } else if newWord {
-            if code >= CH_A_LOWER && code <= CH_Z_LOWER {
+            if code >= chALower && code <= CH_Z_LOWER {
                 result = result + string(char(code - 32))
             } else {
                 result = result + string(ch)
@@ -1023,7 +1023,7 @@ pub func camelCase(s: &string) -> (string) {
             newWord = false
         } else if result.len() == 0 {
             // First char lowercase
-            if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+            if code >= chAUpper && code <= CH_Z_UPPER {
                 result = result + string(char(code + 32))
             } else {
                 result = result + string(ch)

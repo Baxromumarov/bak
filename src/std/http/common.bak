@@ -1,19 +1,19 @@
 package http
 
-pub const HTTP_1_0: string = "HTTP/1.0"
-pub const HTTP_1_1: string = "HTTP/1.1"
-pub const HTTP_2_0: string = "HTTP/2.0"
-pub const HTTP_3_0: string = "HTTP/3.0"
-pub const CRLF: string = "\r\n"
-pub const CRLFCRLF: string = "\r\n\r\n"
-pub const LF: string = "\n"
-pub const LFLF: string = "\n\n"
-const CH_A_UPPER: int = 65
+pub const http10: string = "HTTP/1.0"
+pub const http11: string = "HTTP/1.1"
+pub const http20: string = "HTTP/2.0"
+pub const http30: string = "HTTP/3.0"
+pub const crlf: string = "\r\n"
+pub const crlfCrlf: string = "\r\n\r\n"
+pub const lf: string = "\n"
+pub const lfLf: string = "\n\n"
+const chAUpper: int = 65
 const CH_Z_UPPER: int = 90
 const CH_CASE_DELTA: int = 32
 
 func ascii_lower(code: int) -> (int) {
-    if code >= CH_A_UPPER && code <= CH_Z_UPPER {
+    if code >= chAUpper && code <= CH_Z_UPPER {
         return code + CH_CASE_DELTA
     }
 

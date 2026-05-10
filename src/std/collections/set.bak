@@ -7,7 +7,7 @@ pub struct Set<T> {
     map: hashmap.HashMap<T, bool>
 }
 
-pub func new_set<T>() -> (Set<T>) {
+pub func newSet<T>() -> (Set<T>) {
     return Set{map: hashmap.newHashMap()}
 }
 
@@ -51,7 +51,7 @@ impl Set as s {
     }
 
     pub func union(other: &Set<T>) -> (Set<T>) {
-        mut var out: Set<T> = new_set()
+        mut var out: Set<T> = newSet()
 
         for value in s.values() {
             out.add(value)
@@ -65,7 +65,7 @@ impl Set as s {
     }
 
     pub func intersection(other: &Set<T>) -> (Set<T>) {
-        mut var out: Set<T> = new_set()
+        mut var out: Set<T> = newSet()
 
         for value in s.values() {
             if other.contains(value) {
@@ -77,7 +77,7 @@ impl Set as s {
     }
 
     pub func difference(other: &Set<T>) -> (Set<T>) {
-        mut var out: Set<T> = new_set()
+        mut var out: Set<T> = newSet()
 
         for value in s.values() {
             if !other.contains(value) {
@@ -137,7 +137,7 @@ pub struct StringSet {
 }
 
 pub func newStringSet() -> (StringSet) {
-    return StringSet{inner: new_set()}
+    return StringSet{inner: newSet()}
 }
 
 impl StringSet as s {
@@ -204,7 +204,7 @@ pub struct IntSet {
 }
 
 pub func newIntSet() -> (IntSet) {
-    return IntSet{inner: new_set()}
+    return IntSet{inner: newSet()}
 }
 
 impl IntSet as s {

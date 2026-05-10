@@ -20,7 +20,7 @@ impl Buffer as b {
     }
 }
 
-pub func Create() -> (Buffer) {
+pub func create() -> (Buffer) {
     mut var buf: Buffer = Buffer{data: Vec.new(), pos: 0}
 
     buf.data.push(10)

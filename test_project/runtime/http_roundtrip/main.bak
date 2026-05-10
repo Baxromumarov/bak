@@ -1,0 +1,71 @@
+package main
+
+import http "std/http"
+import net "std/net"
+import strings "std/strings"
+import thread "std/thread"
+import time "std/time"
+
+func health(_req: http.Request) -> (http.Response) {
+    return http.text(200, "ok")
+}
+
+func serveOnce(port: int) -> (void) {
+    mut var router: http.Router = http.newRouter()
+    router.get("/health", health)
+
+    var result: Result<void, string> = http.serveOnce("127.0.0.1:" + port.toString(), router)
+    if result.isErr() {
+        println("http server failed: " + result.unwrapErr())
+    }
+
+    return void
+}
+
+func request(port: int) -> (Result<string, string>) {
+    var connectResult = net.connect("127.0.0.1", port)
+    if connectResult.isErr() {
+        return Err(connectResult.unwrapErr())
+    }
+
+    mut var socket: net.TcpStream = connectResult.unwrap()
+    net.setTimeout(&mut socket, 1000)
+
+    var payload: string = "GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
+    var writeResult: Result<void, string> = net.write(&mut socket, payload.bytes())
+    if writeResult.isErr() {
+        return Err(writeResult.unwrapErr())
+    }
+
+    var readResult = net.read(&mut socket, 1024)
+    net.close(&mut socket)
+
+    if readResult.isErr() {
+        return Err(readResult.unwrapErr())
+    }
+
+    return Ok(strings.fromBytes(readResult.unwrap()))
+}
+
+func main() -> (void) {
+    var port: int = 19180
+    var server = thread.spawn(serveOnce, port)
+    thread.sleep(time.millis(50))
+
+    var response: Result<string, string> = request(port)
+    server.join()
+
+    if response.isErr() {
+        println("http roundtrip failed: " + response.unwrapErr())
+        return void
+    }
+
+    var body: string = response.unwrap()
+    if body.indexOf("200 OK").isOk() && body.indexOf("\r\n\r\nok").isOk() {
+        println("http roundtrip: ok")
+    } else {
+        println("http roundtrip: bad response")
+    }
+
+    return void
+}

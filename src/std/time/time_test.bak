@@ -57,14 +57,14 @@ func test_duration_arithmetic() -> (void) {
 func test_duration_rounding_and_trunc() -> (void) {
     mut var t: test.T = test.new("test_duration_rounding_and_trunc")
     var d: tlib.Duration = tlib.millis(1501)
-    var r: tlib.Duration = d.round(tlib.Second)
+    var r: tlib.Duration = d.round(tlib.second)
 
     t.eq(
         r.asMillis(),
         2000,
     )
 
-    var tr: tlib.Duration = d.trunc(tlib.Second)
+    var tr: tlib.Duration = d.trunc(tlib.second)
 
     t.eq(
         tr.asMillis(),
@@ -154,62 +154,62 @@ func test_time_formats() -> (void) {
     var epoch: tlib.Time = tlib.fromUnix(0)
 
     t.eqString(
-        epoch.format(tlib.FormatUnix),
+        epoch.format(tlib.formatUnix),
         "0",
     )
     t.eqString(
-        epoch.format(tlib.FormatUnixMillis),
+        epoch.format(tlib.formatUnixMillis),
         "0",
     )
     t.eqString(
-        epoch.format(tlib.FormatUnixNanos),
+        epoch.format(tlib.formatUnixNanos),
         "0",
     )
     t.eqString(
-        epoch.format(tlib.FormatDate),
+        epoch.format(tlib.formatDate),
         "1970-01-01",
     )
     t.eqString(
-        epoch.format(tlib.FormatTime),
+        epoch.format(tlib.formatTime),
         "00:00:00",
     )
     t.eqString(
-        epoch.format(tlib.FormatDateTime),
+        epoch.format(tlib.formatDateTime),
         "1970-01-01 00:00:00",
     )
     t.eqString(
-        epoch.format(tlib.FormatRFC3339),
+        epoch.format(tlib.formatRfc3339),
         "1970-01-01T00:00:00Z",
     )
     t.eqString(
-        epoch.format(tlib.FormatISO8601),
+        epoch.format(tlib.formatIso8601),
         "1970-01-01T00:00:00Z",
     )
 
     var nano: tlib.Time = tlib.fromUnixNanos(123456789)
 
     t.eqString(
-        nano.format(tlib.FormatUnix),
+        nano.format(tlib.formatUnix),
         "0",
     )
     t.eqString(
-        nano.format(tlib.FormatUnixMillis),
+        nano.format(tlib.formatUnixMillis),
         "123",
     )
     t.eqString(
-        nano.format(tlib.FormatUnixNanos),
+        nano.format(tlib.formatUnixNanos),
         "123456789",
     )
     t.eqString(
-        nano.format(tlib.FormatTimeMillis),
+        nano.format(tlib.formatTimeMillis),
         "00:00:00.123",
     )
     t.eqString(
-        nano.format(tlib.FormatTimeNanos),
+        nano.format(tlib.formatTimeNanos),
         "00:00:00.123456789",
     )
     t.eqString(
-        nano.format(tlib.FormatRFC3339Nano),
+        nano.format(tlib.formatRfc3339Nano),
         "1970-01-01T00:00:00.123456789Z",
     )
     t.finish()

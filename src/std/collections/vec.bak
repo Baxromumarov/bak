@@ -322,8 +322,8 @@ pub func sum(v: &Vec<int, _>) -> (int) {
     return total
 }
 
-// max_by returns the maximum element using a comparator, or Err if empty.
-pub func max_by<T>(
+// maxBy returns the maximum element using a comparator, or Err if empty.
+pub func maxBy<T>(
     v: &Vec<T, _>,
     cmp: func(&T, &T) -> (int),
 ) -> (Result<T, string>) {
@@ -348,8 +348,8 @@ pub func max_by<T>(
     return Ok(best)
 }
 
-// min_by returns the minimum element using a comparator, or Err if empty.
-pub func min_by<T>(
+// minBy returns the minimum element using a comparator, or Err if empty.
+pub func minBy<T>(
     v: &Vec<T, _>,
     cmp: func(&T, &T) -> (int),
 ) -> (Result<T, string>) {
@@ -374,8 +374,8 @@ pub func min_by<T>(
     return Ok(best)
 }
 
-// map_by transforms each element in v using f and returns a new Vec<U, _>.
-pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
+// mapBy transforms each element in v using f and returns a new Vec<U, _>.
+pub func mapBy<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
     mut var out: Vec<U, _> = Vec.withCap(v.len())
     mut var i: int = 0
 
@@ -387,8 +387,8 @@ pub func map_by<T, U>(v: &Vec<T, _>, f: func(&T) -> (U)) -> (Vec<U, _>) {
     return out
 }
 
-// filter_by keeps elements that satisfy predicate and returns a new Vec<T, _>.
-pub func filter_by<T>(
+// filterBy keeps elements that satisfy predicate and returns a new Vec<T, _>.
+pub func filterBy<T>(
     v: &Vec<T, _>,
     predicate: func(&T) -> (bool),
 ) -> (Vec<T, _>) {
@@ -406,8 +406,8 @@ pub func filter_by<T>(
     return out
 }
 
-// reduce_by accumulates elements into a single value using reducer.
-pub func reduce_by<T, U>(
+// reduceBy accumulates elements into a single value using reducer.
+pub func reduceBy<T, U>(
     v: &Vec<T, _>,
     initial: U,
     reducer: func(U, &T) -> (U),
@@ -426,8 +426,8 @@ pub func reduce_by<T, U>(
     return acc
 }
 
-// any_by returns true if any element satisfies predicate.
-pub func any_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
+// anyBy returns true if any element satisfies predicate.
+pub func anyBy<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     mut var i: int = 0
 
     while i < v.len() {
@@ -441,8 +441,8 @@ pub func any_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     return false
 }
 
-// all_by returns true if all elements satisfy predicate.
-pub func all_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
+// allBy returns true if all elements satisfy predicate.
+pub func allBy<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     mut var i: int = 0
 
     while i < v.len() {
@@ -456,8 +456,8 @@ pub func all_by<T>(v: &Vec<T, _>, predicate: func(&T) -> (bool)) -> (bool) {
     return true
 }
 
-// find_by returns the first element satisfying predicate, or Err if not found.
-pub func find_by<T>(
+// findBy returns the first element satisfying predicate, or Err if not found.
+pub func findBy<T>(
     v: &Vec<T, _>,
     predicate: func(&T) -> (bool),
 ) -> (Result<T, string>) {

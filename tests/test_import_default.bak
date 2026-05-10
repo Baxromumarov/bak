@@ -28,8 +28,8 @@ func main() -> (void) {
     )
 
     var c: mathlib.Calculator = mathlib.Calculator{
-        A: 15,
-        B: 25,
+        a: 15,
+        b: 25,
     }
 
     println("All tests passed!")

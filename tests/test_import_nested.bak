@@ -28,13 +28,13 @@ func main() -> (void) {
     var container: Container = Container{
         Count: typelib.makeInteger(50),
         Id:    typelib.makeUserId(100),
-        Point: typelib.Point{X: 1, Y: 2},
+        Point: typelib.Point{x: 1, y: 2},
     }
 
     println(
         "Container Point:",
-        container.Point.X,
-        container.Point.Y,
+        container.Point.x,
+        container.Point.y,
     )
     println(
         "Container Id:",

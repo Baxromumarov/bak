@@ -4,27 +4,27 @@ import strconv "std/strconv"
 
 // Connection represents a database connection handle
 pub struct Connection {
-    pub Handle: int
+    pub handle: int
 }
 
 // QueryResult represents the result of a SQL query
 pub struct QueryResult {
-    pub Columns: Vec<string, _>
-    pub Rows:    Vec<Vec<string, _>, _>
+    pub columns: Vec<string, _>
+    pub rows:    Vec<Vec<string, _>, _>
 }
 
 // Row represents a single result row with column names attached.
 pub struct Row {
-    Columns: Vec<string, _>
-    Values:  Vec<string, _>
+    columns: Vec<string, _>
+    values:  Vec<string, _>
 }
 
 // rows builds a Row list with column names attached to each row.
 pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {
     mut var out: Vec<Row, _> = Vec.new()
 
-    for r in qr.Rows {
-        out.push(Row{Columns: qr.Columns, Values: r})
+    for r in qr.rows {
+        out.push(Row{columns: qr.columns, values: r})
     }
 
     return out
@@ -49,7 +49,7 @@ func column_index(
 
 impl Row as r {
     pub func get(name: string) -> (Result<string, string>) {
-        var cols: Vec<string, _> = r.Columns
+        var cols: Vec<string, _> = r.columns
         var idx_result: Result<int, string> = column_index(
             &cols,
             &name,
@@ -57,11 +57,11 @@ impl Row as r {
 
         switch idx_result {
             case Ok(idx) {
-                if idx < 0 || idx >= r.Values.len() {
+                if idx < 0 || idx >= r.values.len() {
                     return Err("column index out of bounds")
                 }
 
-                var v: string = r.Values[idx]
+                var v: string = r.values[idx]
 
                 if v == "NULL" {
                     return Err("column '" + name + "' is NULL")
@@ -76,11 +76,11 @@ impl Row as r {
     }
 
     pub func getIndex(idx: int) -> (Result<string, string>) {
-        if idx < 0 || idx >= r.Values.len() {
+        if idx < 0 || idx >= r.values.len() {
             return Err("column index out of bounds")
         }
 
-        var v: string = r.Values[idx]
+        var v: string = r.values[idx]
 
         if v == "NULL" {
             return Err("column value is NULL")
@@ -149,7 +149,7 @@ impl Connection as c {
         max_life_sec: int,
     ) -> (Result<bool, string>) {
         var config_result: Result<void, string> = __builtin_db_config(
-            c.Handle,
+            c.handle,
             max_open,
             max_idle,
             max_life_sec,

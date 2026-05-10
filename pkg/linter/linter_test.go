@@ -104,6 +104,7 @@ func TestAvailableRulesSorted(t *testing.T) {
 		"empty-block",
 		"import-style",
 		"naming-convention",
+		"public-api-style",
 		"style",
 	}
 	if len(rules) != len(expected) {
@@ -112,6 +113,51 @@ func TestAvailableRulesSorted(t *testing.T) {
 	for i := range expected {
 		if rules[i] != expected[i] {
 			t.Fatalf("unexpected rule at index %d: got=%q want=%q", i, rules[i], expected[i])
+		}
+	}
+}
+
+func TestLintSourceWarnsForInvalidPublicAPIStyle(t *testing.T) {
+	source := strings.Join([]string{
+		"package api",
+		"",
+		"pub func read_file() -> (void) {",
+		"    return void",
+		"}",
+		"",
+		"pub func BadFunction() -> (void) {",
+		"    return void",
+		"}",
+		"",
+		"pub const MAX_USERS: int = 10",
+		"",
+		"pub enum badEnum {",
+		"    bad_variant",
+		"}",
+		"",
+		"func private_helper() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	findings := LintSource("api.bak", source, nil)
+	want := []string{"read_file", "BadFunction", "MAX_USERS", "badEnum", "bad_variant"}
+	for _, f := range findings {
+		if f.Rule == "public-api-style" && strings.Contains(f.Message, "private_helper") {
+			t.Fatalf("did not expect private helper warning, got %#v", findings)
+		}
+	}
+	for _, name := range want {
+		found := false
+		for _, f := range findings {
+			if f.Rule == "public-api-style" && strings.Contains(f.Message, name) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected public-api-style finding for %q, got %#v", name, findings)
 		}
 	}
 }

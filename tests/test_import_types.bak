@@ -77,10 +77,10 @@ func main() -> (void) {
     )
 
     // Test 9 Using imported constant
-    var maxUsers: int = typelib.MAX_USERS
+    var maxUsers: int = typelib.maxUsers
 
     println(
-        "MAX_USERS constant:",
+        "maxUsers constant:",
         maxUsers,
     )
     println("All type import tests passed!")

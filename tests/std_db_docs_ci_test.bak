@@ -6,7 +6,7 @@ import test "std/test"
 func test_db_docs_queryresult_row_access() -> (void) {
     mut var t: test.T = test.new("test_db_docs_queryresult_row_access")
     var qr: db.QueryResult = db.QueryResult{
-        Columns: Vec.from(
+        columns: Vec.from(
             [
                 "id",
                 "name",
@@ -14,7 +14,7 @@ func test_db_docs_queryresult_row_access() -> (void) {
                 "balance",
             ],
         ),
-        Rows:    Vec.from(
+        rows:    Vec.from(
             [
                 Vec.from(
                     [
@@ -107,8 +107,8 @@ func test_db_docs_queryresult_row_access() -> (void) {
 func test_db_docs_errors_and_nulls() -> (void) {
     mut var t: test.T = test.new("test_db_docs_errors_and_nulls")
     var qr: db.QueryResult = db.QueryResult{
-        Columns: Vec.from(["id", "name", "active"]),
-        Rows:    Vec.from(
+        columns: Vec.from(["id", "name", "active"]),
+        rows:    Vec.from(
             [
                 Vec.from(["9", "NULL", "wat"]),
             ],

@@ -52,9 +52,9 @@ pub func sort<T>(
     return void
 }
 
-// sort_by sorts a Vec<T, _> using a custom less function (like Go's sort.Slice).
+// sortBy sorts a Vec<T, _> using a custom less function (like Go's sort.Slice).
 // The less function should return true if a < b in the desired order.
-pub func sort_by<T>(
+pub func sortBy<T>(
     arr: &mut Vec<T, _>,
     asc: bool,
     less: func(&T, &T) -> (bool),
@@ -119,8 +119,8 @@ pub func reverse<T>(arr: &mut Vec<T, _>) -> (void) {
     return void
 }
 
-// is_sorted checks if a Vec<T, _> is sorted with the given comparator and order.
-pub func is_sorted<T>(
+// isSorted checks if a Vec<T, _> is sorted with the given comparator and order.
+pub func isSorted<T>(
     arr: &Vec<T, _>,
     asc: bool,
     cmp: func(&T, &T) -> (int),
@@ -174,7 +174,7 @@ pub func sortStrings(arr: &mut Vec<string, _>, asc: bool) -> (void) {
 
 // isSortedInts checks if a Vec<int, _> is sorted in ascending or descending order.
 pub func isSortedInts(arr: &Vec<int, _>, asc: bool) -> (bool) {
-    return is_sorted(
+    return isSorted(
         arr,
         asc,
         compareInts,
@@ -183,7 +183,7 @@ pub func isSortedInts(arr: &Vec<int, _>, asc: bool) -> (bool) {
 
 // isSortedStrings checks if a Vec<string, _> is sorted in ascending or descending order.
 pub func isSortedStrings(arr: &Vec<string, _>, asc: bool) -> (bool) {
-    return is_sorted(
+    return isSorted(
         arr,
         asc,
         compareStrings,

@@ -77,15 +77,15 @@ func main() -> (void) {
     println()
     println("6. Module Constants:")
 
-    var max: int = typelib.MAX_USERS
-    var pi: int = math.PI
+    var max: int = typelib.maxUsers
+    var pi: int = math.pi
 
     println(
-        "  typelib.MAX_USERS:",
+        "  typelib.maxUsers:",
         max,
     )
     println(
-        "  math.PI:",
+        "  math.pi:",
         pi,
     )
     println()

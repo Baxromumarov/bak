@@ -1,0 +1,42 @@
+package main
+
+import db "std/db"
+
+func fakeRows() -> (db.QueryResult) {
+    mut var columns: Vec<string, _> = Vec.new()
+    columns.push("id")
+    columns.push("name")
+    columns.push("active")
+
+    mut var first: Vec<string, _> = Vec.new()
+    first.push("1")
+    first.push("ada")
+    first.push("true")
+
+    mut var second: Vec<string, _> = Vec.new()
+    second.push("2")
+    second.push("linus")
+    second.push("false")
+
+    mut var rows: Vec<Vec<string, _>, _> = Vec.new()
+    rows.push(first)
+    rows.push(second)
+
+    return db.QueryResult{columns: columns, rows: rows}
+}
+
+func main() -> (void) {
+    var qr: db.QueryResult = fakeRows()
+    var rows = db.rows(&qr)
+    mut var active: int = 0
+
+    for row in rows {
+        var flag: Result<bool, string> = row.getBool("active")
+        if flag.isOk() && flag.unwrap() {
+            active = active + 1
+        }
+    }
+
+    println("db contract active: " + active.toString())
+    return void
+}

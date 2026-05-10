@@ -10,10 +10,6 @@ pub func newMutex() -> (Mutex) {
     }
 }
 
-pub func NewMutex() -> (Mutex) {
-    return newMutex()
-}
-
 impl Mutex as m {
     pub func lock() -> (void) {
         __builtin_mutex_lock(m.handle)

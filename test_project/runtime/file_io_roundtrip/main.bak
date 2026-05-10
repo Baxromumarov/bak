@@ -1,0 +1,38 @@
+package main
+
+import fs "std/fs"
+
+func main() -> (void) {
+    var path: string = "test_project/runtime/file_io_roundtrip/tmp_runtime_file.txt"
+    var writeResult: Result<void, string> = fs.writeFile(path, "alpha\n")
+    if writeResult.isErr() {
+        println("file write failed: " + writeResult.unwrapErr())
+        return void
+    }
+
+    var appendResult: Result<void, string> = fs.appendFile(path, "beta\n")
+    if appendResult.isErr() {
+        println("file append failed: " + appendResult.unwrapErr())
+        return void
+    }
+
+    var readResult: Result<string, string> = fs.readFile(path)
+    if readResult.isErr() {
+        println("file read failed: " + readResult.unwrapErr())
+        return void
+    }
+
+    var body: string = readResult.unwrap()
+    if body == "alpha\nbeta\n" {
+        println("file io: ok")
+    } else {
+        println("file io: bad contents")
+    }
+
+    var removeResult: Result<void, string> = fs.remove(path)
+    if removeResult.isErr() {
+        println("file remove failed: " + removeResult.unwrapErr())
+    }
+
+    return void
+}

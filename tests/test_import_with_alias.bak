@@ -29,7 +29,7 @@ func main() -> (void) {
         id,
     )
 
-    var max: int = tlib.MAX_USERS
+    var max: int = tlib.maxUsers
 
     println(
         "MAX_USERS:",

@@ -24,7 +24,7 @@ func sampleResult() -> (db.QueryResult) {
     rows.push(rowA)
     rows.push(rowB)
 
-    return db.QueryResult{Columns: columns, Rows: rows}
+    return db.QueryResult{columns: columns, rows: rows}
 }
 
 func summarize(qr: &db.QueryResult) -> (Totals) {

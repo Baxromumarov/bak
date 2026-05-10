@@ -14,11 +14,58 @@ pub func newServer(addr: string, router: Router) -> (Server) {
     return Server{
         addr:    addr,
         router:  router,
-        version: HTTP_1_1,
+        version: http11,
     }
 }
 
 impl Server as self {
+    pub func startOnce() -> (Result<void, string>) {
+        var addr: string = self.addr
+        var portIdx = addr.lastIndexOf(":")
+
+        if portIdx.isErr() {
+            return Err("invalid address: missing port")
+        }
+
+        var host: string = addr.substring(
+            0,
+            portIdx.unwrap(),
+        )
+        var portStr: string = addr.substring(
+            portIdx.unwrap() + 1,
+            addr.len(),
+        )
+        var portRes = portStr.parseInt()
+
+        if portRes.isErr() {
+            return Err("invalid port")
+        }
+
+        var port: int = portRes.unwrap()
+        var bindRes = net.bind(
+            host,
+            port,
+        )
+
+        if bindRes.isErr() {
+            return Err(bindRes.unwrapErr())
+        }
+
+        mut var listener = bindRes.unwrap()
+        var connRes = net.accept(&mut listener)
+
+        if connRes.isErr() {
+            net.closeListener(&mut listener)
+            return Err(connRes.unwrapErr())
+        }
+
+        mut var conn = connRes.unwrap()
+        self.handle_connection(&mut conn)
+        net.closeListener(&mut listener)
+
+        return Ok(void)
+    }
+
     pub func start() -> (Result<void, string>) {
         var addr: string = self.addr
         var portIdx = addr.lastIndexOf(":")
@@ -132,6 +179,15 @@ pub func listenAndServe(addr: string, r: Router) -> (Result<void, string>) {
     )
 
     return s.start()
+}
+
+pub func serveOnce(addr: string, r: Router) -> (Result<void, string>) {
+    var s = newServer(
+        addr,
+        r,
+    )
+
+    return s.startOnce()
 }
 
 func sendResponse(

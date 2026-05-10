@@ -3,11 +3,11 @@ package filepath
 // File path helpers (currently identical to path).
 import path "std/path"
 
-pub const Separator: string = path.Separator
+pub const separator: string = path.separator
 
 pub struct Split {
-    pub Dir:  string
-    pub Base: string
+    pub dir:  string
+    pub base: string
 }
 
 pub func isAbs(p: string) -> (bool) {
@@ -67,5 +67,5 @@ pub func withExt(p: string, new_ext: string) -> (string) {
 pub func split(p: string) -> (Split) {
     var s: path.Split = path.split(&p)
 
-    return Split{Base: s.Base, Dir: s.Dir}
+    return Split{base: s.base, dir: s.dir}
 }

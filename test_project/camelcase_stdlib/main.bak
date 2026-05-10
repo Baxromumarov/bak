@@ -1,0 +1,28 @@
+package main
+
+import queue "std/collections/queue"
+import set "std/collections/set"
+import vector "std/sort/vector"
+
+func lessInt(a: &int, b: &int) -> (bool) {
+    return *a < *b
+}
+
+func main() -> (void) {
+    mut var jobs: queue.Queue<int> = queue.newQueue()
+    jobs.push(3)
+    jobs.push(1)
+
+    mut var seen: set.Set<int> = set.newSet()
+    seen.add(jobs.popOr(0))
+    seen.add(jobs.popOr(0))
+
+    mut var values: Vec<int, _> = Vec.from([3, 1, 2])
+    vector.sortBy(&mut values, true, lessInt)
+
+    if vector.isSortedInts(&values, true) && seen.contains(3) {
+        println("camelCase stdlib: ok")
+    }
+
+    return void
+}

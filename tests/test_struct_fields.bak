@@ -1,17 +1,17 @@
 package main
 
 pub struct Entry {
-    pub Path:  string
-    pub Alias: string
+    pub path:  string
+    pub alias: string
 }
 
 func main() -> (int) {
     var importPath: string = "src/std/http/server.bak"
     var importAlias: string = "driver"
-    var e: Entry = Entry{Alias: importAlias, Path: importPath}
+    var e: Entry = Entry{alias: importAlias, path: importPath}
 
-    println("e.Path=" + e.Path)
-    println("e.Alias=" + e.Alias)
+    println("e.path=" + e.path)
+    println("e.alias=" + e.alias)
 
     return 0
 }

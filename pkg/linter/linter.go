@@ -76,6 +76,7 @@ type Rule interface {
 
 var defaultRules = []Rule{
 	&NamingConventionRule{},
+	&PublicAPIStyleRule{},
 	&ImportStyleRule{},
 	&StyleRule{},
 	&ComplexityRule{},
@@ -387,6 +388,92 @@ func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
 	}
 
 	return findings
+}
+
+// PublicAPIStyleRule enforces Bak's public API naming surface.
+type PublicAPIStyleRule struct{}
+
+func (r *PublicAPIStyleRule) Name() string { return "public-api-style" }
+
+func (r *PublicAPIStyleRule) Check(
+	prog *ast.Program,
+	source string,
+	config *Config,
+) []Finding {
+	var findings []Finding
+	for _, stmt := range prog.Statements {
+		findings = append(findings, r.checkStatement(stmt)...)
+	}
+	return findings
+}
+
+func (r *PublicAPIStyleRule) checkStatement(stmt ast.Statement) []Finding {
+	var findings []Finding
+	switch s := stmt.(type) {
+	case *ast.FunctionDecl:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("function", s.Name, isCamelCase, "camelCase")...)
+		}
+	case *ast.StructDecl:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("struct", s.Name, isPascalCase, "UpperCamelCase")...)
+		}
+		for _, field := range s.Fields {
+			if field.Visibility == ast.Public {
+				findings = append(findings, publicAPIFinding("field", field.Name, isCamelCase, "camelCase")...)
+			}
+		}
+	case *ast.EnumDecl:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("enum", s.Name, isPascalCase, "UpperCamelCase")...)
+			for _, variant := range s.Variants {
+				findings = append(findings, publicAPIFinding("enum variant", variant.Name, isPascalCase, "UpperCamelCase")...)
+			}
+		}
+	case *ast.TypeDecl:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("type", s.Name, isPascalCase, "UpperCamelCase")...)
+		}
+	case *ast.AliasDecl:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("alias", s.Name, isPascalCase, "UpperCamelCase")...)
+		}
+	case *ast.ConstStatement:
+		if s.Visibility == ast.Public {
+			findings = append(findings, publicAPIFinding("constant", s.Name, isCamelCase, "camelCase")...)
+		}
+	case *ast.ConstBlock:
+		for _, constant := range s.Constants {
+			if constant.Visibility == ast.Public {
+				findings = append(findings, publicAPIFinding("constant", constant.Name, isCamelCase, "camelCase")...)
+			}
+		}
+	case *ast.ImplDecl:
+		for _, method := range s.Methods {
+			if method.Visibility == ast.Public {
+				findings = append(findings, publicAPIFinding("method", method.Name, isCamelCase, "camelCase")...)
+			}
+		}
+	}
+	return findings
+}
+
+func publicAPIFinding(kind string, ident *ast.Identifier, validate Validator, expected string) []Finding {
+	if ident == nil ||
+		strings.HasPrefix(ident.Value, "test_") ||
+		strings.HasPrefix(ident.Value, "__") {
+		return nil
+	}
+	if validate(ident.Value) {
+		return nil
+	}
+	return []Finding{{
+		Rule:    "public-api-style",
+		Level:   "warning",
+		Message: strfmt.Named("public {kind} '{name}' should be {expected}", "kind", kind, "name", ident.Value, "expected", expected),
+		Line:    ident.Token.Line,
+		Column:  ident.Token.Column,
+	}}
 }
 
 // StyleRule checks for style issues.

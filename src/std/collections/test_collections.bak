@@ -135,7 +135,7 @@ func test_vec_max_min() -> (void) {
     v.push(9)
     v.push(1)
 
-    switch vec.max_by(
+    switch vec.maxBy(
         &v,
         compareInts,
     ) {
@@ -150,7 +150,7 @@ func test_vec_max_min() -> (void) {
         }
     }
 
-    switch vec.min_by(
+    switch vec.minBy(
         &v,
         compareInts,
     ) {

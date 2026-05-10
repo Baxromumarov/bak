@@ -267,14 +267,14 @@ func status_reason(status: int) -> (string) {
 pub func parseResponse(raw: string) -> (Result<Response, string>) {
     mut var headerEnd = indexOf(
         &raw,
-        &CRLFCRLF,
+        &crlfCrlf,
     )
     mut var headerSepLen: int = 4
 
     if headerEnd == -1 {
         headerEnd = indexOf(
             &raw,
-            &LFLF,
+            &lfLf,
         )
         headerSepLen = 2
     }
@@ -293,7 +293,7 @@ pub func parseResponse(raw: string) -> (Result<Response, string>) {
     )
     mut var statusLineEnd = indexOf(
         &headerPart,
-        &LF,
+        &lf,
     )
 
     if statusLineEnd == -1 {
@@ -364,7 +364,7 @@ pub func parseResponse(raw: string) -> (Result<Response, string>) {
     while current.len() > 0 {
         var lineEnd = indexOf(
             &current,
-            &LF,
+            &lf,
         )
         mut var line: string = ""
 

@@ -1,19 +1,19 @@
 package mathlib
 
-pub const PI: int = 3
+pub const pi: int = 3
 
 pub struct Calc {
-    pub A: int
-    pub B: int
+    pub a: int
+    pub b: int
 }
 
 impl Calc as c {
     pub mut func add() -> (int) {
-        return c.A + c.B
+        return c.a + c.b
     }
 
     pub mut func sub() -> (int) {
-        return c.A - c.B
+        return c.a - c.b
     }
 }
 

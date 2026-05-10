@@ -1,0 +1,41 @@
+package main
+
+func checksum(rounds: int) -> (int) {
+    mut var acc: int = 17
+    mut var i: int = 0
+
+    while i < rounds {
+        acc = ((acc * 33) + (i * 7)) % 10000019
+        i = i + 1
+    }
+
+    return acc
+}
+
+func allocate(rounds: int, width: int) -> (int) {
+    mut var total: int = 0
+    mut var outer: Vec<Vec<int, _>, _> = Vec.new()
+    mut var i: int = 0
+
+    while i < rounds {
+        mut var inner: Vec<int, _> = Vec.new()
+        mut var j: int = 0
+
+        while j < width {
+            inner.push((i + j) % 255)
+            total = total + 1
+            j = j + 1
+        }
+
+        outer.push(inner)
+        i = i + 1
+    }
+
+    return total + outer.len()
+}
+
+func main() -> (void) {
+    println("perf checksum: " + checksum(10000).toString())
+    println("perf allocated cells: " + allocate(25, 80).toString())
+    return void
+}

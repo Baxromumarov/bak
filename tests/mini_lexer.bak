@@ -21,7 +21,7 @@ impl Lexer as l {
     }
 }
 
-pub func New() -> (Lexer) {
+pub func new() -> (Lexer) {
     mut var lexer: Lexer = Lexer{ch: 0, position: 0}
 
     lexer.readChar()

@@ -3,7 +3,7 @@ package sort
 import test "std/test"
 import collections_set "std/collections/set"
 import hashmap "std/collections/hashmap"
-import sort_set "std/sort/set"
+import sortSet "std/sort/set"
 import sort_map "std/sort/map"
 import sort_vector "std/sort/vector"
 
@@ -13,13 +13,13 @@ func less_len(a: &string, b: &string) -> (bool) {
 
 func test_sort_generic_set() -> (void) {
     mut var t: test.T = test.new("test_sort_generic_set")
-    mut var s: collections_set.Set<int> = collections_set.new_set()
+    mut var s: collections_set.Set<int> = collections_set.newSet()
 
     s.add(3)
     s.add(1)
     s.add(2)
 
-    var items: Vec<int, _> = sort_set.sort_set(
+    var items: Vec<int, _> = sortSet.sortSet(
         &s,
         true,
         sort_vector.compareInts,
@@ -57,7 +57,7 @@ func test_sorted_keys_generic_map() -> (void) {
         "three",
     )
 
-    var keys: Vec<int, _> = sort_map.sorted_keys(
+    var keys: Vec<int, _> = sort_map.sortedKeys(
         &m,
         true,
         sort_vector.compareInts,
@@ -86,7 +86,7 @@ func test_sort_string_set() -> (void) {
     s.add("a")
     s.add("c")
 
-    var items: Vec<string, _> = sort_set.sortStringSet(
+    var items: Vec<string, _> = sortSet.sortStringSet(
         &s,
         true,
     )
@@ -114,7 +114,7 @@ func test_sort_int_set_desc() -> (void) {
     s.add(3)
     s.add(2)
 
-    var items: Vec<int, _> = sort_set.sortIntSet(
+    var items: Vec<int, _> = sortSet.sortIntSet(
         &s,
         false,
     )
@@ -142,7 +142,7 @@ func test_sort_string_set_by() -> (void) {
     s.add("a")
     s.add("bb")
 
-    var items: Vec<string, _> = sort_set.sortStringSetBy(
+    var items: Vec<string, _> = sortSet.sortStringSetBy(
         &s,
         true,
         less_len,
@@ -180,7 +180,7 @@ func test_sorted_keys_string_map() -> (void) {
         "3",
     )
 
-    var keys: Vec<string, _> = sort_map.sorted_keys(
+    var keys: Vec<string, _> = sort_map.sortedKeys(
         &m,
         true,
         sort_vector.compareStrings,
@@ -218,7 +218,7 @@ func test_sorted_keys_string_map_by() -> (void) {
         "3",
     )
 
-    var keys: Vec<string, _> = sort_map.sorted_keys_by(
+    var keys: Vec<string, _> = sort_map.sortedKeysBy(
         &m,
         true,
         less_len,
@@ -256,7 +256,7 @@ func test_sorted_keys_int_map() -> (void) {
         30,
     )
 
-    var keys: Vec<string, _> = sort_map.sorted_keys(
+    var keys: Vec<string, _> = sort_map.sortedKeys(
         &m,
         true,
         sort_vector.compareStrings,

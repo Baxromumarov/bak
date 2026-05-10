@@ -7,23 +7,23 @@ package strconv
 // -----------------------------------------------------------------------------
 // Character Constants
 // -----------------------------------------------------------------------------
-pub const CH_0: int = 48
+pub const ch0: int = 48
 // '0'
-pub const CH_9: int = 57
+pub const ch9: int = 57
 // '9'
-pub const CH_MINUS: int = 45
+pub const chMinus: int = 45
 // '-'
-pub const CH_PLUS: int = 43
+pub const chPlus: int = 43
 // '+'
-pub const CH_DOT: int = 46
+pub const chDot: int = 46
 // '.'
-pub const CH_A_LOWER: int = 97
+pub const chALower: int = 97
 // 'a'
-pub const CH_F_LOWER: int = 102
+pub const chFLower: int = 102
 // 'f'
-pub const CH_A_UPPER: int = 65
+pub const chAUpper: int = 65
 // 'A'
-pub const CH_F_UPPER: int = 70
+pub const chFUpper: int = 70
 
 // 'F'
 // -----------------------------------------------------------------------------
@@ -60,10 +60,10 @@ pub func formatInt(n: int, base: int) -> (string) {
 
     while value > 0 {
         var digit: int = value % base
-        mut var ch: int = CH_0 + digit
+        mut var ch: int = ch0 + digit
 
         if digit >= 10 {
-            ch = CH_A_LOWER + (digit - 10)
+            ch = chALower + (digit - 10)
         }
 
         out = string(char(ch)) + out
@@ -108,12 +108,12 @@ pub func formatHex(n: int) -> (string) {
 pub func isDigit(ch: char) -> (bool) {
     var code: int = int(ch)
 
-    return code >= CH_0 && code <= CH_9
+    return code >= ch0 && code <= ch9
 }
 
 // digitValue returns the numeric value of a digit character
 pub func digitValue(ch: char) -> (int) {
-    return int(ch) - CH_0
+    return int(ch) - ch0
 }
 
 // atoi parses a string as a decimal integer
@@ -156,12 +156,12 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
         mut var digit: int = -1
         var code: int = int(_ch)
 
-        if code >= CH_0 && code <= CH_9 {
-            digit = code - CH_0
-        } else if code >= CH_A_LOWER && code <= CH_A_LOWER + 25 {
-            digit = code - CH_A_LOWER + 10
-        } else if code >= CH_A_UPPER && code <= CH_A_UPPER + 25 {
-            digit = code - CH_A_UPPER + 10
+        if code >= ch0 && code <= ch9 {
+            digit = code - ch0
+        } else if code >= chALower && code <= chALower + 25 {
+            digit = code - chALower + 10
+        } else if code >= chAUpper && code <= chAUpper + 25 {
+            digit = code - chAUpper + 10
         }
 
         if digit < 0 || digit >= base {
@@ -257,7 +257,7 @@ pub func formatFloat(f: float64, precision: int) -> (string) {
 
         var _digit: int = int(frac)
 
-        result = result + string(char(CH_0 + _digit))
+        result = result + string(char(ch0 + _digit))
         frac = frac - float64(_digit)
         i = i + 1
     }

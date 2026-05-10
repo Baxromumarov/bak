@@ -92,7 +92,7 @@ func TestBaklintListRules(t *testing.T) {
 		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
 	got := strings.Fields(stdout)
-	want := []string{"complexity", "empty-block", "import-style", "naming-convention", "style"}
+	want := []string{"complexity", "empty-block", "import-style", "naming-convention", "public-api-style", "style"}
 	if len(got) != len(want) {
 		t.Fatalf("unexpected rules: got=%v want=%v", got, want)
 	}

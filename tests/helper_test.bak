@@ -31,6 +31,6 @@ func isAtEnd(pos: int, len: int) -> (bool) {
     return pos >= len
 }
 
-pub func Create(s: string) -> (Parser) {
+pub func create(s: string) -> (Parser) {
     return Parser{input: s, pos: 0}
 }

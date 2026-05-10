@@ -12,6 +12,16 @@ Run a broad compile check from the repository root:
 bash test_project/run_all.sh
 ```
 
+Run runtime integration checks from the repository root:
+
+```sh
+bash test_project/run_runtime.sh
+```
+
+Public APIs should follow [Bak API Style](../docs/API_STYLE.md): camelCase for
+functions, methods, fields, variables, and parameters; UpperCamelCase for types
+and enum variants.
+
 Projects:
 
 - `calculator_cli`: enum-driven expression evaluation and `switch`.
@@ -22,6 +32,15 @@ Projects:
 - `memory_pressure`: nested vectors and allocation-heavy arena-style logic.
 - `cpu_workload`: prime counting and checksum loops.
 - `concurrency_control`: mutex-protected shared counter.
+- `runtime/http_roundtrip`: one-shot local HTTP server/client over TCP.
+- `runtime/tcp_echo`: one-shot local TCP echo server/client.
+- `runtime/file_io_roundtrip`: write, append, read, verify, and remove a file.
+- `runtime/db_contract`: DB row contract test without requiring a live database.
+- `runtime/perf_baseline`: deterministic CPU and allocation baseline outputs.
+- `runtime/memory_ownership_stress`: repeated allocation, borrow, and move stress.
+- `runtime/postgres_env`: optional live Postgres check when `BAK_POSTGRES_DSN` is set.
+- `runtime/mysql_env`: optional live MySQL check when `BAK_MYSQL_DSN` is set.
+- `camelcase_stdlib`: checks preferred camelCase stdlib entry points.
 - `inventory_package`: multi-file package imports, structs, methods, closures.
 - `text_pipeline`: string and character processing.
 - `algorithms`: sorting, binary search, recursion, and vectors.

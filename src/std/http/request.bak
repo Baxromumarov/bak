@@ -166,14 +166,14 @@ impl Request as r {
 pub func parseRequest(raw: string) -> (Result<Request, string>) {
     mut var headerEnd = indexOf(
         &raw,
-        &CRLFCRLF,
+        &crlfCrlf,
     )
     mut var sepLen: int = 4
 
     if headerEnd == -1 {
         headerEnd = indexOf(
             &raw,
-            &LFLF,
+            &lfLf,
         )
         sepLen = 2
     }
@@ -192,7 +192,7 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
     )
     mut var statusLineEnd = indexOf(
         &headerPart,
-        &LF,
+        &lf,
     )
 
     if statusLineEnd == -1 {
@@ -253,7 +253,7 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
     while current.len() > 0 {
         var lineEnd = indexOf(
             &current,
-            &LF,
+            &lf,
         )
         mut var line: string = ""
 

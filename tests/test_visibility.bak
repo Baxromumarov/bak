@@ -25,10 +25,10 @@ func main() -> (void) {
         p,
     )
 
-    var max: int = types.MAX_POINTS
+    var max: int = types.maxPoints
 
     println(
-        "  Public types.MAX_POINTS works:",
+        "  Public types.maxPoints works:",
         max,
     )
     println("✓ Visibility test complete")

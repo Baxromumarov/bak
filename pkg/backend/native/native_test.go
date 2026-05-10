@@ -337,7 +337,7 @@ func TestBuildExecutableExecTimesOut(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
 
-	source := strfmt.Named("package main\n\n\timport os {osImport}\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"sleep\", [\"1\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.TimedOut && exec_result.ExitCode == -1 && exec_result.Output == \"\" && exec_result.Stdout == \"\" && exec_result.Stderr == \"\" && !exec_result.Truncated {{\n            return 11\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
+	source := strfmt.Named("package main\n\n\timport os {osImport}\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"sleep\", [\"1\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.timedOut && exec_result.exitCode == -1 && exec_result.output == \"\" && exec_result.stdout == \"\" && exec_result.stderr == \"\" && !exec_result.truncated {{\n            return 11\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{
 		AllowExec:   true,
@@ -355,7 +355,7 @@ func TestBuildExecutableExecTruncatesOutput(t *testing.T) {
 	root := findRepoRoot(t)
 	osImport := filepath.Join(root, "src", "std", "os", "os.bak")
 
-	source := strfmt.Named("package main\n\n\timport os {osImport}\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"abcdef\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.Output == \"abc\" && exec_result.Stdout == \"abc\" && exec_result.Stderr == \"\" && exec_result.ExitCode == 0 && !exec_result.TimedOut && exec_result.Truncated {{\n            return 13\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
+	source := strfmt.Named("package main\n\n\timport os {osImport}\n\nfunc main() -> (int) {{\n    var result: Result<os.ExecResult, string> = os.exec(\"printf\", [\"abcdef\"])\n    if result.isOk() {{\n        var exec_result: os.ExecResult = result.unwrap()\n        if exec_result.output == \"abc\" && exec_result.stdout == \"abc\" && exec_result.stderr == \"\" && exec_result.exitCode == 0 && !exec_result.timedOut && exec_result.truncated {{\n            return 13\n        }}\n    }}\n    return 0\n}}\n", "OsImport", strconv.Quote(osImport))
 
 	binary := buildNativeProgram(t, source, runtimecap.Permissions{
 		AllowExec:     true,

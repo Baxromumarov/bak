@@ -4,7 +4,7 @@ import hashmap "std/collections/hashmap"
 import vector "std/sort/vector"
 
 // Return sorted keys from HashMap<K, V>.
-pub func sorted_keys<K, V>(
+pub func sortedKeys<K, V>(
     map: &hashmap.HashMap<K, V>,
     asc: bool,
     cmp: func(&K, &K) -> (int),
@@ -21,14 +21,14 @@ pub func sorted_keys<K, V>(
 }
 
 // Return sorted keys from HashMap<K, V> using a custom less function.
-pub func sorted_keys_by<K, V>(
+pub func sortedKeysBy<K, V>(
     map: &hashmap.HashMap<K, V>,
     asc: bool,
     less: func(&K, &K) -> (bool),
 ) -> (Vec<K, _>) {
     mut var keys: Vec<K, _> = map.keys()
 
-    vector.sort_by(
+    vector.sortBy(
         &mut keys,
         asc,
         less,

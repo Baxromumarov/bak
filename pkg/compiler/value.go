@@ -366,6 +366,7 @@ type BorrowInstance struct {
 type ThreadInstance struct {
 	ID   int
 	Done chan struct{}
+	Err  string
 }
 
 // ResultInstance represents a Result value (Ok/Err) at runtime.

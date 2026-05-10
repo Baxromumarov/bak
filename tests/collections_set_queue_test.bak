@@ -135,7 +135,7 @@ func test_int_set_algebra() -> (void) {
 
 func test_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_queue_basic")
-    mut var q = queue.new_queue()
+    mut var q = queue.newQueue()
 
     t.isTrue(q.isEmpty())
     q.push(1)
@@ -207,7 +207,7 @@ func test_queue_basic() -> (void) {
 
 func test_string_queue_basic() -> (void) {
     mut var t: test.T = test.new("test_string_queue_basic")
-    mut var q = queue.new_queue()
+    mut var q = queue.newQueue()
 
     q.push("a")
     q.push("b")
@@ -249,7 +249,7 @@ func test_vec_map_filter_utils() -> (void) {
             4,
         ],
     )
-    var doubled: Vec<int, _> = vec.map_by(
+    var doubled: Vec<int, _> = vec.mapBy(
         &nums,
         func(n: &int) -> (int) {
             return *n * 2
@@ -285,7 +285,7 @@ func test_vec_map_filter_utils() -> (void) {
         }
     }
 
-    var evens: Vec<int, _> = vec.filter_by(
+    var evens: Vec<int, _> = vec.filterBy(
         &nums,
         func(n: &int) -> (bool) {
             return *n % 2 == 0
@@ -321,7 +321,7 @@ func test_vec_map_filter_utils() -> (void) {
         }
     }
 
-    var reduced: int = vec.reduce_by(
+    var reduced: int = vec.reduceBy(
         &nums,
         0,
         func(acc: int, n: &int) -> (int) {
@@ -334,7 +334,7 @@ func test_vec_map_filter_utils() -> (void) {
         10,
     )
 
-    var any_even: bool = vec.any_by(
+    var any_even: bool = vec.anyBy(
         &nums,
         func(n: &int) -> (bool) {
             return *n % 2 == 0
@@ -343,7 +343,7 @@ func test_vec_map_filter_utils() -> (void) {
 
     t.isTrue(any_even)
 
-    var all_positive: bool = vec.all_by(
+    var all_positive: bool = vec.allBy(
         &nums,
         func(n: &int) -> (bool) {
             return *n > 0
@@ -352,7 +352,7 @@ func test_vec_map_filter_utils() -> (void) {
 
     t.isTrue(all_positive)
 
-    var found_three: Result<int, string> = vec.find_by(
+    var found_three: Result<int, string> = vec.findBy(
         &nums,
         func(n: &int) -> (bool) {
             return *n == 3
@@ -371,7 +371,7 @@ func test_vec_map_filter_utils() -> (void) {
         }
     }
 
-    var found_missing: Result<int, string> = vec.find_by(
+    var found_missing: Result<int, string> = vec.findBy(
         &nums,
         func(n: &int) -> (bool) {
             return *n == 99

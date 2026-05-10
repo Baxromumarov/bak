@@ -9,7 +9,7 @@ pub func connect(conn_str: string) -> (Result<db.Connection, string>) {
     var result = __builtin_mysql_connect(conn_str)
 
     if result.isOk() {
-        return Ok(db.Connection{Handle: result.unwrap()})
+        return Ok(db.Connection{handle: result.unwrap()})
     }
 
     return Err(result.unwrapErr())
@@ -21,7 +21,7 @@ pub func query(
     sql: string,
 ) -> (Result<db.QueryResult, string>) {
     return __builtin_mysql_query(
-        conn.Handle,
+        conn.handle,
         sql,
     )
 }
@@ -34,7 +34,7 @@ pub func queryParams(
     params: Vec<string, _>,
 ) -> (Result<db.QueryResult, string>) {
     return __builtin_mysql_query(
-        conn.Handle,
+        conn.handle,
         sql,
         params,
     )
@@ -42,5 +42,5 @@ pub func queryParams(
 
 // close closes the database connection.
 pub func close(conn: db.Connection) -> (Result<void, string>) {
-    return __builtin_mysql_close(conn.Handle)
+    return __builtin_mysql_close(conn.handle)
 }

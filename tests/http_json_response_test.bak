@@ -95,8 +95,8 @@ func list_users_handler(_req: http.Request) -> (http.Response) {
         },
     )
 
-    // encode_array maps each User through user_to_json
-    var body: json.Json = json.encode_array(
+    // encodeArray maps each User through user_to_json
+    var body: json.Json = json.encodeArray(
         users,
         user_to_json,
     )
@@ -120,7 +120,7 @@ func create_user_handler(req: http.Request) -> (http.Response) {
     }
 
     // Decode into User with ObjBuilder pattern
-    var decoded = json.decode_obj(
+    var decoded = json.decodeObj(
         parse_result.unwrap(),
         func(b: &mut json.ObjBuilder) -> (User) {
             var name: string = b.stringField("name")

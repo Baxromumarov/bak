@@ -6,51 +6,51 @@ import storage "./storage.bak"
 func main() -> (void) {
     println("--- Smart Warehouse Simulation ---")
 
-    mut var vault: storage.Vault = storage.NewVault()
+    mut var vault: storage.Vault = storage.newVault()
     // 1. Ownership & Immutability: Creating and moving items
-    var p1: items.Product = items.New(
+    var p1: items.Product = items.new(
         "Laptop",
         101,
         1200.50,
         items.Category.Electronics,
     )
-    var p2: items.Product = items.New(
+    var p2: items.Product = items.new(
         "Apple",
         202,
         1.20,
         items.Category.Grocery,
     )
-    var p3: items.Product = items.New(
+    var p3: items.Product = items.new(
         "Chair",
         303,
         45.00,
         items.Category.Furniture,
     )
 
-    vault.Add(p1)
-    vault.Add(p2)
-    vault.Add(p3)
+    vault.add(p1)
+    vault.add(p2)
+    vault.add(p3)
 
     // 2. Type Strictness & Aliases
-    var total: float64 = vault.GetTotalValue()
+    var total: float64 = vault.getTotalValue()
 
     print("Total Inventory Value: ")
     println(total)
     // 3. Anonymous Functions & Borrowing: Filtering with references
-    println("\nFiltering Electronics (ID > 100):")
+    println("\nFiltering Electronics (id > 100):")
 
     // Explicit type for compiler compatibility
     var filterFunc: func(&items.Product) -> (bool) = func(
         p: &items.Product,
     ) -> (bool) {
         // Borrowing 'p' to check fields
-        return p.ID > 100 && p.Kind == items.Category.Electronics
+        return p.id > 100 && p.kind == items.Category.Electronics
     }
-    var electronics: Vec<items.Product, _> = vault.Filter(filterFunc)
+    var electronics: Vec<items.Product, _> = vault.filter(filterFunc)
 
     for e in electronics {
         print("Found: ")
-        println(e.Name)
+        println(e.name)
     }
 
     println("--- Simulation Complete ---")

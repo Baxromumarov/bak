@@ -8,12 +8,12 @@ package hex
 const HEX_LOWER: string = "0123456789abcdef"
 const HEX_UPPER: string = "0123456789ABCDEF"
 // Character constants for parsing
-const CH_0: int = 48
-const CH_9: int = 57
-const CH_A_LOWER: int = 97
-const CH_F_LOWER: int = 102
-const CH_A_UPPER: int = 65
-const CH_F_UPPER: int = 70
+const ch0: int = 48
+const ch9: int = 57
+const chALower: int = 97
+const chFLower: int = 102
+const chAUpper: int = 65
+const chFUpper: int = 70
 
 // -----------------------------------------------------------------------------
 // Encoding
@@ -60,16 +60,16 @@ pub func encodeUpper(data: &string) -> (string) {
 func hex_digit_value(ch: char) -> (int) {
     var code: int = int(ch)
 
-    if code >= CH_0 && code <= CH_9 {
-        return code - CH_0
+    if code >= ch0 && code <= ch9 {
+        return code - ch0
     }
 
-    if code >= CH_A_LOWER && code <= CH_F_LOWER {
-        return code - CH_A_LOWER + 10
+    if code >= chALower && code <= chFLower {
+        return code - chALower + 10
     }
 
-    if code >= CH_A_UPPER && code <= CH_F_UPPER {
-        return code - CH_A_UPPER + 10
+    if code >= chAUpper && code <= chFUpper {
+        return code - chAUpper + 10
     }
 
     return -1

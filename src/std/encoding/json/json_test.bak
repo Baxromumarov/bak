@@ -120,11 +120,11 @@ func test_object_helpers() -> (void) {
         ok:      true,
         version: 2,
     }
-    var obj: j.Json = j.encode_obj(
+    var obj: j.Json = j.encodeObj(
         meta,
         app_meta_fields,
     )
-    var compact: string = j.marshal_obj(
+    var compact: string = j.marshalObj(
         meta,
         app_meta_fields,
     )

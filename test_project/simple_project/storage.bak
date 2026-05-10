@@ -3,30 +3,30 @@ package storage
 import items "./item.bak"
 
 pub struct Vault {
-    pub Products: Vec<items.Product, _>
+    pub products: Vec<items.Product, _>
 }
 
 impl Vault as v {
-    pub mut func Add(mut product: items.Product) -> (void) {
-        v.Products.push(product)
+    pub mut func add(mut product: items.Product) -> (void) {
+        v.products.push(product)
     }
 
-    pub func GetTotalValue() -> (float64) {
+    pub func getTotalValue() -> (float64) {
         mut var total: float64 = 0.0
 
-        for p in v.Products {
-            total = total + p.Rate
+        for p in v.products {
+            total = total + p.rate
         }
 
         return total
     }
 
-    pub func Filter(
+    pub func filter(
         f: func(&items.Product) -> (bool),
     ) -> (Vec<items.Product, _>) {
         mut var results: Vec<items.Product, _> = Vec.new()
 
-        for p in v.Products {
+        for p in v.products {
             if f(&p) {
                 results.push(p)
             }
@@ -36,8 +36,8 @@ impl Vault as v {
     }
 }
 
-pub func NewVault() -> (Vault) {
+pub func newVault() -> (Vault) {
     return Vault{
-        Products: Vec.new(),
+        products: Vec.new(),
     }
 }

@@ -49,12 +49,12 @@ pub func executable() -> (Result<string, string>) {
 }
 
 pub struct ExecResult {
-    pub Output:    string
-    pub Stdout:    string
-    pub Stderr:    string
-    pub ExitCode:  int
-    pub TimedOut:  bool
-    pub Truncated: bool
+    pub output:    string
+    pub stdout:    string
+    pub stderr:    string
+    pub exitCode:  int
+    pub timedOut:  bool
+    pub truncated: bool
 }
 
 // exec runs an external command directly without invoking a shell.
@@ -90,7 +90,7 @@ pub func userHomeDir() -> (Result<string, string>) {
 }
 
 pub struct DirEntry {
-    pub Name:  string
-    pub IsDir: bool
-    pub Size:  int
+    pub name:  string
+    pub isDir: bool
+    pub size:  int
 }

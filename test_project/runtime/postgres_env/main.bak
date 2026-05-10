@@ -1,0 +1,36 @@
+package main
+
+import os "std/os"
+import postgres "std/db/postgres"
+
+func main() -> (void) {
+    var dsnResult: Result<string, string> = os.getenv("BAK_POSTGRES_DSN")
+    if dsnResult.isErr() {
+        println("postgres env: skipped")
+        return void
+    }
+
+    var connResult: Result<postgres.Connection, string> = postgres.connect(dsnResult.unwrap())
+    if connResult.isErr() {
+        println("postgres env: connect failed: " + connResult.unwrapErr())
+        return void
+    }
+
+    var conn: postgres.Connection = connResult.unwrap()
+    var queryResult: Result<postgres.QueryResult, string> = postgres.query(&conn, "select 1 as value")
+    if queryResult.isErr() {
+        println("postgres env: query failed: " + queryResult.unwrapErr())
+        postgres.close(conn)
+        return void
+    }
+
+    var rows = postgres.rows(&queryResult.unwrap())
+    if rows.len() == 1 {
+        println("postgres env: ok")
+    } else {
+        println("postgres env: bad row count")
+    }
+
+    postgres.close(conn)
+    return void
+}
