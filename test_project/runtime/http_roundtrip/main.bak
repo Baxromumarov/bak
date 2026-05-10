@@ -7,14 +7,25 @@ import thread "std/thread"
 import time "std/time"
 
 func health(_req: http.Request) -> (http.Response) {
-    return http.text(200, "ok")
+    return http.text(
+        200,
+        "ok",
+    )
 }
 
 func serveOnce(port: int) -> (void) {
     mut var router: http.Router = http.newRouter()
-    router.get("/health", health)
 
-    var result: Result<void, string> = http.serveOnce("127.0.0.1:" + port.toString(), router)
+    router.get(
+        "/health",
+        health,
+    )
+
+    var result: Result<void, string> = http.serveOnce(
+        "127.0.0.1:" + port.toString(),
+        router,
+    )
+
     if result.isErr() {
         println("http server failed: " + result.unwrapErr())
     }
@@ -23,44 +34,92 @@ func serveOnce(port: int) -> (void) {
 }
 
 func request(port: int) -> (Result<string, string>) {
-    var connectResult = net.connect("127.0.0.1", port)
+    var connectResult = net.connect(
+        "127.0.0.1",
+        port,
+    )
+
     if connectResult.isErr() {
         return Err(connectResult.unwrapErr())
     }
 
     mut var socket: net.TcpStream = connectResult.unwrap()
-    net.setTimeout(&mut socket, 1000)
+
+    net.setTimeout(
+        &mut socket,
+        1000,
+    )
 
     var payload: string = "GET /health HTTP/1.1\r\nHost: localhost\r\n\r\n"
-    var writeResult: Result<void, string> = net.write(&mut socket, payload.bytes())
+    var writeResult: Result<void, string> = net.write(
+        &mut socket,
+        payload.bytes(),
+    )
+
     if writeResult.isErr() {
         return Err(writeResult.unwrapErr())
     }
 
-    var readResult = net.read(&mut socket, 1024)
-    net.close(&mut socket)
+    mut var response: string = ""
+    mut var attempts: int = 0
 
-    if readResult.isErr() {
-        return Err(readResult.unwrapErr())
+    while attempts < 4 {
+        var readResult = net.read(
+            &mut socket,
+            1024,
+        )
+
+        if readResult.isErr() {
+            net.close(&mut socket)
+
+            if response.len() > 0 {
+                return Ok(response)
+            }
+
+            return Err(readResult.unwrapErr())
+        }
+
+        var chunk = readResult.unwrap()
+
+        if chunk.len() == 0 {
+            attempts = 4
+        } else {
+            response = response + strings.fromBytes(chunk)
+
+            if response.indexOf("\r\n\r\nok").isOk() {
+                attempts = 4
+            } else {
+                attempts = attempts + 1
+            }
+        }
     }
 
-    return Ok(strings.fromBytes(readResult.unwrap()))
+    net.close(&mut socket)
+
+    return Ok(response)
 }
 
 func main() -> (void) {
     var port: int = 19180
-    var server = thread.spawn(serveOnce, port)
+    var server = thread.spawn(
+        serveOnce,
+        port,
+    )
+
     thread.sleep(time.millis(50))
 
     var response: Result<string, string> = request(port)
+
     server.join()
 
     if response.isErr() {
         println("http roundtrip failed: " + response.unwrapErr())
+
         return void
     }
 
     var body: string = response.unwrap()
+
     if body.indexOf("200 OK").isOk() && body.indexOf("\r\n\r\nok").isOk() {
         println("http roundtrip: ok")
     } else {

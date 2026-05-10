@@ -18,7 +18,7 @@ func main() -> (void) {
     println("Private types should not be accessible from outside their module")
 
     // For now, just verify public types work
-    var p: types.Point = types.Point{X: 1, Y: 2}
+    var p: types.Point = types.Point{x: 1, y: 2}
 
     println(
         "  Public types.Point works:",

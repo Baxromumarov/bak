@@ -272,6 +272,59 @@ func TestAnalyzeAndPublishIncludesImportStyleLintCode(t *testing.T) {
 	t.Fatalf("expected import-style lint diagnostic, got %#v", params.Diagnostics)
 }
 
+func TestAnalyzeAndPublishIncludesPublicAPIStyleDiagnosticData(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"pub func BadPublicName() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	output := captureStdout(t, func() {
+		s.analyzeAndPublish(context.Background(), uri, src)
+	})
+
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Source != "bak-linter" || fmt.Sprint(diag.Code) != "public-api-style" {
+			continue
+		}
+		data, ok := diag.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("expected diagnostic data, got %#v", diag.Data)
+		}
+		if data["title"] != "public API style" {
+			t.Fatalf("expected public API style title, got %#v", data)
+		}
+		if !strings.Contains(fmt.Sprint(data["help"]), "camelCase") {
+			t.Fatalf("expected camelCase help, got %#v", data)
+		}
+		return
+	}
+	t.Fatalf("expected public-api-style lint diagnostic, got %#v", params.Diagnostics)
+}
+
 func TestAnalyzeAndPublishLegacyImportAliasParserDiagnosticHasHelp(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

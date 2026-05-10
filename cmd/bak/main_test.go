@@ -90,6 +90,7 @@ func TestExplainDiagnosticCodeImportAndParserCodes(t *testing.T) {
 		{code: "E0702", want: "duplicate import alias"},
 		{code: "p0001", want: "parse error"},
 		{code: "import-style", want: "import style"},
+		{code: "public-api-style", want: "public API style"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.code, func(t *testing.T) {
@@ -128,7 +129,10 @@ func TestPrintDiagnosticCodeList(t *testing.T) {
 	if !strings.Contains(text, "E0100") {
 		t.Fatalf("expected known code in list output, got: %s", text)
 	}
-	if !strings.Contains(text, "E0702") || !strings.Contains(text, "P0001") || !strings.Contains(text, "import-style") {
+	if !strings.Contains(text, "E0702") ||
+		!strings.Contains(text, "P0001") ||
+		!strings.Contains(text, "import-style") ||
+		!strings.Contains(text, "public-api-style") {
 		t.Fatalf("expected import/parser/linter codes in list output, got: %s", text)
 	}
 }

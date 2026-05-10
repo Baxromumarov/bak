@@ -81,6 +81,7 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	WarnGuardedUnwrap:   {LevelWarning, "unwrap call is guaranteed to panic in this branch", "move unwrap into the matching result guard branch"},
 	WarnUnguardedUnwrap: {LevelWarning, "unwrap call is not guarded by a result check", "check isOk/isErr before unwrapping when failure is possible"},
 	LintImportStyle:     {LevelHint, "import should use the stable Go-like package path style", "prefer imports such as import \"std/strings\""},
+	LintPublicAPIStyle:  {LevelWarning, "public API should follow Bak naming style", "use camelCase for public values and UpperCamelCase for public types"},
 }
 
 // CatalogEntry describes one stable diagnostic code for CLI help and editor UX.
@@ -135,6 +136,7 @@ var catalogTitles = map[DiagnosticCode]string{
 	WarnGuardedUnwrap:      "guarded unwrap warning",
 	WarnUnguardedUnwrap:    "unguarded unwrap warning",
 	LintImportStyle:        "import style",
+	LintPublicAPIStyle:     "public API style",
 }
 
 // Catalog returns all known diagnostic entries.

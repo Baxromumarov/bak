@@ -1,6 +1,7 @@
 package linter
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -147,6 +148,38 @@ func TestLintSourceWarnsForInvalidPublicAPIStyle(t *testing.T) {
 		if f.Rule == "public-api-style" && strings.Contains(f.Message, "private_helper") {
 			t.Fatalf("did not expect private helper warning, got %#v", findings)
 		}
+	}
+	for _, name := range want {
+		found := false
+		for _, f := range findings {
+			if f.Rule == "public-api-style" && strings.Contains(f.Message, name) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected public-api-style finding for %q, got %#v", name, findings)
+		}
+	}
+}
+
+func TestPublicAPIStyleFixtureCoversAllPublicShapes(t *testing.T) {
+	data, err := os.ReadFile("testdata/public_api_style_bad.bak")
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+
+	findings := LintSource("testdata/public_api_style_bad.bak", string(data), nil)
+	want := []string{
+		"BadFunction",
+		"badStruct",
+		"BadField",
+		"MAX_USERS",
+		"badEnum",
+		"bad_variant",
+		"badType",
+		"badAlias",
+		"BadMethod",
 	}
 	for _, name := range want {
 		found := false

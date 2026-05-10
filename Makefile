@@ -30,8 +30,9 @@ TEST_SCRIPTS := \
 COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
 FORMAT_CHECK_ROOTS := src/std examples tests
+API_STYLE_ROOTS := src/std test_project tests
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check api-style-check test-projects test-runtime stability-fast test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -63,10 +64,14 @@ help:
 	@echo "  make test-stdlib      Run Bak stdlib tests"
 	@echo "  make examples-check   Check stable v0.1 examples"
 	@echo "  make format-check     Verify bakfmt output for stable language files"
+	@echo "  make api-style-check  Verify public Bak APIs follow the style contract"
+	@echo "  make test-projects    Check real-world test_project programs"
+	@echo "  make test-runtime     Run runtime integration projects"
+	@echo "  make stability-fast   Run unit tests + API style + real-world project checks"
 	@echo "  make test-parity      Run VM/native parity guardrails"
 	@echo "  make test-lsp-verify  Run the LSP smoke verifier"
 	@echo "  make test-lanes       Run unit + scripts + stdlib + parity"
-	@echo "  make language-stability Run release gate + LSP + formatter checks"
+	@echo "  make language-stability Run release gate + LSP + formatter + API/project checks"
 	@echo "  make test-comprehensive Run the comprehensive release gate"
 	@echo "  make release-check    Build tools and run release-quality checks"
 	@echo "  make test-all         Alias for test-lanes"
@@ -137,6 +142,17 @@ examples-check: build-root-bak
 format-check: build-bakfmt
 	@BAKFMT_BIN=$(BAKFMT_BIN) bash scripts/check_bakfmt.sh $(FORMAT_CHECK_ROOTS)
 
+api-style-check: build-baklint
+	@$(BAKLINT_BIN) --disable naming-convention,style,complexity,empty-block,import-style $(API_STYLE_ROOTS)
+
+test-projects: build-bak
+	@BAK_BIN=$(BAK_BIN) bash test_project/run_all.sh
+
+test-runtime: build-bak
+	@BAK_BIN=$(BAK_BIN) bash test_project/run_runtime.sh
+
+stability-fast: test-unit api-style-check test-projects
+
 test-comprehensive: build-root-bak
 	@echo "==> $(COMPREHENSIVE_SCRIPT)"
 	@bash $(COMPREHENSIVE_SCRIPT)
@@ -150,7 +166,7 @@ test-lsp-verify: build-lsp
 
 test-lanes: test-unit test-scripts test-imports test-stdlib examples-check test-parity
 
-language-stability: test-comprehensive test-lsp-verify format-check
+language-stability: test-comprehensive test-lsp-verify format-check api-style-check test-projects
 
 test-all: test-lanes
 

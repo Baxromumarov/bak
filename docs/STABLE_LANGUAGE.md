@@ -154,11 +154,14 @@ Stable source should pass:
 
 ```sh
 make format-check
+make api-style-check
+make test-projects
+make stability-fast
 make language-stability
 make release-check
 ```
 
-`bakfmt` is expected to be parse-preserving and idempotent on stable syntax. LSP formatting should use the same formatter behavior as the CLI.
+`bakfmt` is expected to be parse-preserving and idempotent on stable syntax. Public APIs should satisfy `docs/API_STYLE.md`. LSP formatting should use the same formatter behavior as the CLI.
 
 ## Unsupported Surface
 
@@ -170,4 +173,3 @@ The following are intentionally unsupported in the stable line:
 - FFI,
 - callback or async cross-language interop,
 - package manifests, lockfiles, remote fetching, and install commands.
-

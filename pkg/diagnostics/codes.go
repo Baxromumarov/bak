@@ -120,6 +120,7 @@ const (
 	WarnGuardedUnwrap   DiagnosticCode = "W0901"
 	WarnUnguardedUnwrap DiagnosticCode = "W0902"
 	LintImportStyle     DiagnosticCode = "import-style"
+	LintPublicAPIStyle  DiagnosticCode = "public-api-style"
 )
 
 // Note provides additional context for a diagnostic

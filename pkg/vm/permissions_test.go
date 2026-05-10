@@ -270,6 +270,36 @@ func main() -> (void) {
 	}
 }
 
+func TestVMJoinPropagatesThreadPermissionFailure(t *testing.T) {
+	target := filepath.Join(t.TempDir(), "denied.txt")
+	src := `package main
+
+func writePath(_unused: int) -> (void) {
+    var result: Result<void, string> = __builtin_write_file(` + strconv.Quote(target) + `, "nope")
+    if result.isErr() {
+        panic result.unwrapErr()
+    }
+    return void
+}
+
+func main() -> (void) {
+    var t = __builtin_spawn(writePath, 0)
+    __builtin_join(t)
+    return void
+}
+`
+
+	module := compileModule(t, src)
+	v := NewWithPermissions(module, runtimecap.Permissions{})
+	_, err := v.Run()
+	if err == nil {
+		t.Fatalf("expected join to propagate thread permission failure")
+	}
+	if got := err.Error(); !strings.Contains(got, runtimecap.FlagAllowFSMutate) {
+		t.Fatalf("expected fs mutation permission error, got %v", err)
+	}
+}
+
 func TestVMFileMutatorsAllowedWithPermission(t *testing.T) {
 	vm := NewWithPermissions(compiler.NewBytecodeModule(), runtimecap.Permissions{AllowFSMutate: true})
 	tempDir := t.TempDir()

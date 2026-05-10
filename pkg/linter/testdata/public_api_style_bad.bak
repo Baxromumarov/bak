@@ -1,0 +1,24 @@
+package fixture
+
+pub func BadFunction() -> (void) {
+    return void
+}
+
+pub struct badStruct {
+    pub BadField: int
+}
+
+pub const MAX_USERS: int = 10
+
+pub enum badEnum {
+    bad_variant
+}
+
+pub type badType = int
+pub alias badAlias = string
+
+impl badStruct as s {
+    pub func BadMethod() -> (int) {
+        return s.BadField
+    }
+}

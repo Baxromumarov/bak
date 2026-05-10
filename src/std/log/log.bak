@@ -20,11 +20,11 @@ const COLOR_CYAN: string = "\x1b[36m"
 const COLOR_GRAY: string = "\x1b[90m"
 
 pub struct Logger {
-    pub minLevel:  int
-    pub useColor:  bool
-    pub showTime:  bool
+    pub minLevel:   int
+    pub useColor:   bool
+    pub showTime:   bool
     pub prefix:     string
-    pub filePath:  string
+    pub filePath:   string
     pub appendFile: bool
 }
 
@@ -32,11 +32,11 @@ pub struct Logger {
 pub func new() -> (Logger) {
     return Logger{
         appendFile: true,
-        filePath:  "",
-        minLevel:  levelInfo,
+        filePath:   "",
+        minLevel:   levelInfo,
         prefix:     "",
-        showTime:  true,
-        useColor:  true,
+        showTime:   true,
+        useColor:   true,
     }
 }
 
@@ -206,11 +206,11 @@ pub func kvFloat(key: string, value: float64) -> (Field) {
 pub func withPrefix(prefix: string, level: int) -> (Logger) {
     return Logger{
         appendFile: defaultLogger.appendFile,
-        filePath:  defaultLogger.filePath,
-        minLevel:  level,
+        filePath:   defaultLogger.filePath,
+        minLevel:   level,
         prefix:     prefix,
-        showTime:  defaultLogger.showTime,
-        useColor:  defaultLogger.useColor,
+        showTime:   defaultLogger.showTime,
+        useColor:   defaultLogger.useColor,
     }
 }
 

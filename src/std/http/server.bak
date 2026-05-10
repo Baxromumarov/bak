@@ -56,10 +56,12 @@ impl Server as self {
 
         if connRes.isErr() {
             net.closeListener(&mut listener)
+
             return Err(connRes.unwrapErr())
         }
 
         mut var conn = connRes.unwrap()
+
         self.handle_connection(&mut conn)
         net.closeListener(&mut listener)
 

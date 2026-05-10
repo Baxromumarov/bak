@@ -210,6 +210,58 @@ func main() -> (void) {
 	t.Fatalf("expected ErrSelfImport, got %#v", errs)
 }
 
+func TestCheck_ImportedPrivateFieldAccessIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "account.bak")
+	libSource := `
+package account
+
+pub struct Account {
+	pub id: int
+	secret: string
+}
+
+pub func newAccount() -> (Account) {
+	return Account{id: 7, secret: "hidden"}
+}
+`
+	mainSource := `
+package main
+import account "./account.bak"
+
+func main() -> (void) {
+	var accountValue: account.Account = account.newAccount()
+	println(accountValue.secret)
+	return void
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatalf("write account.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	for _, err := range tc.GetErrors() {
+		if strings.Contains(err.Message, "field 'secret'") && strings.Contains(err.Message, "private") {
+			return
+		}
+	}
+	t.Fatalf("expected private imported field error, got %#v", tc.GetErrors())
+}
+
 func checkSourceStructured(t *testing.T, source string) []TypeError {
 	t.Helper()
 	l := lexer.New(source)

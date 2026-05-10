@@ -32,7 +32,7 @@ import strings "src/std/strings/strings.bak"
 
 Package directory paths remain preferred for stdlib and multi-file package code.
 
-`make format-check` verifies `bakfmt` output for every parseable file under `src/std`, `examples`, and `tests`. Parser-error test fixtures are skipped, but stdlib and example parse errors fail the check. `make language-stability` runs the release gate, LSP verifier, and formatter check together.
+`make format-check` verifies `bakfmt` output for every parseable file under `src/std`, `examples`, and `tests`. Parser-error test fixtures are skipped, but stdlib and example parse errors fail the check. `make api-style-check` verifies the public API naming contract across `src/std`, `test_project`, and `tests`. `make language-stability` runs the release gate, LSP verifier, formatter check, API style check, and real-world project compiler checks together.
 
 ## Not Stable Yet
 
