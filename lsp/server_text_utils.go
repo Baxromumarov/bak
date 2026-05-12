@@ -471,7 +471,7 @@ func isWordBoundary(s string, start, length int) bool {
 	return true
 }
 
-func (s *Server) typecheckForCompletion(text, uri string, pos Position) (*typechecker.TypeChecker, *ast.Program) {
+func (s *Server) typecheckForCompletion(ctx context.Context, text, uri string, pos Position) (*typechecker.TypeChecker, *ast.Program) {
 	modText := text
 	lineText := lineAt(text, pos.Line)
 	placeholder := "_lsp"
@@ -490,9 +490,9 @@ func (s *Server) typecheckForCompletion(text, uri string, pos Position) (*typech
 	}
 
 	filePath := uriToPath(uri)
-	opts := analysis.LSPOptions(filePath)
+	opts := analysis.LSPOptionsWithRoot(filePath, s.rootPath())
 	opts.TypecheckParseErrors = true
-	result, err := analysis.AnalyzeSource(context.Background(), filePath, modText, opts)
+	result, err := analysis.AnalyzeSource(ctx, filePath, modText, opts)
 	if err != nil || result == nil || result.Program == nil {
 		return nil, nil
 	}

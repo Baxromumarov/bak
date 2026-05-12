@@ -153,6 +153,37 @@ func TestResolveImportPathGoLikeStdAndFilePackages(t *testing.T) {
 	}
 }
 
+func TestResolveImportPathDetailedFromRootDoesNotNeedCwd(t *testing.T) {
+	root := t.TempDir()
+	otherCWD := t.TempDir()
+	libDir := filepath.Join(root, "lib", "math")
+	if err := os.MkdirAll(libDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "math.bak"), []byte("package math\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(otherCWD); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	result := ResolveImportPathDetailedFromRoot("lib/math", "", root)
+	if result.Resolved != libDir {
+		t.Fatalf("expected explicit-root resolution %q, got %q; tried %#v", libDir, result.Resolved, result.Tried)
+	}
+}
+
 func TestResolveImportPathSkipsMixedPackageDirectory(t *testing.T) {
 	root := t.TempDir()
 	bytesDir := filepath.Join(root, "src", "std", "bytes")

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -23,9 +24,11 @@ type BaseMessage struct {
 
 type Request struct {
 	BaseMessage
-	ID     json.RawMessage `json:"id"`
-	Method string          `json:"method"`
-	Params json.RawMessage `json:"params,omitempty"`
+	ID          json.RawMessage `json:"id"`
+	Method      string          `json:"method"`
+	Params      json.RawMessage `json:"params,omitempty"`
+	ParamsValue any             `json:"-"`
+	Context     context.Context `json:"-"`
 }
 
 type Response struct {

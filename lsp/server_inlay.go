@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -219,8 +218,8 @@ func exprStartPosition(expr ast.Expression) exprPos {
 }
 
 func (s *Server) handleSignatureHelp(req Request) *SignatureHelp {
-	var params SignatureHelpParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[SignatureHelpParams](req)
+	if !ok {
 		return nil
 	}
 
@@ -244,8 +243,8 @@ func (s *Server) handleSignatureHelp(req Request) *SignatureHelp {
 }
 
 func (s *Server) handleFormatting(req Request) []TextEdit {
-	var params DocumentFormattingParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DocumentFormattingParams](req)
+	if !ok {
 		return nil
 	}
 	text, ok := s.document(params.TextDocument.URI)
@@ -272,8 +271,8 @@ func (s *Server) handleSemanticTokensFull(_ Request) *SemanticTokens {
 }
 
 func (s *Server) handleInlayHint(req Request) []InlayHint {
-	var params InlayHintParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[InlayHintParams](req)
+	if !ok {
 		return nil
 	}
 

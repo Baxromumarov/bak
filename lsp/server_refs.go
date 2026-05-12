@@ -173,10 +173,11 @@ func makeLocation(uri string, line, col, length int) Location {
 
 // forEachBakFile walks the workspace and calls fn for every .bak file.
 func (s *Server) forEachBakFile(fn func(path, uri string)) {
-	if s.RootPath == "" {
+	root := s.rootPath()
+	if root == "" {
 		return
 	}
-	_ = filepath.WalkDir(s.RootPath, func(path string, d fs.DirEntry, err error) error {
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}

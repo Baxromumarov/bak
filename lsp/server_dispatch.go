@@ -24,14 +24,16 @@ func NewServer() *Server {
 	lintConfig := linter.DefaultConfig()
 	linter.ApplyDisabledRulesCSV(lintConfig, os.Getenv("BAK_LSP_DISABLE_RULES"))
 	return &Server{
-		Documents:     make(map[string]string),
-		Cache:         make(map[string]*AnalysisResult),
-		Indexes:       make(map[string]*FileIndex),
-		PublicIndexes: make(map[string]*FileIndex),
-		pendingLocks:  make(map[string]*time.Timer),
-		pendingCancel: make(map[string]context.CancelFunc),
-		canceled:      make(map[string]struct{}),
-		lintConfig:    lintConfig,
+		Documents:      make(map[string]string),
+		Cache:          make(map[string]*AnalysisResult),
+		Indexes:        make(map[string]*FileIndex),
+		PublicIndexes:  make(map[string]*FileIndex),
+		pendingLocks:   make(map[string]*time.Timer),
+		pendingCancel:  make(map[string]context.CancelFunc),
+		canceled:       make(map[string]struct{}),
+		activeRequests: make(map[string]context.CancelFunc),
+		watchedChanges: make(map[string]struct{}),
+		lintConfig:     lintConfig,
 	}
 }
 
@@ -42,97 +44,97 @@ func (s *Server) Handle(req Request) (any, *ResponseError) {
 func (s *Server) HandleRequest(req Request) (any, *ResponseError) {
 	switch req.Method {
 	case "initialize":
-		if err := validateParams[InitializeParams](req); err != nil {
+		if err := validateParams[InitializeParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleInitialize(req), nil
 	case "textDocument/hover":
-		if err := validateParams[HoverParams](req); err != nil {
+		if err := validateParams[HoverParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleHover(req), nil
 	case "textDocument/definition":
-		if err := validateParams[DefinitionParams](req); err != nil {
+		if err := validateParams[DefinitionParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleDefinition(req), nil
 	case "textDocument/typeDefinition":
-		if err := validateParams[DefinitionParams](req); err != nil {
+		if err := validateParams[DefinitionParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleTypeDefinition(req), nil
 	case "textDocument/implementation":
-		if err := validateParams[DefinitionParams](req); err != nil {
+		if err := validateParams[DefinitionParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleImplementation(req), nil
 	case "textDocument/references":
-		if err := validateParams[ReferenceParams](req); err != nil {
+		if err := validateParams[ReferenceParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleReferences(req), nil
 	case "textDocument/documentSymbol":
-		if err := validateParams[DocumentSymbolParams](req); err != nil {
+		if err := validateParams[DocumentSymbolParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleDocumentSymbol(req), nil
 	case "workspace/symbol":
-		if err := validateParams[WorkspaceSymbolParams](req); err != nil {
+		if err := validateParams[WorkspaceSymbolParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleWorkspaceSymbol(req), nil
 	case "textDocument/prepareRename":
-		if err := validateParams[PrepareRenameParams](req); err != nil {
+		if err := validateParams[PrepareRenameParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handlePrepareRename(req), nil
 	case "textDocument/rename":
-		if err := validateParams[RenameParams](req); err != nil {
+		if err := validateParams[RenameParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleRename(req), nil
 	case "textDocument/completion":
-		if err := validateParams[CompletionParams](req); err != nil {
+		if err := validateParams[CompletionParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleCompletion(req), nil
 	case "textDocument/signatureHelp":
-		if err := validateParams[SignatureHelpParams](req); err != nil {
+		if err := validateParams[SignatureHelpParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleSignatureHelp(req), nil
 	case "textDocument/semanticTokens/full":
-		if err := validateParams[SemanticTokensParams](req); err != nil {
+		if err := validateParams[SemanticTokensParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleSemanticTokensFull(req), nil
 	case "textDocument/inlayHint":
-		if err := validateParams[InlayHintParams](req); err != nil {
+		if err := validateParams[InlayHintParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleInlayHint(req), nil
 	case "textDocument/formatting":
-		if err := validateParams[DocumentFormattingParams](req); err != nil {
+		if err := validateParams[DocumentFormattingParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleFormatting(req), nil
 	case "textDocument/documentHighlight":
-		if err := validateParams[DocumentHighlightParams](req); err != nil {
+		if err := validateParams[DocumentHighlightParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleDocumentHighlight(req), nil
 	case "textDocument/codeAction":
-		if err := validateParams[CodeActionParams](req); err != nil {
+		if err := validateParams[CodeActionParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleCodeAction(req), nil
 	case "textDocument/documentLink":
-		if err := validateParams[DocumentLinkParams](req); err != nil {
+		if err := validateParams[DocumentLinkParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleDocumentLink(req), nil
 	case "textDocument/foldingRange":
-		if err := validateParams[FoldingRangeParams](req); err != nil {
+		if err := validateParams[FoldingRangeParams](&req); err != nil {
 			return nil, err
 		}
 		return s.handleFoldingRange(req), nil
@@ -165,16 +167,16 @@ func (s *Server) HandleNotification(req Request) {
 }
 
 func (s *Server) handleCancelRequest(req Request) {
-	var params CancelParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling cancelRequest: %v", err)
+	params, ok := requestParams[CancelParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling cancelRequest")
 		return
 	}
 
 	s.cancelRequest(params.ID)
 }
 
-func validateParams[T any](req Request) *ResponseError {
+func validateParams[T any](req *Request) *ResponseError {
 	var params T
 	if err := json.Unmarshal(req.Params, &params); err != nil {
 		return &ResponseError{
@@ -182,21 +184,35 @@ func validateParams[T any](req Request) *ResponseError {
 			Message: "invalid params",
 		}
 	}
+	req.ParamsValue = params
 	return nil
 }
 
-func (s *Server) handleInitialize(req Request) InitializeResult {
-	var params InitializeParams
-	if err := json.Unmarshal(req.Params, &params); err == nil {
-		if params.RootURI != "" {
-			s.RootPath = uriToPath(params.RootURI)
-		} else if params.RootPath != "" {
-			s.RootPath = params.RootPath
-		}
+func requestParams[T any](req Request) (T, bool) {
+	var zero T
+	if params, ok := req.ParamsValue.(T); ok {
+		return params, true
 	}
-	// Set CWD to project root so typechecker import resolution works
-	if s.RootPath != "" {
-		_ = os.Chdir(s.RootPath)
+	if err := json.Unmarshal(req.Params, &zero); err != nil {
+		return zero, false
+	}
+	return zero, true
+}
+
+func requestContext(req Request) context.Context {
+	if req.Context != nil {
+		return req.Context
+	}
+	return context.Background()
+}
+
+func (s *Server) handleInitialize(req Request) InitializeResult {
+	if params, ok := requestParams[InitializeParams](req); ok {
+		if params.RootURI != "" {
+			s.setRootPath(uriToPath(params.RootURI))
+		} else if params.RootPath != "" {
+			s.setRootPath(params.RootPath)
+		}
 	}
 	return InitializeResult{
 		Capabilities: ServerCapabilities{
@@ -237,9 +253,9 @@ func (s *Server) handleInitialize(req Request) InitializeResult {
 }
 
 func (s *Server) handleDidOpen(req Request) {
-	var params DidOpenTextDocumentParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling didOpen: %v", err)
+	params, ok := requestParams[DidOpenTextDocumentParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling didOpen")
 		return
 	}
 
@@ -256,10 +272,9 @@ func (s *Server) handleDidOpen(req Request) {
 }
 
 func (s *Server) handleDidChange(req Request) {
-	var params DidChangeTextDocumentParams
-
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling didChange: %v", err)
+	params, ok := requestParams[DidChangeTextDocumentParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling didChange")
 		return
 	}
 
@@ -281,9 +296,9 @@ func (s *Server) handleDidChange(req Request) {
 }
 
 func (s *Server) handleDidClose(req Request) {
-	var params DidCloseTextDocumentParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling didClose: %v", err)
+	params, ok := requestParams[DidCloseTextDocumentParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling didClose")
 		return
 	}
 
@@ -295,9 +310,9 @@ func (s *Server) handleDidClose(req Request) {
 }
 
 func (s *Server) handleDidSave(req Request) {
-	var params DidSaveTextDocumentParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling didSave: %v", err)
+	params, ok := requestParams[DidSaveTextDocumentParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling didSave")
 		return
 	}
 
@@ -326,22 +341,25 @@ func (s *Server) handleDidSave(req Request) {
 }
 
 func (s *Server) handleDidChangeWatchedFiles(req Request) {
-	var params DidChangeWatchedFilesParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		log.Printf("Error unmarshalling didChangeWatchedFiles: %v", err)
+	params, ok := requestParams[DidChangeWatchedFilesParams](req)
+	if !ok {
+		log.Printf("Error unmarshalling didChangeWatchedFiles")
 		return
 	}
 
 	defer recoverAndLog("workspace/didChangeWatchedFiles")
 
+	changedURIs := make([]string, 0, len(params.Changes))
 	for _, change := range params.Changes {
 		if change.URI == "" {
 			continue
 		}
+		changedURIs = append(changedURIs, change.URI)
 		s.invalidateAnalysisForURI(change.URI)
 		s.invalidatePublicIndexesForURI(change.URI)
 		typechecker.InvalidatePackage(uriToPath(change.URI))
 	}
 
+	s.addWatchedChanges(changedURIs)
 	s.resetWorkspaceReanalysis(100 * time.Millisecond)
 }

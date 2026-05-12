@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"maps"
 	"path/filepath"
 	"strconv"
@@ -13,8 +12,8 @@ import (
 )
 
 func (s *Server) handleHover(req Request) *Hover {
-	var params HoverParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[HoverParams](req)
+	if !ok {
 		return nil
 	}
 	text, _ := s.document(params.TextDocument.URI)

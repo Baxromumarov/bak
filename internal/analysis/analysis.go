@@ -96,7 +96,9 @@ func TypecheckProgram(
 
 	registry := opts.Registry
 	if registry == nil {
-		registry = packages.NewRegistry()
+		registry = packages.NewRegistryWithProjectRoot(opts.ProjectRoot)
+	} else if opts.ProjectRoot != "" {
+		registry.SetProjectRoot(opts.ProjectRoot)
 	}
 
 	tc := typechecker.NewWithPathAndRegistry(filename, registry)

@@ -26,7 +26,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 			}
 		}()
 		var err error
-		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.LSPOptions(filePath))
+		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.LSPOptionsWithRoot(filePath, s.rootPath()))
 		if err != nil && ctx.Err() == nil {
 			log.Printf("analysis failed(%s): %v", uri, err)
 		}

@@ -37,6 +37,13 @@ func ResolveImportPathFrom(importPath, fromPath string) string {
 // ResolveImportPathDetailedFrom resolves an import path and preserves the
 // concrete paths considered along the way for diagnostics.
 func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution {
+	return ResolveImportPathDetailedFromRoot(importPath, fromPath, "")
+}
+
+// ResolveImportPathDetailedFromRoot resolves an import path with an explicit
+// project root. The root is used before cwd for module-relative and stdlib
+// imports, which lets editor integrations avoid changing process-wide cwd.
+func ResolveImportPathDetailedFromRoot(importPath, fromPath, rootPath string) ImportResolution {
 	result := ImportResolution{
 		Requested: importPath,
 		Hint:      importHint(importPath),
@@ -47,7 +54,10 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 
 	cwd, _ := os.Getwd()
 	baseDir := importBaseDir(fromPath)
-	projectRoot := findProjectRoot(baseDir)
+	projectRoot := explicitProjectRoot(rootPath)
+	if projectRoot == "" {
+		projectRoot = findProjectRoot(baseDir)
+	}
 	if projectRoot == "" {
 		projectRoot = findProjectRoot(cwd)
 	}
@@ -81,6 +91,17 @@ func ResolveImportPathDetailedFrom(importPath, fromPath string) ImportResolution
 	}
 
 	return result
+}
+
+func explicitProjectRoot(rootPath string) string {
+	rootPath = strings.TrimSpace(rootPath)
+	if rootPath == "" {
+		return ""
+	}
+	if abs, err := filepath.Abs(rootPath); err == nil {
+		rootPath = abs
+	}
+	return filepath.Clean(rootPath)
 }
 
 func importSearchPath(importPath string) string {

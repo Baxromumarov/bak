@@ -105,7 +105,9 @@ type Server struct {
 	pendingLocks   map[string]*time.Timer
 	pendingCancel  map[string]context.CancelFunc
 	canceled       map[string]struct{}
+	activeRequests map[string]context.CancelFunc
 	workspaceTimer *time.Timer
+	watchedChanges map[string]struct{}
 	lintConfig     *linter.Config
 	outputMu       sync.Mutex
 	output         io.Writer

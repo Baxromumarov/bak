@@ -17,7 +17,7 @@ func (tc *TypeChecker) checkPackageStatement(ps *ast.PackageStatement) {
 }
 
 func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
-	resolution := packages.ResolveImportPathDetailedFrom(is.Path, tc.currentPkgPath)
+	resolution := packages.ResolveImportPathDetailedFromRoot(is.Path, tc.currentPkgPath, tc.registry.ProjectRoot())
 	if resolution.Resolved == "" {
 		tc.emitImportNotFound(is, resolution)
 		return

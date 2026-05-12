@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"os"
 	"path/filepath"
@@ -402,8 +401,8 @@ func (s *Server) lookupWorkspaceSymbol(result *AnalysisResult, originURI, name s
 }
 
 func (s *Server) handleDefinition(req Request) []Location {
-	var params DefinitionParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DefinitionParams](req)
+	if !ok {
 		return nil
 	}
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -453,8 +452,8 @@ func (s *Server) handleDefinition(req Request) []Location {
 }
 
 func (s *Server) handleTypeDefinition(req Request) []Location {
-	var params DefinitionParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DefinitionParams](req)
+	if !ok {
 		return nil
 	}
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -497,8 +496,8 @@ func (s *Server) findSymbolLocations(originURI, name string, result *AnalysisRes
 }
 
 func (s *Server) handleImplementation(req Request) []Location {
-	var params DefinitionParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DefinitionParams](req)
+	if !ok {
 		return nil
 	}
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -522,8 +521,8 @@ func (s *Server) handleImplementation(req Request) []Location {
 }
 
 func (s *Server) handleReferences(req Request) []Location {
-	var params ReferenceParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[ReferenceParams](req)
+	if !ok {
 		return nil
 	}
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -569,9 +568,8 @@ func (s *Server) handleReferences(req Request) []Location {
 }
 
 func (s *Server) handleDocumentSymbol(req Request) []DocumentSymbol {
-	var params DocumentSymbolParams
-
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DocumentSymbolParams](req)
+	if !ok {
 		return nil
 	}
 
@@ -584,8 +582,8 @@ func (s *Server) handleDocumentSymbol(req Request) []DocumentSymbol {
 }
 
 func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
-	var params WorkspaceSymbolParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[WorkspaceSymbolParams](req)
+	if !ok {
 		return nil
 	}
 	s.ensureWorkspaceIndexes()
@@ -611,8 +609,8 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 }
 
 func (s *Server) handleRename(req Request) *WorkspaceEdit {
-	var params RenameParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[RenameParams](req)
+	if !ok {
 		return nil
 	}
 
@@ -631,8 +629,7 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
 
-	refParamsBytes, _ := json.Marshal(refParams)
-	refs := s.handleReferences(Request{Params: refParamsBytes})
+	refs := s.handleReferences(Request{ParamsValue: refParams})
 	if len(refs) == 0 {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
@@ -649,8 +646,8 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 }
 
 func (s *Server) handleDocumentHighlight(req Request) []DocumentHighlight {
-	var params DocumentHighlightParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DocumentHighlightParams](req)
+	if !ok {
 		return nil
 	}
 	refParams := ReferenceParams{
@@ -658,8 +655,7 @@ func (s *Server) handleDocumentHighlight(req Request) []DocumentHighlight {
 		Position:     params.Position,
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
-	refParamsBytes, _ := json.Marshal(refParams)
-	refs := s.handleReferences(Request{Params: refParamsBytes})
+	refs := s.handleReferences(Request{ParamsValue: refParams})
 
 	highlights := []DocumentHighlight{}
 	for _, loc := range refs {
@@ -674,8 +670,8 @@ func (s *Server) handleDocumentHighlight(req Request) []DocumentHighlight {
 }
 
 func (s *Server) handleCodeAction(req Request) []CodeAction {
-	var params CodeActionParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[CodeActionParams](req)
+	if !ok {
 		return nil
 	}
 

@@ -16,6 +16,7 @@ func main() {
 	log.Println("Bak LSP started")
 
 	server := NewServer()
+	defer server.Close()
 
 	for {
 		// Read message
@@ -28,11 +29,19 @@ func main() {
 			continue
 		}
 
-		handleIncomingMessage(server, content)
+		handleIncomingMessageAsync(server, content)
 	}
 }
 
 func handleIncomingMessage(server *Server, content []byte) {
+	handleIncomingMessageWithMode(server, content, false)
+}
+
+func handleIncomingMessageAsync(server *Server, content []byte) {
+	handleIncomingMessageWithMode(server, content, true)
+}
+
+func handleIncomingMessageWithMode(server *Server, content []byte, async bool) {
 	envelope, err := parseMessageEnvelope(content)
 	if err != nil {
 		log.Printf("Error unmarshalling partial message: %v", err)
@@ -65,13 +74,22 @@ func handleIncomingMessage(server *Server, content []byte) {
 		return
 	}
 
+	if async {
+		go handleRequest(server, req)
+		return
+	}
+	handleRequest(server, req)
+}
+
+func handleRequest(server *Server, req Request) {
+	req.Context = server.startRequest(req.ID)
 	if server.isRequestCanceled(req.ID) {
 		server.finishRequest(req.ID)
 		return
 	}
 
 	result, rpcErr := safeHandleRequest(server, req)
-	if server.isRequestCanceled(req.ID) {
+	if req.Context.Err() != nil || server.isRequestCanceled(req.ID) {
 		server.finishRequest(req.ID)
 		return
 	}

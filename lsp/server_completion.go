@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -11,12 +11,13 @@ import (
 )
 
 func (s *Server) handleCompletion(req Request) CompletionList {
-	var params CompletionParams
 	out := CompletionList{Items: []CompletionItem{}}
 
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[CompletionParams](req)
+	if !ok {
 		return out
 	}
+	ctx := requestContext(req)
 
 	text, ok := s.document(params.TextDocument.URI)
 	if !ok {
@@ -58,7 +59,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	items := []CompletionItem{}
 	if !isDotCompletion {
 		result, _ := s.analysisResult(params.TextDocument.URI)
-		if structItems := s.completeStructLiteralFields(result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
+		if structItems := s.completeStructLiteralFields(ctx, result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
 			out.Items = structItems
 			return out
 		}
@@ -77,7 +78,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			tc := result.TC
 			astRoot := result.AST
 			if tc == nil || astRoot == nil || isDotCompletion {
-				tc, astRoot = s.typecheckForCompletion(text, params.TextDocument.URI, params.Position)
+				tc, astRoot = s.typecheckForCompletion(ctx, text, params.TextDocument.URI, params.Position)
 			}
 
 			if tc != nil && astRoot != nil {
@@ -451,6 +452,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 }
 
 func (s *Server) completeStructLiteralFields(
+	ctx context.Context,
 	result *AnalysisResult,
 	text,
 	uri string,
@@ -463,7 +465,7 @@ func (s *Server) completeStructLiteralFields(
 	tc := result.TC
 	astRoot := result.AST
 	if tc == nil || astRoot == nil {
-		tc, astRoot = s.typecheckForCompletion(text, uri, pos)
+		tc, astRoot = s.typecheckForCompletion(ctx, text, uri, pos)
 	}
 
 	if tc == nil || astRoot == nil {

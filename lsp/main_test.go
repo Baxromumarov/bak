@@ -193,6 +193,50 @@ func TestCancelRequestSuppressesMatchingResponse(t *testing.T) {
 	}
 }
 
+func TestCancelRequestCancelsActiveRequestContext(t *testing.T) {
+	server := NewServer()
+	id := json.RawMessage(`"active"`)
+	ctx := server.startRequest(id)
+
+	server.handleCancelRequest(Request{ParamsValue: CancelParams{ID: id}})
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatalf("expected active request context to be canceled")
+	}
+	server.finishRequest(id)
+}
+
+func TestServerCloseCancelsPendingTimersAndRequests(t *testing.T) {
+	server := NewServer()
+	id := json.RawMessage(`22`)
+	ctx := server.startRequest(id)
+	analysisCtx, cancel := context.WithCancel(context.Background())
+	server.stateMu.Lock()
+	server.pendingCancel["file:///tmp/pending.bak"] = cancel
+	server.pendingLocks["file:///tmp/pending.bak"] = time.NewTimer(time.Hour)
+	server.watchedChanges["file:///tmp/changed.bak"] = struct{}{}
+	server.workspaceTimer = time.NewTimer(time.Hour)
+	server.stateMu.Unlock()
+
+	server.Close()
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatalf("expected active request to be canceled on close")
+	}
+	select {
+	case <-analysisCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatalf("expected pending analysis to be canceled on close")
+	}
+	if len(server.canceled) != 0 || len(server.activeRequests) != 0 || len(server.pendingCancel) != 0 || len(server.pendingLocks) != 0 || len(server.watchedChanges) != 0 {
+		t.Fatalf("expected close to clear server state")
+	}
+}
+
 func TestInitializeAdvertisesExplicitTextDocumentSync(t *testing.T) {
 	server := NewServer()
 
@@ -206,6 +250,27 @@ func TestInitializeAdvertisesExplicitTextDocumentSync(t *testing.T) {
 	}
 	if sync.Save == nil || sync.Save.IncludeText {
 		t.Fatalf("expected save notifications without text payload, got %#v", sync.Save)
+	}
+}
+
+func TestInitializeDoesNotChangeWorkingDirectory(t *testing.T) {
+	server := NewServer()
+	root := t.TempDir()
+
+	before, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd before initialize: %v", err)
+	}
+	server.handleInitialize(Request{ParamsValue: InitializeParams{RootURI: pathToURI(root)}})
+	after, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd after initialize: %v", err)
+	}
+	if after != before {
+		t.Fatalf("initialize changed cwd: before %q after %q", before, after)
+	}
+	if server.RootPath != root {
+		t.Fatalf("expected root path %q, got %q", root, server.RootPath)
 	}
 }
 
@@ -526,8 +591,10 @@ func TestDidChangeWatchedFilesInvalidatesIndexesAndReanalyzesOpenDocuments(t *te
 
 	dir := t.TempDir()
 	openPath := filepath.Join(dir, "main.bak")
+	unaffectedPath := filepath.Join(dir, "unaffected.bak")
 	changedPath := filepath.Join(dir, "lib.bak")
 	openURI := pathToURI(openPath)
+	unaffectedURI := pathToURI(unaffectedPath)
 	changedURI := pathToURI(changedPath)
 	src := strings.Join([]string{
 		"package main",
@@ -537,14 +604,27 @@ func TestDidChangeWatchedFilesInvalidatesIndexesAndReanalyzesOpenDocuments(t *te
 		"}",
 		"",
 	}, "\n")
+	unaffectedSrc := strings.Join([]string{
+		"package main",
+		"",
+		"func stable() -> (int) {",
+		"    return 1",
+		"}",
+		"",
+	}, "\n")
 	if err := os.WriteFile(openPath, []byte(src), 0644); err != nil {
 		t.Fatalf("write open file: %v", err)
+	}
+	if err := os.WriteFile(unaffectedPath, []byte(unaffectedSrc), 0644); err != nil {
+		t.Fatalf("write unaffected file: %v", err)
 	}
 	if err := os.WriteFile(changedPath, []byte("package lib\n"), 0644); err != nil {
 		t.Fatalf("write changed file: %v", err)
 	}
 
 	server.setDocument(openURI, src)
+	server.setDocument(unaffectedURI, unaffectedSrc)
+	server.setAnalysisResult(unaffectedURI, &FileIndex{}, &AnalysisResult{Imports: map[string]string{}})
 	server.setAnalysisResult(changedURI, &FileIndex{}, &AnalysisResult{})
 	server.setPublicIndex(changedURI, &FileIndex{})
 	server.setPublicIndex(pathToURI(dir), &FileIndex{})
@@ -570,6 +650,9 @@ func TestDidChangeWatchedFilesInvalidatesIndexesAndReanalyzesOpenDocuments(t *te
 	}
 	if len(diagnostics) == 0 {
 		t.Fatalf("expected watched-file reanalysis diagnostics")
+	}
+	if diagnostics, ok := lastDiagnosticsForURI(t, serverOutputString(server, &out), unaffectedURI); ok {
+		t.Fatalf("expected unaffected open document not to be reanalyzed, got %#v", diagnostics)
 	}
 }
 

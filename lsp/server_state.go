@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"time"
 )
@@ -13,6 +14,25 @@ func (s *Server) setDocument(uri, text string) {
 	defer s.stateMu.Unlock()
 
 	s.Documents[uri] = text
+}
+
+func (s *Server) setRootPath(root string) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	if s.RootPath == root {
+		return
+	}
+	s.RootPath = root
+	s.stdImportPaths = nil
+	s.stdPackages = nil
+}
+
+func (s *Server) rootPath() string {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+
+	return s.RootPath
 }
 
 func (s *Server) document(uri string) (string, bool) {
@@ -44,6 +64,9 @@ func (s *Server) cancelRequest(id json.RawMessage) {
 	defer s.stateMu.Unlock()
 
 	s.canceled[key] = struct{}{}
+	if cancel := s.activeRequests[key]; cancel != nil {
+		cancel()
+	}
 }
 
 func (s *Server) isRequestCanceled(id json.RawMessage) bool {
@@ -69,6 +92,25 @@ func (s *Server) finishRequest(id json.RawMessage) {
 	defer s.stateMu.Unlock()
 
 	delete(s.canceled, key)
+	delete(s.activeRequests, key)
+}
+
+func (s *Server) startRequest(id json.RawMessage) context.Context {
+	key := requestIDKey(id)
+	ctx, cancel := context.WithCancel(context.Background())
+	if key == "" {
+		return ctx
+	}
+
+	s.stateMu.Lock()
+	if _, ok := s.canceled[key]; ok {
+		cancel()
+	} else {
+		s.activeRequests[key] = cancel
+	}
+	s.stateMu.Unlock()
+
+	return ctx
 }
 
 func requestIDKey(id json.RawMessage) string {
@@ -135,6 +177,46 @@ func (s *Server) closeDocument(uri string) {
 	s.invalidatePublicIndexesForURI(uri)
 }
 
+func (s *Server) Close() {
+	var pendingCancels []context.CancelFunc
+	var activeCancels []context.CancelFunc
+	var timers []*time.Timer
+
+	s.stateMu.Lock()
+	for _, cancel := range s.pendingCancel {
+		pendingCancels = append(pendingCancels, cancel)
+	}
+	for _, cancel := range s.activeRequests {
+		activeCancels = append(activeCancels, cancel)
+	}
+	for _, timer := range s.pendingLocks {
+		timers = append(timers, timer)
+	}
+	if s.workspaceTimer != nil {
+		timers = append(timers, s.workspaceTimer)
+	}
+
+	s.pendingCancel = make(map[string]context.CancelFunc)
+	s.activeRequests = make(map[string]context.CancelFunc)
+	s.pendingLocks = make(map[string]*time.Timer)
+	s.canceled = make(map[string]struct{})
+	s.watchedChanges = make(map[string]struct{})
+	s.workspaceTimer = nil
+	s.stateMu.Unlock()
+
+	for _, cancel := range pendingCancels {
+		cancel()
+	}
+	for _, cancel := range activeCancels {
+		cancel()
+	}
+	for _, timer := range timers {
+		if timer != nil {
+			timer.Stop()
+		}
+	}
+}
+
 func (s *Server) setIndex(uri string, index *FileIndex) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
@@ -179,8 +261,15 @@ func (s *Server) resetPendingAnalysis(uri string, delay time.Duration, analyze f
 }
 
 func (s *Server) resetWorkspaceReanalysis(delay time.Duration) {
+	s.stateMu.Lock()
+	if len(s.watchedChanges) == 0 {
+		s.stateMu.Unlock()
+		return
+	}
+	s.stateMu.Unlock()
+
 	timer := time.AfterFunc(delay, func() {
-		s.reanalyzeOpenDocuments()
+		s.reanalyzeOpenDocumentsAffectedByWatchedChanges()
 	})
 
 	s.stateMu.Lock()
@@ -193,14 +282,109 @@ func (s *Server) resetWorkspaceReanalysis(delay time.Duration) {
 	}
 }
 
-func (s *Server) reanalyzeOpenDocuments() {
+func (s *Server) addWatchedChanges(uris []string) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	for _, uri := range uris {
+		if uri != "" {
+			s.watchedChanges[uri] = struct{}{}
+		}
+	}
+}
+
+func (s *Server) takeWatchedChanges() map[string]struct{} {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	changes := s.watchedChanges
+	s.watchedChanges = make(map[string]struct{})
+	s.workspaceTimer = nil
+	return changes
+}
+
+func (s *Server) reanalyzeOpenDocumentsAffectedByWatchedChanges() {
+	changes := s.takeWatchedChanges()
+	if len(changes) == 0 {
+		return
+	}
+
 	for uri, text := range s.documentSnapshot() {
+		if !s.openDocumentAffectedByChanges(uri, changes) {
+			continue
+		}
 		uri, text := uri, text
 		s.invalidateAnalysisForURI(uri)
 		s.resetPendingAnalysis(uri, 0, func(ctx context.Context) {
 			s.analyzeAndPublish(ctx, uri, text)
 		})
 	}
+}
+
+func (s *Server) openDocumentAffectedByChanges(uri string, changes map[string]struct{}) bool {
+	if uriInSet(uri, changes) {
+		return true
+	}
+
+	result := s.analysisResultOrNil(uri)
+	if result == nil {
+		return true
+	}
+	for _, importPath := range result.Imports {
+		resolved := s.resolveImportPath(uriToPath(uri), importPath)
+		if resolved == "" {
+			continue
+		}
+		if pathAffectedByChanges(resolved, changes) {
+			return true
+		}
+	}
+	return false
+}
+
+func pathAffectedByChanges(path string, changes map[string]struct{}) bool {
+	if uriInSet(pathToURI(path), changes) {
+		return true
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	dir, err := filepath.Abs(path)
+	if err != nil {
+		dir = filepath.Clean(path)
+	}
+	for uri := range changes {
+		changed := uriToPath(uri)
+		if changed == "" {
+			continue
+		}
+		if abs, err := filepath.Abs(changed); err == nil {
+			changed = abs
+		}
+		if filepath.Dir(filepath.Clean(changed)) == dir {
+			return true
+		}
+	}
+	return false
+}
+
+func uriInSet(uri string, set map[string]struct{}) bool {
+	if _, ok := set[uri]; ok {
+		return true
+	}
+	path := uriToPath(uri)
+	if path == "" {
+		return false
+	}
+	if _, ok := set[pathToURI(path)]; ok {
+		return true
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		_, ok := set[pathToURI(abs)]
+		return ok
+	}
+	return false
 }
 
 func (s *Server) publicIndex(uri string) (*FileIndex, bool) {

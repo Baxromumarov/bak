@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,8 +18,8 @@ import (
 var bakIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 func (s *Server) handlePrepareRename(req Request) *PrepareRenameResult {
-	var params PrepareRenameParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[PrepareRenameParams](req)
+	if !ok {
 		return nil
 	}
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -117,8 +116,8 @@ var bakKeywords = map[string]bool{
 }
 
 func (s *Server) handleDocumentLink(req Request) []DocumentLink {
-	var params DocumentLinkParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[DocumentLinkParams](req)
+	if !ok {
 		return nil
 	}
 	result := s.resultForDocument(params.TextDocument.URI)
@@ -191,8 +190,8 @@ func rangeFromTokenBounds(tok token.Token, fallback string) Range {
 }
 
 func (s *Server) handleFoldingRange(req Request) []FoldingRange {
-	var params FoldingRangeParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
+	params, ok := requestParams[FoldingRangeParams](req)
+	if !ok {
 		return nil
 	}
 	result := s.resultForDocument(params.TextDocument.URI)

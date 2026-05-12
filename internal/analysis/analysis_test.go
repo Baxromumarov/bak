@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/packages"
@@ -59,6 +60,126 @@ func main() -> (void) {
 	}
 	if !seenUtil {
 		t.Fatalf("expected graph to include imported util package, got %#v", result.Graph)
+	}
+}
+
+func TestAnalyzeSourceUsesExplicitProjectRoot(t *testing.T) {
+	root := t.TempDir()
+	otherCWD := t.TempDir()
+	appDir := filepath.Join(root, "app")
+	libDir := filepath.Join(root, "lib", "util")
+	mainPath := filepath.Join(appDir, "main.bak")
+	utilPath := filepath.Join(libDir, "util.bak")
+	if err := os.MkdirAll(appDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(libDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(utilPath, []byte("package util\n\npub func answer() -> (int) {\n    return 42\n}\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd failed: %v", err)
+	}
+	if err := os.Chdir(otherCWD); err != nil {
+		t.Fatalf("chdir failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	mainSrc := `package main
+import util "lib/util"
+
+func main() -> (void) {
+    println(util.answer())
+    return void
+}
+`
+	result, err := AnalyzeSource(context.Background(), mainPath, mainSrc, Options{
+		ProjectRoot:    root,
+		InjectPrelude:  true,
+		SuppressUnused: true,
+	})
+	if err != nil {
+		t.Fatalf("AnalyzeSource failed: %v", err)
+	}
+	if result.Fatal || len(result.TypeErrors) > 0 {
+		t.Fatalf("expected explicit project root import to typecheck, got %#v", result.TypeErrors)
+	}
+}
+
+func TestAnalyzeSourceReportsImportCycleWithoutPanic(t *testing.T) {
+	dir := t.TempDir()
+	aDir := filepath.Join(dir, "a")
+	bDir := filepath.Join(dir, "b")
+	aPath := filepath.Join(aDir, "a.bak")
+	bPath := filepath.Join(bDir, "b.bak")
+	aSrc := `package a
+import b "../b/b.bak"
+
+pub func callB() -> (int) {
+    return b.callA()
+}
+`
+	bSrc := `package b
+import a "../a/a.bak"
+
+pub func callA() -> (int) {
+    return 1
+}
+`
+	if err := os.MkdirAll(aDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(bDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bPath, []byte(bSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(aPath, []byte(aSrc), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := AnalyzeSource(context.Background(), aPath, aSrc, Options{
+		InjectPrelude:  true,
+		SuppressUnused: true,
+	})
+	if err != nil {
+		t.Fatalf("AnalyzeSource failed: %v", err)
+	}
+	joined := strings.ToLower(strings.Join(result.TypeMessages, "\n"))
+	if !strings.Contains(joined, "cyclic") && !strings.Contains(joined, "cycle") {
+		t.Fatalf("expected cycle diagnostic, got %#v", result.TypeMessages)
+	}
+}
+
+func TestAnalyzeSourceTypecheckParseErrorsRecoversPartialProgram(t *testing.T) {
+	src := `package main
+
+pub func main(handler func(name string count string) -> (void)) -> (void) {
+    return void
+}
+`
+	result, err := AnalyzeSource(context.Background(), "broken.bak", src, Options{
+		TypecheckParseErrors: true,
+		InjectPrelude:        true,
+	})
+	if err != nil {
+		t.Fatalf("AnalyzeSource failed: %v", err)
+	}
+	if len(result.ParserErrors) == 0 {
+		t.Fatalf("expected parser errors")
+	}
+	if !result.TypecheckIncomplete {
+		t.Fatalf("expected incomplete typecheck marker")
 	}
 }
 

@@ -227,9 +227,10 @@ func (p *Package) GetSymbol(name string, fromSamePackage bool) (*Symbol, error) 
 
 // Registry manages all loaded packages
 type Registry struct {
-	packages map[string]*Package // path -> package
-	loading  map[string]bool     // tracks packages currently being loaded (for cycle detection)
-	mu       sync.RWMutex
+	packages    map[string]*Package // path -> package
+	loading     map[string]bool     // tracks packages currently being loaded (for cycle detection)
+	projectRoot string
+	mu          sync.RWMutex
 }
 
 // NewRegistry creates a new package registry
@@ -238,6 +239,34 @@ func NewRegistry() *Registry {
 		packages: make(map[string]*Package),
 		loading:  make(map[string]bool),
 	}
+}
+
+func NewRegistryWithProjectRoot(root string) *Registry {
+	r := NewRegistry()
+	r.SetProjectRoot(root)
+	return r
+}
+
+func (r *Registry) SetProjectRoot(root string) {
+	root = strings.TrimSpace(root)
+	if root != "" {
+		if abs, err := filepath.Abs(root); err == nil {
+			root = abs
+		}
+		root = filepath.Clean(root)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.projectRoot = root
+}
+
+func (r *Registry) ProjectRoot() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.projectRoot
 }
 
 // global registry instance

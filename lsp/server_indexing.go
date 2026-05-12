@@ -25,12 +25,12 @@ func pathToURI(path string) string {
 }
 
 func (s *Server) resolveImportPath(baseFile, importPath string) string {
-	return packages.ResolveImportPathFrom(importPath, baseFile)
+	return packages.ResolveImportPathDetailedFromRoot(importPath, baseFile, s.rootPath()).Resolved
 }
 
 func (s *Server) workspaceRoot() string {
-	if s.RootPath != "" {
-		return s.RootPath
+	if root := s.rootPath(); root != "" {
+		return root
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -40,9 +40,14 @@ func (s *Server) workspaceRoot() string {
 }
 
 func (s *Server) getStdPackages() []string {
+	s.stateMu.RLock()
 	if s.stdPackages != nil {
-		return s.stdPackages
+		pkgs := append([]string(nil), s.stdPackages...)
+		s.stateMu.RUnlock()
+		return pkgs
 	}
+	s.stateMu.RUnlock()
+
 	root := s.workspaceRoot()
 	if root == "" {
 		return nil
@@ -67,14 +72,21 @@ func (s *Server) getStdPackages() []string {
 		}
 	}
 	sort.Strings(pkgs)
+	s.stateMu.Lock()
 	s.stdPackages = pkgs
-	return pkgs
+	s.stateMu.Unlock()
+	return append([]string(nil), pkgs...)
 }
 
 func (s *Server) getStdImportPaths() []string {
+	s.stateMu.RLock()
 	if s.stdImportPaths != nil {
-		return s.stdImportPaths
+		paths := append([]string(nil), s.stdImportPaths...)
+		s.stateMu.RUnlock()
+		return paths
 	}
+	s.stateMu.RUnlock()
+
 	root := s.workspaceRoot()
 	if root == "" {
 		return nil
@@ -127,8 +139,10 @@ func (s *Server) getStdImportPaths() []string {
 		return nil
 	})
 	sort.Strings(paths)
+	s.stateMu.Lock()
 	s.stdImportPaths = paths
-	return paths
+	s.stateMu.Unlock()
+	return append([]string(nil), paths...)
 }
 
 func loadPublicFileIndex(path, uri string) *FileIndex {
