@@ -33,39 +33,110 @@ func main() {
 }
 
 func handleIncomingMessage(server *Server, content []byte) {
-	var partial struct {
-		ID     json.RawMessage `json:"id"`
-		Method string          `json:"method"`
-	}
-	if err := json.Unmarshal(content, &partial); err != nil {
+	envelope, err := parseMessageEnvelope(content)
+	if err != nil {
 		log.Printf("Error unmarshalling partial message: %v", err)
 		server.writeJSONRPCError(nil, CodeParseError, "parse error")
 		return
 	}
 
-	if partial.Method == "" {
-		if partial.ID != nil {
-			server.writeJSONRPCError(partial.ID, CodeInvalidRequest, "invalid request")
-		}
+	if envelope == nil {
+		server.writeJSONRPCError(nil, CodeInvalidRequest, "invalid request")
+		return
+	}
+
+	id := envelopeID(envelope)
+	method, ok := envelopeMethod(envelope)
+	if !validJSONRPCVersion(envelope) || !ok {
+		server.writeJSONRPCError(id, CodeInvalidRequest, "invalid request")
 		return
 	}
 
 	var req Request
 	if err := json.Unmarshal(content, &req); err != nil {
 		log.Printf("Error unmarshalling request: %v", err)
-		server.writeJSONRPCError(partial.ID, CodeInvalidRequest, "invalid request")
+		server.writeJSONRPCError(id, CodeInvalidRequest, "invalid request")
 		return
 	}
+	req.Method = method
 
-	result, rpcErr := safeHandle(server, req)
 	if req.ID == nil {
+		safeHandleNotification(server, req)
 		return
 	}
 
+	if server.isRequestCanceled(req.ID) {
+		server.finishRequest(req.ID)
+		return
+	}
+
+	result, rpcErr := safeHandleRequest(server, req)
+	if server.isRequestCanceled(req.ID) {
+		server.finishRequest(req.ID)
+		return
+	}
+	server.finishRequest(req.ID)
 	server.writeJSONRPCResponse(req.ID, result, rpcErr)
 }
 
-func safeHandle(server *Server, req Request) (result any, rpcErr *ResponseError) {
+func parseMessageEnvelope(content []byte) (map[string]json.RawMessage, error) {
+	var raw any
+	if err := json.Unmarshal(content, &raw); err != nil {
+		return nil, err
+	}
+	if _, ok := raw.(map[string]any); !ok {
+		return nil, nil
+	}
+
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(content, &envelope); err != nil {
+		return nil, err
+	}
+	return envelope, nil
+}
+
+func envelopeID(envelope map[string]json.RawMessage) json.RawMessage {
+	if id, ok := envelope["id"]; ok {
+		return id
+	}
+	return nil
+}
+
+func envelopeMethod(envelope map[string]json.RawMessage) (string, bool) {
+	raw, ok := envelope["method"]
+	if !ok {
+		return "", false
+	}
+	var method string
+	if err := json.Unmarshal(raw, &method); err != nil || method == "" {
+		return "", false
+	}
+	return method, true
+}
+
+func validJSONRPCVersion(envelope map[string]json.RawMessage) bool {
+	raw, ok := envelope["jsonrpc"]
+	if !ok {
+		return false
+	}
+	var version string
+	if err := json.Unmarshal(raw, &version); err != nil {
+		return false
+	}
+	return version == "2.0"
+}
+
+func safeHandleNotification(server *Server, req Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("PANIC handling notification %s: %v\nStack Trace:\n%s", req.Method, r, debug.Stack())
+		}
+	}()
+
+	server.HandleNotification(req)
+}
+
+func safeHandleRequest(server *Server, req Request) (result any, rpcErr *ResponseError) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("PANIC handling method %s: %v\nStack Trace:\n%s", req.Method, r, debug.Stack())
@@ -74,7 +145,7 @@ func safeHandle(server *Server, req Request) (result any, rpcErr *ResponseError)
 		}
 	}()
 
-	return server.Handle(req)
+	return server.HandleRequest(req)
 }
 
 func writeJSONRPCResponse(writer io.Writer, id json.RawMessage, result any, rpcErr *ResponseError) {

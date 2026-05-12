@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,6 +51,7 @@ const (
 	CodeParseError     = -32700
 	CodeInvalidRequest = -32600
 	CodeMethodNotFound = -32601
+	CodeInvalidParams  = -32602
 	CodeInternalError  = -32603
 )
 
@@ -69,29 +71,26 @@ func EncodeMessage(msg any) []byte {
 }
 
 func DecodeMessage(reader io.Reader) ([]byte, int, error) {
-	// Read header
 	header := make([]byte, 0)
+	var b [1]byte
 	for {
-		b := make([]byte, 1)
-		_, err := reader.Read(b)
-		if err != nil {
+		if _, err := io.ReadFull(reader, b[:]); err != nil {
 			return nil, 0, err
 		}
 
-		header = append(header, b...)
+		header = append(header, b[0])
 		if len(header) > maxHeaderBytes {
 			return nil, 0, fmt.Errorf("message header too large")
 		}
 
-		if len(header) >= 4 &&
-			string(header[len(header)-4:]) == "\r\n\r\n" {
+		if bytes.HasSuffix(header, []byte("\r\n\r\n")) {
 			break
 		}
 	}
 
 	contentLength, err := parseContentLength(string(header))
-	if contentLength <= 0 {
-		return nil, 0, fmt.Errorf("missing content length")
+	if err != nil {
+		return nil, 0, err
 	}
 
 	if contentLength > maxContentBytes {
@@ -109,38 +108,31 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 }
 
 func parseContentLength(header string) (int, error) {
-	for _, line := range splitLines(header) {
+	var found bool
+	var contentLength int
+	for _, line := range strings.Split(header, "\r\n") {
 		name, value, ok := strings.Cut(line, ":")
 		if !ok || !strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
 			continue
 		}
+		if found {
+			return 0, fmt.Errorf("duplicate content length")
+		}
 
-		contentLength, err := strconv.Atoi(strings.TrimSpace(value))
+		n, err := strconv.Atoi(strings.TrimSpace(value))
 		if err != nil {
 			return 0, fmt.Errorf("invalid content length: %v", err)
 		}
-
-		return contentLength, nil
-	}
-
-	return 0, nil
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	var current []rune
-	for _, r := range s {
-		if r == '\n' {
-			if len(current) > 0 &&
-				current[len(current)-1] == '\r' {
-				lines = append(lines, string(current[:len(current)-1]))
-			} else {
-				lines = append(lines, string(current))
-			}
-			current = []rune{}
-		} else {
-			current = append(current, r)
+		if n <= 0 {
+			return 0, fmt.Errorf("invalid content length: %d", n)
 		}
+
+		found = true
+		contentLength = n
 	}
-	return lines
+
+	if !found {
+		return 0, fmt.Errorf("missing content length")
+	}
+	return contentLength, nil
 }

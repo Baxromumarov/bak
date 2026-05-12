@@ -34,6 +34,31 @@ func TestDecodeMessageRejectsOversizedContentLength(t *testing.T) {
 	}
 }
 
+func TestDecodeMessageRejectsMissingContentLength(t *testing.T) {
+	msg := "Content-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{}"
+	if _, _, err := DecodeMessage(strings.NewReader(msg)); err == nil {
+		t.Fatalf("expected missing content-length error")
+	}
+}
+
+func TestDecodeMessageRejectsDuplicateContentLength(t *testing.T) {
+	msg := "Content-Length: 2\r\nContent-Length: 2\r\n\r\n{}"
+	if _, _, err := DecodeMessage(strings.NewReader(msg)); err == nil {
+		t.Fatalf("expected duplicate content-length error")
+	}
+}
+
+func TestDecodeMessageRejectsNonPositiveContentLength(t *testing.T) {
+	for _, msg := range []string{
+		"Content-Length: 0\r\n\r\n",
+		"Content-Length: -1\r\n\r\n{}",
+	} {
+		if _, _, err := DecodeMessage(strings.NewReader(msg)); err == nil {
+			t.Fatalf("expected non-positive content-length error for %q", msg)
+		}
+	}
+}
+
 func TestDecodeMessageAcceptsCaseInsensitiveContentLength(t *testing.T) {
 	msg := "content-length: 2\r\nContent-Type: application/vscode-jsonrpc; charset=utf-8\r\n\r\n{}"
 	content, length, err := DecodeMessage(strings.NewReader(msg))

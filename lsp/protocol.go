@@ -1,5 +1,7 @@
 package main
 
+import "encoding/json"
+
 // LSP Types
 
 type InitializeParams struct {
@@ -13,25 +15,37 @@ type InitializeResult struct {
 	Capabilities ServerCapabilities `json:"capabilities"`
 }
 
+const TextDocumentSyncKindFull = 1
+
 type ServerCapabilities struct {
-	TextDocumentSync           int                    `json:"textDocumentSync"` // 1 = Full
-	HoverProvider              bool                   `json:"hoverProvider"`
-	DefinitionProvider         bool                   `json:"definitionProvider"`
-	ImplementationProvider     bool                   `json:"implementationProvider,omitempty"`
-	ReferencesProvider         bool                   `json:"referencesProvider,omitempty"`
-	RenameProvider             any                    `json:"renameProvider,omitempty"`
-	CompletionProvider         *CompletionOptions     `json:"completionProvider,omitempty"`
-	SignatureHelpProvider      *SignatureHelpOptions  `json:"signatureHelpProvider,omitempty"`
-	SemanticTokensProvider     *SemanticTokensOptions `json:"semanticTokensProvider,omitempty"`
-	TypeDefinitionProvider     bool                   `json:"typeDefinitionProvider,omitempty"`
-	InlayHintProvider          bool                   `json:"inlayHintProvider,omitempty"`
-	DocumentFormattingProvider bool                   `json:"documentFormattingProvider"`
-	DocumentHighlightProvider  bool                   `json:"documentHighlightProvider,omitempty"`
-	CodeActionProvider         bool                   `json:"codeActionProvider,omitempty"`
-	DocumentSymbolProvider     bool                   `json:"documentSymbolProvider,omitempty"`
-	WorkspaceSymbolProvider    bool                   `json:"workspaceSymbolProvider,omitempty"`
-	DocumentLinkProvider       *DocumentLinkOptions   `json:"documentLinkProvider,omitempty"`
-	FoldingRangeProvider       bool                   `json:"foldingRangeProvider,omitempty"`
+	TextDocumentSync           TextDocumentSyncOptions `json:"textDocumentSync"`
+	HoverProvider              bool                    `json:"hoverProvider"`
+	DefinitionProvider         bool                    `json:"definitionProvider"`
+	ImplementationProvider     bool                    `json:"implementationProvider,omitempty"`
+	ReferencesProvider         bool                    `json:"referencesProvider,omitempty"`
+	RenameProvider             any                     `json:"renameProvider,omitempty"`
+	CompletionProvider         *CompletionOptions      `json:"completionProvider,omitempty"`
+	SignatureHelpProvider      *SignatureHelpOptions   `json:"signatureHelpProvider,omitempty"`
+	SemanticTokensProvider     *SemanticTokensOptions  `json:"semanticTokensProvider,omitempty"`
+	TypeDefinitionProvider     bool                    `json:"typeDefinitionProvider,omitempty"`
+	InlayHintProvider          bool                    `json:"inlayHintProvider,omitempty"`
+	DocumentFormattingProvider bool                    `json:"documentFormattingProvider"`
+	DocumentHighlightProvider  bool                    `json:"documentHighlightProvider,omitempty"`
+	CodeActionProvider         bool                    `json:"codeActionProvider,omitempty"`
+	DocumentSymbolProvider     bool                    `json:"documentSymbolProvider,omitempty"`
+	WorkspaceSymbolProvider    bool                    `json:"workspaceSymbolProvider,omitempty"`
+	DocumentLinkProvider       *DocumentLinkOptions    `json:"documentLinkProvider,omitempty"`
+	FoldingRangeProvider       bool                    `json:"foldingRangeProvider,omitempty"`
+}
+
+type TextDocumentSyncOptions struct {
+	OpenClose bool                     `json:"openClose"`
+	Change    int                      `json:"change"`
+	Save      *TextDocumentSaveOptions `json:"save,omitempty"`
+}
+
+type TextDocumentSaveOptions struct {
+	IncludeText bool `json:"includeText"`
 }
 
 type TextDocumentItem struct {
@@ -52,6 +66,24 @@ type DidChangeTextDocumentParams struct {
 
 type DidCloseTextDocumentParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
+}
+
+type DidSaveTextDocumentParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Text         *string                `json:"text,omitempty"`
+}
+
+type DidChangeWatchedFilesParams struct {
+	Changes []FileEvent `json:"changes"`
+}
+
+type CancelParams struct {
+	ID json.RawMessage `json:"id"`
+}
+
+type FileEvent struct {
+	URI  string `json:"uri"`
+	Type int    `json:"type"`
 }
 
 type VersionedTextDocumentIdentifier struct {

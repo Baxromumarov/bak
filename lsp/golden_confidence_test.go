@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"slices"
 	"sort"
 	"strings"
@@ -27,9 +26,7 @@ func TestCompletionGoldenCanonicalCoreMethods(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	analyzeForTest(t, s, uri, src)
 
 	vecLabels := completionLabelsAt(t, s, uri, src, "v.")
 	if !containsLabel(vecLabels, "isEmpty") || containsLabel(vecLabels, "is_empty") {
@@ -71,9 +68,7 @@ func TestSignatureHelpGoldenCoreTypes(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	analyzeForTest(t, s, uri, src)
 
 	sigs := map[string]string{
 		"Vec":     signatureLabelAt(t, s, uri, src, "v.push("),
@@ -116,9 +111,7 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	analyzeForTest(t, s, uri, src)
 
 	hoverVec := hoverAt(t, s, uri, src, "push(")
 	if !strings.Contains(hoverVec, "push(value: T)") {
@@ -154,9 +147,7 @@ func TestInlayHintGoldenTypeStringSnapshotsCoreTypes(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	params := InlayHintParams{
 		TextDocument: TextDocumentIdentifier{URI: uri},
@@ -205,9 +196,7 @@ func TestSignatureHelpDoesNotAdvertiseOptionMethods(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	analyzeForTest(t, s, uri, src)
 
 	line, col := findLineCol(src, "x.isSome(")
 	if line < 0 {
@@ -235,9 +224,7 @@ func TestCompletionDoesNotAdvertiseOptionMethods(t *testing.T) {
 	uri := writeTempBakFile(t, src)
 	s := NewServer()
 	s.Documents[uri] = src
-	captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	analyzeForTest(t, s, uri, src)
 
 	labels := completionLabelsAt(t, s, uri, src, "x.")
 	for _, forbidden := range []string{"isSome", "isNone"} {

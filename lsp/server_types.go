@@ -104,6 +104,8 @@ type Server struct {
 	stdPackages    []string
 	pendingLocks   map[string]*time.Timer
 	pendingCancel  map[string]context.CancelFunc
+	canceled       map[string]struct{}
+	workspaceTimer *time.Timer
 	lintConfig     *linter.Config
 	outputMu       sync.Mutex
 	output         io.Writer

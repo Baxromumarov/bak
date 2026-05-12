@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"time"
 )
@@ -19,6 +21,65 @@ func (s *Server) document(uri string) (string, bool) {
 
 	text, ok := s.Documents[uri]
 	return text, ok
+}
+
+func (s *Server) documentSnapshot() map[string]string {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+
+	out := make(map[string]string, len(s.Documents))
+	for uri, text := range s.Documents {
+		out[uri] = text
+	}
+	return out
+}
+
+func (s *Server) cancelRequest(id json.RawMessage) {
+	key := requestIDKey(id)
+	if key == "" {
+		return
+	}
+
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	s.canceled[key] = struct{}{}
+}
+
+func (s *Server) isRequestCanceled(id json.RawMessage) bool {
+	key := requestIDKey(id)
+	if key == "" {
+		return false
+	}
+
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+
+	_, ok := s.canceled[key]
+	return ok
+}
+
+func (s *Server) finishRequest(id json.RawMessage) {
+	key := requestIDKey(id)
+	if key == "" {
+		return
+	}
+
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
+	delete(s.canceled, key)
+}
+
+func requestIDKey(id json.RawMessage) string {
+	if len(id) == 0 {
+		return ""
+	}
+	var compact bytes.Buffer
+	if err := json.Compact(&compact, id); err == nil {
+		return compact.String()
+	}
+	return string(id)
 }
 
 func (s *Server) analysisResult(uri string) (*AnalysisResult, bool) {
@@ -114,6 +175,31 @@ func (s *Server) resetPendingAnalysis(uri string, delay time.Duration, analyze f
 	}
 	if delay == 0 {
 		analyze(ctx)
+	}
+}
+
+func (s *Server) resetWorkspaceReanalysis(delay time.Duration) {
+	timer := time.AfterFunc(delay, func() {
+		s.reanalyzeOpenDocuments()
+	})
+
+	s.stateMu.Lock()
+	oldTimer := s.workspaceTimer
+	s.workspaceTimer = timer
+	s.stateMu.Unlock()
+
+	if oldTimer != nil {
+		oldTimer.Stop()
+	}
+}
+
+func (s *Server) reanalyzeOpenDocuments() {
+	for uri, text := range s.documentSnapshot() {
+		uri, text := uri, text
+		s.invalidateAnalysisForURI(uri)
+		s.resetPendingAnalysis(uri, 0, func(ctx context.Context) {
+			s.analyzeAndPublish(ctx, uri, text)
+		})
 	}
 }
 

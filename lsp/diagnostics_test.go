@@ -5,38 +5,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func captureStdout(t *testing.T, fn func()) string {
+func analyzeAndCaptureOutput(t *testing.T, s *Server, uri, src string) string {
 	t.Helper()
 
-	oldStdout := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("create stdout pipe: %v", err)
-	}
-	os.Stdout = w
-
-	fn()
-
-	if err := w.Close(); err != nil {
-		t.Fatalf("close stdout writer: %v", err)
-	}
-	os.Stdout = oldStdout
-
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
-		t.Fatalf("read stdout capture: %v", err)
-	}
-	if err := r.Close(); err != nil {
-		t.Fatalf("close stdout reader: %v", err)
-	}
+	s.SetOutput(&buf)
+	s.analyzeAndPublish(context.Background(), uri, src)
 	return buf.String()
+}
+
+func analyzeForTest(t *testing.T, s *Server, uri, src string) {
+	t.Helper()
+	analyzeAndCaptureOutput(t, s, uri, src)
 }
 
 func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
@@ -74,9 +60,7 @@ func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -124,9 +108,7 @@ func TestAnalyzeAndPublish_MissingImportIncludesRelatedInformation(t *testing.T)
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -190,9 +172,7 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -242,9 +222,7 @@ func TestAnalyzeAndPublishIncludesImportStyleLintCode(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -287,9 +265,7 @@ func TestAnalyzeAndPublishIncludesPublicAPIStyleDiagnosticData(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -341,9 +317,7 @@ func TestAnalyzeAndPublishLegacyImportAliasParserDiagnosticHasHelp(t *testing.T)
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -395,9 +369,7 @@ func TestCodeActionRewritesLegacyImportAlias(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -456,9 +428,7 @@ func TestAnalyzeAndPublish_StdHTTPServerHasNoFatalTypeErrors(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -502,9 +472,7 @@ func TestAnalyzeAndPublish_StdCollectionsSetHasNoFatalTypeErrors(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -548,9 +516,7 @@ func TestAnalyzeAndPublish_StdCollectionsHashMapHasNoFatalTypeErrors(t *testing.
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -594,9 +560,7 @@ func TestAnalyzeAndPublish_HashMapInsertKeyTypeMismatchDiagnostic(t *testing.T) 
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
@@ -658,9 +622,7 @@ func TestAnalyzeAndPublish_HashMapGetAllowsImplicitBorrow(t *testing.T) {
 	s := NewServer()
 	s.Documents[uri] = src
 
-	output := captureStdout(t, func() {
-		s.analyzeAndPublish(context.Background(), uri, src)
-	})
+	output := analyzeAndCaptureOutput(t, s, uri, src)
 
 	payload, _, err := DecodeMessage(strings.NewReader(output))
 	if err != nil {
