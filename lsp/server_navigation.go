@@ -701,9 +701,13 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 	}
 
 	actions := []CodeAction{}
+	text, hasDocument := s.document(params.TextDocument.URI)
 	for _, diag := range params.Context.Diagnostics {
 		actions = addQuickFixActions(actions, params.TextDocument.URI, diag)
 		actions = addRemoveUnusedAction(actions, params.TextDocument.URI, diag)
+		if hasDocument {
+			actions = addRemoveImportDiagnosticAction(actions, params.TextDocument.URI, text, diag)
+		}
 	}
 
 	actions = append(actions, CodeAction{

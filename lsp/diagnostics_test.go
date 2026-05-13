@@ -141,6 +141,194 @@ func TestAnalyzeAndPublish_MissingImportIncludesRelatedInformation(t *testing.T)
 	t.Fatalf("expected E0701 missing import diagnostic, got %#v", params.Diagnostics)
 }
 
+func TestAnalyzeAndPublish_ImportedModuleErrorIncludesRelatedInformation(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "broken.bak")
+	libURI := pathToURI(libPath)
+	libSrc := strings.Join([]string{
+		"package broken",
+		"",
+		"pub func value() -> (int) {",
+		"    return missingName",
+		"}",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		`import broken "./broken.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write lib file: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main file: %v", err)
+	}
+
+	mainURI := pathToURI(mainPath)
+	s := NewServer()
+	s.Documents[mainURI] = mainSrc
+
+	output := analyzeAndCaptureOutput(t, s, mainURI, mainSrc)
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Code != "E0705" {
+			continue
+		}
+		if len(diag.RelatedInformation) == 0 || diag.RelatedInformation[0].Location.URI != libURI {
+			t.Fatalf("expected related information to point at imported file, got %#v", diag)
+		}
+		data, ok := diag.Data.(map[string]any)
+		if !ok || data["title"] != "imported module error" {
+			t.Fatalf("expected imported module diagnostic data, got %#v", diag.Data)
+		}
+		return
+	}
+	t.Fatalf("expected E0705 imported module diagnostic, got %#v", params.Diagnostics)
+}
+
+func TestAnalyzeAndPublish_ImportCycleUsesDedicatedCode(t *testing.T) {
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "a", "a.bak")
+	bPath := filepath.Join(dir, "b", "b.bak")
+	aSrc := strings.Join([]string{
+		"package a",
+		`import b "../b/b.bak"`,
+		"",
+		"pub func value() -> (int) {",
+		"    return 1",
+		"}",
+		"",
+	}, "\n")
+	bSrc := strings.Join([]string{
+		"package b",
+		`import a "../a/a.bak"`,
+		"",
+		"pub func value() -> (int) {",
+		"    return 2",
+		"}",
+		"",
+	}, "\n")
+	for path, src := range map[string]string{aPath: aSrc, bPath: bSrc} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", path, err)
+		}
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	aURI := pathToURI(aPath)
+	s := NewServer()
+	s.Documents[aURI] = aSrc
+
+	output := analyzeAndCaptureOutput(t, s, aURI, aSrc)
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	for _, diag := range params.Diagnostics {
+		if diag.Code != "E0704" {
+			continue
+		}
+		data, ok := diag.Data.(map[string]any)
+		if !ok || data["title"] != "import cycle" {
+			t.Fatalf("expected import cycle diagnostic data, got %#v", diag.Data)
+		}
+		if len(diag.RelatedInformation) == 0 {
+			t.Fatalf("expected import cycle related information, got %#v", diag)
+		}
+		return
+	}
+	t.Fatalf("expected E0704 import cycle diagnostic, got %#v", params.Diagnostics)
+}
+
+func TestCodeActionRemovesProblematicImportLine(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.bak")
+	src := strings.Join([]string{
+		"package main",
+		`import "./main.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write main file: %v", err)
+	}
+
+	uri := pathToURI(path)
+	s := NewServer()
+	s.Documents[uri] = src
+	output := analyzeAndCaptureOutput(t, s, uri, src)
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var publish PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &publish); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 1, Character: 0},
+			End:   Position{Line: 1, Character: len(`import "./main.bak"`)},
+		},
+		Context: CodeActionContext{Diagnostics: publish.Diagnostics},
+	}))
+	for _, action := range actions {
+		if action.Title != "Remove self import" {
+			continue
+		}
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 {
+			t.Fatalf("expected one edit, got %#v", action.Edit)
+		}
+		if edits[0].Range.Start.Line != 1 || edits[0].Range.End.Line != 2 || edits[0].NewText != "" {
+			t.Fatalf("expected full-line import removal, got %#v", edits[0])
+		}
+		return
+	}
+	t.Fatalf("expected remove self import action, got %#v", actions)
+}
+
 func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

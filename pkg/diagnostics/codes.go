@@ -96,6 +96,8 @@ const (
 	ErrImportNotFound  DiagnosticCode = "E0701"
 	ErrDuplicateImport DiagnosticCode = "E0702"
 	ErrSelfImport      DiagnosticCode = "E0703"
+	ErrImportCycle     DiagnosticCode = "E0704"
+	ErrImportedModule  DiagnosticCode = "E0705"
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly DiagnosticCode = "E0600"

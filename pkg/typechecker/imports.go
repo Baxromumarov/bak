@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"errors"
 	"path/filepath"
 	"strings"
 
@@ -49,7 +50,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 			importPath,
 			visited,
 		); err != nil {
-			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check for a circular dependency chain or simplify the module graph", err.Error())
+			tc.emitImportCycleError(is, err)
 			return
 		}
 	}
@@ -222,8 +223,12 @@ func (tc *TypeChecker) emitImportedModuleErrors(
 	}
 
 	for _, modErr := range structured {
+		code := diagnostics.ErrImportedModule
+		if modErr.Code == diagnostics.ErrImportCycle {
+			code = diagnostics.ErrImportCycle
+		}
 		diag := tc.baseDiagnostic(
-			diagnostics.ErrGeneric,
+			code,
 			ast.Position{Line: is.Token.Line, Column: is.Token.Column},
 			strfmt.Named(
 				"error in module {importPath}: {message}",
@@ -243,6 +248,30 @@ func (tc *TypeChecker) emitImportedModuleErrors(
 		diag.Notes = append(diag.Notes, modErr.Notes...)
 		tc.emitError(diag)
 	}
+}
+
+func (tc *TypeChecker) emitImportCycleError(is *ast.ImportStatement, err error) {
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrImportCycle,
+		ast.Position{Line: is.Token.Line, Column: is.Token.Column},
+		err.Error(),
+	)
+	diag.Help = "check for a circular dependency chain or simplify the module graph"
+
+	if cycleErr, ok := errors.AsType[*packages.ImportCycleError](err); ok {
+		for _, path := range cycleErr.Chain {
+			if path == "" {
+				continue
+			}
+			diag.Notes = append(diag.Notes, diagnostics.Note{
+				Message: "cycle includes this package",
+				File:    path,
+				Line:    1,
+				Column:  1,
+			})
+		}
+	}
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) emitImportNotFound(is *ast.ImportStatement, resolution packages.ImportResolution) {

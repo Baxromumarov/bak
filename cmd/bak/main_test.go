@@ -88,6 +88,8 @@ func TestExplainDiagnosticCodeImportAndParserCodes(t *testing.T) {
 		want string
 	}{
 		{code: "E0702", want: "duplicate import alias"},
+		{code: "E0704", want: "import cycle"},
+		{code: "E0705", want: "imported module error"},
 		{code: "p0001", want: "parse error"},
 		{code: "import-style", want: "import style"},
 		{code: "public-api-style", want: "public API style"},
@@ -130,6 +132,8 @@ func TestPrintDiagnosticCodeList(t *testing.T) {
 		t.Fatalf("expected known code in list output, got: %s", text)
 	}
 	if !strings.Contains(text, "E0702") ||
+		!strings.Contains(text, "E0704") ||
+		!strings.Contains(text, "E0705") ||
 		!strings.Contains(text, "P0001") ||
 		!strings.Contains(text, "import-style") ||
 		!strings.Contains(text, "public-api-style") {

@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,5 +104,12 @@ func TestCheckCyclicImportReportsFullChain(t *testing.T) {
 	)
 	if !strings.Contains(err.Error(), expectedChain) {
 		t.Fatalf("expected cycle chain %q, got %q", expectedChain, err.Error())
+	}
+	var cycleErr *ImportCycleError
+	if !errors.As(err, &cycleErr) {
+		t.Fatalf("expected structured ImportCycleError, got %T", err)
+	}
+	if got := strings.Join(cycleErr.Chain, " -> "); got != expectedChain {
+		t.Fatalf("expected structured cycle chain %q, got %q", expectedChain, got)
 	}
 }

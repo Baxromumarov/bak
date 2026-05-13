@@ -57,6 +57,8 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrImportNotFound:  {LevelError, "import not found: '{importPath}'", "check the import path exists and is accessible"},
 	ErrDuplicateImport: {LevelError, "duplicate import alias: '{alias}'", "use one import per alias or rename one import"},
 	ErrSelfImport:      {LevelError, "package cannot import itself", "remove the self import or move shared code to another package"},
+	ErrImportCycle:     {LevelError, "package import cycle detected", "move shared declarations into a third package"},
+	ErrImportedModule:  {LevelError, "imported module has errors", "fix errors in the imported module before running this program"},
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly: {LevelError, "cannot call '{method}' on fixed-size {vecType}", "use Vec<T, _> for dynamic arrays"},
@@ -120,6 +122,8 @@ var catalogTitles = map[DiagnosticCode]string{
 	ErrImportNotFound:      "import not found",
 	ErrDuplicateImport:     "duplicate import alias",
 	ErrSelfImport:          "self import",
+	ErrImportCycle:         "import cycle",
+	ErrImportedModule:      "imported module error",
 	ErrVecDynamicOnly:      "dynamic vector required",
 	ErrVecFixedOnly:        "fixed vector required",
 	ErrVecInvalidInit:      "invalid vector initialization",

@@ -8,6 +8,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/lexer"
+	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
 )
 
@@ -208,6 +209,167 @@ func main() -> (void) {
 		}
 	}
 	t.Fatalf("expected ErrSelfImport, got %#v", errs)
+}
+
+func TestCheck_ImportCycleUsesDedicatedDiagnosticCode(t *testing.T) {
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "a", "a.bak")
+	bPath := filepath.Join(dir, "b", "b.bak")
+	source := `
+package a
+import b "../b/b.bak"
+
+pub func value() -> (int) {
+	return 1
+}
+`
+	if err := os.MkdirAll(filepath.Dir(aPath), 0o755); err != nil {
+		t.Fatalf("mkdir a: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(bPath), 0o755); err != nil {
+		t.Fatalf("mkdir b: %v", err)
+	}
+	if err := os.WriteFile(aPath, []byte(source), 0o644); err != nil {
+		t.Fatalf("write a.bak: %v", err)
+	}
+	if err := os.WriteFile(bPath, []byte("package b\nimport a \"../a/a.bak\"\n"), 0o644); err != nil {
+		t.Fatalf("write b.bak: %v", err)
+	}
+
+	l := lexer.New(source)
+	p := parser.New(l)
+	p.SetFilename(aPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	reg := packages.NewRegistry()
+	reg.RegisterPackage(&packages.Package{
+		Name:    "b",
+		Path:    bPath,
+		Imports: []string{aPath},
+		Symbols: map[string]*packages.Symbol{},
+		Used:    map[string]bool{},
+	})
+	tc := NewWithPathAndRegistry(aPath, reg)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	for _, err := range tc.GetErrors() {
+		if err.Code == diagnostics.ErrImportCycle {
+			if !strings.Contains(err.Message, "cycle") {
+				t.Fatalf("expected cycle message, got %#v", err)
+			}
+			if len(err.Notes) == 0 {
+				t.Fatalf("expected cycle notes, got %#v", err)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected ErrImportCycle, got %#v", tc.GetErrors())
+}
+
+func TestCheck_RecursiveImportCyclePreservesDedicatedCode(t *testing.T) {
+	dir := t.TempDir()
+	aPath := filepath.Join(dir, "a", "a.bak")
+	bPath := filepath.Join(dir, "b", "b.bak")
+	aSource := `
+package a
+import b "../b/b.bak"
+
+pub func value() -> (int) {
+	return 1
+}
+`
+	bSource := `
+package b
+import a "../a/a.bak"
+
+pub func value() -> (int) {
+	return 2
+}
+`
+	for path, source := range map[string]string{aPath: aSource, bPath: bSource} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", path, err)
+		}
+		if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	l := lexer.New(aSource)
+	p := parser.New(l)
+	p.SetFilename(aPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(aPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	for _, err := range tc.GetErrors() {
+		if err.Code == diagnostics.ErrImportCycle {
+			if len(err.Notes) < 2 {
+				t.Fatalf("expected recursive cycle notes, got %#v", err)
+			}
+			return
+		}
+	}
+	t.Fatalf("expected ErrImportCycle, got %#v", tc.GetErrors())
+}
+
+func TestCheck_ImportedModuleErrorIncludesSourceNote(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "broken.bak")
+	libSource := `
+package broken
+
+pub func brokenValue() -> (int) {
+	return missingName
+}
+`
+	mainSource := `
+package main
+import broken "./broken.bak"
+
+func main() -> (void) {
+	return void
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0o644); err != nil {
+		t.Fatalf("write broken.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0o644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	for _, err := range tc.GetErrors() {
+		if err.Code != diagnostics.ErrImportedModule {
+			continue
+		}
+		if len(err.Notes) == 0 || err.Notes[0].File != libPath {
+			t.Fatalf("expected imported module note to point at %s, got %#v", libPath, err)
+		}
+		if !strings.Contains(err.Message, libPath) {
+			t.Fatalf("expected imported error message to include module path, got %#v", err)
+		}
+		return
+	}
+	t.Fatalf("expected ErrImportedModule, got %#v", tc.GetErrors())
 }
 
 func TestCheck_ImportedPrivateFieldAccessIsRejected(t *testing.T) {

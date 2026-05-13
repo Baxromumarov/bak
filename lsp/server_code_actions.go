@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -166,6 +167,65 @@ func addRemoveUnusedAction(
 			NewText: "",
 		},
 	))
+}
+
+func addRemoveImportDiagnosticAction(
+	actions []CodeAction,
+	uri string,
+	text string,
+	diag Diagnostic,
+) []CodeAction {
+	title, ok := removeImportDiagnosticTitle(fmt.Sprint(diag.Code))
+	if !ok {
+		return actions
+	}
+
+	line := diag.Range.Start.Line
+	lines := strings.Split(text, "\n")
+	if line < 0 || line >= len(lines) || !strings.HasPrefix(strings.TrimSpace(lines[line]), "import ") {
+		return actions
+	}
+
+	editRange, ok := fullLineDeletionRange(text, line)
+	if !ok {
+		return actions
+	}
+
+	return append(actions, codeActionWithTextEdit(
+		title,
+		"quickfix",
+		uri,
+		[]Diagnostic{diag},
+		TextEdit{Range: editRange, NewText: ""},
+	))
+}
+
+func removeImportDiagnosticTitle(code string) (string, bool) {
+	switch code {
+	case "E0701":
+		return "Remove unresolved import", true
+	case "E0703":
+		return "Remove self import", true
+	case "E0704":
+		return "Remove import cycle edge", true
+	default:
+		return "", false
+	}
+}
+
+func fullLineDeletionRange(text string, line int) (Range, bool) {
+	lines := strings.Split(text, "\n")
+	if line < 0 || line >= len(lines) {
+		return Range{}, false
+	}
+	end := Position{Line: line, Character: len(lines[line])}
+	if line+1 < len(lines) {
+		end = Position{Line: line + 1, Character: 0}
+	}
+	return Range{
+		Start: Position{Line: line, Character: 0},
+		End:   end,
+	}, true
 }
 
 func addRemoveAllUnusedAction(

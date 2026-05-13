@@ -654,6 +654,53 @@ func TestDidChangeWatchedFilesInvalidatesIndexesAndReanalyzesOpenDocuments(t *te
 	}
 }
 
+func TestDependentsOfChangedURIsIncludesTransitivePackageDeps(t *testing.T) {
+	root := t.TempDir()
+	server := NewServer()
+	server.setRootPath(root)
+
+	libPath := filepath.Join(root, "lib", "lib.bak")
+	midPath := filepath.Join(root, "mid", "mid.bak")
+	appPath := filepath.Join(root, "app.bak")
+	otherPath := filepath.Join(root, "other.bak")
+	for path, src := range map[string]string{
+		libPath:   "package lib\n\npub const version: int = 1\n",
+		midPath:   "package mid\n\nimport lib \"lib\"\n",
+		appPath:   "package app\n\nimport mid \"mid\"\n",
+		otherPath: "package other\n\n",
+	} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", path, err)
+		}
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	midURI := pathToURI(midPath)
+	appURI := pathToURI(appPath)
+	otherURI := pathToURI(otherPath)
+	server.setAnalysisResult(midURI, &FileIndex{}, &AnalysisResult{
+		Imports: map[string]string{"lib": "lib"},
+	})
+	server.setAnalysisResult(appURI, &FileIndex{}, &AnalysisResult{
+		Imports: map[string]string{"mid": "mid"},
+	})
+	server.setAnalysisResult(otherURI, &FileIndex{}, &AnalysisResult{})
+
+	dependents := server.dependentsOfChangedURIs(map[string]struct{}{
+		pathToURI(libPath): {},
+	})
+	for _, uri := range []string{midURI, appURI} {
+		if _, ok := dependents[uri]; !ok {
+			t.Fatalf("expected %s to be affected, got %#v", uri, dependents)
+		}
+	}
+	if _, ok := dependents[otherURI]; ok {
+		t.Fatalf("expected unrelated document to stay unaffected, got %#v", dependents)
+	}
+}
+
 func TestEndToEndOpenEditSaveWatchKeepsEditorStateFresh(t *testing.T) {
 	var out bytes.Buffer
 	server := NewServer()

@@ -27,7 +27,7 @@ func BenchmarkCompletionLargeFile(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	
+
 	for b.Loop() {
 		_ = server.handleCompletion(req)
 	}
@@ -54,7 +54,7 @@ func BenchmarkWorkspaceSymbolManyFiles(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	
+
 	for b.Loop() {
 		_ = server.handleWorkspaceSymbol(req)
 	}
@@ -88,7 +88,7 @@ func BenchmarkDependencyFanout(b *testing.B) {
 	}
 
 	b.ReportAllocs()
-	
+
 	for b.Loop() {
 		_ = server.dependentsOfChangedURIs(changes)
 	}
@@ -116,16 +116,16 @@ func completionBenchmarkSource(extraSymbols int) string {
 }
 
 func workspaceSymbolBenchmarkSource(i int) string {
-	return fmt.Sprintf(`package pkg%d
-
-pub struct Account%d {
-    pub balance: int
-}
-
-pub func newAccount%d() -> (Account%d) {
-    return Account%d{balance: %d}
-}
-`, i, i, i, i, i, i)
+	return fmt.Sprintf(
+		"package pkg%d\n\n"+
+			"pub struct Account%d {\n"+
+			"    pub balance: int\n"+
+			"}\n\n"+
+			"pub func newAccount%d() -> (Account%d) {\n"+
+			"    return Account%d{balance: %d}\n"+
+			"}\n",
+		i, i, i, i, i, i,
+	)
 }
 
 func positionAfterNeedle(text, needle string) Position {

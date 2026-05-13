@@ -79,6 +79,31 @@ type GraphNode struct {
 	Symbols         []SymbolSummary
 }
 
+// ImportCycleError carries the resolved import chain that formed a cycle.
+type ImportCycleError struct {
+	Chain   []string
+	Message string
+}
+
+func (e *ImportCycleError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.Message
+}
+
+func newImportCycleError(prefix string, chain []string) *ImportCycleError {
+	copied := append([]string{}, chain...)
+	return &ImportCycleError{
+		Chain: copied,
+		Message: strfmt.Named(
+			"{prefix}: {chain}; move shared declarations into a third package",
+			"prefix", prefix,
+			"chain", strings.Join(copied, " -> "),
+		),
+	}
+}
+
 // NewPackage creates a new Package
 func NewPackage(name, path string, program *ast.Program) *Package {
 	pkg := &Package{
@@ -426,7 +451,7 @@ func (r *Registry) checkCyclicImport(
 		if len(cycle) == 1 {
 			cycle = append(cycle, importPath)
 		}
-		return fmt.Errorf("package import cycle detected: %s; move shared declarations into a third package", strings.Join(cycle, " -> "))
+		return newImportCycleError("package import cycle detected", cycle)
 	}
 
 	// Allow same-directory imports (files in the same package can import each other)
@@ -436,7 +461,7 @@ func (r *Registry) checkCyclicImport(
 
 	if visited[importPath] {
 		cycle := append(append([]string{}, chain...), importPath)
-		return fmt.Errorf("cyclic import detected: %s; move shared declarations into a third package", strings.Join(cycle, " -> "))
+		return newImportCycleError("cyclic import detected", cycle)
 	}
 
 	visited[importPath] = true
