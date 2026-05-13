@@ -15,15 +15,15 @@
 			},
 			"lines": {
 				"signature": "func lines() -> (Vec<string, _>)",
-				"doc": "Returns the lines of the string."
+				"doc": "Returns the lines of the string, split by newline."
 			},
 			"split": {
 				"signature": "func split(sep: string) -> (Vec<string, _>)",
-				"doc": "Splits the string by the given separator."
+				"doc": "Splits the string by the given separator. Returns a vector of substrings."
 			},
 			"replace": {
 				"signature": "func replace(old: string, new: string) -> (string)",
-				"doc": "Replaces all occurrences of old with new."
+				"doc": "Replaces all occurrences of old substring with new. Returns new string."
 			},
 			"substring": {
 				"signature": "func substring(start: int, end: int) -> (string)",
@@ -32,6 +32,14 @@
 			"trim": {
 				"signature": "func trim() -> (string)",
 				"doc": "Returns the string with leading and trailing whitespace removed."
+			},
+			"trimStart": {
+				"signature": "func trimStart() -> (string)",
+				"doc": "Returns the string with leading whitespace removed."
+			},
+			"trimEnd": {
+				"signature": "func trimEnd() -> (string)",
+				"doc": "Returns the string with trailing whitespace removed."
 			},
 			"contains": {
 				"signature": "func contains(substr: string) -> (bool)",
@@ -51,27 +59,39 @@
 			},
 			"startsWith": {
 				"signature": "func startsWith(prefix: string) -> (bool)",
-				"doc": "Returns true if the string starts with prefix."
+				"doc": "Returns true if the string starts with the given prefix."
 			},
 			"endsWith": {
 				"signature": "func endsWith(suffix: string) -> (bool)",
-				"doc": "Returns true if the string ends with suffix."
+				"doc": "Returns true if the string ends with the given suffix."
+			},
+			"toUpper": {
+				"signature": "func toUpper() -> (string)",
+				"doc": "Returns the string converted to uppercase."
+			},
+			"toLower": {
+				"signature": "func toLower() -> (string)",
+				"doc": "Returns the string converted to lowercase."
 			},
 			"parseInt": {
 				"signature": "func parseInt() -> (Result<int, string>)",
-				"doc": "Parses the string as an integer."
+				"doc": "Parses the string as an integer. Returns Result<int, string>."
 			},
 			"parseFloat": {
 				"signature": "func parseFloat() -> (Result<float64, string>)",
-				"doc": "Parses the string as a float."
+				"doc": "Parses the string as a float. Returns Result<float64, string>."
 			},
 			"toString": {
 				"signature": "func toString() -> (string)",
-				"doc": "Returns this string value."
+				"doc": "Returns this string value (identity function)."
 			},
 			"get": {
 				"signature": "func get(index: int) -> (Result<char, string>)",
 				"doc": "Returns the character at index, or Err if out of bounds."
+			},
+			"repeat": {
+				"signature": "func repeat(count: int) -> (string)",
+				"doc": "Returns the string repeated count times."
 			}
 		},
 		"Vec": {
@@ -81,15 +101,15 @@
 			},
 			"append": {
 				"signature": "func append(other: Vec<T, _>) -> (void)",
-				"doc": "Appends all elements from another vector."
+				"doc": "Appends all elements from another vector to this vector."
 			},
 			"pop": {
 				"signature": "func pop() -> (Result<T, string>)",
-				"doc": "Removes and returns the last element of the vector, or Err if empty."
+				"doc": "Removes and returns the last element, or Err if empty."
 			},
 			"remove": {
 				"signature": "func remove(index: int) -> (Result<T, string>)",
-				"doc": "Removes and returns the element at the given index."
+				"doc": "Removes and returns the element at the given index, or Err if out of bounds."
 			},
 			"first": {
 				"signature": "func first() -> (Result<T, string>)",
@@ -103,13 +123,17 @@
 				"signature": "func get(index: int) -> (Result<T, string>)",
 				"doc": "Returns the element at index, or Err if out of bounds."
 			},
+			"set": {
+				"signature": "func set(index: int, value: T) -> (void)",
+				"doc": "Sets the element at the given index. Panics if out of bounds."
+			},
 			"len": {
 				"signature": "func len() -> (int)",
 				"doc": "Returns the number of elements in the vector."
 			},
 			"cap": {
 				"signature": "func cap() -> (int)",
-				"doc": "Returns the vector capacity."
+				"doc": "Returns the allocated capacity of the vector."
 			},
 			"isEmpty": {
 				"signature": "func isEmpty() -> (bool)",
@@ -121,7 +145,7 @@
 			},
 			"reverse": {
 				"signature": "func reverse() -> (void)",
-				"doc": "Reverses elements in place."
+				"doc": "Reverses the order of elements in place."
 			},
 			"contains": {
 				"signature": "func contains(value: T) -> (bool)",
@@ -129,29 +153,25 @@
 			},
 			"join": {
 				"signature": "func join(separator: string) -> (string)",
-				"doc": "Concatenates elements using a separator."
+				"doc": "Concatenates all string elements using the separator."
 			},
 			"slice": {
 				"signature": "func slice(start: int, end: int) -> (Vec<T, _>)",
-				"doc": "Returns a sub-vector between start and end."
+				"doc": "Returns a new vector containing elements from start to end (exclusive)."
 			},
 			"toVec": {
 				"signature": "func toVec() -> (Vec<T, _>)",
-				"doc": "Returns a dynamic Vec copy."
-			},
-			"set": {
-				"signature": "func set(index: int, value: T) -> (void)",
-				"doc": "Sets the element at index."
+				"doc": "Returns a dynamic copy of this vector."
 			}
 		},
 		"HashMap": {
 			"insert": {
 				"signature": "func insert(key: K, value: V) -> (void)",
-				"doc": "Inserts or updates a key-value pair."
+				"doc": "Inserts or updates a key-value pair in the map."
 			},
 			"get": {
 				"signature": "func get(key: &K) -> (Result<V, string>)",
-				"doc": "Looks up a key and returns Result<V, string>."
+				"doc": "Looks up a key and returns the value, or Err if not found."
 			},
 			"len": {
 				"signature": "func len() -> (int)",
@@ -175,7 +195,7 @@
 			},
 			"remove": {
 				"signature": "func remove(key: &K) -> (Result<V, string>)",
-				"doc": "Removes and returns the value for the given key."
+				"doc": "Removes and returns the value for the key, or Err if not found."
 			},
 			"contains": {
 				"signature": "func contains(key: &K) -> (bool)",
@@ -201,7 +221,7 @@
 			},
 			"remove": {
 				"signature": "func remove(key: K) -> (void)",
-				"doc": "Removes the entry with the given key."
+				"doc": "Removes the entry with the given key from the map."
 			},
 			"contains": {
 				"signature": "func contains(key: K) -> (bool)",
@@ -211,19 +231,23 @@
 		"Result": {
 			"isOk": {
 				"signature": "func isOk() -> (bool)",
-				"doc": "Returns true if the result is Ok."
+				"doc": "Returns true if this is an Ok value."
 			},
 			"isErr": {
 				"signature": "func isErr() -> (bool)",
-				"doc": "Returns true if the result is Err."
+				"doc": "Returns true if this is an Err value."
 			},
 			"unwrap": {
 				"signature": "func unwrap() -> (T)",
-				"doc": "Returns the Ok value. Panics if Err."
+				"doc": "Returns the Ok value. Panics if this is Err."
 			},
 			"unwrapErr": {
 				"signature": "func unwrapErr() -> (E)",
-				"doc": "Returns the Err value. Panics if Ok."
+				"doc": "Returns the Err value. Panics if this is Ok."
+			},
+			"unwrapOr": {
+				"signature": "func unwrapOr(default: T) -> (T)",
+				"doc": "Returns the Ok value, or the default if this is Err."
 			},
 			"toString": {
 				"signature": "func toString() -> (string)",

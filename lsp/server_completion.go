@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -41,7 +42,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			}
 		}
 
-		out.Items = items
+		out.Items = rankCompletionItems(items, prefix, importPathCompletionPriority)
 		return out
 	}
 
@@ -60,7 +61,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	if !isDotCompletion {
 		result, _ := s.analysisResult(params.TextDocument.URI)
 		if structItems := s.completeStructLiteralFields(ctx, result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
-			out.Items = structItems
+			out.Items = rankCompletionItems(structItems, qualifier, fieldCompletionPriority)
 			return out
 		}
 	}
@@ -233,7 +234,11 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					items = filterCompletionItemsByPrefix(items, memberPrefix)
 				}
 
-				out.Items = items
+				prefix := memberPrefix
+				if prefix == "" {
+					prefix = qualifier
+				}
+				out.Items = rankCompletionItems(items, prefix, memberCompletionPriority)
 				return out
 			}
 		}
@@ -323,13 +328,31 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				continue
 			}
 			detail := "builtin func"
+			insertText := name
+			insertFormat := 1
+
 			if sig, ok := builtinSignatures[name]; ok {
 				detail = sig
+				// Add snippet formatting for functions
+				if strings.Contains(sig, "->") {
+					insertFormat = 2
+					if !strings.Contains(sig, "()") {
+						insertText = name + "($0)"
+					} else {
+						insertText = name + "()"
+					}
+				}
+			} else if strings.Contains(detail, "(") {
+				insertFormat = 2
+				insertText = name + "($0)"
 			}
+
 			items = append(items, CompletionItem{
-				Label:  name,
-				Kind:   3,
-				Detail: detail,
+				Label:            name,
+				Kind:             3,
+				Detail:           detail,
+				InsertText:       insertText,
+				InsertTextFormat: insertFormat,
 			})
 			seen[name] = true
 		}
@@ -406,7 +429,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"char",
 		"string",
 		"void",
-		
+
 		// Collection types
 		"Vec",
 		"HashMap",
@@ -414,7 +437,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"Array",
 		"Slice",
 		"Range",
-		
+
 		// Special types
 		"Result",
 		"Option",
@@ -423,10 +446,45 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	}
 
 	for _, typ := range typeKeywords {
+		kind := completionKind("type")
+		detail := "type"
+		insertText := typ
+		insertFormat := 1
+
+		// Special handling for generic types
+		switch typ {
+		case "Vec":
+			insertText = "Vec<${1:T}, ${2:_}>"
+			insertFormat = 2
+			detail = "Vec<T, Size> - dynamic or fixed-size vector"
+		case "HashMap":
+			insertText = "HashMap<${1:K}, ${2:V}>"
+			insertFormat = 2
+			detail = "HashMap<K, V> - hash map with keys and values"
+		case "Result":
+			insertText = "Result<${1:T}, ${2:E}>"
+			insertFormat = 2
+			detail = "Result<T, E> - success or error value"
+		case "Map":
+			insertText = "Map<${1:K}, ${2:V}>"
+			insertFormat = 2
+			detail = "Map<K, V> - ordered map"
+		case "Array":
+			insertText = "Array<${1:T}, ${2:N}>"
+			insertFormat = 2
+			detail = "Array<T, N> - fixed-size array"
+		case "Slice":
+			insertText = "Slice<${1:T}>"
+			insertFormat = 2
+			detail = "Slice<T> - view into array elements"
+		}
+
 		items = append(items, CompletionItem{
-			Label:  typ,
-			Kind:   25, // Type
-			Detail: "type",
+			Label:            typ,
+			Kind:             kind,
+			Detail:           detail,
+			InsertText:       insertText,
+			InsertTextFormat: insertFormat,
 		})
 	}
 
@@ -439,7 +497,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		{"func", "func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Function definition"},
 		{"pubfunc", "pub func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Public function"},
 		{"mutfunc", "mut func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Mutable function"},
-		
+
 		// Control flow
 		{"if", "if ${1:condition} {\n\t$0\n}", "If statement"},
 		{"else", "else {\n\t$0\n}", "Else block"},
@@ -447,21 +505,21 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		{"while", "while ${1:condition} {\n\t$0\n}", "While loop"},
 		{"switch", "switch ${1:expr} {\ncase ${2:pattern} {\n\t$0\n}\n}", "Switch statement"},
 		{"match", "match ${1:value} {\n\t${2:pattern} => $0\n}", "Match expression"},
-		
+
 		// Data structures
 		{"struct", "struct ${1:Name} {\n\t${2:field}: ${3:Type},\n}", "Struct definition"},
 		{"enum", "enum ${1:Name} {\n\t${2:Case},\n}", "Enum definition"},
 		{"impl", "impl ${1:Name} {\n\tpub func ${2:name}(mut self) {\n\t\t$0\n\t}\n}", "Implementation block"},
-		
+
 		// Variable declarations
 		{"var", "var ${1:name}: ${2:Type} = ${3:value}", "Variable declaration"},
 		{"const", "const ${1:NAME}: ${2:Type} = ${3:value}", "Constant declaration"},
 		{"mut", "mut var ${1:name}: ${2:Type} = ${3:value}", "Mutable variable"},
-		
+
 		// Modifiers
 		{"pub", "pub ", "Public visibility"},
 		{"priv", "priv ", "Private visibility"},
-		
+
 		// Common patterns
 		{"println", "println(${1:values})", "Print line"},
 		{"result", "Result<${1:T}, ${2:E}>", "Result type"},
@@ -479,7 +537,8 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		})
 	}
 
-	out.Items = items
+	prefix := qualifier
+	out.Items = rankCompletionItems(items, prefix, generalCompletionPriority)
 	return out
 }
 
@@ -622,8 +681,102 @@ func (s *Server) completeImportedModuleMembers(
 	if memberPrefix != "" {
 		items = filterCompletionItemsByPrefix(items, memberPrefix)
 	}
+	items = rankCompletionItems(items, memberPrefix, memberCompletionPriority)
 
 	return items, true
+}
+
+var generalCompletionPriority = map[int]int{
+	6:  0,  // Variable
+	5:  1,  // Field
+	3:  2,  // Function
+	2:  3,  // Method
+	9:  4,  // Module
+	25: 5,  // Type
+	21: 6,  // Constant
+	22: 7,  // Struct
+	13: 8,  // Enum
+	14: 9,  // Keyword
+	15: 10, // Snippet
+}
+
+var memberCompletionPriority = map[int]int{
+	2:  0, // Method
+	5:  1, // Field
+	3:  2, // Function
+	21: 3, // Constant
+	25: 4, // Type
+	22: 5, // Struct
+	13: 6, // Enum
+}
+
+var fieldCompletionPriority = map[int]int{
+	5: 0, // Field
+}
+
+var importPathCompletionPriority = map[int]int{
+	9: 0, // Module/import path
+}
+
+func rankCompletionItems(items []CompletionItem, prefix string, kindPriority map[int]int) []CompletionItem {
+	if len(items) <= 1 {
+		return items
+	}
+
+	typed := strings.TrimSpace(prefix)
+	typedFolded := strings.ToLower(typed)
+
+	scoreLabel := func(label string) int {
+		if typed == "" {
+			return 4
+		}
+		if label == typed {
+			return 0
+		}
+		if strings.HasPrefix(label, typed) {
+			return 1
+		}
+		folded := strings.ToLower(label)
+		if strings.HasPrefix(folded, typedFolded) {
+			return 2
+		}
+		if strings.Contains(folded, typedFolded) {
+			return 3
+		}
+		return 4
+	}
+
+	kindRank := func(kind int) int {
+		if rank, ok := kindPriority[kind]; ok {
+			return rank
+		}
+		return 99
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		li := items[i].Label
+		lj := items[j].Label
+
+		si := scoreLabel(li)
+		sj := scoreLabel(lj)
+		if si != sj {
+			return si < sj
+		}
+
+		ki := kindRank(items[i].Kind)
+		kj := kindRank(items[j].Kind)
+		if ki != kj {
+			return ki < kj
+		}
+
+		if len(li) != len(lj) {
+			return len(li) < len(lj)
+		}
+
+		return strings.ToLower(li) < strings.ToLower(lj)
+	})
+
+	return items
 }
 
 func structLiteralTypeName(
@@ -759,28 +912,67 @@ var builtinSignatures = map[string]string{
 	"float":     "float(value: any) -> (float64 | Result<float64,string>)",
 	"string":    "string(value: any) -> (string)",
 	"char":      "char(value: int|char) -> (char)",
-	
+
 	// Output functions
-	"print":     "print(values: any...) -> (void)",
-	"println":   "println(values: any...) -> (void)",
-	"eprint":    "eprint(values: any...) -> (void)",
-	"eprintln":  "eprintln(values: any...) -> (void)",
-	
+	"print":    "print(values: any...) -> (void)",
+	"println":  "println(values: any...) -> (void)",
+	"eprint":   "eprint(values: any...) -> (void)",
+	"eprintln": "eprintln(values: any...) -> (void)",
+
 	// Type inspection
-	"type":      "type(value: any) -> (string)",
-	"typeof":    "typeof(value: any) -> (string)",
-	
+	"type":   "type(value: any) -> (string)",
+	"typeof": "typeof(value: any) -> (string)",
+
 	// String operations
-	"concat":    "concat(values: string...) -> (string)",
-	
+	"concat": "concat(values: string...) -> (string)",
+
 	// Error handling
-	"panic":     "panic(msg: string) -> (void)",
-	"error":     "error(msg: string) -> (Result<any,string>)",
-	
-	// Type constructors
-	"Vec":       "Vec.new() -> (Vec<T, _>) | Vec.withCap(cap: int) -> (Vec<T, _>) | Vec.from(arr: Vec<T, N>) -> (Vec<T, _>)",
-	"HashMap":   "HashMap.new() -> (HashMap<K, V>) | HashMap.withCap(cap: int) -> (HashMap<K, V>)",
-	"Result":    "Result.Ok(value: T) | Result.Err(error: E)",
+	"panic": "panic(msg: string) -> (void)",
+	"error": "error(msg: string) -> (Result<any,string>)",
+
+	// OS/System functions
+	"args":       "args() -> (Vec<string, _>)",
+	"exit":       "exit(code: int) -> (void)",
+	"getenv":     "getenv(name: string) -> (Result<string, string>)",
+	"setenv":     "setenv(name: string, value: string) -> (void)",
+	"cwd":        "cwd() -> (Result<string, string>)",
+	"chdir":      "chdir(path: string) -> (Result<void, string>)",
+	"executable": "executable() -> (Result<string, string>)",
+	"hostname":   "hostname() -> (Result<string, string>)",
+	"tempDir":    "tempDir() -> (string)",
+	"homeDir":    "homeDir() -> (Result<string, string>)",
+	"sleep":      "sleep(ms: int) -> (void)",
+	"timeNow":    "timeNow() -> (int)",
+	"threadID":   "threadID() -> (int)",
+
+	// File operations
+	"readFile":   "readFile(path: string) -> (Result<string, string>)",
+	"writeFile":  "writeFile(path: string, content: string) -> (Result<void, string>)",
+	"appendFile": "appendFile(path: string, content: string) -> (Result<void, string>)",
+	"fileExists": "fileExists(path: string) -> (bool)",
+	"isFile":     "isFile(path: string) -> (bool)",
+	"isDir":      "isDir(path: string) -> (bool)",
+	"readDir":    "readDir(path: string) -> (Result<Vec<string, _>, string>)",
+	"remove":     "remove(path: string) -> (Result<void, string>)",
+	"mkdir":      "mkdir(path: string) -> (Result<void, string>)",
+	"chmod":      "chmod(path: string, mode: int) -> (Result<void, string>)",
+
+	// Command execution
+	"exec": "exec(command: string, args: Vec<string, _>) -> (Result<string, string>)",
+
+	// Network functions
+	"socketConnect":    "socketConnect(host: string, port: int) -> (Result<int, string>)",
+	"socketRead":       "socketRead(fd: int, size: int) -> (Result<Vec<int, _>, string>)",
+	"socketWrite":      "socketWrite(fd: int, data: Vec<int, _>) -> (Result<int, string>)",
+	"socketClose":      "socketClose(fd: int) -> (void)",
+	"socketBind":       "socketBind(port: int) -> (Result<int, string>)",
+	"socketAccept":     "socketAccept(fd: int) -> (Result<int, string>)",
+	"socketSetTimeout": "socketSetTimeout(fd: int, ms: int) -> (Result<void, string>)",
+
+	// Mutex/synchronization
+	"mutexNew":    "mutexNew() -> (int)",
+	"mutexLock":   "mutexLock(id: int) -> (void)",
+	"mutexUnlock": "mutexUnlock(id: int) -> (void)",
 }
 
 func completionKind(kind string) int {
