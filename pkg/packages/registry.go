@@ -3,6 +3,7 @@ package packages
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -60,6 +61,7 @@ type Package struct {
 	Imports         []string           // paths of imported packages
 	ResolvedImports []string           // normalized import paths
 	Used            map[string]bool    // tracks which exported symbols have been used by importers
+	Fingerprint     string             // source file/directory fingerprint for stale-cache detection
 	mu              sync.RWMutex
 }
 
@@ -114,6 +116,7 @@ func NewPackage(name, path string, program *ast.Program) *Package {
 		Imports:         []string{},
 		ResolvedImports: []string{},
 		Used:            make(map[string]bool),
+		Fingerprint:     packageFingerprint(path),
 	}
 	pkg.extractSymbols()
 	return pkg
@@ -303,6 +306,9 @@ func (r *Registry) RegisterPackage(pkg *Package) {
 		return
 	}
 	pkg.Path = normalizePath(pkg.Path)
+	if pkg.Fingerprint == "" {
+		pkg.Fingerprint = packageFingerprint(pkg.Path)
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.packages[pkg.Path] = pkg
@@ -312,9 +318,20 @@ func (r *Registry) RegisterPackage(pkg *Package) {
 func (r *Registry) GetPackage(path string) (*Package, bool) {
 	path = normalizePath(path)
 	r.mu.RLock()
-	defer r.mu.RUnlock()
 	pkg, exists := r.packages[path]
-	return pkg, exists
+	r.mu.RUnlock()
+	if !exists || pkg == nil {
+		return nil, false
+	}
+	if packageStale(pkg) {
+		r.mu.Lock()
+		if current := r.packages[path]; current == pkg {
+			delete(r.packages, path)
+		}
+		r.mu.Unlock()
+		return nil, false
+	}
+	return pkg, true
 }
 
 // SnapshotGraph returns a deterministic snapshot of the loaded package graph.
@@ -374,6 +391,62 @@ func packageGraphNode(pkg *Package) GraphNode {
 		ResolvedImports: resolved,
 		Symbols:         symbols,
 	}
+}
+
+func packageStale(pkg *Package) bool {
+	if pkg == nil || pkg.Fingerprint == "" {
+		return false
+	}
+	current := packageFingerprint(pkg.Path)
+	return current == "" || current != pkg.Fingerprint
+}
+
+func packageFingerprint(path string) string {
+	path = normalizePath(path)
+	info, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	if !info.IsDir() {
+		return fileFingerprint(path, info)
+	}
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return ""
+	}
+	parts := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".bak") ||
+			strings.HasPrefix(name, "test_") ||
+			strings.HasSuffix(name, "_test.bak") {
+			continue
+		}
+		filePath := filepath.Join(path, name)
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return ""
+		}
+		parts = append(parts, fileFingerprint(filePath, fileInfo))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
+
+func fileFingerprint(path string, info os.FileInfo) string {
+	if info == nil {
+		return ""
+	}
+	return strfmt.Named(
+		"{path}:{size}:{mtime}",
+		"Path", normalizePath(path),
+		"Size", info.Size(),
+		"Mtime", info.ModTime().UnixNano(),
+	)
 }
 
 // IsLoading checks if a package is currently being loaded (for cycle detection)

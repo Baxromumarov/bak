@@ -3,6 +3,8 @@
 package typechecker
 
 import (
+	"context"
+
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
@@ -129,6 +131,8 @@ type TypeChecker struct {
 	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from isOk/isErr guards
 	registry          *packages.Registry                     // package state scoped to this checker run
 	packageCheckers   map[string]*TypeChecker                // imported module checkers scoped to this checker run
+	ctx               context.Context                        // optional cancellation context for editor analysis
+	contextErr        error                                  // first observed cancellation error
 }
 
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
@@ -173,6 +177,7 @@ func New() *TypeChecker {
 		emitter:          diagnostics.NewEmitter(""), // File will be set later
 		registry:         packages.NewRegistry(),
 		packageCheckers:  make(map[string]*TypeChecker),
+		ctx:              context.Background(),
 	}
 
 	// Register __Array as a builtin primitive struct (fixed size)
@@ -226,6 +231,44 @@ func (tc *TypeChecker) HasErrors() bool {
 // SetSuppressUnused controls whether unused symbol warnings are emitted.
 func (tc *TypeChecker) SetSuppressUnused(v bool) {
 	tc.suppressUnused = v
+}
+
+// SetContext makes typechecking cooperatively cancelable.
+func (tc *TypeChecker) SetContext(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	tc.ctx = ctx
+}
+
+// ContextErr returns the cancellation error observed while checking, if any.
+func (tc *TypeChecker) ContextErr() error {
+	if tc.contextErr != nil {
+		return tc.contextErr
+	}
+	if tc.ctx == nil {
+		return nil
+	}
+	select {
+	case <-tc.ctx.Done():
+		return tc.ctx.Err()
+	default:
+		return nil
+	}
+}
+
+func (tc *TypeChecker) checkCanceled() bool {
+	if tc.ctx == nil {
+		return false
+	}
+	select {
+	case <-tc.ctx.Done():
+		tc.contextErr = tc.ctx.Err()
+		tc.hasFatalError = true
+		return true
+	default:
+		return false
+	}
 }
 
 // Errors returns all type errors
@@ -299,6 +342,9 @@ func (tc *TypeChecker) GetStruct(name string) (*StructDef, bool) {
 // isCopyType checks if a type is a "Copy" type (primitives that are copied, not moved)
 // In bak, like in Rust, primitive types (int, float, bool, char) are Copy types
 func (tc *TypeChecker) Check(program *ast.Program) []string {
+	if tc.checkCanceled() {
+		return tc.Errors()
+	}
 	if program == nil || len(program.Statements) == 0 {
 		return tc.Errors()
 	}
@@ -317,19 +363,27 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 
 	// First pass: collect all type definitions (structs, functions)
 	tc.collectDefinitions(program)
+	if tc.checkCanceled() {
+		return tc.Errors()
+	}
 
 	// Second pass: check all statements (stop on first fatal error)
 	tc.checkProgramStatements(program)
+	if tc.checkCanceled() {
+		return tc.Errors()
+	}
 
 	// Post-check: Report unused variables (strict mode)
 	tc.restoreRootEnv()
 
 	// Check for unused variables and imports (skip for imported modules)
-	if !tc.suppressUnused {
+	if !tc.suppressUnused && !tc.checkCanceled() {
 		tc.checkUnusedElements()
 	}
 
-	tc.finalizeImportedModules()
+	if !tc.checkCanceled() {
+		tc.finalizeImportedModules()
+	}
 
 	return tc.Errors()
 }
@@ -358,6 +412,9 @@ func (tc *TypeChecker) ensurePackageDeclaration(program *ast.Program) bool {
 
 func (tc *TypeChecker) checkPackagePlacement(program *ast.Program) bool {
 	for i := 1; i < len(program.Statements); i++ {
+		if tc.checkCanceled() {
+			return false
+		}
 		if ps, ok := program.Statements[i].(*ast.PackageStatement); ok {
 			tc.emitter.Emit(diagnostics.Diagnostic{
 				Code:    diagnostics.ErrMissingPackage,
@@ -376,7 +433,7 @@ func (tc *TypeChecker) checkPackagePlacement(program *ast.Program) bool {
 
 func (tc *TypeChecker) checkProgramStatements(program *ast.Program) {
 	for _, stmt := range program.Statements {
-		if tc.hasFatalError {
+		if tc.hasFatalError || tc.checkCanceled() {
 			break // Stop on first fatal error to prevent cascade.
 		}
 		tc.checkStatement(stmt)

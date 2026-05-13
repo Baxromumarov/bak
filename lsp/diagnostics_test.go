@@ -25,6 +25,24 @@ func analyzeForTest(t *testing.T, s *Server, uri, src string) {
 	analyzeAndCaptureOutput(t, s, uri, src)
 }
 
+func analyzeDiagnostics(t *testing.T, s *Server, uri, src string) PublishDiagnosticsParams {
+	t.Helper()
+	output := analyzeAndCaptureOutput(t, s, uri, src)
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode lsp message: %v", err)
+	}
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var params PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &params); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+	return params
+}
+
 func TestAnalyzeAndPublish_NoTypeErrorForFloat32ConstLiteral(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -327,6 +345,53 @@ func TestCodeActionRemovesProblematicImportLine(t *testing.T) {
 		return
 	}
 	t.Fatalf("expected remove self import action, got %#v", actions)
+}
+
+func TestCodeActionCreatesMissingImportFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "main.bak")
+	missingPath := filepath.Join(dir, "missing.bak")
+	src := strings.Join([]string{
+		"package main",
+		`import missing "./missing.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatalf("write main file: %v", err)
+	}
+
+	uri := pathToURI(path)
+	s := NewServer()
+	s.Documents[uri] = src
+	publish := analyzeDiagnostics(t, s, uri, src)
+
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 1, Character: 0},
+			End:   Position{Line: 1, Character: len(`import missing "./missing.bak"`)},
+		},
+		Context: CodeActionContext{Diagnostics: publish.Diagnostics},
+	}))
+	missingURI := pathToURI(missingPath)
+	for _, action := range actions {
+		if action.Title != "Create missing import file" {
+			continue
+		}
+		edits := action.Edit.Changes[missingURI]
+		if len(edits) != 1 {
+			t.Fatalf("expected one missing-file edit, got %#v", action.Edit)
+		}
+		if edits[0].NewText != "package missing\n\n" {
+			t.Fatalf("expected package stub, got %#v", edits[0])
+		}
+		return
+	}
+	t.Fatalf("expected create missing import file action, got %#v", actions)
 }
 
 func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {

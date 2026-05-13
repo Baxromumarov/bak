@@ -102,10 +102,14 @@ func TypecheckProgram(
 	}
 
 	tc := typechecker.NewWithPathAndRegistry(filename, registry)
+	tc.SetContext(ctx)
 	tc.SetSuppressUnused(opts.SuppressUnused)
 	result.TypeMessages = tc.Check(program)
 	result.TypeChecker = tc
 	result.TypeErrors = tc.GetErrors()
+	if err := tc.ContextErr(); err != nil {
+		return result, err
+	}
 	result.Fatal = HasFatalTypeErrors(tc)
 	result.Graph = registry.SnapshotGraph()
 	return result, nil

@@ -69,6 +69,9 @@ func (tc *TypeChecker) finalizeImportedModules() {
 	packageCheckersSnapshot := make(map[string]*TypeChecker, len(tc.packageCheckers))
 	maps.Copy(packageCheckersSnapshot, tc.packageCheckers)
 	for importPath, modTC := range packageCheckersSnapshot {
+		if tc.checkCanceled() {
+			return
+		}
 		if modTC == nil || modTC.finalized {
 			continue
 		}

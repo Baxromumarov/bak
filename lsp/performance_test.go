@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func BenchmarkCompletionLargeFile(b *testing.B) {
@@ -61,28 +62,8 @@ func BenchmarkWorkspaceSymbolManyFiles(b *testing.B) {
 }
 
 func BenchmarkDependencyFanout(b *testing.B) {
-	root := b.TempDir()
-	libPath := filepath.Join(root, "lib", "lib.bak")
-	if err := os.MkdirAll(filepath.Dir(libPath), 0o755); err != nil {
-		b.Fatal(err)
-	}
-	if err := os.WriteFile(libPath, []byte("package lib\n\npub const Version: int = 1\n"), 0o644); err != nil {
-		b.Fatal(err)
-	}
+	server, changes := dependencyFanoutFixture(b, 1_000)
 
-	server := NewServer()
-	server.SetOutput(io.Discard)
-	server.setRootPath(root)
-	for i := range 1_000 {
-		uri := pathToURI(filepath.Join(root, fmt.Sprintf("app%d.bak", i)))
-		server.setAnalysisResult(uri, &FileIndex{}, &AnalysisResult{
-			Imports: map[string]string{"lib": "lib"},
-		})
-	}
-
-	changes := map[string]struct{}{
-		pathToURI(libPath): {},
-	}
 	if got := len(server.dependentsOfChangedURIs(changes)); got != 1_000 {
 		b.Fatalf("expected 1000 dependents, got %d", got)
 	}
@@ -91,6 +72,46 @@ func BenchmarkDependencyFanout(b *testing.B) {
 
 	for b.Loop() {
 		_ = server.dependentsOfChangedURIs(changes)
+	}
+}
+
+func TestDependencyFanoutPerformanceSanity(t *testing.T) {
+	server, changes := dependencyFanoutFixture(t, 1_000)
+
+	start := time.Now()
+	dependents := server.dependentsOfChangedURIs(changes)
+	elapsed := time.Since(start)
+
+	if len(dependents) != 1_000 {
+		t.Fatalf("expected 1000 dependents, got %d", len(dependents))
+	}
+	if elapsed > 2*time.Second {
+		t.Fatalf("dependency fanout took too long: %s", elapsed)
+	}
+}
+
+func dependencyFanoutFixture(t testing.TB, count int) (*Server, map[string]struct{}) {
+	t.Helper()
+	root := t.TempDir()
+	libPath := filepath.Join(root, "lib", "lib.bak")
+	if err := os.MkdirAll(filepath.Dir(libPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libPath, []byte("package lib\n\npub const version: int = 1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	server := NewServer()
+	server.SetOutput(io.Discard)
+	server.setRootPath(root)
+	for i := range count {
+		uri := pathToURI(filepath.Join(root, fmt.Sprintf("app%d.bak", i)))
+		server.setAnalysisResult(uri, &FileIndex{}, &AnalysisResult{
+			Imports: map[string]string{"lib": "lib"},
+		})
+	}
+	return server, map[string]struct{}{
+		pathToURI(libPath): {},
 	}
 }
 

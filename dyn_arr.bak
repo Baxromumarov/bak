@@ -6,7 +6,28 @@ struct Data {
     fl:   float64
 }
 
+impl Data as d{
+    mut func setAge(age: int) -> (void) {
+        d.age = age
+        return void
+    }
+    mut func setName(name: string) -> (void) {
+        d.name = name
+        return void
+    }
+    mut func setFl(fl: float64) -> (void) {
+        d.fl = fl
+        return void
+    }
+}
 func main() -> (void) {
-    println("hello world")
+    mut var d: Data
+    
+    d.setAge(30)
+    d.setName("Alice")
+    d.setFl(3.14)
+
+    println("Age:", d)
+
     return void
 }

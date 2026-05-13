@@ -1,6 +1,7 @@
 package packages
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,17 +16,33 @@ import (
 
 // ParseProgram parses a .bak file or a directory of .bak files into a program.
 func ParseProgram(path string) (*ast.Program, error) {
+	return ParseProgramContext(context.Background(), path)
+}
+
+// ParseProgramContext parses a .bak file or directory and stops early when ctx
+// is canceled. This keeps editor analysis responsive during recursive imports.
+func ParseProgramContext(ctx context.Context, path string) (*ast.Program, error) {
+	if err := contextErr(ctx); err != nil {
+		return nil, err
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	if info.IsDir() {
-		return parseProgramDir(path)
+		return parseProgramDirContext(ctx, path)
 	}
-	return parseProgramFile(path)
+	return parseProgramFileContext(ctx, path)
 }
 
 func parseProgramFile(filePath string) (*ast.Program, error) {
+	return parseProgramFileContext(context.Background(), filePath)
+}
+
+func parseProgramFileContext(ctx context.Context, filePath string) (*ast.Program, error) {
+	if err := contextErr(ctx); err != nil {
+		return nil, err
+	}
 	absPath, err := filepath.Abs(filePath)
 	if err == nil {
 		filePath = absPath
@@ -33,6 +50,9 @@ func parseProgramFile(filePath string) (*ast.Program, error) {
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
+		return nil, err
+	}
+	if err := contextErr(ctx); err != nil {
 		return nil, err
 	}
 
@@ -51,6 +71,13 @@ func parseProgramFile(filePath string) (*ast.Program, error) {
 }
 
 func parseProgramDir(dir string) (*ast.Program, error) {
+	return parseProgramDirContext(context.Background(), dir)
+}
+
+func parseProgramDirContext(ctx context.Context, dir string) (*ast.Program, error) {
+	if err := contextErr(ctx); err != nil {
+		return nil, err
+	}
 	absDir, err := filepath.Abs(dir)
 	if err == nil {
 		dir = absDir
@@ -89,7 +116,10 @@ func parseProgramDir(dir string) (*ast.Program, error) {
 	var pkgName string
 
 	for _, filePath := range files {
-		program, err := parseProgramFile(filePath)
+		if err := contextErr(ctx); err != nil {
+			return nil, err
+		}
+		program, err := parseProgramFileContext(ctx, filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -122,6 +152,18 @@ func parseProgramDir(dir string) (*ast.Program, error) {
 		return nil, err
 	}
 	return combined, nil
+}
+
+func contextErr(ctx context.Context) error {
+	if ctx == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		return nil
+	}
 }
 
 type topLevelSymbol struct {

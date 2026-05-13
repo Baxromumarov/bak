@@ -97,6 +97,7 @@ func (s *Server) finishRequest(id json.RawMessage) {
 func (s *Server) startRequest(id json.RawMessage) context.Context {
 	key := requestIDKey(id)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	if key == "" {
 		return ctx
 	}

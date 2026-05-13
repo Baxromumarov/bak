@@ -7,6 +7,9 @@ import (
 
 // checkStatement type checks a statement
 func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
+	if tc.checkCanceled() {
+		return
+	}
 	switch s := stmt.(type) {
 	case *ast.PackageStatement:
 		tc.checkPackageStatement(s)

@@ -11,18 +11,8 @@ import (
 )
 
 func diagnosticFixesFromData(data any) []DiagnosticFix {
-	if data == nil {
-		return nil
-	}
-
-	raw, err := json.Marshal(data)
-	if err != nil {
-		return nil
-	}
-
-	var payload DiagnosticData
-
-	if err := json.Unmarshal(raw, &payload); err != nil {
+	payload, ok := diagnosticDataFromAny(data)
+	if !ok {
 		return nil
 	}
 
@@ -36,6 +26,23 @@ func diagnosticFixesFromData(data any) []DiagnosticFix {
 	}
 
 	return fixes
+}
+
+func diagnosticDataFromAny(data any) (DiagnosticData, bool) {
+	if data == nil {
+		return DiagnosticData{}, false
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return DiagnosticData{}, false
+	}
+
+	var payload DiagnosticData
+
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return DiagnosticData{}, false
+	}
+	return payload, true
 }
 
 func extractUndefinedSymbol(msg string) string {
@@ -198,6 +205,98 @@ func addRemoveImportDiagnosticAction(
 		[]Diagnostic{diag},
 		TextEdit{Range: editRange, NewText: ""},
 	))
+}
+
+func addCreateMissingImportFileAction(
+	actions []CodeAction,
+	diag Diagnostic,
+) []CodeAction {
+	if fmt.Sprint(diag.Code) != "E0701" {
+		return actions
+	}
+
+	targetURI, ok := firstMissingImportFileURI(diag.Data)
+	if !ok {
+		return actions
+	}
+	path := uriToPath(targetURI)
+	return append(actions, CodeAction{
+		Title:       "Create missing import file",
+		Kind:        "quickfix",
+		Diagnostics: []Diagnostic{diag},
+		Edit: &WorkspaceEdit{Changes: map[string][]TextEdit{
+			targetURI: {{
+				Range: Range{
+					Start: Position{Line: 0, Character: 0},
+					End:   Position{Line: 0, Character: 0},
+				},
+				NewText: strfmt.Named("package {name}\n\n", "Name", packageNameFromImportFile(path)),
+			}},
+		}},
+	})
+}
+
+func firstMissingImportFileURI(data any) (string, bool) {
+	payload, ok := diagnosticDataFromAny(data)
+	if !ok {
+		return "", false
+	}
+	for _, note := range payload.Notes {
+		if !strings.HasPrefix(note.Message, "tried ") || note.URI == "" {
+			continue
+		}
+		path := uriToPath(note.URI)
+		if path == "" || !strings.HasSuffix(path, ".bak") {
+			continue
+		}
+		return note.URI, true
+	}
+	return "", false
+}
+
+func packageNameFromImportFile(path string) string {
+	base := filepathBaseNoExt(path)
+	if base == "" {
+		return "main"
+	}
+	return sanitizePackageName(base)
+}
+
+func filepathBaseNoExt(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	base := path
+	if idx := strings.LastIndexAny(base, `/\`); idx >= 0 {
+		base = base[idx+1:]
+	}
+	return strings.TrimSuffix(base, ".bak")
+}
+
+func sanitizePackageName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "main"
+	}
+	var out strings.Builder
+	for i, r := range name {
+		ok := r == '_' ||
+			(r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(i > 0 && r >= '0' && r <= '9')
+		if ok {
+			out.WriteRune(r)
+			continue
+		}
+		if i > 0 {
+			out.WriteByte('_')
+		}
+	}
+	if out.Len() == 0 {
+		return "main"
+	}
+	return out.String()
 }
 
 func removeImportDiagnosticTitle(code string) (string, bool) {

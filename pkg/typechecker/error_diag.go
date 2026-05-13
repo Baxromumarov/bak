@@ -184,24 +184,24 @@ func (tc *TypeChecker) emitWithHelp(code diagnostics.DiagnosticCode, pos ast.Pos
 	}
 }
 
-// emitWithNotes is like emit but attaches additional notes.
-func (tc *TypeChecker) emitWithNotes(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, notes []diagnostics.Note) {
-	level, msg, help := diagnostics.Render(code, data)
-	d := diagnostics.Diagnostic{
-		Code:    code,
-		Level:   level,
-		Message: msg,
-		Help:    help,
-		Line:    pos.Line,
-		Column:  pos.Column,
-		File:    tc.currentPkgPath,
-		Notes:   notes,
-	}
-	tc.emitter.Emit(d)
-	if level == diagnostics.LevelError {
-		tc.hasFatalError = true
-	}
-}
+// // emitWithNotes is like emit but attaches additional notes.
+// func (tc *TypeChecker) emitWithNotes(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, notes []diagnostics.Note) {
+// 	level, msg, help := diagnostics.Render(code, data)
+// 	d := diagnostics.Diagnostic{
+// 		Code:    code,
+// 		Level:   level,
+// 		Message: msg,
+// 		Help:    help,
+// 		Line:    pos.Line,
+// 		Column:  pos.Column,
+// 		File:    tc.currentPkgPath,
+// 		Notes:   notes,
+// 	}
+// 	tc.emitter.Emit(d)
+// 	if level == diagnostics.LevelError {
+// 		tc.hasFatalError = true
+// 	}
+// }
 
 func (tc *TypeChecker) emitWarning(
 	code diagnostics.DiagnosticCode,

@@ -17,8 +17,8 @@ var (
 	atLeastFormat            = "at least {minExpected}"
 	funcNameExpectedFormat   = "function '{name}' expects {rangeHint} argument(s), but got {got}"
 	methodNameExpectedFormat = "method '{typeName}.{method}' expects {expected} argument(s), but got {got}"
-	helpAddReturn            = "add `return ...` of type {expectedName} or change the return type to void"
-	missingReturnFormat      = "missing return of type {expectedName}"
+	// helpAddReturn            = "add `return ...` of type {expectedName} or change the return type to void"
+	// missingReturnFormat      = "missing return of type {expectedName}"
 )
 
 func (tc *TypeChecker) errorArgumentCountMismatchAt(

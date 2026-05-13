@@ -1,6 +1,7 @@
 package typechecker
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -370,6 +371,31 @@ func main() -> (void) {
 		return
 	}
 	t.Fatalf("expected ErrImportedModule, got %#v", tc.GetErrors())
+}
+
+func TestCheckHonorsCanceledContext(t *testing.T) {
+	source := `
+package main
+
+func main() -> (void) {
+	return void
+}
+`
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	tc := New()
+	tc.SetContext(ctx)
+	tc.Check(program)
+	if err := tc.ContextErr(); err == nil {
+		t.Fatalf("expected cancellation error")
+	}
 }
 
 func TestCheck_ImportedPrivateFieldAccessIsRejected(t *testing.T) {

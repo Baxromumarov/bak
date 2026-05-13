@@ -17,6 +17,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 
 	// Pass 1: Register all types, functions, and imports
 	for _, stmt := range program.Statements {
+		if tc.checkCanceled() {
+			return
+		}
 		if stmt == nil {
 			continue
 		}
@@ -56,6 +59,9 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 
 	// Pass 2: Register methods and validate all type usages
 	for _, stmt := range program.Statements {
+		if tc.checkCanceled() {
+			return
+		}
 		if stmt == nil {
 			continue
 		}

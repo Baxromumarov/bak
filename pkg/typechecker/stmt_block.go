@@ -16,10 +16,18 @@ func (tc *TypeChecker) checkBlockStatement(bs *ast.BlockStatement) {
 		tc.env = NewEnclosedTypeEnv(tc.env)
 	}
 	for _, stmt := range bs.Statements {
+		if tc.checkCanceled() {
+			tc.env = oldEnv
+			return
+		}
 		tc.checkStatement(stmt)
 	}
 	// After the block, check for unused local variables (not globals)
 	for name, info := range tc.env.symbols {
+		if tc.checkCanceled() {
+			tc.env = oldEnv
+			return
+		}
 		// Only warn for variables defined in this block (not in parent)
 		if oldEnv != nil {
 			if _, exists := oldEnv.symbols[name]; exists {

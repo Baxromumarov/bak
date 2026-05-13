@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"os"
 	"path/filepath"
@@ -629,10 +628,6 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 	return items
 }
 
-func contextCanceled(ctx context.Context) bool {
-	return ctx != nil && ctx.Err() != nil
-}
-
 func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	params, ok := requestParams[RenameParams](req)
 	if !ok {
@@ -705,6 +700,7 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 	for _, diag := range params.Context.Diagnostics {
 		actions = addQuickFixActions(actions, params.TextDocument.URI, diag)
 		actions = addRemoveUnusedAction(actions, params.TextDocument.URI, diag)
+		actions = addCreateMissingImportFileAction(actions, diag)
 		if hasDocument {
 			actions = addRemoveImportDiagnosticAction(actions, params.TextDocument.URI, text, diag)
 		}

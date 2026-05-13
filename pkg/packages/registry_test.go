@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/strfmt"
@@ -73,6 +74,32 @@ func TestRegistryNormalizesPackagePaths(t *testing.T) {
 
 	if _, ok := reg.GetPackage(absPath); !ok {
 		t.Fatalf("expected package to be found via normalized path %q", absPath)
+	}
+}
+
+func TestRegistryInvalidatesStalePackageByFingerprint(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "lib.bak")
+	if err := os.WriteFile(path, []byte("package lib\npub const version: int = 1\n"), 0o644); err != nil {
+		t.Fatalf("write initial file: %v", err)
+	}
+
+	program, err := ParseProgram(path)
+	if err != nil {
+		t.Fatalf("parse package: %v", err)
+	}
+	reg := NewRegistry()
+	reg.RegisterPackage(NewPackage("lib", path, program))
+	if _, ok := reg.GetPackage(path); !ok {
+		t.Fatalf("expected package before file change")
+	}
+
+	time.Sleep(time.Millisecond)
+	if err := os.WriteFile(path, []byte("package lib\npub const version: int = 12345\n"), 0o644); err != nil {
+		t.Fatalf("write changed file: %v", err)
+	}
+	if _, ok := reg.GetPackage(path); ok {
+		t.Fatalf("expected stale package to be invalidated")
 	}
 }
 

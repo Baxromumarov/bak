@@ -18,6 +18,9 @@ func (tc *TypeChecker) checkPackageStatement(ps *ast.PackageStatement) {
 }
 
 func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
+	if tc.checkCanceled() {
+		return
+	}
 	resolution := packages.ResolveImportPathDetailedFromRoot(is.Path, tc.currentPkgPath, tc.registry.ProjectRoot())
 	if resolution.Resolved == "" {
 		tc.emitImportNotFound(is, resolution)
@@ -59,9 +62,15 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 	pkg, exists := tc.registry.GetPackage(importPath)
 	if !exists {
 		// Recursive loading: If package not found, load and check it
-		modProg, err := packages.ParseProgram(importPath)
+		modProg, err := packages.ParseProgramContext(tc.ctx, importPath)
 		if err != nil {
+			if tc.checkCanceled() {
+				return
+			}
 			tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "check the import path exists and is accessible", strfmt.Named("cannot read import file: {err}", "Err", err))
+			return
+		}
+		if tc.checkCanceled() {
 			return
 		}
 
@@ -76,6 +85,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 		// Type check the imported module recursively
 		// We use a new TypeChecker for the module and suppress its unused-symbol warnings
 		modTC := NewWithPathAndRegistry(importPath, tc.registry)
+		modTC.SetContext(tc.ctx)
 		modTC.packageCheckers = tc.packageCheckers
 		modTC.suppressUnused = true
 		modErrors := modTC.Check(modProg)
@@ -168,6 +178,9 @@ func sameResolvedImportPath(a, b string) bool {
 
 func (tc *TypeChecker) checkImportBlock(ib *ast.ImportBlock) {
 	for _, imp := range ib.Imports {
+		if tc.checkCanceled() {
+			return
+		}
 		tc.checkImportStatement(imp)
 	}
 }
@@ -258,20 +271,114 @@ func (tc *TypeChecker) emitImportCycleError(is *ast.ImportStatement, err error) 
 	)
 	diag.Help = "check for a circular dependency chain or simplify the module graph"
 
-	if cycleErr, ok := errors.AsType[*packages.ImportCycleError](err); ok {
-		for _, path := range cycleErr.Chain {
-			if path == "" {
-				continue
-			}
-			diag.Notes = append(diag.Notes, diagnostics.Note{
-				Message: "cycle includes this package",
-				File:    path,
-				Line:    1,
-				Column:  1,
-			})
-		}
+	var cycleErr *packages.ImportCycleError
+	if errors.As(err, &cycleErr) {
+		diag.Notes = append(diag.Notes, tc.importCycleNotes(is, cycleErr.Chain)...)
 	}
 	tc.emitError(diag)
+}
+
+func (tc *TypeChecker) importCycleNotes(
+	currentImport *ast.ImportStatement,
+	chain []string,
+) []diagnostics.Note {
+	notes := make([]diagnostics.Note, 0, len(chain))
+	seen := make(map[string]struct{}, len(chain))
+	for i := 0; i+1 < len(chain); i++ {
+		fromPath := chain[i]
+		toPath := chain[i+1]
+		note := tc.importEdgeNote(currentImport, fromPath, toPath)
+		key := strfmt.S(note.File, ":", note.Line, ":", note.Column, ":", note.Message)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		notes = append(notes, note)
+	}
+	return notes
+}
+
+func (tc *TypeChecker) importEdgeNote(
+	currentImport *ast.ImportStatement,
+	fromPath,
+	toPath string,
+) diagnostics.Note {
+	if currentImport != nil && sameResolvedImportPath(fromPath, tc.currentPkgPath) {
+		if currentResolved := packages.ResolveImportPathDetailedFromRoot(
+			currentImport.Path,
+			tc.currentPkgPath,
+			tc.registry.ProjectRoot(),
+		).Resolved; sameResolvedImportPath(currentResolved, toPath) {
+			return importStatementNote(currentImport, toPath)
+		}
+	}
+
+	if pkg, ok := tc.registry.GetPackage(fromPath); ok && pkg != nil {
+		if imp := tc.findImportEdgeStatement(pkg.Program, fromPath, toPath); imp != nil {
+			return importStatementNote(imp, toPath)
+		}
+	}
+
+	return diagnostics.Note{
+		Message: strfmt.Named("cycle includes package {path}", "Path", fromPath),
+		File:    fromPath,
+		Line:    1,
+		Column:  1,
+	}
+}
+
+func (tc *TypeChecker) findImportEdgeStatement(
+	program *ast.Program,
+	fromPath,
+	toPath string,
+) *ast.ImportStatement {
+	for _, imp := range importStatementsInProgram(program) {
+		basePath := imp.Token.Filename
+		if basePath == "" {
+			basePath = fromPath
+		}
+		resolved := packages.ResolveImportPathDetailedFromRoot(
+			imp.Path,
+			basePath,
+			tc.registry.ProjectRoot(),
+		).Resolved
+		if sameResolvedImportPath(resolved, toPath) {
+			return imp
+		}
+	}
+	return nil
+}
+
+func importStatementsInProgram(program *ast.Program) []*ast.ImportStatement {
+	if program == nil {
+		return nil
+	}
+	var imports []*ast.ImportStatement
+	for _, stmt := range program.Statements {
+		switch s := stmt.(type) {
+		case *ast.ImportStatement:
+			if s != nil {
+				imports = append(imports, s)
+			}
+		case *ast.ImportBlock:
+			for _, imp := range s.Imports {
+				if imp != nil {
+					imports = append(imports, imp)
+				}
+			}
+		}
+	}
+	return imports
+}
+
+func importStatementNote(imp *ast.ImportStatement, toPath string) diagnostics.Note {
+	file := imp.Token.Filename
+	return diagnostics.Note{
+		Message: strfmt.Named("imports {path} here", "Path", toPath),
+		File:    file,
+		Line:    imp.Token.Line,
+		Column:  imp.Token.Column,
+	}
 }
 
 func (tc *TypeChecker) emitImportNotFound(is *ast.ImportStatement, resolution packages.ImportResolution) {
