@@ -10,6 +10,7 @@ npm run build
 ## Package VSIX
 
 This uses `@vscode/vsce` via `npx` to avoid a global install.
+Packaging also builds and bundles `bin/bak-lsp` into the extension.
 
 ```sh
 ./scripts/package-vsix.sh
@@ -25,9 +26,8 @@ code --install-extension bak-*.vsix
 
 ## Configure LSP Path
 
-Set `bak.lspPath` to the full path of `bak-lsp`.
-
-Build it first with:
+The packaged extension uses the bundled LSP by default. For development,
+you can also build the server in the repo and point VS Code at it:
 
 ```sh
 go build -o bin/bak-lsp ./lsp

@@ -146,14 +146,15 @@ func (tc *TypeChecker) registerFunctionDecl(s *ast.FunctionDecl) {
 	params := parameterTypes(s.Parameters)
 
 	tc.env.DefineFunction(s.Name.Value, &FunctionSig{
-		TypeParams:  typeParams,
-		Parameters:  params,
-		ReturnType:  s.ReturnType,
-		Package:     tc.currentPkgName,
-		PackagePath: tc.currentPkgPath,
-		Line:        s.Name.Token.Line,
-		Column:      s.Name.Token.Column,
-		Visibility:  s.Visibility,
+		TypeParams:      typeParams,
+		Parameters:      params,
+		ParamMutability: parameterMutability(s.Parameters),
+		ReturnType:      s.ReturnType,
+		Package:         tc.currentPkgName,
+		PackagePath:     tc.currentPkgPath,
+		Line:            s.Name.Token.Line,
+		Column:          s.Name.Token.Column,
+		Visibility:      s.Visibility,
 	})
 }
 
@@ -187,15 +188,16 @@ func (tc *TypeChecker) registerImplMethods(s *ast.ImplDecl) {
 		}
 
 		structDef.Methods[method.Name.Value] = &FunctionSig{
-			Parameters:  parameterTypes(method.Parameters),
-			ReturnType:  method.ReturnType,
-			Package:     tc.currentPkgName,
-			PackagePath: tc.currentPkgPath,
-			Line:        method.Name.Token.Line,
-			Column:      method.Name.Token.Column,
-			Visibility:  method.Visibility,
-			Mutable:     method.Mutable,
-			IsInstance:  s.Receiver != nil,
+			Parameters:      parameterTypes(method.Parameters),
+			ParamMutability: parameterMutability(method.Parameters),
+			ReturnType:      method.ReturnType,
+			Package:         tc.currentPkgName,
+			PackagePath:     tc.currentPkgPath,
+			Line:            method.Name.Token.Line,
+			Column:          method.Name.Token.Column,
+			Visibility:      method.Visibility,
+			Mutable:         method.Mutable,
+			IsInstance:      s.Receiver != nil,
 		}
 	}
 }

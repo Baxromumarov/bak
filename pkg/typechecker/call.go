@@ -377,9 +377,10 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 								typeParams[i] = tp.Name.Value
 							}
 							sig = &FunctionSig{
-								TypeParams: typeParams,
-								Parameters: params,
-								ReturnType: qualifyImportedType(funcDecl.ReturnType, modIdent.Value, symbols),
+								TypeParams:      typeParams,
+								Parameters:      params,
+								ParamMutability: parameterMutability(funcDecl.Parameters),
+								ReturnType:      qualifyImportedType(funcDecl.ReturnType, modIdent.Value, symbols),
 							}
 							funcName = modIdent.Value + "." + methodName
 							// Mark this imported function as used by the current package
@@ -562,6 +563,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				tc.checkCallArgMove(
 					arg,
 					sig.Parameters[i],
+					sig.paramMutable(i),
 					funcName,
 					ce.Pos(),
 				)
@@ -716,6 +718,7 @@ func (tc *TypeChecker) inferGenericCallSig(
 func (tc *TypeChecker) checkCallArgMove(
 	arg ast.Expression,
 	paramType ast.TypeExpression,
+	paramMutable bool,
 	funcName string,
 	pos ast.Position,
 ) {
@@ -729,6 +732,16 @@ func (tc *TypeChecker) checkCallArgMove(
 		name = a.Value
 	case *ast.MutableIdentifier:
 		name = a.Value
+		if paramMutable {
+			if !tc.canPassMutableIdentifierArgument(a) {
+				tc.errorMutabilityRequiredAt(
+					name,
+					a.Pos(),
+					strfmt.Named("pass '{Name}' as mutable argument to '{FuncName}'", "Name", name, "FuncName", funcName),
+				)
+			}
+			return
+		}
 	default:
 		return
 	}
@@ -758,4 +771,21 @@ func (tc *TypeChecker) checkCallArgMove(
 		Reason: MovedByCall,
 		Detail: funcName,
 	})
+}
+
+func (tc *TypeChecker) canPassMutableIdentifierArgument(arg *ast.MutableIdentifier) bool {
+	if arg == nil {
+		return false
+	}
+	info, ok := tc.env.LookupSymbol(arg.Value)
+	if !ok {
+		return false
+	}
+	if info.Mutable {
+		return true
+	}
+	if bt, ok := info.Type.(*ast.BorrowType); ok && bt.Mutable {
+		return true
+	}
+	return false
 }

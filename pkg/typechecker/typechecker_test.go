@@ -823,6 +823,40 @@ func main() -> (void) {
 `, "where moved: value was moved by function call")
 }
 
+func TestCheck_MutableIdentifierArgumentToMutableParamDoesNotMove(t *testing.T) {
+	expectNoErrors(t, `
+package main
+struct Data {
+	age: int
+	name: string
+	fl: float64
+}
+func append(mut xs: Vec<Data, _>, input: Data) -> (void) {
+	xs.push(input)
+	return void
+}
+func main() -> (void) {
+	mut var xs: Vec<Data, _> = Vec.from([])
+	append(mut xs, Data{age: 25, name: "Bob", fl: 2.71})
+	println(xs)
+}
+`)
+}
+
+func TestCheck_MutableIdentifierArgumentRequiresMutableBinding(t *testing.T) {
+	expectError(t, `
+package main
+func touch(mut text: string) -> (void) {
+	text = text + "!"
+	return void
+}
+func main() -> (void) {
+	var text: string = "hello"
+	touch(mut text)
+}
+`, "declare the variable as 'mut var'")
+}
+
 func TestCheck_CannotMoveWhileMutablyBorrowedIncludesWhereBorrowedNote(t *testing.T) {
 	expectError(t, `
 package main

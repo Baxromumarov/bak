@@ -154,6 +154,16 @@ func parameterTypes(params []*ast.Parameter) []ast.TypeExpression {
 	return types
 }
 
+func parameterMutability(params []*ast.Parameter) []bool {
+	mutability := make([]bool, len(params))
+	for i, p := range params {
+		if p != nil {
+			mutability[i] = p.Mutable
+		}
+	}
+	return mutability
+}
+
 // IsSymbolUsed checks if a symbol was used during type checking. Used by linter.
 func (tc *TypeChecker) IsSymbolUsed(name string) bool {
 	return tc.env.used[name]
@@ -195,6 +205,7 @@ func New() *TypeChecker {
 			&ast.SimpleType{Name: "int"},
 			&ast.SimpleType{Name: "T"},
 		},
+		ParamMutability: []bool{false, false},
 		ReturnType: &ast.GenericType{
 			Name:       "__Array",
 			TypeParams: []ast.TypeExpression{&ast.SimpleType{Name: "T"}},

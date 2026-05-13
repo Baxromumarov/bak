@@ -420,6 +420,40 @@ func TestCLIRunWarningOnlyDoesNotFail(t *testing.T) {
 	}
 }
 
+func TestCLIRunPrintsStructFieldData(t *testing.T) {
+	dir := t.TempDir()
+	source := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"    name: string",
+		"    fl: float64",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var d: Data = Data{age: 30, name: \"Alice\", fl: 3.14}",
+		"    println(\"Age:\", d)",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(dir, "main.bak"), []byte(source), 0644); err != nil {
+		t.Fatalf("writing main.bak: %v", err)
+	}
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "run", "main.bak")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected struct print run to succeed, got error %v and output:\n%s", err, string(out))
+	}
+	want := "Age: Data{age: 30, name: Alice, fl: 3.14}"
+	if !strings.Contains(string(out), want) {
+		t.Fatalf("expected %q in output, got: %s", want, string(out))
+	}
+}
+
 func TestCLIExplainRequiresCode(t *testing.T) {
 	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "explain")
 	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")

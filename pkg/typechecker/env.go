@@ -12,16 +12,24 @@ type TypeInfo struct {
 
 // FunctionSig represents a function signature
 type FunctionSig struct {
-	TypeParams  []string
-	Parameters  []ast.TypeExpression
-	ReturnType  ast.TypeExpression
-	Package     string // Package name
-	PackagePath string // Package path
-	Line        int
-	Column      int
-	Visibility  ast.Visibility
-	Mutable     bool
-	IsInstance  bool
+	TypeParams      []string
+	Parameters      []ast.TypeExpression
+	ParamMutability []bool
+	ReturnType      ast.TypeExpression
+	Package         string // Package name
+	PackagePath     string // Package path
+	Line            int
+	Column          int
+	Visibility      ast.Visibility
+	Mutable         bool
+	IsInstance      bool
+}
+
+func (sig *FunctionSig) paramMutable(index int) bool {
+	if sig == nil || index < 0 || index >= len(sig.ParamMutability) {
+		return false
+	}
+	return sig.ParamMutability[index]
 }
 
 // FieldDef represents a field in a struct for type checking

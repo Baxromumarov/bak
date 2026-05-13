@@ -56,8 +56,8 @@
       "properties": {
         "bak.lspPath": {
           "type": "string",
-          "default": "bin/bak-lsp",
-          "description": "Path to the bak language server executable"
+          "default": "",
+          "description": "Optional path to the bak language server executable. Leave empty to use the bundled server, workspace bin/bak-lsp, or PATH."
         }
       }
     }

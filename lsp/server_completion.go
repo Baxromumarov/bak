@@ -388,6 +388,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	}
 
 	typeKeywords := []string{
+		// Primitive types
 		"any",
 		"bool",
 		"int",
@@ -404,10 +405,21 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"float64",
 		"char",
 		"string",
+		"void",
+		
+		// Collection types
 		"Vec",
 		"HashMap",
-		"Result",
+		"Map",
+		"Array",
+		"Slice",
 		"Range",
+		
+		// Special types
+		"Result",
+		"Option",
+		"Error",
+		"null",
 	}
 
 	for _, typ := range typeKeywords {
@@ -423,18 +435,38 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		text   string
 		detail string
 	}{
+		// Function definitions
 		{"func", "func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Function definition"},
+		{"pubfunc", "pub func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Public function"},
+		{"mutfunc", "mut func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Mutable function"},
+		
+		// Control flow
 		{"if", "if ${1:condition} {\n\t$0\n}", "If statement"},
 		{"else", "else {\n\t$0\n}", "Else block"},
 		{"for", "for ${1:item} in ${2:iter} {\n\t$0\n}", "For loop"},
 		{"while", "while ${1:condition} {\n\t$0\n}", "While loop"},
-		{"match", "switch ${1:expr} {\ncase ${2:pattern}:\n\t$0\n}", "Switch statement"},
+		{"switch", "switch ${1:expr} {\ncase ${2:pattern} {\n\t$0\n}\n}", "Switch statement"},
+		{"match", "match ${1:value} {\n\t${2:pattern} => $0\n}", "Match expression"},
+		
+		// Data structures
 		{"struct", "struct ${1:Name} {\n\t${2:field}: ${3:Type},\n}", "Struct definition"},
+		{"enum", "enum ${1:Name} {\n\t${2:Case},\n}", "Enum definition"},
 		{"impl", "impl ${1:Name} {\n\tpub func ${2:name}(mut self) {\n\t\t$0\n\t}\n}", "Implementation block"},
+		
+		// Variable declarations
+		{"var", "var ${1:name}: ${2:Type} = ${3:value}", "Variable declaration"},
+		{"const", "const ${1:NAME}: ${2:Type} = ${3:value}", "Constant declaration"},
+		{"mut", "mut var ${1:name}: ${2:Type} = ${3:value}", "Mutable variable"},
+		
+		// Modifiers
 		{"pub", "pub ", "Public visibility"},
-		{"mut", "mut ", "Mutable modifier"},
-		{"var", "var ${1:name} = ${2:value}", "Variable declaration"},
-		{"const", "const ${1:NAME} = ${2:value}", "Constant declaration"},
+		{"priv", "priv ", "Private visibility"},
+		
+		// Common patterns
+		{"println", "println(${1:values})", "Print line"},
+		{"result", "Result<${1:T}, ${2:E}>", "Result type"},
+		{"vec", "Vec<${1:T}, ${2:_}>", "Vector type"},
+		{"map", "HashMap<${1:K}, ${2:V}>", "Hash map type"},
 	}
 
 	for _, s := range snippets {
@@ -721,16 +753,34 @@ func completionInsertTextFromSignature(methodName, signature string) (string, in
 }
 
 var builtinSignatures = map[string]string{
+	// Conversion functions
 	"fromChars": "fromChars(chars: Vec<char, _>) -> (string)",
-	"print":     "print(values: any...) -> (void)",
-	"println":   "println(values: any...) -> (void)",
-	"type":      "type(value: any) -> (string)",
-	"typeof":    "typeof(value: any) -> (string)",
 	"int":       "int(value: any) -> (int | Result<int,string>)",
 	"float":     "float(value: any) -> (float64 | Result<float64,string>)",
 	"string":    "string(value: any) -> (string)",
 	"char":      "char(value: int|char) -> (char)",
+	
+	// Output functions
+	"print":     "print(values: any...) -> (void)",
+	"println":   "println(values: any...) -> (void)",
+	"eprint":    "eprint(values: any...) -> (void)",
+	"eprintln":  "eprintln(values: any...) -> (void)",
+	
+	// Type inspection
+	"type":      "type(value: any) -> (string)",
+	"typeof":    "typeof(value: any) -> (string)",
+	
+	// String operations
 	"concat":    "concat(values: string...) -> (string)",
+	
+	// Error handling
+	"panic":     "panic(msg: string) -> (void)",
+	"error":     "error(msg: string) -> (Result<any,string>)",
+	
+	// Type constructors
+	"Vec":       "Vec.new() -> (Vec<T, _>) | Vec.withCap(cap: int) -> (Vec<T, _>) | Vec.from(arr: Vec<T, N>) -> (Vec<T, _>)",
+	"HashMap":   "HashMap.new() -> (HashMap<K, V>) | HashMap.withCap(cap: int) -> (HashMap<K, V>)",
+	"Result":    "Result.Ok(value: T) | Result.Err(error: E)",
 }
 
 func completionKind(kind string) int {

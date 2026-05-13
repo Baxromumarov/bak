@@ -6,6 +6,12 @@ struct Data {
     fl:   float64
 }
 
+func append(mut d: Vec<Data,_>, input: Data) -> (void) {
+    d.push(input)
+
+    return void
+}
+
 impl Data as d {
     mut func setAge(age: int) -> (void) {
         d.age = age
@@ -21,6 +27,12 @@ impl Data as d {
     }
 }
 func main() -> (void) {
+    var arr: Ve
+    mut var dVec: Vec<Data,_> = Vec.from([])
+    append(mut dVec, Data{age: 25, name: "Bob", fl: 2.71})
+
+    println("Data Vector:", dVec)
+    
     mut var d: Data
 
     d.setAge(30)
