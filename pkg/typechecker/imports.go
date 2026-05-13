@@ -83,9 +83,7 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 
 		// Propagate any parse/type errors from the module
 		if len(modErrors) > 0 {
-			for _, modErr := range modErrors {
-				tc.addErrorWithHelp(is.Token.Line, is.Token.Column, "fix errors in the imported module before running this program", strfmt.Named("error in module {importPath}: {modErr}", "ImportPath", importPath, "ModErr", modErr))
-			}
+			tc.emitImportedModuleErrors(is, importPath, modErrors, modTC.GetErrors())
 			return
 		}
 
@@ -198,6 +196,53 @@ func packageNameFromProgram(program *ast.Program) string {
 		}
 	}
 	return ""
+}
+
+func (tc *TypeChecker) emitImportedModuleErrors(
+	is *ast.ImportStatement,
+	importPath string,
+	formatted []string,
+	structured []TypeError,
+) {
+	help := "fix errors in the imported module before running this program"
+	if len(structured) == 0 {
+		for _, modErr := range formatted {
+			tc.addErrorWithHelp(
+				is.Token.Line,
+				is.Token.Column,
+				help,
+				strfmt.Named(
+					"error in module {importPath}: {modErr}",
+					"ImportPath", importPath,
+					"ModErr", modErr,
+				),
+			)
+		}
+		return
+	}
+
+	for _, modErr := range structured {
+		diag := tc.baseDiagnostic(
+			diagnostics.ErrGeneric,
+			ast.Position{Line: is.Token.Line, Column: is.Token.Column},
+			strfmt.Named(
+				"error in module {importPath}: {message}",
+				"ImportPath", importPath,
+				"Message", modErr.Message,
+			),
+		)
+		diag.Help = help
+		if modErr.File != "" || modErr.Line > 0 || modErr.Column > 0 {
+			diag.Notes = append(diag.Notes, diagnostics.Note{
+				Message: "imported module error originates here",
+				File:    modErr.File,
+				Line:    modErr.Line,
+				Column:  modErr.Column,
+			})
+		}
+		diag.Notes = append(diag.Notes, modErr.Notes...)
+		tc.emitError(diag)
+	}
 }
 
 func (tc *TypeChecker) emitImportNotFound(is *ast.ImportStatement, resolution packages.ImportResolution) {

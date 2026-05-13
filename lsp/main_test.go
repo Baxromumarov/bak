@@ -350,7 +350,7 @@ func TestConcurrentDidChangeAndEditorRequests(t *testing.T) {
 	})})
 
 	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
+	for i := range 8 {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -363,9 +363,7 @@ func TestConcurrentDidChangeAndEditorRequests(t *testing.T) {
 			})})
 		}(i)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			_ = server.handleCompletion(Request{Params: mustMarshal(t, CompletionParams{
 				TextDocument: TextDocumentIdentifier{URI: uri},
 				Position:     Position{Line: 7, Character: 12},
@@ -378,7 +376,7 @@ func TestConcurrentDidChangeAndEditorRequests(t *testing.T) {
 				TextDocument: TextDocumentIdentifier{URI: uri},
 				Position:     Position{Line: 7, Character: 12},
 			})})
-		}()
+		})
 	}
 	wg.Wait()
 

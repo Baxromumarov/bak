@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"time"
@@ -48,9 +49,7 @@ func (s *Server) documentSnapshot() map[string]string {
 	defer s.stateMu.RUnlock()
 
 	out := make(map[string]string, len(s.Documents))
-	for uri, text := range s.Documents {
-		out[uri] = text
-	}
+	maps.Copy(out, s.Documents)
 	return out
 }
 
@@ -138,11 +137,15 @@ func (s *Server) analysisResultOrNil(uri string) *AnalysisResult {
 }
 
 func (s *Server) setAnalysisResult(uri string, index *FileIndex, result *AnalysisResult) {
+	importedURIs := s.importDependencyKeys(uri, result)
+
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 
+	s.removeReverseDepsLocked(uri)
 	s.Indexes[uri] = index
 	s.Cache[uri] = result
+	s.addReverseDepsLocked(uri, importedURIs)
 }
 
 func (s *Server) invalidateAnalysisForURI(uri string) {
@@ -151,6 +154,7 @@ func (s *Server) invalidateAnalysisForURI(uri string) {
 
 	delete(s.Cache, uri)
 	delete(s.Indexes, uri)
+	s.removeReverseDepsLocked(uri)
 }
 
 func (s *Server) closeDocument(uri string) {
@@ -161,6 +165,7 @@ func (s *Server) closeDocument(uri string) {
 	delete(s.Documents, uri)
 	delete(s.Cache, uri)
 	delete(s.Indexes, uri)
+	s.removeReverseDepsLocked(uri)
 	oldCancel = s.pendingCancel[uri]
 	oldTimer = s.pendingLocks[uri]
 	delete(s.pendingCancel, uri)
@@ -201,6 +206,7 @@ func (s *Server) Close() {
 	s.pendingLocks = make(map[string]*time.Timer)
 	s.canceled = make(map[string]struct{})
 	s.watchedChanges = make(map[string]struct{})
+	s.ReverseDeps = make(map[string]map[string]struct{})
 	s.workspaceTimer = nil
 	s.stateMu.Unlock()
 
@@ -308,9 +314,10 @@ func (s *Server) reanalyzeOpenDocumentsAffectedByWatchedChanges() {
 	if len(changes) == 0 {
 		return
 	}
+	dependents := s.dependentsOfChangedURIs(changes)
 
 	for uri, text := range s.documentSnapshot() {
-		if !s.openDocumentAffectedByChanges(uri, changes) {
+		if !uriInSet(uri, dependents) && !s.openDocumentAffectedByChanges(uri, changes) {
 			continue
 		}
 		uri, text := uri, text
@@ -340,6 +347,117 @@ func (s *Server) openDocumentAffectedByChanges(uri string, changes map[string]st
 		}
 	}
 	return false
+}
+
+func (s *Server) importDependencyKeys(importerURI string, result *AnalysisResult) []string {
+	if result == nil || len(result.Imports) == 0 {
+		return nil
+	}
+
+	baseFile := uriToPath(importerURI)
+	var keys []string
+	seen := make(map[string]struct{})
+	for _, importPath := range result.Imports {
+		resolved := s.resolveImportPath(baseFile, importPath)
+		for _, key := range dependencyKeysForPath(resolved) {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+func (s *Server) addReverseDepsLocked(importerURI string, importedKeys []string) {
+	if importerURI == "" {
+		return
+	}
+	if s.ReverseDeps == nil {
+		s.ReverseDeps = make(map[string]map[string]struct{})
+	}
+	for _, importedURI := range importedKeys {
+		if importedURI == "" || importedURI == importerURI {
+			continue
+		}
+		dependents := s.ReverseDeps[importedURI]
+		if dependents == nil {
+			dependents = make(map[string]struct{})
+			s.ReverseDeps[importedURI] = dependents
+		}
+		dependents[importerURI] = struct{}{}
+	}
+}
+
+func (s *Server) removeReverseDepsLocked(importerURI string) {
+	for importedURI, dependents := range s.ReverseDeps {
+		delete(dependents, importerURI)
+		if len(dependents) == 0 {
+			delete(s.ReverseDeps, importedURI)
+		}
+	}
+}
+
+func (s *Server) dependentsOfChangedURIs(changes map[string]struct{}) map[string]struct{} {
+	affected := make(map[string]struct{})
+	queue := changeDependencyKeys(changes)
+
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+
+	for len(queue) > 0 {
+		key := queue[0]
+		queue = queue[1:]
+		for importerURI := range s.ReverseDeps[key] {
+			if _, ok := affected[importerURI]; ok {
+				continue
+			}
+			affected[importerURI] = struct{}{}
+			queue = append(queue, dependencyKeysForURI(importerURI)...)
+		}
+	}
+	return affected
+}
+
+func changeDependencyKeys(changes map[string]struct{}) []string {
+	seen := make(map[string]struct{}, len(changes)*3)
+	var keys []string
+	for uri := range changes {
+		for _, key := range dependencyKeysForURI(uri) {
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+func dependencyKeysForURI(uri string) []string {
+	keys := []string{uri}
+	path := uriToPath(uri)
+	if path == "" {
+		return keys
+	}
+	return append(keys, dependencyKeysForPath(path)...)
+}
+
+func dependencyKeysForPath(path string) []string {
+	if path == "" {
+		return nil
+	}
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	path = filepath.Clean(path)
+
+	keys := []string{pathToURI(path)}
+	if info, err := os.Stat(path); err == nil && !info.IsDir() {
+		keys = append(keys, pathToURI(filepath.Dir(path)))
+	}
+	return keys
 }
 
 func pathAffectedByChanges(path string, changes map[string]struct{}) bool {
@@ -432,9 +550,7 @@ func (s *Server) cacheSnapshot() map[string]*AnalysisResult {
 	defer s.stateMu.RUnlock()
 
 	out := make(map[string]*AnalysisResult, len(s.Cache))
-	for uri, result := range s.Cache {
-		out[uri] = result
-	}
+	maps.Copy(out, s.Cache)
 	return out
 }
 
@@ -443,8 +559,6 @@ func (s *Server) indexSnapshot() map[string]*FileIndex {
 	defer s.stateMu.RUnlock()
 
 	out := make(map[string]*FileIndex, len(s.Indexes))
-	for uri, idx := range s.Indexes {
-		out[uri] = idx
-	}
+	maps.Copy(out, s.Indexes)
 	return out
 }

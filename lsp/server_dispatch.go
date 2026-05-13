@@ -28,6 +28,7 @@ func NewServer() *Server {
 		Cache:          make(map[string]*AnalysisResult),
 		Indexes:        make(map[string]*FileIndex),
 		PublicIndexes:  make(map[string]*FileIndex),
+		ReverseDeps:    make(map[string]map[string]struct{}),
 		pendingLocks:   make(map[string]*time.Timer),
 		pendingCancel:  make(map[string]context.CancelFunc),
 		canceled:       make(map[string]struct{}),
@@ -41,128 +42,79 @@ func (s *Server) Handle(req Request) (any, *ResponseError) {
 	return s.HandleRequest(req)
 }
 
-func (s *Server) HandleRequest(req Request) (any, *ResponseError) {
-	switch req.Method {
-	case "initialize":
-		if err := validateParams[InitializeParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleInitialize(req), nil
-	case "textDocument/hover":
-		if err := validateParams[HoverParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleHover(req), nil
-	case "textDocument/definition":
-		if err := validateParams[DefinitionParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleDefinition(req), nil
-	case "textDocument/typeDefinition":
-		if err := validateParams[DefinitionParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleTypeDefinition(req), nil
-	case "textDocument/implementation":
-		if err := validateParams[DefinitionParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleImplementation(req), nil
-	case "textDocument/references":
-		if err := validateParams[ReferenceParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleReferences(req), nil
-	case "textDocument/documentSymbol":
-		if err := validateParams[DocumentSymbolParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleDocumentSymbol(req), nil
-	case "workspace/symbol":
-		if err := validateParams[WorkspaceSymbolParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleWorkspaceSymbol(req), nil
-	case "textDocument/prepareRename":
-		if err := validateParams[PrepareRenameParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handlePrepareRename(req), nil
-	case "textDocument/rename":
-		if err := validateParams[RenameParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleRename(req), nil
-	case "textDocument/completion":
-		if err := validateParams[CompletionParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleCompletion(req), nil
-	case "textDocument/signatureHelp":
-		if err := validateParams[SignatureHelpParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleSignatureHelp(req), nil
-	case "textDocument/semanticTokens/full":
-		if err := validateParams[SemanticTokensParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleSemanticTokensFull(req), nil
-	case "textDocument/inlayHint":
-		if err := validateParams[InlayHintParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleInlayHint(req), nil
-	case "textDocument/formatting":
-		if err := validateParams[DocumentFormattingParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleFormatting(req), nil
-	case "textDocument/documentHighlight":
-		if err := validateParams[DocumentHighlightParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleDocumentHighlight(req), nil
-	case "textDocument/codeAction":
-		if err := validateParams[CodeActionParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleCodeAction(req), nil
-	case "textDocument/documentLink":
-		if err := validateParams[DocumentLinkParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleDocumentLink(req), nil
-	case "textDocument/foldingRange":
-		if err := validateParams[FoldingRangeParams](&req); err != nil {
-			return nil, err
-		}
-		return s.handleFoldingRange(req), nil
-	case "shutdown":
-		return nil, nil
-	}
-	return nil, &ResponseError{
-		Code:    CodeMethodNotFound,
-		Message: "method not found: " + req.Method,
+type requestRoute struct {
+	validate func(*Request) *ResponseError
+	handle   func(*Server, Request) any
+}
+
+type notificationRoute func(*Server, Request)
+
+var requestRoutes = map[string]requestRoute{
+	"initialize":                  typedRequestRoute[InitializeParams]((*Server).handleInitialize),
+	"textDocument/hover":          typedRequestRoute[HoverParams]((*Server).handleHover),
+	"textDocument/definition":     typedRequestRoute[DefinitionParams]((*Server).handleDefinition),
+	"textDocument/typeDefinition": typedRequestRoute[DefinitionParams]((*Server).handleTypeDefinition),
+	"textDocument/implementation": typedRequestRoute[DefinitionParams]((*Server).handleImplementation),
+	"textDocument/references":     typedRequestRoute[ReferenceParams]((*Server).handleReferences),
+	"textDocument/documentSymbol": typedRequestRoute[DocumentSymbolParams]((*Server).handleDocumentSymbol),
+	"workspace/symbol":            typedRequestRoute[WorkspaceSymbolParams]((*Server).handleWorkspaceSymbol),
+	"textDocument/prepareRename":  typedRequestRoute[PrepareRenameParams]((*Server).handlePrepareRename),
+	"textDocument/rename":         typedRequestRoute[RenameParams]((*Server).handleRename),
+	"textDocument/completion":     typedRequestRoute[CompletionParams]((*Server).handleCompletion),
+	"textDocument/signatureHelp":  typedRequestRoute[SignatureHelpParams]((*Server).handleSignatureHelp),
+	"textDocument/semanticTokens/full": typedRequestRoute[SemanticTokensParams](
+		(*Server).handleSemanticTokensFull,
+	),
+	"textDocument/inlayHint":         typedRequestRoute[InlayHintParams]((*Server).handleInlayHint),
+	"textDocument/formatting":        typedRequestRoute[DocumentFormattingParams]((*Server).handleFormatting),
+	"textDocument/documentHighlight": typedRequestRoute[DocumentHighlightParams]((*Server).handleDocumentHighlight),
+	"textDocument/codeAction":        typedRequestRoute[CodeActionParams]((*Server).handleCodeAction),
+	"textDocument/documentLink":      typedRequestRoute[DocumentLinkParams]((*Server).handleDocumentLink),
+	"textDocument/foldingRange":      typedRequestRoute[FoldingRangeParams]((*Server).handleFoldingRange),
+	"shutdown":                       {handle: func(_ *Server, _ Request) any { return nil }},
+}
+
+var notificationRoutes = map[string]notificationRoute{
+	"initialized":                     ignoreNotification,
+	"exit":                            ignoreNotification,
+	"$/cancelRequest":                 (*Server).handleCancelRequest,
+	"textDocument/didOpen":            (*Server).handleDidOpen,
+	"textDocument/didChange":          (*Server).handleDidChange,
+	"textDocument/didClose":           (*Server).handleDidClose,
+	"textDocument/didSave":            (*Server).handleDidSave,
+	"workspace/didChangeWatchedFiles": (*Server).handleDidChangeWatchedFiles,
+}
+
+func typedRequestRoute[T any, R any](handler func(*Server, Request) R) requestRoute {
+	return requestRoute{
+		validate: validateParams[T],
+		handle: func(s *Server, req Request) any {
+			return handler(s, req)
+		},
 	}
 }
 
+func ignoreNotification(_ *Server, _ Request) {}
+
+func (s *Server) HandleRequest(req Request) (any, *ResponseError) {
+	route, ok := requestRoutes[req.Method]
+	if !ok {
+		return nil, &ResponseError{
+			Code:    CodeMethodNotFound,
+			Message: "method not found: " + req.Method,
+		}
+	}
+	if route.validate != nil {
+		if err := route.validate(&req); err != nil {
+			return nil, err
+		}
+	}
+	return route.handle(s, req), nil
+}
+
 func (s *Server) HandleNotification(req Request) {
-	switch req.Method {
-	case "initialized", "exit":
-		return
-	case "$/cancelRequest":
-		s.handleCancelRequest(req)
-	case "textDocument/didOpen":
-		s.handleDidOpen(req)
-	case "textDocument/didChange":
-		s.handleDidChange(req)
-	case "textDocument/didClose":
-		s.handleDidClose(req)
-	case "textDocument/didSave":
-		s.handleDidSave(req)
-	case "workspace/didChangeWatchedFiles":
-		s.handleDidChangeWatchedFiles(req)
+	if route, ok := notificationRoutes[req.Method]; ok {
+		route(s, req)
 	}
 }
 

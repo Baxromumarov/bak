@@ -204,16 +204,13 @@ func typeErrorRelatedInformation(typeErr typechecker.TypeError) []DiagnosticRela
 }
 
 func diagnosticRangeForTypeError(typeErr typechecker.TypeError) Range {
-	width := diagnosticWidthFromMessage(typeErr.Message)
-	if width < 1 {
-		width = 1
-	}
+	width := max(diagnosticWidthFromMessage(typeErr.Message), 1)
 	return rangeFromLineCol(typeErr.Line, typeErr.Column, width)
 }
 
 func diagnosticWidthFromMessage(message string) int {
-	if strings.HasPrefix(message, "undefined: ") {
-		return len(strings.TrimSpace(strings.TrimPrefix(message, "undefined: ")))
+	if after, ok := strings.CutPrefix(message, "undefined: "); ok {
+		return len(strings.TrimSpace(after))
 	}
 	if quoted := firstSingleQuoted(message); quoted != "" {
 		return len(quoted)
@@ -222,16 +219,16 @@ func diagnosticWidthFromMessage(message string) int {
 }
 
 func firstSingleQuoted(message string) string {
-	start := strings.Index(message, "'")
-	if start < 0 {
+	_, after, ok := strings.Cut(message, "'")
+	if !ok {
 		return ""
 	}
-	rest := message[start+1:]
-	end := strings.Index(rest, "'")
-	if end < 0 {
+	rest := after
+	before, _, ok := strings.Cut(rest, "'")
+	if !ok {
 		return ""
 	}
-	return rest[:end]
+	return before
 }
 
 func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {

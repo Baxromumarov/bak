@@ -48,7 +48,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	comments := formatter.ScanComments(text)
 	index := indexProgram(prog, uri, comments, true)
 	imports := collectImports(prog)
-	refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, index, s)
+	refIndex, refByPos, defs := buildReferenceIndex(ctx, prog, tc, uri, imports, index, s)
 
 	select {
 	case <-ctx.Done():

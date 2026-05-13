@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"path/filepath"
@@ -521,6 +522,7 @@ func (s *Server) handleImplementation(req Request) []Location {
 }
 
 func (s *Server) handleReferences(req Request) []Location {
+	ctx := requestContext(req)
 	params, ok := requestParams[ReferenceParams](req)
 	if !ok {
 		return nil
@@ -538,10 +540,16 @@ func (s *Server) handleReferences(req Request) []Location {
 	if result.RefByPos != nil {
 		if key := nodeRefKey(node); key != "" {
 			if id, ok := result.RefByPos[key]; ok {
-				s.ensureWorkspaceRefIndex()
+				s.ensureWorkspaceRefIndex(ctx)
+				if ctx.Err() != nil {
+					return nil
+				}
 				refs := []Location{}
 				if params.Context.IncludeDeclaration {
 					for _, res := range s.cacheSnapshot() {
+						if ctx.Err() != nil {
+							return nil
+						}
 						if res == nil || res.Defs == nil {
 							continue
 						}
@@ -552,6 +560,9 @@ func (s *Server) handleReferences(req Request) []Location {
 					}
 				}
 				for _, res := range s.cacheSnapshot() {
+					if ctx.Err() != nil {
+						return nil
+					}
 					if res == nil || res.RefIndex == nil {
 						continue
 					}
@@ -582,18 +593,28 @@ func (s *Server) handleDocumentSymbol(req Request) []DocumentSymbol {
 }
 
 func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
+	ctx := requestContext(req)
 	params, ok := requestParams[WorkspaceSymbolParams](req)
 	if !ok {
 		return nil
 	}
-	s.ensureWorkspaceIndexes()
+	s.ensureWorkspaceIndexes(ctx)
+	if ctx.Err() != nil {
+		return nil
+	}
 	query := strings.ToLower(params.Query)
 	items := []SymbolInformation{}
 	for _, idx := range s.indexSnapshot() {
+		if ctx.Err() != nil {
+			return nil
+		}
 		if idx == nil {
 			continue
 		}
 		for _, sym := range idx.Symbols {
+			if ctx.Err() != nil {
+				return nil
+			}
 			if query != "" && !strings.Contains(strings.ToLower(sym.Name), query) {
 				continue
 			}
@@ -606,6 +627,10 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 	})
 
 	return items
+}
+
+func contextCanceled(ctx context.Context) bool {
+	return ctx != nil && ctx.Err() != nil
 }
 
 func (s *Server) handleRename(req Request) *WorkspaceEdit {
@@ -629,7 +654,7 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
 
-	refs := s.handleReferences(Request{ParamsValue: refParams})
+	refs := s.handleReferences(Request{ParamsValue: refParams, Context: requestContext(req)})
 	if len(refs) == 0 {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
@@ -655,7 +680,7 @@ func (s *Server) handleDocumentHighlight(req Request) []DocumentHighlight {
 		Position:     params.Position,
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
-	refs := s.handleReferences(Request{ParamsValue: refParams})
+	refs := s.handleReferences(Request{ParamsValue: refParams, Context: requestContext(req)})
 
 	highlights := []DocumentHighlight{}
 	for _, loc := range refs {

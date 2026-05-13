@@ -113,7 +113,7 @@ func DecodeMessage(reader io.Reader) ([]byte, int, error) {
 func parseContentLength(header string) (int, error) {
 	var found bool
 	var contentLength int
-	for _, line := range strings.Split(header, "\r\n") {
+	for line := range strings.SplitSeq(header, "\r\n") {
 		name, value, ok := strings.Cut(line, ":")
 		if !ok || !strings.EqualFold(strings.TrimSpace(name), "Content-Length") {
 			continue

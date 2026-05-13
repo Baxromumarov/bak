@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -172,12 +173,17 @@ func makeLocation(uri string, line, col, length int) Location {
 }
 
 // forEachBakFile walks the workspace and calls fn for every .bak file.
-func (s *Server) forEachBakFile(fn func(path, uri string)) {
+func (s *Server) forEachBakFile(ctx context.Context, fn func(path, uri string)) {
 	root := s.rootPath()
 	if root == "" {
 		return
 	}
 	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
 		if err != nil {
 			return nil
 		}
@@ -196,8 +202,11 @@ func (s *Server) forEachBakFile(fn func(path, uri string)) {
 	})
 }
 
-func (s *Server) ensureWorkspaceRefIndex() {
-	s.forEachBakFile(func(path, uri string) {
+func (s *Server) ensureWorkspaceRefIndex(ctx context.Context) {
+	s.forEachBakFile(ctx, func(path, uri string) {
+		if ctx != nil && ctx.Err() != nil {
+			return
+		}
 		res := s.analysisResultOrNil(uri)
 		if res != nil && res.RefIndex != nil && res.Defs != nil {
 			return
@@ -239,7 +248,7 @@ func (s *Server) ensureWorkspaceRefIndex() {
 		if updated == nil {
 			updated = &AnalysisResult{}
 		}
-		refIndex, refByPos, defs := buildReferenceIndex(prog, tc, uri, imports, idx, s)
+		refIndex, refByPos, defs := buildReferenceIndex(ctx, prog, tc, uri, imports, idx, s)
 		updated.AST = prog
 		updated.TC = tc
 		updated.Index = idx
@@ -251,8 +260,11 @@ func (s *Server) ensureWorkspaceRefIndex() {
 	})
 }
 
-func (s *Server) ensureWorkspaceIndexes() {
-	s.forEachBakFile(func(path, uri string) {
+func (s *Server) ensureWorkspaceIndexes(ctx context.Context) {
+	s.forEachBakFile(ctx, func(path, uri string) {
+		if ctx != nil && ctx.Err() != nil {
+			return
+		}
 		if _, ok := s.indexSnapshot()[uri]; ok {
 			return
 		}
@@ -932,6 +944,7 @@ func (b *refBuilder) walkStmt(stmt ast.Statement, sc *scope) {
 }
 
 func buildReferenceIndex(
+	ctx context.Context,
 	prog *ast.Program,
 	tc *typechecker.TypeChecker,
 	uri string,
@@ -960,15 +973,24 @@ func buildReferenceIndex(
 	if prog == nil {
 		return b.refs, b.refByPos, b.defs
 	}
+	if ctx != nil && ctx.Err() != nil {
+		return b.refs, b.refByPos, b.defs
+	}
 
 	if srv != nil {
-		srv.ensureWorkspaceIndexes()
+		srv.ensureWorkspaceIndexes(ctx)
+	}
+	if ctx != nil && ctx.Err() != nil {
+		return b.refs, b.refByPos, b.defs
 	}
 
 	b.indexGlobals(prog)
 
 	fileScope := newScope(b.global)
 	for _, stmt := range prog.Statements {
+		if ctx != nil && ctx.Err() != nil {
+			return b.refs, b.refByPos, b.defs
+		}
 		b.walkStmt(stmt, fileScope)
 	}
 

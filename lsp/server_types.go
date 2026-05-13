@@ -99,6 +99,7 @@ type Server struct {
 	Cache          map[string]*AnalysisResult
 	Indexes        map[string]*FileIndex
 	PublicIndexes  map[string]*FileIndex // Cache for external module indexes (public symbols only)
+	ReverseDeps    map[string]map[string]struct{}
 	RootPath       string
 	stdImportPaths []string
 	stdPackages    []string
