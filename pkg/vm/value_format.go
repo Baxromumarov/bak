@@ -49,7 +49,7 @@ func (vm *VM) formatValueDepth(v compiler.Value, depth int) string {
 			if out, ok := vm.formatStructCollection(s, depth+1); ok {
 				return out
 			}
-			return strfmt.Named("<{TypeName} instance>", "TypeName", s.TypeName)
+			return vm.formatStructInstance(s, depth+1)
 		}
 		return "<struct>"
 	case compiler.VAL_ENUM:
@@ -201,8 +201,30 @@ func (vm *VM) formatStructCollection(inst *compiler.StructInstance, depth int) (
 	return "", false
 }
 
+func (vm *VM) formatStructInstance(inst *compiler.StructInstance, depth int) string {
+	fields := make([]string, 0, len(inst.Fields))
+	def := vm.structDefForInstance(inst)
+
+	for i, fieldValue := range inst.Fields {
+		name := strfmt.Named("field{Index}", "Index", i)
+		if def != nil && i < len(def.Fields) && def.Fields[i].Name != "" {
+			name = def.Fields[i].Name
+		}
+		fields = append(fields, name+": "+vm.formatValueDepth(fieldValue, depth+1))
+	}
+
+	return inst.TypeName + "{" + strings.Join(fields, ", ") + "}"
+}
+
+func (vm *VM) structDefForInstance(inst *compiler.StructInstance) *compiler.StructDef {
+	if def := vm.module.StructDefs[inst.TypeName]; def != nil {
+		return def
+	}
+	return vm.module.StructDefByID[inst.TypeID]
+}
+
 func (vm *VM) structFieldByName(inst *compiler.StructInstance, name string) (compiler.Value, bool) {
-	def := vm.module.StructDefs[inst.TypeName]
+	def := vm.structDefForInstance(inst)
 	if def == nil {
 		return compiler.Value{}, false
 	}

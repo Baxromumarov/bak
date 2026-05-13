@@ -679,7 +679,7 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 			}
 			parts := make([]string, len(arr.Elements))
 			for i, elem := range arr.Elements {
-				parts[i] = elem.String()
+				parts[i] = vm.formatValue(elem)
 			}
 			result = compiler.NewString(strings.Join(parts, args[0].AsString))
 		case "reverse":

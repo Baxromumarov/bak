@@ -469,7 +469,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		if len(args) != 1 {
 			return compiler.NewNil(), fmt.Errorf("string() requires exactly 1 argument")
 		}
-		return compiler.NewString(args[0].String()), nil
+		return compiler.NewString(vm.formatValue(args[0])), nil
 
 	case compiler.BUILTIN_CHAR:
 		if len(args) != 1 {

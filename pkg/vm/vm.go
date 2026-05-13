@@ -1382,11 +1382,11 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_PRINT:
 			value := vm.pop()
-			fmt.Print(value.String())
+			fmt.Print(vm.formatValue(value))
 
 		case compiler.OP_PRINTLN:
 			value := vm.pop()
-			fmt.Println(value.String())
+			fmt.Println(vm.formatValue(value))
 
 		case compiler.OP_CONCAT:
 			b := vm.pop()

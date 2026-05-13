@@ -39,6 +39,56 @@ func TestFormatValue_ArrayPrintsElements(t *testing.T) {
 	}
 }
 
+func TestFormatValue_StructPrintsFieldData(t *testing.T) {
+	module := compiler.NewBytecodeModule()
+	typeID := module.AddStruct("Data", []compiler.FieldDef{
+		{Name: "age"},
+		{Name: "name"},
+		{Name: "fl"},
+	})
+	v := New(module)
+
+	data := structValue(
+		"Data",
+		typeID,
+		compiler.NewInt(30),
+		compiler.NewString("Alice"),
+		compiler.NewFloat(3.14),
+	)
+
+	got := v.formatValue(data)
+	want := "Data{age: 30, name: Alice, fl: 3.14}"
+	if got != want {
+		t.Fatalf("unexpected struct format: got %q want %q", got, want)
+	}
+}
+
+func TestBuiltinStringFormatsStructFields(t *testing.T) {
+	module := compiler.NewBytecodeModule()
+	typeID := module.AddStruct("Data", []compiler.FieldDef{
+		{Name: "age"},
+		{Name: "name"},
+	})
+	v := New(module)
+
+	data := structValue(
+		"Data",
+		typeID,
+		compiler.NewInt(30),
+		compiler.NewString("Alice"),
+	)
+
+	got, err := v.callBuiltin(compiler.BUILTIN_STRING, []compiler.Value{data})
+	if err != nil {
+		t.Fatalf("string builtin failed: %v", err)
+	}
+
+	want := "Data{age: 30, name: Alice}"
+	if got.AsString != want {
+		t.Fatalf("unexpected string conversion: got %q want %q", got.AsString, want)
+	}
+}
+
 func TestFormatValue_HashMapPrintsEntries(t *testing.T) {
 	module := compiler.NewBytecodeModule()
 	vecTypeID := module.AddStruct("Vec", []compiler.FieldDef{
