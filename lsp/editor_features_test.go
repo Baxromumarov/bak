@@ -184,6 +184,48 @@ func TestHoverTracksVecLengthAcrossAssignmentAndAppend(t *testing.T) {
 	}
 }
 
+func TestHoverTracksVecLengthThroughMutableHelper(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func append(mut d: Vec<Data, _>, input: Data) -> (void) {",
+		"    d.push(input)",
+		"    return void",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var dVec: Vec<Data, _> = Vec.from([])",
+		"    append(mut dVec, Data{age: 25})",
+		"    println(dVec)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "dVec)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	hover := s.handleHover(mustRequest(t, HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "Vec<Data, 1>") {
+		t.Fatalf("expected inferred vec size Vec<Data, 1>, got: %q", hover.Contents.Value)
+	}
+}
+
 func TestHoverTracksVecLengthInsideIfBranch(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -468,6 +510,232 @@ func TestCompletionSuggestsVecInstanceMethodsForVariable(t *testing.T) {
 	}
 }
 
+func TestCompletionSpecializesGenericVecMethodDetails(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var items: Vec<Data, _> = Vec.from([])",
+		"    items.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "items.")
+	if line < 0 {
+		t.Fatalf("Vec<Data> completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("items.")},
+	}))
+
+	push, ok := completionItemByLabel(completion, "push")
+	if !ok {
+		t.Fatalf("expected push completion, got %#v", completion.Items)
+	}
+	if !strings.Contains(push.Detail, "value: Data") {
+		t.Fatalf("expected specialized Vec push detail, got %q", push.Detail)
+	}
+}
+
+func TestSignatureHelpAndHoverSpecializeGenericVecMethodDetails(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var items: Vec<Data, _> = Vec.from([])",
+		"    items.push(Data{age: 1})",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "items.push(")
+	if line < 0 {
+		t.Fatalf("signature target not found")
+	}
+	help := s.handleSignatureHelp(mustRequest(t, SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("items.push(")},
+	}))
+	if help == nil || len(help.Signatures) == 0 {
+		t.Fatalf("expected signature help")
+	}
+	if !strings.Contains(help.Signatures[0].Label, "value: Data") {
+		t.Fatalf("expected specialized signature help, got %#v", help.Signatures)
+	}
+
+	hover := s.handleHover(mustRequest(t, HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("items.")},
+	}))
+	if hover == nil || !strings.Contains(hover.Contents.Value, "value: Data") {
+		t.Fatalf("expected specialized hover, got %#v", hover)
+	}
+}
+
+func TestCompletionSuggestsStructFieldsAndImplMethodsForVariable(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"    name: string",
+		"}",
+		"",
+		"impl Data as d {",
+		"    mut func setAge(age: int) -> (void) {",
+		"        d.age = age",
+		"        return void",
+		"    }",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var d: Data",
+		"    d. // complete target",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "d. // complete target")
+	if line < 0 {
+		t.Fatalf("struct variable completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("d.")},
+	}))
+
+	for _, want := range []string{"age", "name", "setAge"} {
+		if !completionHasLabel(completion, want) {
+			t.Fatalf("expected struct completion %q, got %#v", want, completion.Items)
+		}
+		if got := completionLabelCount(completion, want); got != 1 {
+			t.Fatalf("expected one struct completion %q, got %d in %#v", want, got, completion.Items)
+		}
+	}
+	if completionHasLabel(completion, "age: int") {
+		t.Fatalf("field type leaked into completion label: %#v", completion.Items)
+	}
+}
+
+func TestCompletionSuggestsImplMethodsInIncompleteDotBuffer(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"impl Data as d {",
+		"    mut func setAge(age: int) -> (void) {",
+		"        d.age = age",
+		"        return void",
+		"    }",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var d: Data",
+		"    d.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	line, col := findLineCol(src, "d.\n}")
+	if line < 0 {
+		t.Fatalf("completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("d.")},
+	}))
+
+	for _, want := range []string{"age", "setAge"} {
+		if !completionHasLabel(completion, want) {
+			t.Fatalf("expected incomplete buffer completion %q, got %#v", want, completion.Items)
+		}
+		if got := completionLabelCount(completion, want); got != 1 {
+			t.Fatalf("expected one incomplete buffer completion %q, got %d in %#v", want, got, completion.Items)
+		}
+	}
+	if completionHasLabel(completion, "age: int") {
+		t.Fatalf("field type leaked into completion label: %#v", completion.Items)
+	}
+}
+
+func TestCompletionSuggestsStdlibAutoImportWithEdit(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    parse",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.RootPath = repoRoot(t)
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "parse")
+	if line < 0 {
+		t.Fatalf("auto import completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("parse")},
+	}))
+
+	item, ok := completionItemByLabel(completion, "parseInt")
+	if !ok {
+		t.Fatalf("expected parseInt auto-import completion, got %#v", completion.Items)
+	}
+	if !strings.Contains(item.Detail, "auto import") {
+		t.Fatalf("expected auto-import detail, got %q", item.Detail)
+	}
+	if item.InsertText != "strconv.parseInt($0)" {
+		t.Fatalf("expected qualified insert text, got %q", item.InsertText)
+	}
+	if len(item.AdditionalTextEdits) != 1 ||
+		!strings.Contains(item.AdditionalTextEdits[0].NewText, `import strconv "std/strconv"`) {
+		t.Fatalf("expected stdlib import edit, got %#v", item.AdditionalTextEdits)
+	}
+
+	resolved := s.handleCompletionResolve(mustRequest(t, item))
+	if resolved.Documentation == nil || !strings.Contains(resolved.Documentation.Value, "Auto-imports") {
+		t.Fatalf("expected resolved auto-import documentation, got %#v", resolved.Documentation)
+	}
+}
+
 func TestCompletionSuggestsHashMapStaticMethodsAfterDot(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -676,6 +944,106 @@ func TestInitializeAdvertisesModernDocumentFeatures(t *testing.T) {
 	if !result.Capabilities.FoldingRangeProvider {
 		t.Fatalf("expected foldingRange provider support")
 	}
+	if result.Capabilities.CompletionProvider == nil {
+		t.Fatalf("expected completion provider support")
+	}
+	if result.Capabilities.SemanticTokensProvider == nil {
+		t.Fatalf("expected semanticTokens provider support")
+	}
+	if len(result.Capabilities.SemanticTokensProvider.Legend.TokenTypes) == 0 {
+		t.Fatalf("expected semantic token legend")
+	}
+	hasTrigger := func(want string) bool {
+		for _, ch := range result.Capabilities.CompletionProvider.TriggerCharacters {
+			if ch == want {
+				return true
+			}
+		}
+		return false
+	}
+	for _, want := range []string{"i", "n", "t", "_", "9", "."} {
+		if !hasTrigger(want) {
+			t.Fatalf("expected completion trigger character %q", want)
+		}
+	}
+}
+
+func TestCompletionFallsBackBeforeAsyncAnalysis(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func localThing() -> (void) {}",
+		"",
+		"func main() -> (void) {",
+		"    loc",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	line, col := findLineCol(src, "loc")
+	if line < 0 {
+		t.Fatalf("completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("loc")},
+	}))
+	if !completionHasLabel(completion, "localThing") {
+		t.Fatalf("expected local symbol completion without pre-analysis, got %#v", completion.Items)
+	}
+	if !completionHasLabel(completion, "println") {
+		t.Fatalf("expected builtin completion without pre-analysis, got %#v", completion.Items)
+	}
+}
+
+func TestSemanticTokensFullReturnsLexicalTokens(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var message: string = \"hello\"",
+		"    println(message)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	tokens := s.handleSemanticTokensFull(mustRequest(t, SemanticTokensParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}))
+	if tokens == nil || len(tokens.Data) == 0 {
+		t.Fatalf("expected semantic tokens")
+	}
+	if len(tokens.Data)%5 != 0 {
+		t.Fatalf("semantic token data should use LSP 5-int groups, got %#v", tokens.Data)
+	}
+}
+
+func completionItemByLabel(list CompletionList, label string) (CompletionItem, bool) {
+	for _, item := range list.Items {
+		if item.Label == label {
+			return item, true
+		}
+	}
+	return CompletionItem{}, false
+}
+
+func completionLabelCount(list CompletionList, label string) int {
+	count := 0
+	for _, item := range list.Items {
+		if item.Label == label {
+			count++
+		}
+	}
+	return count
 }
 
 func TestPrepareRenameReturnsTargetAndRenameRejectsInvalidName(t *testing.T) {

@@ -35,6 +35,11 @@ func (s *Server) handleHover(req Request) *Hover {
 	if hover := hoverForBuiltinMethod(node, result); hover != nil {
 		return hover
 	}
+	if ident, ok := node.(*ast.Identifier); ok {
+		if hover := hoverForQualifiedBuiltinIdentifier(ident, result, text, params.Position); hover != nil {
+			return hover
+		}
+	}
 	if hover := hoverForBuiltinIdentifier(node, result); hover != nil {
 		return hover
 	}
@@ -501,9 +506,10 @@ func hoverForBuiltinMethod(node ast.Node, result *AnalysisResult) *Hover {
 
 	if result != nil && result.TC != nil {
 		typeStr := result.TC.GetNodeType(mce.Object)
-		if methods, ok := builtinMethods[typeStr]; ok {
+		baseType := baseTypeName(typeStr)
+		if methods, ok := builtinMethods[baseType]; ok {
 			if info, ok := methods[mce.Method.Value]; ok {
-				return builtinMethodHover(info)
+				return builtinMethodHoverForType(baseType, typeStr, mce.Method.Value, info)
 			}
 		}
 	}
@@ -529,11 +535,59 @@ func hoverForBuiltinIdentifier(node ast.Node, result *AnalysisResult) *Hover {
 	return builtinMethodHover(info)
 }
 
+func hoverForQualifiedBuiltinIdentifier(
+	ident *ast.Identifier,
+	result *AnalysisResult,
+	text string,
+	pos Position,
+) *Hover {
+	if ident == nil || result == nil || text == "" {
+		return nil
+	}
+	lineText := lineAt(text, pos.Line)
+	word, start := wordAt(lineText, pos.Character)
+	if word != ident.Value || start <= 0 || lineText[start-1] != '.' {
+		return nil
+	}
+	qualifier := qualifierBefore(lineText, start-1)
+	receiverType := receiverTypeForQualifier(result, text, pos, qualifier)
+	if receiverType == "" {
+		return nil
+	}
+	baseType := baseTypeName(receiverType)
+	methods, ok := builtinMethods[baseType]
+	if !ok {
+		return nil
+	}
+	info, ok := methods[ident.Value]
+	if !ok {
+		return nil
+	}
+	return builtinMethodHoverForType(baseType, receiverType, ident.Value, info)
+}
+
 func builtinMethodHover(info builtinMethodInfo) *Hover {
+	return builtinMethodHoverForType("", "", "", info)
+}
+
+func builtinMethodHoverForType(typeName, fullType, methodName string, info builtinMethodInfo) *Hover {
+	signature := info.Signature
+	if fullType != "" {
+		signature = specializeGenericSignature(signature, fullType)
+	}
+	if typeName != "" && methodName != "" {
+		label := signature
+		if after, ok := strings.CutPrefix(label, "func "); ok {
+			label = after
+		}
+		if open := strings.Index(label, "("); open >= 0 {
+			signature = "func " + typeName + "." + methodName + label[open:]
+		}
+	}
 	return &Hover{
 		Contents: MarkupContent{
 			Kind:  "markdown",
-			Value: strfmt.Named("```bak\n{Signature}\n```\n{Doc}", "Signature", info.Signature, "Doc", info.Doc),
+			Value: strfmt.Named("```bak\n{Signature}\n```\n{Doc}", "Signature", signature, "Doc", info.Doc),
 		},
 	}
 }
@@ -681,7 +735,8 @@ func inferDynamicVecLengthAtPosition(prog *ast.Program, varName string, line, co
 		return 0, false
 	}
 	states := make(map[string]vecLenState)
-	if !walkProgramVecLengthPath(prog, line, col, states) {
+	funcs := vecLengthFunctionIndex(prog)
+	if !walkProgramVecLengthPath(prog, line, col, states, funcs) {
 		return 0, false
 	}
 
@@ -692,14 +747,37 @@ func inferDynamicVecLengthAtPosition(prog *ast.Program, varName string, line, co
 	return st.length, true
 }
 
-func walkProgramVecLengthPath(prog *ast.Program, line, col int, states map[string]vecLenState) bool {
+func vecLengthFunctionIndex(prog *ast.Program) map[string]*ast.FunctionDecl {
+	funcs := make(map[string]*ast.FunctionDecl)
+	if prog == nil {
+		return funcs
+	}
+	for _, stmt := range prog.Statements {
+		if fn, ok := stmt.(*ast.FunctionDecl); ok && fn != nil && fn.Name != nil {
+			funcs[fn.Name.Value] = fn
+		}
+	}
+	return funcs
+}
+
+func walkProgramVecLengthPath(
+	prog *ast.Program,
+	line, col int,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) bool {
 	if prog == nil {
 		return false
 	}
-	return walkStatementsVecLengthPath(prog.Statements, line, col, states)
+	return walkStatementsVecLengthPath(prog.Statements, line, col, states, funcs)
 }
 
-func walkStatementsVecLengthPath(stmts []ast.Statement, line, col int, states map[string]vecLenState) bool {
+func walkStatementsVecLengthPath(
+	stmts []ast.Statement,
+	line, col int,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) bool {
 	for _, stmt := range stmts {
 		if stmt == nil {
 			continue
@@ -714,7 +792,7 @@ func walkStatementsVecLengthPath(stmts []ast.Statement, line, col int, states ma
 			switch s := stmt.(type) {
 			case *ast.FunctionDecl:
 				if s != nil && s.Body != nil {
-					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states, funcs)
 				}
 				return true
 			case *ast.ImplDecl:
@@ -723,56 +801,56 @@ func walkStatementsVecLengthPath(stmts []ast.Statement, line, col int, states ma
 				}
 				for _, m := range s.Methods {
 					if m != nil && m.Body != nil && spanContainsPosition(m.Span, line, col) {
-						return walkStatementsVecLengthPath(m.Body.Statements, line, col, states)
+						return walkStatementsVecLengthPath(m.Body.Statements, line, col, states, funcs)
 					}
 				}
 				return true
 			case *ast.IfStatement:
 				if s != nil {
 					if s.Consequence != nil && spanContainsPosition(ast.SpanOf(s.Consequence), line, col) {
-						return walkStatementsVecLengthPath(s.Consequence.Statements, line, col, states)
+						return walkStatementsVecLengthPath(s.Consequence.Statements, line, col, states, funcs)
 					}
 					if s.Alternative != nil && spanContainsPosition(ast.SpanOf(s.Alternative), line, col) {
-						return walkStatementsVecLengthPath(s.Alternative.Statements, line, col, states)
+						return walkStatementsVecLengthPath(s.Alternative.Statements, line, col, states, funcs)
 					}
 				}
 				return true
 			case *ast.WhileStatement:
 				if s != nil && s.Body != nil {
-					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states, funcs)
 				}
 				return true
 			case *ast.ForStatement:
 				if s != nil && s.Body != nil {
-					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states, funcs)
 				}
 				return true
 			case *ast.SwitchStatement:
 				if s != nil {
 					for _, c := range s.Cases {
 						if c != nil && c.Body != nil && spanContainsPosition(ast.SpanOf(c.Body), line, col) {
-							return walkStatementsVecLengthPath(c.Body.Statements, line, col, states)
+							return walkStatementsVecLengthPath(c.Body.Statements, line, col, states, funcs)
 						}
 					}
 				}
 				return true
 			case *ast.UnsafeBlock:
 				if s != nil && s.Body != nil {
-					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states)
+					return walkStatementsVecLengthPath(s.Body.Statements, line, col, states, funcs)
 				}
 				return true
 			case *ast.BlockStatement:
 				if s != nil {
-					return walkStatementsVecLengthPath(s.Statements, line, col, states)
+					return walkStatementsVecLengthPath(s.Statements, line, col, states, funcs)
 				}
 				return true
 			default:
-				applyVecLengthStatement(stmt, states)
+				applyVecLengthStatement(stmt, states, funcs)
 				return true
 			}
 		}
 
-		applyVecLengthStatement(stmt, states)
+		applyVecLengthStatement(stmt, states, funcs)
 		if isLoopBoundary(stmt) {
 			invalidateAllVecStates(states)
 		}
@@ -781,7 +859,11 @@ func walkStatementsVecLengthPath(stmts []ast.Statement, line, col int, states ma
 	return true
 }
 
-func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) {
+func applyVecLengthStatement(
+	stmt ast.Statement,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) {
 	if stmt == nil {
 		return
 	}
@@ -822,7 +904,7 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 		if s == nil {
 			return
 		}
-		applyVecLengthExpr(s.Expression, states)
+		applyVecLengthExpr(s.Expression, states, funcs)
 	case *ast.IfStatement:
 		if s == nil {
 			return
@@ -831,12 +913,12 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 
 		consequenceStates := cloneVecLenStates(base)
 		if s.Consequence != nil {
-			applyVecLengthStatements(s.Consequence.Statements, consequenceStates)
+			applyVecLengthStatements(s.Consequence.Statements, consequenceStates, funcs)
 		}
 
 		alternativeStates := cloneVecLenStates(base)
 		if s.Alternative != nil {
-			applyVecLengthStatements(s.Alternative.Statements, alternativeStates)
+			applyVecLengthStatements(s.Alternative.Statements, alternativeStates, funcs)
 		}
 
 		merged := mergeBranchStates(base, []map[string]vecLenState{consequenceStates, alternativeStates})
@@ -856,7 +938,7 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 				hasDefault = true
 			}
 			caseStates := cloneVecLenStates(base)
-			applyVecLengthStatements(c.Body.Statements, caseStates)
+			applyVecLengthStatements(c.Body.Statements, caseStates, funcs)
 			branchStates = append(branchStates, caseStates)
 		}
 		if len(branchStates) == 0 {
@@ -870,21 +952,25 @@ func applyVecLengthStatement(stmt ast.Statement, states map[string]vecLenState) 
 		maps.Copy(states, merged)
 	case *ast.UnsafeBlock:
 		if s != nil && s.Body != nil {
-			applyVecLengthStatements(s.Body.Statements, states)
+			applyVecLengthStatements(s.Body.Statements, states, funcs)
 		}
 	case *ast.BlockStatement:
 		if s != nil {
-			applyVecLengthStatements(s.Statements, states)
+			applyVecLengthStatements(s.Statements, states, funcs)
 		}
 	}
 }
 
-func applyVecLengthStatements(stmts []ast.Statement, states map[string]vecLenState) {
+func applyVecLengthStatements(
+	stmts []ast.Statement,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) {
 	for _, stmt := range stmts {
 		if stmt == nil {
 			continue
 		}
-		applyVecLengthStatement(stmt, states)
+		applyVecLengthStatement(stmt, states, funcs)
 		if isLoopBoundary(stmt) {
 			invalidateAllVecStates(states)
 		}
@@ -983,7 +1069,16 @@ func isPotentialVecExpr(expr ast.Expression, states map[string]vecLenState) bool
 	return false
 }
 
-func applyVecLengthExpr(expr ast.Expression, states map[string]vecLenState) {
+func applyVecLengthExpr(
+	expr ast.Expression,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) {
+	if ce, ok := expr.(*ast.CallExpression); ok {
+		applyVecLengthCallExpr(ce, states, funcs)
+		return
+	}
+
 	mc, ok := expr.(*ast.MethodCallExpression)
 	if !ok || mc == nil || mc.Method == nil {
 		return
@@ -1026,6 +1121,66 @@ func applyVecLengthExpr(expr ast.Expression, states map[string]vecLenState) {
 	}
 
 	states[ident.Value] = st
+}
+
+func applyVecLengthCallExpr(
+	ce *ast.CallExpression,
+	states map[string]vecLenState,
+	funcs map[string]*ast.FunctionDecl,
+) {
+	if ce == nil || funcs == nil {
+		return
+	}
+	callee, ok := ce.Function.(*ast.Identifier)
+	if !ok || callee == nil {
+		return
+	}
+	fn := funcs[callee.Value]
+	if fn == nil || fn.Body == nil {
+		return
+	}
+
+	localStates := cloneVecLenStates(states)
+	copies := make(map[string]string)
+	for i, param := range fn.Parameters {
+		if param == nil || param.Name == nil || !param.Mutable || i >= len(ce.Arguments) {
+			continue
+		}
+		argName := vecLengthArgName(ce.Arguments[i])
+		if argName == "" {
+			continue
+		}
+		if st, ok := states[argName]; ok {
+			localStates[param.Name.Value] = st
+			copies[param.Name.Value] = argName
+		}
+	}
+	if len(copies) == 0 {
+		return
+	}
+
+	applyVecLengthStatements(fn.Body.Statements, localStates, funcs)
+	for paramName, argName := range copies {
+		if st, ok := localStates[paramName]; ok {
+			states[argName] = st
+		} else {
+			states[argName] = vecLenState{known: false}
+		}
+	}
+}
+
+func vecLengthArgName(expr ast.Expression) string {
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		if e != nil {
+			return e.Value
+		}
+	case *ast.MutableIdentifier:
+		if e != nil {
+			return e.Value
+		}
+	}
+	return ""
 }
 
 func inferVecLengthFromExpr(expr ast.Expression, states map[string]vecLenState) (int, bool) {

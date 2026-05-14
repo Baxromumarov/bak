@@ -170,8 +170,11 @@ func (s *Server) resultForDocument(uri string) *AnalysisResult {
 	l := lexer.New(text)
 	p := parser.New(l)
 	prog := p.ParseProgram()
+	comments := formatter.ScanComments(text)
+	index := indexProgram(prog, uri, comments, true)
 	return &AnalysisResult{
 		AST:     prog,
+		Index:   index,
 		Imports: collectImports(prog),
 	}
 }

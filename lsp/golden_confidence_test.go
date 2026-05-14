@@ -114,17 +114,17 @@ func TestHoverAndInlayGoldenCoreTypes(t *testing.T) {
 	analyzeForTest(t, s, uri, src)
 
 	hoverVec := hoverAt(t, s, uri, src, "push(")
-	if !strings.Contains(hoverVec, "push(value: T)") {
+	if !strings.Contains(hoverVec, "push(value: int)") {
 		t.Fatalf("unexpected Vec hover: %q", hoverVec)
 	}
 
 	hoverResult := hoverAt(t, s, uri, src, "unwrapErr(")
-	if !strings.Contains(hoverResult, "unwrapErr() -> (E)") {
+	if !strings.Contains(hoverResult, "unwrapErr() -> (string)") {
 		t.Fatalf("unexpected Result hover: %q", hoverResult)
 	}
 
 	hoverMap := hoverAt(t, s, uri, src, "insert(")
-	if !strings.Contains(hoverMap, "insert(key: K, value: V)") {
+	if !strings.Contains(hoverMap, "insert(key: string, value: int)") {
 		t.Fatalf("unexpected HashMap hover: %q", hoverMap)
 	}
 }

@@ -169,6 +169,14 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 
 	if sig.Label == "" {
 		if qualifier != "" {
+			if receiverType := receiverTypeForQualifier(result, text, pos, qualifier); receiverType != "" {
+				baseType := baseTypeName(receiverType)
+				if methods, ok := builtinMethods[baseType]; ok {
+					if info, ok := methods[name]; ok {
+						sig = builtinMethodSignatureInfoForType(baseType, receiverType, name, info)
+					}
+				}
+			}
 			if methods, ok := builtinMethods[qualifier]; ok {
 				if info, ok := methods[name]; ok {
 					sig = builtinMethodSignatureInfo(qualifier, name, info)
@@ -252,14 +260,20 @@ func lookupUniqueBuiltinMethod(name string) (string, builtinMethodInfo, bool) {
 }
 
 func builtinMethodSignatureInfo(typeName, methodName string, info builtinMethodInfo) SignatureInfo {
+	return builtinMethodSignatureInfoForType(typeName, typeName, methodName, info)
+}
+
+func builtinMethodSignatureInfoForType(typeName, fullType, methodName string, info builtinMethodInfo) SignatureInfo {
 	label := info.Signature
 	if after, ok := strings.CutPrefix(label, "func "); ok {
 		label = after
 	}
+	label = specializeGenericSignature(label, fullType)
 
-	label = typeName + "." + methodName
-	if open := strings.Index(label, "("); open != -1 {
-		label = label[open:]
+	if open := strings.Index(label, "("); open >= 0 {
+		label = typeName + "." + methodName + label[open:]
+	} else {
+		label = typeName + "." + methodName
 	}
 
 	return SignatureInfo{
@@ -331,6 +345,24 @@ func splitTopLevelParams(raw string) []string {
 	return params
 }
 
+func receiverTypeForQualifier(result *AnalysisResult, text string, pos Position, qualifier string) string {
+	if result == nil || qualifier == "" {
+		return ""
+	}
+	if result.TC != nil && result.AST != nil {
+		locals := collectLocalSymbols(result.AST, pos.Line+1)
+		if local, ok := locals[qualifier]; ok && local.Node != nil {
+			if typ := result.TC.GetNodeType(local.Node); typ != "" {
+				return typ
+			}
+			if local.Type != "" {
+				return local.Type
+			}
+		}
+	}
+	return declaredLocalTypeBefore(text, pos.Line, qualifier)
+}
+
 func scanCallableToken(prefix string) string {
 	i := len(prefix) - 1
 	for i >= 0 {
@@ -386,6 +418,19 @@ func memberAccessContext(line string, char int) (qualifier string, memberPrefix 
 	}
 	qualifier = line[j+1 : qualEnd]
 	if qualifier == "" {
+		// If there's a closing bracket/paren before the dot, accept this as
+		// a complex qualifier (call/index/field access) so member completion
+		// will resolve the expression via the AST/typechecker.
+		k := j
+		for k >= 0 && line[k] == ' ' {
+			k--
+		}
+		if k >= 0 {
+			ch := line[k]
+			if ch == ')' || ch == ']' || ch == '}' {
+				return "", memberPrefix, true
+			}
+		}
 		return "", "", false
 	}
 	return qualifier, memberPrefix, true
@@ -425,6 +470,59 @@ func qualifierAt(line string, char int) string {
 		break
 	}
 	return line[j+1 : i]
+}
+
+func wordPrefixAt(line string, char int) string {
+	if char < 0 {
+		return ""
+	}
+	if char > len(line) {
+		char = len(line)
+	}
+	i := char - 1
+	for i >= 0 && isWordChar(line[i]) {
+		i--
+	}
+	return line[i+1 : char]
+}
+
+func declaredLocalTypeBefore(text string, line int, name string) string {
+	if name == "" || line < 0 {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	if line >= len(lines) {
+		line = len(lines) - 1
+	}
+	for i := line; i >= 0; i-- {
+		if typ := declaredTypeInLine(lines[i], name); typ != "" {
+			return typ
+		}
+	}
+	return ""
+}
+
+func declaredTypeInLine(line, name string) string {
+	trimmed := strings.TrimSpace(line)
+	for _, prefix := range []string{"mut var ", "var ", "const "} {
+		if !strings.HasPrefix(trimmed, prefix) {
+			continue
+		}
+		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, prefix))
+		if !strings.HasPrefix(rest, name) || !isWordBoundary(rest, 0, len(name)) {
+			continue
+		}
+		rest = strings.TrimSpace(rest[len(name):])
+		if !strings.HasPrefix(rest, ":") {
+			return ""
+		}
+		rest = strings.TrimSpace(strings.TrimPrefix(rest, ":"))
+		if eq := strings.Index(rest, "="); eq >= 0 {
+			rest = rest[:eq]
+		}
+		return strings.TrimSpace(strings.TrimRight(rest, ","))
+	}
+	return ""
 }
 
 func importPathPrefix(line string, char int) (string, bool) {
@@ -570,6 +668,7 @@ func structLiteralTypeAt(text string, pos Position) string {
 type localSymbol struct {
 	Node   ast.Node
 	Detail string
+	Type   string
 }
 
 func collectLocalSymbols(
@@ -586,7 +685,7 @@ func collectLocalSymbols(
 	}
 	for _, p := range fn.Parameters {
 		if p != nil && p.Name != nil {
-			out[p.Name.Value] = localSymbolBuilder(p.Name, "param")
+			out[p.Name.Value] = localSymbolBuilder(p.Name, "param", p.Type)
 		}
 	}
 	collectLocalSymbolsFromBlock(fn.Body, out)
@@ -596,10 +695,16 @@ func collectLocalSymbols(
 func localSymbolBuilder(
 	nodeName *ast.Identifier,
 	detail string,
+	typ ast.TypeExpression,
 ) localSymbol {
+	typeStr := ""
+	if typ != nil {
+		typeStr = typ.String()
+	}
 	return localSymbol{
 		Node:   nodeName,
 		Detail: detail,
+		Type:   typeStr,
 	}
 }
 
@@ -633,24 +738,28 @@ func collectLocalSymbolsFromBlock(
 		switch s := stmt.(type) {
 		case *ast.VarStatement:
 			if s != nil && s.Name != nil {
-				out[s.Name.Value] = localSymbolBuilder(s.Name, "var")
+				out[s.Name.Value] = localSymbolBuilder(s.Name, "var", s.Type)
 			}
 		case *ast.ConstStatement:
 			if s != nil && s.Name != nil {
-				out[s.Name.Value] = localSymbolBuilder(s.Name, "const")
+				out[s.Name.Value] = localSymbolBuilder(s.Name, "const", s.Type)
 			}
 		case *ast.MultiVarStatement:
 			if s != nil {
-				for _, n := range s.Names {
+				for i, n := range s.Names {
 					if n != nil {
-						out[n.Value] = localSymbolBuilder(n, "var")
+						var typ ast.TypeExpression
+						if i < len(s.Types) {
+							typ = s.Types[i]
+						}
+						out[n.Value] = localSymbolBuilder(n, "var", typ)
 
 					}
 				}
 			}
 		case *ast.ForStatement:
 			if s != nil && s.Variable != nil {
-				out[s.Variable.Value] = localSymbolBuilder(s.Variable, "var")
+				out[s.Variable.Value] = localSymbolBuilder(s.Variable, "var", nil)
 			}
 			collectLocalSymbolsFromBlock(s.Body, out)
 		case *ast.WhileStatement:

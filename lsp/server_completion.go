@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
@@ -59,7 +61,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 	items := []CompletionItem{}
 	if !isDotCompletion {
-		result, _ := s.analysisResult(params.TextDocument.URI)
+		result := s.completionAnalysisResult(params.TextDocument.URI)
 		if structItems := s.completeStructLiteralFields(ctx, result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
 			out.Items = rankCompletionItems(structItems, qualifier, fieldCompletionPriority)
 			return out
@@ -67,7 +69,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	}
 
 	if qualifier != "" || isDotCompletion {
-		result, _ := s.analysisResult(params.TextDocument.URI)
+		result := s.completionAnalysisResult(params.TextDocument.URI)
 		if result != nil {
 			if qualifier != "" && isDotCompletion {
 				if importItems, handled := s.completeImportedModuleMembers(result, params.TextDocument.URI, qualifier, memberPrefix); handled {
@@ -79,25 +81,35 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			tc := result.TC
 			astRoot := result.AST
 			if tc == nil || astRoot == nil || isDotCompletion {
-				tc, astRoot = s.typecheckForCompletion(ctx, text, params.TextDocument.URI, params.Position)
+				completionTC, completionAST := s.typecheckForCompletion(ctx, text, params.TextDocument.URI, params.Position)
+				if completionTC != nil && completionAST != nil {
+					tc, astRoot = completionTC, completionAST
+				}
 			}
 
-			if tc != nil && astRoot != nil {
-				currentPkg := currentPackageName(astRoot)
+			if astRoot != nil || result.Index != nil || qualifier != "" {
+				currentPkg := ""
+				if astRoot != nil {
+					currentPkg = currentPackageName(astRoot)
+				}
 
 				addMembers := func(typeStr string, isStatic bool) {
 					if typeStr == "" {
 						return
 					}
 
-					typeStr = resolveAliasTypeString(result, typeStr)
+					typeStr = strings.TrimSpace(resolveAliasTypeString(result, typeStr))
 					baseType := typeStr
 
 					if before, _, ok0 := strings.Cut(typeStr, "<"); ok0 {
-						baseType = before
+						baseType = strings.TrimSpace(before)
 					}
 
-					if structDef, ok := tc.GetStruct(baseType); ok {
+					structDef, hasStructDef := (*typechecker.StructDef)(nil), false
+					if tc != nil {
+						structDef, hasStructDef = tc.GetStruct(baseType)
+					}
+					if hasStructDef {
 						isSamePkg := structDef.Package == currentPkg
 
 						if isSamePkg {
@@ -133,10 +145,12 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 								insertText = methodName + "($0)"
 							}
 
+							detail := methodCompletionDetail(baseType, methodName, methodSig, isStatic)
+							detail = specializeGenericSignature(detail, typeStr)
 							items = append(items, CompletionItem{
 								Label:            methodName,
 								Kind:             2,
-								Detail:           methodCompletionDetail(baseType, methodName, methodSig, isStatic),
+								Detail:           detail,
 								InsertText:       insertText,
 								InsertTextFormat: insertFormat,
 							})
@@ -148,34 +162,43 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 									continue
 								}
 								items = append(items, CompletionItem{
-									Label:  fieldName,
-									Kind:   5,
-									Detail: fieldDef.Type.String(),
+									Label:         fieldName,
+									Kind:          5,
+									Detail:        fieldDef.Type.String(),
+									Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", fieldName, "typeName", baseType)),
 								})
 							}
 						}
-					} else {
-						if appendBuiltinTypeMethodCompletions(&items, baseType, isStatic) {
+					}
+
+					if !hasStructDef {
+						if appendBuiltinTypeMethodCompletionsForType(&items, baseType, typeStr, isStatic) {
 							return
 						}
+					}
+					if !hasStructDef || !isStatic {
 						if result.Index != nil && result.Index.Structs != nil {
 							if st, ok := result.Index.Structs[baseType]; ok && !isStatic {
 								for _, f := range st.Fields {
+									fieldName, fieldType := splitIndexedFieldCompletion(f)
 									items = append(items, CompletionItem{
-										Label:  f,
-										Kind:   5,
-										Detail: "field",
+										Label:         fieldName,
+										Kind:          5,
+										Detail:        fieldType,
+										Documentation: completionDoc(strfmt.Named("Field on `{typeName}`.", "typeName", baseType)),
 									})
 								}
 							}
 						}
+						appendIndexedMethodCompletions(&items, result.Index, baseType, isStatic)
+						appendTextualTypeMemberCompletions(&items, text, baseType, isStatic)
 					}
 				}
 
 				typeStr := ""
 				isStatic := false
 
-				if isDotCompletion && (qualifier == "" || result.Imports[qualifier] == "") {
+				if astRoot != nil && isDotCompletion && (qualifier == "" || result.Imports[qualifier] == "") {
 					node := findNode(astRoot, params.Position.Line+1, params.Position.Character+1)
 
 					switch n := node.(type) {
@@ -212,10 +235,21 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					}
 				}
 
-				if typeStr == "" && qualifier != "" {
+				if typeStr == "" && qualifier != "" && astRoot != nil {
 					locals := collectLocalSymbols(astRoot, params.Position.Line+1)
 					if local, ok := locals[qualifier]; ok && local.Node != nil {
-						typeStr = tc.GetNodeType(local.Node)
+						if tc != nil {
+							typeStr = tc.GetNodeType(local.Node)
+						}
+						if typeStr == "" {
+							typeStr = local.Type
+						}
+						isStatic = false
+					}
+				}
+				if typeStr == "" && qualifier != "" {
+					typeStr = declaredLocalTypeBefore(text, params.Position.Line, qualifier)
+					if typeStr != "" {
 						isStatic = false
 					}
 				}
@@ -244,7 +278,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		}
 	}
 
-	if result, _ := s.analysisResult(params.TextDocument.URI); result != nil && result.Index != nil {
+	if result := s.completionAnalysisResult(params.TextDocument.URI); result != nil && result.Index != nil {
 		seen := make(map[string]bool)
 		for _, sym := range sortedSymbols(result.Index) {
 			insertText := sym.Name
@@ -260,6 +294,10 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				Kind:             completionKind(sym.Kind),
 				InsertText:       insertText,
 				InsertTextFormat: insertFormat,
+				Data: completionResolveData{
+					Kind:   sym.Kind,
+					Symbol: sym.Name,
+				},
 			})
 
 			seen[sym.Name] = true
@@ -275,6 +313,11 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				if result.TC != nil && local.Node != nil {
 					if t := result.TC.GetNodeType(local.Node); t != "" {
 						detail = t
+					}
+				}
+				if detail == "var" || detail == "const" || detail == "param" {
+					if local.Type != "" {
+						detail = local.Type
 					}
 				}
 				items = append(items, CompletionItem{
@@ -351,8 +394,13 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				Label:            name,
 				Kind:             3,
 				Detail:           detail,
+				Documentation:    completionDoc("Built-in function `" + name + "`."),
 				InsertText:       insertText,
 				InsertTextFormat: insertFormat,
+				Data: completionResolveData{
+					Kind:   "builtin",
+					Symbol: name,
+				},
 			})
 			seen[name] = true
 		}
@@ -410,42 +458,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		})
 	}
 
-	typeKeywords := []string{
-		// Primitive types
-		"any",
-		"bool",
-		"int",
-		"int8",
-		"int16",
-		"int32",
-		"int64",
-		"uint",
-		"uint8",
-		"uint16",
-		"uint32",
-		"uint64",
-		"float32",
-		"float64",
-		"char",
-		"string",
-		"void",
-
-		// Collection types
-		"Vec",
-		"HashMap",
-		"Map",
-		"Array",
-		"Slice",
-		"Range",
-
-		// Special types
-		"Result",
-		"Option",
-		"Error",
-		"null",
-	}
-
-	for _, typ := range typeKeywords {
+	for _, typ := range completionTypeNames {
 		kind := completionKind("type")
 		detail := "type"
 		insertText := typ
@@ -483,10 +496,21 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			Label:            typ,
 			Kind:             kind,
 			Detail:           detail,
+			Documentation:    completionDoc(detail),
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
+			Data: completionResolveData{
+				Kind:   "type",
+				Symbol: typ,
+			},
 		})
 	}
+
+	autoImportPrefix := qualifier
+	if autoImportPrefix == "" {
+		autoImportPrefix = wordPrefixAt(lineText, params.Position.Character)
+	}
+	s.appendAutoImportCompletions(&items, s.completionAnalysisResult(params.TextDocument.URI), params.TextDocument.URI, autoImportPrefix)
 
 	snippets := []struct {
 		label  string
@@ -542,6 +566,51 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 	return out
 }
 
+func (s *Server) completionAnalysisResult(uri string) *AnalysisResult {
+	if result, _ := s.analysisResult(uri); result != nil {
+		return result
+	}
+	return s.resultForDocument(uri)
+}
+
+var primitiveTypeNames = []string{
+	"any",
+	"bool",
+	"int",
+	"int8",
+	"int16",
+	"int32",
+	"int64",
+	"uint",
+	"uint8",
+	"uint16",
+	"uint32",
+	"uint64",
+	"float32",
+	"float64",
+	"char",
+	"string",
+	"void",
+}
+
+var builtinGenericTypeNames = []string{
+	"Vec",
+	"HashMap",
+	"Map",
+	"Array",
+	"Slice",
+	"Range",
+	"Result",
+	"Option",
+	"Error",
+	"null",
+}
+
+var completionTypeNames = append(
+	append([]string{}, primitiveTypeNames...),
+	builtinGenericTypeNames...,
+)
+
 func (s *Server) completeStructLiteralFields(
 	ctx context.Context,
 	result *AnalysisResult,
@@ -593,9 +662,10 @@ func (s *Server) completeStructLiteralFields(
 				continue
 			}
 			items = append(items, CompletionItem{
-				Label:  fieldName,
-				Kind:   5, // Field
-				Detail: fieldDef.Type.String(),
+				Label:         fieldName,
+				Kind:          5, // Field
+				Detail:        fieldDef.Type.String(),
+				Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", fieldName, "typeName", typeName)),
 			})
 		}
 		if len(items) > 0 {
@@ -619,9 +689,10 @@ func (s *Server) completeStructLiteralFields(
 			continue
 		}
 		items = append(items, CompletionItem{
-			Label:  name,
-			Kind:   5, // Field
-			Detail: detail,
+			Label:         name,
+			Kind:          5, // Field
+			Detail:        detail,
+			Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", name, "typeName", typeName)),
 		})
 	}
 	return items
@@ -668,13 +739,23 @@ func (s *Server) completeImportedModuleMembers(
 				}
 			}
 		}
+		doc := ""
+		if modIndex.Docs != nil {
+			doc = modIndex.Docs[sym.Name]
+		}
 
 		items = append(items, CompletionItem{
 			Label:            sym.Name,
 			Detail:           detail,
+			Documentation:    completionDoc(doc),
 			Kind:             completionKind(sym.Kind),
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
+			Data: completionResolveData{
+				Kind:   sym.Kind,
+				Symbol: sym.Name,
+				Module: qualifier,
+			},
 		})
 	}
 
@@ -719,6 +800,7 @@ var importPathCompletionPriority = map[int]int{
 }
 
 func rankCompletionItems(items []CompletionItem, prefix string, kindPriority map[int]int) []CompletionItem {
+	items = dedupeCompletionItems(items)
 	if len(items) <= 1 {
 		return items
 	}
@@ -777,6 +859,59 @@ func rankCompletionItems(items []CompletionItem, prefix string, kindPriority map
 	})
 
 	return items
+}
+
+func splitIndexedFieldCompletion(field string) (string, string) {
+	name, typ, ok := strings.Cut(field, ":")
+	if !ok {
+		return strings.TrimSpace(field), "field"
+	}
+	name = strings.TrimSpace(name)
+	typ = strings.TrimSpace(typ)
+	if name == "" {
+		name = strings.TrimSpace(field)
+	}
+	if typ == "" {
+		typ = "field"
+	}
+	return name, typ
+}
+
+func dedupeCompletionItems(items []CompletionItem) []CompletionItem {
+	if len(items) <= 1 {
+		return items
+	}
+	out := make([]CompletionItem, 0, len(items))
+	seen := make(map[string]int, len(items))
+	for _, item := range items {
+		key := item.Label + "\x00" + strconv.Itoa(item.Kind)
+		if idx, ok := seen[key]; ok {
+			if completionItemScore(item) > completionItemScore(out[idx]) {
+				out[idx] = item
+			}
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, item)
+	}
+	return out
+}
+
+func completionItemScore(item CompletionItem) int {
+	score := 0
+	if item.Detail != "" && item.Detail != "field" && item.Detail != "method" {
+		score += 4
+	}
+	if item.Documentation != nil && item.Documentation.Value != "" {
+		score += 2
+	}
+	if item.InsertText != "" {
+		score++
+	}
+	if len(item.AdditionalTextEdits) > 0 {
+		score++
+	}
+	return score
 }
 
 func structLiteralTypeName(
@@ -866,6 +1001,15 @@ func appendBuiltinTypeMethodCompletions(
 	typeName string,
 	isStatic bool,
 ) bool {
+	return appendBuiltinTypeMethodCompletionsForType(items, typeName, typeName, isStatic)
+}
+
+func appendBuiltinTypeMethodCompletionsForType(
+	items *[]CompletionItem,
+	typeName string,
+	fullType string,
+	isStatic bool,
+) bool {
 	var methods map[string]builtinMethodInfo
 	if isStatic {
 		methods = builtinStaticMethods[typeName]
@@ -883,16 +1027,190 @@ func appendBuiltinTypeMethodCompletions(
 		}
 
 		insertText, insertFormat := completionInsertTextFromSignature(methodName, info.Signature)
+		detail := specializeGenericSignature(info.Signature, fullType)
 		*items = append(*items, CompletionItem{
 			Label:            methodName,
 			Kind:             2, // Method
-			Detail:           info.Signature,
+			Detail:           detail,
+			Documentation:    completionDoc(info.Doc),
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
+			Data: completionResolveData{
+				Kind:     "method",
+				Symbol:   methodName,
+				TypeName: typeName,
+			},
 		})
 	}
 
 	return true
+}
+
+func appendIndexedMethodCompletions(
+	items *[]CompletionItem,
+	index *FileIndex,
+	typeName string,
+	isStatic bool,
+) {
+	if index == nil || index.Symbols == nil {
+		return
+	}
+
+	prefix := typeName + "."
+	for _, sym := range sortedSymbols(index) {
+		if sym.Kind != "method" || !strings.HasPrefix(sym.Name, prefix) {
+			continue
+		}
+		methodName := strings.TrimPrefix(sym.Name, prefix)
+		if methodName == "" || strings.Contains(methodName, ".") {
+			continue
+		}
+
+		detail := "method"
+		insertText := methodName
+		insertFormat := 1
+		if index.Sigs != nil {
+			if sig, ok := index.Sigs[sym.Name]; ok && sig.Label != "" {
+				detail = sig.Label
+				insertText = methodName + "($0)"
+				insertFormat = 2
+			}
+		}
+
+		if isStatic {
+			// Syntax-only indexes do not yet distinguish static methods from
+			// receiver methods. Static built-ins are handled separately.
+			continue
+		}
+
+		*items = append(*items, CompletionItem{
+			Label:            methodName,
+			Kind:             2,
+			Detail:           detail,
+			Documentation:    completionDoc(index.Docs[sym.Name]),
+			InsertText:       insertText,
+			InsertTextFormat: insertFormat,
+			Data: completionResolveData{
+				Kind:     "method",
+				Symbol:   methodName,
+				TypeName: typeName,
+			},
+		})
+	}
+}
+
+func appendTextualTypeMemberCompletions(
+	items *[]CompletionItem,
+	text string,
+	typeName string,
+	isStatic bool,
+) {
+	if text == "" || typeName == "" || isStatic {
+		return
+	}
+	for _, field := range textualStructFields(text, typeName) {
+		if field.Name == "" {
+			continue
+		}
+		*items = append(*items, CompletionItem{
+			Label:         field.Name,
+			Kind:          5,
+			Detail:        field.Type,
+			Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", field.Name, "typeName", typeName)),
+		})
+	}
+	for _, method := range textualImplMethods(text, typeName) {
+		if method == "" {
+			continue
+		}
+		*items = append(*items, CompletionItem{
+			Label:            method,
+			Kind:             2,
+			Detail:           "method",
+			Documentation:    completionDoc(strfmt.Named("Method `{method}` on `{typeName}`.", "method", method, "typeName", typeName)),
+			InsertText:       method + "($0)",
+			InsertTextFormat: 2,
+			Data: completionResolveData{
+				Kind:     "method",
+				Symbol:   method,
+				TypeName: typeName,
+			},
+		})
+	}
+}
+
+type textualField struct {
+	Name string
+	Type string
+}
+
+func textualStructFields(text, typeName string) []textualField {
+	lines := strings.Split(text, "\n")
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !strings.HasPrefix(trimmed, "struct "+typeName) ||
+			!isWordBoundary(trimmed, len("struct "), len(typeName)) {
+			continue
+		}
+		fields := []textualField{}
+		for i++; i < len(lines); i++ {
+			fieldLine := strings.TrimSpace(lines[i])
+			if strings.HasPrefix(fieldLine, "}") {
+				return fields
+			}
+			name, typ, ok := strings.Cut(fieldLine, ":")
+			if !ok {
+				continue
+			}
+			name = strings.TrimSpace(name)
+			typ = strings.TrimSpace(strings.TrimRight(typ, ","))
+			if name != "" && bakIdentifierPattern.MatchString(name) {
+				fields = append(fields, textualField{Name: name, Type: typ})
+			}
+		}
+		return fields
+	}
+	return nil
+}
+
+func textualImplMethods(text, typeName string) []string {
+	lines := strings.Split(text, "\n")
+	methods := []string{}
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if !strings.HasPrefix(trimmed, "impl "+typeName) ||
+			!isWordBoundary(trimmed, len("impl "), len(typeName)) {
+			continue
+		}
+		for i++; i < len(lines); i++ {
+			methodLine := strings.TrimSpace(lines[i])
+			if strings.HasPrefix(methodLine, "}") {
+				break
+			}
+			if name := textualMethodName(methodLine); name != "" {
+				methods = append(methods, name)
+			}
+		}
+	}
+	return methods
+}
+
+func textualMethodName(line string) string {
+	line = strings.TrimPrefix(line, "pub ")
+	line = strings.TrimPrefix(line, "mut ")
+	if !strings.HasPrefix(line, "func ") {
+		return ""
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(line, "func "))
+	open := strings.Index(rest, "(")
+	if open <= 0 {
+		return ""
+	}
+	name := strings.TrimSpace(rest[:open])
+	if !bakIdentifierPattern.MatchString(name) {
+		return ""
+	}
+	return name
 }
 
 func completionInsertTextFromSignature(methodName, signature string) (string, int) {
@@ -903,6 +1221,239 @@ func completionInsertTextFromSignature(methodName, signature string) (string, in
 		return methodName + "($0)", 2
 	}
 	return methodName, 1
+}
+
+type completionResolveData struct {
+	Kind       string `json:"kind,omitempty"`
+	Symbol     string `json:"symbol,omitempty"`
+	Module     string `json:"module,omitempty"`
+	TypeName   string `json:"typeName,omitempty"`
+	ImportPath string `json:"importPath,omitempty"`
+	Alias      string `json:"alias,omitempty"`
+}
+
+func completionDoc(doc string) *MarkupContent {
+	doc = strings.TrimSpace(doc)
+	if doc == "" {
+		return nil
+	}
+	return &MarkupContent{Kind: "markdown", Value: doc}
+}
+
+func (s *Server) handleCompletionResolve(req Request) CompletionItem {
+	item, ok := requestParams[CompletionItem](req)
+	if !ok {
+		return CompletionItem{}
+	}
+
+	data := completionResolveDataFromAny(item.Data)
+	if data.Kind == "" && item.Documentation != nil {
+		return item
+	}
+	switch data.Kind {
+	case "autoImport":
+		item.Documentation = completionDoc(strfmt.Named(
+			"Auto-imports `{symbol}` from `{alias}` (`{path}`).",
+			"symbol", data.Symbol,
+			"alias", data.Alias,
+			"path", data.ImportPath,
+		))
+	case "method":
+		if data.TypeName != "" {
+			item.Documentation = completionDoc(strfmt.Named(
+				"Method `{symbol}` on `{typeName}`.",
+				"symbol", data.Symbol,
+				"typeName", data.TypeName,
+			))
+		}
+	case "builtin":
+		item.Documentation = completionDoc("Built-in function `" + data.Symbol + "`.")
+	case "type":
+		item.Documentation = completionDoc("Type `" + data.Symbol + "`.")
+	}
+	return item
+}
+
+func completionResolveDataFromAny(data any) completionResolveData {
+	if data == nil {
+		return completionResolveData{}
+	}
+	if typed, ok := data.(completionResolveData); ok {
+		return typed
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return completionResolveData{}
+	}
+	var out completionResolveData
+	_ = json.Unmarshal(raw, &out)
+	return out
+}
+
+func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *AnalysisResult, uri string, prefix string) {
+	if result == nil {
+		return
+	}
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return
+	}
+	imported := map[string]bool{}
+	for alias := range result.Imports {
+		imported[alias] = true
+	}
+	insertPos := findImportInsertPosition(result)
+	seen := map[string]bool{}
+	for _, importPath := range s.getStdImportPaths() {
+		path := s.resolveImportPath(uriToPath(uri), importPath)
+		if path == "" {
+			continue
+		}
+		idx := s.getOrIndexFile(path)
+		if idx == nil {
+			continue
+		}
+		alias := importAliasForPath(importPath)
+		if alias == "" || imported[alias] {
+			continue
+		}
+		for _, sym := range sortedSymbols(idx) {
+			if sym.Name == "" || !sym.Exported || strings.Contains(sym.Name, ".") {
+				continue
+			}
+			if prefix != "" && !strings.HasPrefix(strings.ToLower(sym.Name), strings.ToLower(prefix)) {
+				continue
+			}
+			key := alias + "." + sym.Name
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+
+			insertText := alias + "." + sym.Name
+			insertFormat := 1
+			if sym.Kind == "func" {
+				insertText += "($0)"
+				insertFormat = 2
+			}
+
+			importLine := strfmt.Named("import {Alias} \"{ImportPath}\"\n", "Alias", alias, "ImportPath", importPath)
+			*items = append(*items, CompletionItem{
+				Label:            sym.Name,
+				Kind:             completionKind(sym.Kind),
+				Detail:           "auto import from " + alias,
+				Documentation:    completionDoc(strfmt.Named("Auto-import from `{alias}`.", "alias", alias)),
+				InsertText:       insertText,
+				InsertTextFormat: insertFormat,
+				AdditionalTextEdits: []TextEdit{{
+					Range:   Range{Start: insertPos, End: insertPos},
+					NewText: importLine,
+				}},
+				Data: completionResolveData{
+					Kind:       "autoImport",
+					Symbol:     sym.Name,
+					Alias:      alias,
+					ImportPath: importPath,
+				},
+			})
+		}
+	}
+}
+
+func importAliasForPath(importPath string) string {
+	parts := strings.Split(strings.Trim(importPath, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	alias := strings.TrimSuffix(parts[len(parts)-1], ".bak")
+	if alias == "" && len(parts) > 1 {
+		alias = parts[len(parts)-2]
+	}
+	return alias
+}
+
+func specializeGenericSignature(signature, fullType string) string {
+	args := genericTypeArgs(fullType)
+	if len(args) == 0 {
+		return signature
+	}
+	base := baseTypeName(fullType)
+	replacements := map[string]string{}
+	switch base {
+	case "Vec":
+		if len(args) > 0 && args[0] != "" {
+			replacements["T"] = args[0]
+		}
+		if len(args) > 1 && args[1] != "" {
+			replacements["N"] = args[1]
+		}
+	case "HashMap", "Map":
+		if len(args) > 0 && args[0] != "" {
+			replacements["K"] = args[0]
+		}
+		if len(args) > 1 && args[1] != "" {
+			replacements["V"] = args[1]
+		}
+	case "Result":
+		if len(args) > 0 && args[0] != "" {
+			replacements["T"] = args[0]
+		}
+		if len(args) > 1 && args[1] != "" {
+			replacements["E"] = args[1]
+		}
+	case "Option":
+		if len(args) > 0 && args[0] != "" {
+			replacements["T"] = args[0]
+		}
+	}
+	for from, to := range replacements {
+		signature = replaceTypeParam(signature, from, to)
+	}
+	return signature
+}
+
+func genericTypeArgs(typeName string) []string {
+	start := strings.Index(typeName, "<")
+	end := strings.LastIndex(typeName, ">")
+	if start == -1 || end == -1 || end <= start {
+		return nil
+	}
+	body := typeName[start+1 : end]
+	args := []string{}
+	depth := 0
+	last := 0
+	for i, ch := range body {
+		switch ch {
+		case '<':
+			depth++
+		case '>':
+			if depth > 0 {
+				depth--
+			}
+		case ',':
+			if depth == 0 {
+				args = append(args, strings.TrimSpace(body[last:i]))
+				last = i + 1
+			}
+		}
+	}
+	args = append(args, strings.TrimSpace(body[last:]))
+	return args
+}
+
+func replaceTypeParam(signature, from, to string) string {
+	for _, pattern := range []string{
+		" " + from + ")",
+		" " + from + ",",
+		"<" + from + ">",
+		"<" + from + ",",
+		", " + from + ">",
+		"(" + from + ")",
+	} {
+		repl := strings.ReplaceAll(pattern, from, to)
+		signature = strings.ReplaceAll(signature, pattern, repl)
+	}
+	return signature
 }
 
 var builtinSignatures = map[string]string{

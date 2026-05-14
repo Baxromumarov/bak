@@ -17,6 +17,7 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 	filePath := uriToPath(uri)
 
 	var analysisResult *analysis.Result
+	var analysisErr error
 	analysisPanicked := false
 	func() {
 		defer func() {
@@ -25,13 +26,28 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 				log.Printf("panic during analysis(%s): %v\nStack Trace:\n%s", uri, r, debug.Stack())
 			}
 		}()
-		var err error
-		analysisResult, err = analysis.AnalyzeSource(ctx, filePath, text, analysis.LSPOptionsWithRoot(filePath, s.rootPath()))
-		if err != nil && ctx.Err() == nil {
-			log.Printf("analysis failed(%s): %v", uri, err)
+		analysisResult, analysisErr = analysis.AnalyzeSource(ctx, filePath, text, analysis.LSPOptionsWithRoot(filePath, s.rootPath()))
+		if analysisErr != nil && ctx.Err() == nil {
+			log.Printf("analysis failed(%s): %v", uri, analysisErr)
 		}
 	}()
 	if analysisPanicked || analysisResult == nil {
+		if ctx.Err() == nil {
+			diag := Diagnostic{
+				Range:    Range{Start: Position{Line: 0, Character: 0}, End: Position{Line: 0, Character: 1}},
+				Severity: 1,
+				Source:   "bak-typechecker",
+				Code:     "AnalysisFailed",
+				Message:  "analysis failed",
+			}
+			if analysisPanicked {
+				diag.Message = "analysis panicked"
+			}
+			if analysisErr != nil {
+				diag.Message = analysisErr.Error()
+			}
+			s.publishDiagnostics(uri, []Diagnostic{diag})
+		}
 		return
 	}
 

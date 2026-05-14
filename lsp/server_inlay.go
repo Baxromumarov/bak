@@ -263,13 +263,6 @@ func (s *Server) handleFormatting(req Request) []TextEdit {
 	}
 }
 
-func (s *Server) handleSemanticTokensFull(_ Request) *SemanticTokens {
-	// Disable server-side semantic tokens. Returning an empty token
-	// set forces the client to fall back to TextMate grammar + theme
-	// for syntax coloring and avoids theme mismatches.
-	return &SemanticTokens{Data: []int{}}
-}
-
 func (s *Server) handleInlayHint(req Request) []InlayHint {
 	params, ok := requestParams[InlayHintParams](req)
 	if !ok {

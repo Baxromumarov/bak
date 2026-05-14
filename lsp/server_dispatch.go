@@ -61,6 +61,7 @@ var requestRoutes = map[string]requestRoute{
 	"textDocument/prepareRename":  typedRequestRoute[PrepareRenameParams]((*Server).handlePrepareRename),
 	"textDocument/rename":         typedRequestRoute[RenameParams]((*Server).handleRename),
 	"textDocument/completion":     typedRequestRoute[CompletionParams]((*Server).handleCompletion),
+	"completionItem/resolve":      typedRequestRoute[CompletionItem]((*Server).handleCompletionResolve),
 	"textDocument/signatureHelp":  typedRequestRoute[SignatureHelpParams]((*Server).handleSignatureHelp),
 	"textDocument/semanticTokens/full": typedRequestRoute[SemanticTokensParams](
 		(*Server).handleSemanticTokensFull,
@@ -179,16 +180,19 @@ func (s *Server) handleInitialize(req Request) InitializeResult {
 			ReferencesProvider:     true,
 			RenameProvider:         RenameOptions{PrepareProvider: true},
 			CompletionProvider: &CompletionOptions{
-				ResolveProvider:   false,
-				TriggerCharacters: []string{".", "{", ",", ":", "(", "\"", "/"},
+				ResolveProvider:   true,
+				TriggerCharacters: completionTriggerCharacters(),
 			},
 			SignatureHelpProvider: &SignatureHelpOptions{
 				TriggerCharacters: []string{"(", ","},
 			},
-			// Do not provide semantic tokens from the server - rely on TextMate
-			// grammar + theme for coloring. Semantic tokens from the server were
-			// causing scope/color mismatches with some VS Code themes.
-			SemanticTokensProvider:     nil,
+			SemanticTokensProvider: &SemanticTokensOptions{
+				Legend: SemanticTokensLegend{
+					TokenTypes:     semanticTokenTypes,
+					TokenModifiers: []string{},
+				},
+				Full: true,
+			},
 			TypeDefinitionProvider:     true,
 			InlayHintProvider:          true,
 			DocumentFormattingProvider: true,
@@ -202,6 +206,20 @@ func (s *Server) handleInitialize(req Request) InitializeResult {
 			FoldingRangeProvider: true,
 		},
 	}
+}
+
+func completionTriggerCharacters() []string {
+	out := []string{".", "{", ",", ":", "(", "\"", "/", "_"}
+	for ch := 'a'; ch <= 'z'; ch++ {
+		out = append(out, string(ch))
+	}
+	for ch := 'A'; ch <= 'Z'; ch++ {
+		out = append(out, string(ch))
+	}
+	for ch := '0'; ch <= '9'; ch++ {
+		out = append(out, string(ch))
+	}
+	return out
 }
 
 func (s *Server) handleDidOpen(req Request) {
