@@ -592,6 +592,153 @@ func TestSignatureHelpAndHoverSpecializeGenericVecMethodDetails(t *testing.T) {
 	}
 }
 
+func TestCompletionSignatureAndHoverSpecializeUserGenericMethods(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Box<T> {",
+		"    value: T",
+		"}",
+		"",
+		"impl Box<T> as b {",
+		"    func get() -> (T) {",
+		"        return b.value",
+		"    }",
+		"",
+		"    mut func set(value: T) -> (void) {",
+		"        b.value = value",
+		"        return void",
+		"    }",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var box: Box<int> = Box{value: 1}",
+		"    box.",
+		"    box.set(2)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "box.")
+	if line < 0 {
+		t.Fatalf("generic method completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("box.")},
+	}))
+	getItem, ok := completionItemByLabel(completion, "get")
+	if !ok {
+		t.Fatalf("expected get completion, got %#v", completion.Items)
+	}
+	if !strings.Contains(getItem.Detail, "-> (int)") {
+		t.Fatalf("expected specialized get detail, got %q", getItem.Detail)
+	}
+	valueItem, ok := completionItemByLabel(completion, "value")
+	if !ok {
+		t.Fatalf("expected value field completion, got %#v", completion.Items)
+	}
+	if valueItem.Detail != "int" {
+		t.Fatalf("expected specialized value field detail int, got %q", valueItem.Detail)
+	}
+	setItem, ok := completionItemByLabel(completion, "set")
+	if !ok {
+		t.Fatalf("expected set completion, got %#v", completion.Items)
+	}
+	if !strings.Contains(setItem.Detail, "int") || strings.Contains(setItem.Detail, " T") {
+		t.Fatalf("expected specialized set detail, got %q", setItem.Detail)
+	}
+
+	callLine, callCol := findLineCol(src, "box.set(")
+	if callLine < 0 {
+		t.Fatalf("generic method call target not found")
+	}
+	help := s.handleSignatureHelp(mustRequest(t, SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: callLine, Character: callCol + len("box.set(")},
+	}))
+	if help == nil || len(help.Signatures) == 0 || !strings.Contains(help.Signatures[0].Label, "int") {
+		t.Fatalf("expected specialized user generic signature help, got %#v", help)
+	}
+
+	hover := s.handleHover(mustRequest(t, HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: callLine, Character: callCol + len("box.")},
+	}))
+	if hover == nil || !strings.Contains(hover.Contents.Value, "int") {
+		t.Fatalf("expected specialized user generic hover, got %#v", hover)
+	}
+}
+
+func TestCompletionSpecializesImportedGenericStructFields(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "boxes.bak")
+	mainPath := filepath.Join(dir, "main.bak")
+	libSrc := strings.Join([]string{
+		"package boxes",
+		"",
+		"pub struct Box<T> {",
+		"    pub value: T",
+		"}",
+		"",
+		"impl Box<T> as b {",
+		"    pub func get() -> (T) {",
+		"        return b.value",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		`import boxes "./boxes.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    mut var box: boxes.Box<int>",
+		"    box.",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write boxes package: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main source: %v", err)
+	}
+	uri := pathToURI(mainPath)
+
+	s := NewServer()
+	s.Documents[uri] = mainSrc
+	analyzeForTest(t, s, uri, mainSrc)
+
+	line, col := findLineCol(mainSrc, "box.")
+	if line < 0 {
+		t.Fatalf("imported generic completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("box.")},
+	}))
+	valueItem, ok := completionItemByLabel(completion, "value")
+	if !ok {
+		t.Fatalf("expected imported value field completion, got %#v", completion.Items)
+	}
+	if valueItem.Detail != "int" {
+		t.Fatalf("expected imported generic field detail int, got %q", valueItem.Detail)
+	}
+	getItem, ok := completionItemByLabel(completion, "get")
+	if !ok {
+		t.Fatalf("expected imported get method completion, got %#v", completion.Items)
+	}
+	if !strings.Contains(getItem.Detail, "-> (int)") {
+		t.Fatalf("expected imported generic method detail int, got %q", getItem.Detail)
+	}
+}
+
 func TestCompletionSuggestsStructFieldsAndImplMethodsForVariable(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -733,6 +880,134 @@ func TestCompletionSuggestsStdlibAutoImportWithEdit(t *testing.T) {
 	resolved := s.handleCompletionResolve(mustRequest(t, item))
 	if resolved.Documentation == nil || !strings.Contains(resolved.Documentation.Value, "Auto-imports") {
 		t.Fatalf("expected resolved auto-import documentation, got %#v", resolved.Documentation)
+	}
+}
+
+func TestCompletionSuggestsEnumVariantsAfterDot(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"enum Color {",
+		"    Red",
+		"    Rgb(int, int, int)",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var color = Color.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "Color.")
+	if line < 0 {
+		t.Fatalf("enum completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Color.")},
+	}))
+
+	red, ok := completionItemByLabel(completion, "Red")
+	if !ok {
+		t.Fatalf("expected Red enum variant completion, got %#v", completion.Items)
+	}
+	if red.InsertText != "Red" {
+		t.Fatalf("expected Red insert text, got %q", red.InsertText)
+	}
+	rgb, ok := completionItemByLabel(completion, "Rgb")
+	if !ok {
+		t.Fatalf("expected Rgb enum variant completion, got %#v", completion.Items)
+	}
+	if rgb.InsertText != "Rgb($0)" || !strings.Contains(rgb.Detail, "int, int, int") {
+		t.Fatalf("expected payload variant snippet/detail, got %#v", rgb)
+	}
+}
+
+func TestCompletionSuggestsResultVariantsAfterDot(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var result = Result.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "Result.")
+	if line < 0 {
+		t.Fatalf("Result completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Result.")},
+	}))
+
+	for _, want := range []string{"Ok", "Err"} {
+		item, ok := completionItemByLabel(completion, want)
+		if !ok {
+			t.Fatalf("expected Result variant %q, got %#v", want, completion.Items)
+		}
+		if item.InsertText != want+"($0)" {
+			t.Fatalf("expected Result variant snippet for %q, got %#v", want, item)
+		}
+	}
+}
+
+func TestCompletionSuggestsImportedEnumVariantsAfterDot(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "palette.bak")
+	mainPath := filepath.Join(dir, "main.bak")
+	libSrc := strings.Join([]string{
+		"package palette",
+		"",
+		"pub enum Color {",
+		"    Red",
+		"    Rgb(int, int, int)",
+		"}",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		`import palette "./palette.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    var color = palette.Color.",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write imported enum: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main source: %v", err)
+	}
+	uri := pathToURI(mainPath)
+
+	s := NewServer()
+	s.Documents[uri] = mainSrc
+	analyzeForTest(t, s, uri, mainSrc)
+
+	line, col := findLineCol(mainSrc, "palette.Color.")
+	if line < 0 {
+		t.Fatalf("imported enum completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("palette.Color.")},
+	}))
+
+	if !completionHasLabel(completion, "Red") || !completionHasLabel(completion, "Rgb") {
+		t.Fatalf("expected imported enum variants, got %#v", completion.Items)
 	}
 }
 

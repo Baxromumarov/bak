@@ -251,6 +251,11 @@ func (s *Server) hoverInfoForMethodCall(n *ast.MethodCallExpression, result *Ana
 	key := baseTypeName(t) + "." + n.Method.Value
 
 	if h := lookupSymbol(result.Index, key); !h.empty() {
+		if h.sig != "" {
+			if structDef, ok := result.TC.GetStruct(baseTypeName(t)); ok {
+				h.sig = specializeGenericSignatureWithParams(h.sig, t, structDef.TypeParams)
+			}
+		}
 		return h
 	}
 	if h := s.lookupInImportedModules(result, uri, key, n.Method.Value); !h.empty() {
@@ -332,6 +337,20 @@ func (s *Server) qualifiedIdentifierHoverInfo(
 	qualifier := qualifierBefore(lineText, start-1)
 	if qualifier == "" {
 		return hoverInfo{}
+	}
+	if receiverType := receiverTypeForQualifier(result, text, pos, qualifier); receiverType != "" {
+		baseType := baseTypeName(receiverType)
+		if result != nil && result.Index != nil && result.Index.Sigs != nil {
+			if sig, ok := result.Index.Sigs[baseType+"."+word]; ok {
+				info := hoverInfo{sig: sig.Label, doc: sig.Doc}
+				if result.TC != nil {
+					if structDef, ok := result.TC.GetStruct(baseType); ok {
+						info.sig = specializeGenericSignatureWithParams(info.sig, receiverType, structDef.TypeParams)
+					}
+				}
+				return info
+			}
+		}
 	}
 	modIndex := s.resolveModule(result, uri, qualifier)
 	if modIndex == nil {

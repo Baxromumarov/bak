@@ -426,9 +426,10 @@ func indexProgram(
 					}
 				}
 				index.Structs[s.Name.Value] = StructInfo{
-					Name:   s.Name.Value,
-					Fields: fields,
-					Doc:    index.Docs[s.Name.Value],
+					Name:       s.Name.Value,
+					TypeParams: typeParamNamesFromDecls(s.TypeParams),
+					Fields:     fields,
+					Doc:        index.Docs[s.Name.Value],
 				}
 			}
 		case *ast.EnumDecl:
@@ -448,15 +449,27 @@ func indexProgram(
 				)
 
 				variants := make([]string, 0, len(s.Variants))
+				variantDetails := make([]EnumVariantInfo, 0, len(s.Variants))
 				for _, v := range s.Variants {
 					if v != nil && v.Name != nil {
 						variants = append(variants, v.Name.Value)
+						fields := make([]string, 0, len(v.Fields))
+						for _, f := range v.Fields {
+							if f != nil {
+								fields = append(fields, f.String())
+							}
+						}
+						variantDetails = append(variantDetails, EnumVariantInfo{
+							Name:   v.Name.Value,
+							Fields: fields,
+						})
 					}
 				}
 				index.Enums[s.Name.Value] = EnumInfo{
-					Name:     s.Name.Value,
-					Variants: variants,
-					Doc:      index.Docs[s.Name.Value],
+					Name:           s.Name.Value,
+					Variants:       variants,
+					VariantDetails: variantDetails,
+					Doc:            index.Docs[s.Name.Value],
 				}
 			}
 		case *ast.TypeDecl:
@@ -637,6 +650,16 @@ func buildFuncSignature(
 		Params: paramLabels,
 		Doc:    doc,
 	}
+}
+
+func typeParamNamesFromDecls(params []*ast.TypeParameter) []string {
+	names := make([]string, 0, len(params))
+	for _, p := range params {
+		if p != nil && p.Name != nil && p.Name.Value != "" {
+			names = append(names, p.Name.Value)
+		}
+	}
+	return names
 }
 
 func buildDocIndex(

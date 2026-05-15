@@ -161,6 +161,20 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 				sig = found
 			}
 		}
+		if sig.Label == "" && result.Index != nil {
+			if receiverType := receiverTypeForQualifier(result, text, pos, qualifier); receiverType != "" {
+				baseType := baseTypeName(receiverType)
+				if found, ok := result.Index.Sigs[baseType+"."+name]; ok {
+					sig = found
+					if result.TC != nil {
+						if structDef, ok := result.TC.GetStruct(baseType); ok {
+							sig.Label = specializeGenericSignatureWithParams(sig.Label, receiverType, structDef.TypeParams)
+							sig.Params = parseSignatureParams(sig.Label)
+						}
+					}
+				}
+			}
+		}
 	} else if result.Index != nil {
 		if found, ok := result.Index.Sigs[name]; ok {
 			sig = found
@@ -413,7 +427,7 @@ func memberAccessContext(line string, char int) (qualifier string, memberPrefix 
 		j--
 	}
 	qualEnd := j + 1
-	for j >= 0 && isWordChar(line[j]) {
+	for j >= 0 && (isWordChar(line[j]) || line[j] == '.') {
 		j--
 	}
 	qualifier = line[j+1 : qualEnd]

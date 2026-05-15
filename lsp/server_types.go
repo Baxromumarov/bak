@@ -57,9 +57,10 @@ type SignatureInfo struct {
 }
 
 type StructInfo struct {
-	Name   string
-	Fields []string
-	Doc    string
+	Name       string
+	TypeParams []string
+	Fields     []string
+	Doc        string
 }
 
 type ConstInfo struct {
@@ -82,9 +83,15 @@ type AliasInfo struct {
 }
 
 type EnumInfo struct {
-	Name     string
-	Variants []string
-	Doc      string
+	Name           string
+	Variants       []string
+	VariantDetails []EnumVariantInfo
+	Doc            string
+}
+
+type EnumVariantInfo struct {
+	Name   string
+	Fields []string
 }
 
 type VarInfo struct {

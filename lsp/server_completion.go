@@ -146,7 +146,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 							}
 
 							detail := methodCompletionDetail(baseType, methodName, methodSig, isStatic)
-							detail = specializeGenericSignature(detail, typeStr)
+							detail = specializeGenericSignatureWithParams(detail, typeStr, structDef.TypeParams)
 							items = append(items, CompletionItem{
 								Label:            methodName,
 								Kind:             2,
@@ -161,10 +161,11 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 								if fieldDef.Visibility == ast.Private && !isSamePkg {
 									continue
 								}
+								detail := specializeGenericSignatureWithParams(fieldDef.Type.String(), typeStr, structDef.TypeParams)
 								items = append(items, CompletionItem{
 									Label:         fieldName,
 									Kind:          5,
-									Detail:        fieldDef.Type.String(),
+									Detail:        detail,
 									Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", fieldName, "typeName", baseType)),
 								})
 							}
@@ -181,6 +182,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 							if st, ok := result.Index.Structs[baseType]; ok && !isStatic {
 								for _, f := range st.Fields {
 									fieldName, fieldType := splitIndexedFieldCompletion(f)
+									fieldType = specializeGenericSignatureWithParams(fieldType, typeStr, st.TypeParams)
 									items = append(items, CompletionItem{
 										Label:         fieldName,
 										Kind:          5,
@@ -256,6 +258,10 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				if typeStr == "" && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
 					typeStr = qualifier
 					isStatic = true
+				}
+
+				if isDotCompletion && qualifier != "" {
+					s.appendEnumVariantCompletions(&items, result, params.TextDocument.URI, qualifier)
 				}
 
 				addMembers(typeStr, isStatic)
@@ -661,10 +667,11 @@ func (s *Server) completeStructLiteralFields(
 			if fieldDef.Visibility == ast.Private && !isSamePkg {
 				continue
 			}
+			detail := specializeGenericSignatureWithParams(fieldDef.Type.String(), typeName, structDef.TypeParams)
 			items = append(items, CompletionItem{
 				Label:         fieldName,
 				Kind:          5, // Field
-				Detail:        fieldDef.Type.String(),
+				Detail:        detail,
 				Documentation: completionDoc(strfmt.Named("Field `{field}` on `{typeName}`.", "field", fieldName, "typeName", typeName)),
 			})
 		}
@@ -685,6 +692,7 @@ func (s *Server) completeStructLiteralFields(
 			name = strings.TrimSpace(parts[0])
 			detail = strings.TrimSpace(parts[1])
 		}
+		detail = specializeGenericSignatureWithParams(detail, typeName, st.TypeParams)
 		if name == "" || existing[name] {
 			continue
 		}
@@ -767,6 +775,107 @@ func (s *Server) completeImportedModuleMembers(
 	return items, true
 }
 
+func (s *Server) appendEnumVariantCompletions(
+	items *[]CompletionItem,
+	result *AnalysisResult,
+	uri,
+	qualifier string,
+) {
+	if result == nil || qualifier == "" {
+		return
+	}
+	enumName, enumInfo, ok := s.enumInfoForQualifier(result, uri, qualifier)
+	if !ok {
+		return
+	}
+	for _, variant := range enumVariantDetails(enumInfo) {
+		if variant.Name == "" {
+			continue
+		}
+		insertText := variant.Name
+		insertFormat := 1
+		detail := enumName + "." + variant.Name
+		if len(variant.Fields) > 0 {
+			insertText = variant.Name + "($0)"
+			insertFormat = 2
+			detail = strfmt.Named(
+				"{Enum}.{Variant}({Fields})",
+				"Enum", enumName,
+				"Variant", variant.Name,
+				"Fields", strings.Join(variant.Fields, ", "),
+			)
+		}
+		*items = append(*items, CompletionItem{
+			Label:            variant.Name,
+			Kind:             completionKind("enumMember"),
+			Detail:           detail,
+			Documentation:    completionDoc(strfmt.Named("Variant `{Variant}` of enum `{Enum}`.", "Variant", variant.Name, "Enum", enumName)),
+			InsertText:       insertText,
+			InsertTextFormat: insertFormat,
+			Data: completionResolveData{
+				Kind:     "enumMember",
+				Symbol:   variant.Name,
+				TypeName: enumName,
+			},
+		})
+	}
+}
+
+func (s *Server) enumInfoForQualifier(
+	result *AnalysisResult,
+	uri,
+	qualifier string,
+) (string, EnumInfo, bool) {
+	if qualifier == "Result" {
+		return qualifier, EnumInfo{
+			Name:     "Result",
+			Variants: []string{"Ok", "Err"},
+			VariantDetails: []EnumVariantInfo{
+				{Name: "Ok", Fields: []string{"T"}},
+				{Name: "Err", Fields: []string{"E"}},
+			},
+		}, true
+	}
+	if result != nil && result.Index != nil && result.Index.Enums != nil {
+		if enumInfo, ok := result.Index.Enums[qualifier]; ok {
+			return qualifier, enumInfo, true
+		}
+	}
+
+	alias, enumName, ok := strings.Cut(qualifier, ".")
+	if !ok || alias == "" || enumName == "" || result == nil || result.Imports == nil {
+		return "", EnumInfo{}, false
+	}
+	importPath, ok := result.Imports[alias]
+	if !ok {
+		return "", EnumInfo{}, false
+	}
+	path := s.resolveImportPath(uriToPath(uri), importPath)
+	if path == "" {
+		return "", EnumInfo{}, false
+	}
+	modIndex := s.getOrIndexFile(path)
+	if modIndex == nil || modIndex.Enums == nil {
+		return "", EnumInfo{}, false
+	}
+	enumInfo, ok := modIndex.Enums[enumName]
+	if !ok {
+		return "", EnumInfo{}, false
+	}
+	return enumName, enumInfo, true
+}
+
+func enumVariantDetails(enumInfo EnumInfo) []EnumVariantInfo {
+	if len(enumInfo.VariantDetails) > 0 {
+		return enumInfo.VariantDetails
+	}
+	variants := make([]EnumVariantInfo, 0, len(enumInfo.Variants))
+	for _, name := range enumInfo.Variants {
+		variants = append(variants, EnumVariantInfo{Name: name})
+	}
+	return variants
+}
+
 var generalCompletionPriority = map[int]int{
 	6:  0,  // Variable
 	5:  1,  // Field
@@ -784,11 +893,12 @@ var generalCompletionPriority = map[int]int{
 var memberCompletionPriority = map[int]int{
 	2:  0, // Method
 	5:  1, // Field
-	3:  2, // Function
-	21: 3, // Constant
-	25: 4, // Type
-	22: 5, // Struct
-	13: 6, // Enum
+	20: 2, // Enum member
+	3:  3, // Function
+	21: 4, // Constant
+	25: 5, // Type
+	22: 6, // Struct
+	13: 7, // Enum
 }
 
 var fieldCompletionPriority = map[int]int{
@@ -1373,37 +1483,36 @@ func importAliasForPath(importPath string) string {
 }
 
 func specializeGenericSignature(signature, fullType string) string {
-	args := genericTypeArgs(fullType)
-	if len(args) == 0 {
-		return signature
-	}
-	base := baseTypeName(fullType)
-	replacements := map[string]string{}
+	return specializeGenericSignatureWithParams(signature, fullType, builtinGenericParamNames(baseTypeName(fullType)))
+}
+
+func builtinGenericParamNames(base string) []string {
 	switch base {
 	case "Vec":
-		if len(args) > 0 && args[0] != "" {
-			replacements["T"] = args[0]
-		}
-		if len(args) > 1 && args[1] != "" {
-			replacements["N"] = args[1]
-		}
+		return []string{"T", "N"}
 	case "HashMap", "Map":
-		if len(args) > 0 && args[0] != "" {
-			replacements["K"] = args[0]
-		}
-		if len(args) > 1 && args[1] != "" {
-			replacements["V"] = args[1]
-		}
+		return []string{"K", "V"}
 	case "Result":
-		if len(args) > 0 && args[0] != "" {
-			replacements["T"] = args[0]
-		}
-		if len(args) > 1 && args[1] != "" {
-			replacements["E"] = args[1]
-		}
+		return []string{"T", "E"}
 	case "Option":
-		if len(args) > 0 && args[0] != "" {
-			replacements["T"] = args[0]
+		return []string{"T"}
+	default:
+		return nil
+	}
+}
+
+func specializeGenericSignatureWithParams(signature, fullType string, params []string) string {
+	args := genericTypeArgs(fullType)
+	if len(args) == 0 || len(params) == 0 {
+		return signature
+	}
+	replacements := map[string]string{}
+	for i, param := range params {
+		if i >= len(args) {
+			break
+		}
+		if param != "" && args[i] != "" {
+			replacements[param] = args[i]
 		}
 	}
 	for from, to := range replacements {
@@ -1442,18 +1551,22 @@ func genericTypeArgs(typeName string) []string {
 }
 
 func replaceTypeParam(signature, from, to string) string {
-	for _, pattern := range []string{
-		" " + from + ")",
-		" " + from + ",",
-		"<" + from + ">",
-		"<" + from + ",",
-		", " + from + ">",
-		"(" + from + ")",
-	} {
-		repl := strings.ReplaceAll(pattern, from, to)
-		signature = strings.ReplaceAll(signature, pattern, repl)
+	if from == "" {
+		return signature
 	}
-	return signature
+	var out strings.Builder
+	for i := 0; i < len(signature); {
+		if strings.HasPrefix(signature[i:], from) &&
+			(i == 0 || !isWordChar(signature[i-1])) &&
+			(i+len(from) == len(signature) || !isWordChar(signature[i+len(from)])) {
+			out.WriteString(to)
+			i += len(from)
+			continue
+		}
+		out.WriteByte(signature[i])
+		i++
+	}
+	return out.String()
 }
 
 var builtinSignatures = map[string]string{
@@ -1536,6 +1649,8 @@ func completionKind(kind string) int {
 		return 22
 	case "enum":
 		return 13
+	case "enumMember":
+		return 20
 	case "type", "alias":
 		return 25
 	case "var":
