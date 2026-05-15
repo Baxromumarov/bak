@@ -642,6 +642,19 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	if _, _, ok := renameTargetAt(result.AST, params.Position); !ok {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
+	node := findNode(result.AST, params.Position.Line+1, params.Position.Character+1)
+	if node == nil || isNil(node) {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
+	if result.RefByPos != nil {
+		key := nodeRefKey(node)
+		if key == "" {
+			return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+		}
+		if _, ok := result.RefByPos[key]; !ok {
+			return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+		}
+	}
 
 	refParams := ReferenceParams{
 		TextDocument: params.TextDocument,
@@ -694,9 +707,11 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 	if !ok {
 		return nil
 	}
+	ctx := requestContext(req)
 
 	actions := []CodeAction{}
 	text, hasDocument := s.document(params.TextDocument.URI)
+	result := s.analysisResultOrNil(params.TextDocument.URI)
 	for _, diag := range params.Context.Diagnostics {
 		actions = addQuickFixActions(actions, params.TextDocument.URI, diag)
 		actions = addRemoveUnusedAction(actions, params.TextDocument.URI, diag)
@@ -720,10 +735,25 @@ func (s *Server) handleCodeAction(req Request) []CodeAction {
 
 	actions = addAutoImportActions(
 		actions,
-		s.analysisResultOrNil(params.TextDocument.URI),
+		result,
 		params.TextDocument.URI,
 		params.Context.Diagnostics,
 	)
+	if result != nil {
+		s.ensureWorkspaceIndexes(ctx)
+		actions = s.addLocalAutoImportActions(
+			actions,
+			result,
+			params.TextDocument.URI,
+			params.Context.Diagnostics,
+		)
+	}
+	if hasDocument {
+		actions = addMutabilityActions(actions, params.TextDocument.URI, text, params.Context.Diagnostics)
+		actions = addCreateMissingFieldActions(actions, params.TextDocument.URI, text, result, params.Context.Diagnostics)
+		actions = addCreateMissingMethodActions(actions, params.TextDocument.URI, text, result, params.Context.Diagnostics)
+		actions = addSwitchCaseActions(actions, params.TextDocument.URI, text, result, params.Range.Start)
+	}
 
 	return actions
 }

@@ -1,8 +1,10 @@
 package main
 
 import (
+	"strconv"
 	"strings"
 
+	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/token"
 )
@@ -50,6 +52,7 @@ func (s *Server) handleSemanticTokensFull(req Request) *SemanticTokens {
 
 func collectSemanticTokens(text string, result *AnalysisResult) []int {
 	declKinds := semanticDeclarationKinds(result)
+	posKinds := semanticPositionKinds(result)
 	tokens := []int{}
 	prevLine := 0
 	prevChar := 0
@@ -60,7 +63,10 @@ func collectSemanticTokens(text string, result *AnalysisResult) []int {
 		if tok.Type == token.EOF {
 			break
 		}
-		tokenType := semanticTypeForToken(tok, declKinds)
+		tokenType := posKinds[semanticPositionKey(tok.Line, tok.Column)]
+		if tokenType == "" {
+			tokenType = semanticTypeForToken(tok, declKinds)
+		}
 		if tokenType == "" {
 			continue
 		}
@@ -100,7 +106,10 @@ func semanticDeclarationKinds(result *AnalysisResult) map[string]string {
 		return kinds
 	}
 	for name, sym := range result.Index.Symbols {
-		if name == "" || strings.Contains(name, ".") {
+		if name == "" {
+			continue
+		}
+		if strings.Contains(name, ".") {
 			continue
 		}
 		switch sym.Kind {
@@ -131,6 +140,101 @@ func semanticDeclarationKinds(result *AnalysisResult) map[string]string {
 		kinds[name] = "type"
 	}
 	return kinds
+}
+
+func semanticPositionKinds(result *AnalysisResult) (kinds map[string]string) {
+	kinds = map[string]string{}
+	if result == nil {
+		return kinds
+	}
+	for key, id := range result.RefByPos {
+		if kind := semanticKindForRefID(id); kind != "" {
+			kinds[key] = kind
+		}
+	}
+	if result.AST == nil {
+		return kinds
+	}
+	defer func() {
+		_ = recover()
+	}()
+	ast.Walk(result.AST, func(n ast.Node) {
+		switch x := n.(type) {
+		case *ast.FunctionDecl:
+			if x != nil && x.Name != nil {
+				kinds[semanticPositionKey(x.Name.Token.Line, x.Name.Token.Column)] = "function"
+			}
+			for _, p := range x.Parameters {
+				if p != nil && p.Name != nil {
+					kinds[semanticPositionKey(p.Name.Token.Line, p.Name.Token.Column)] = "parameter"
+				}
+			}
+		case *ast.MethodDecl:
+			if x != nil && x.Name != nil {
+				kinds[semanticPositionKey(x.Name.Token.Line, x.Name.Token.Column)] = "method"
+			}
+			for _, p := range x.Parameters {
+				if p != nil && p.Name != nil {
+					kinds[semanticPositionKey(p.Name.Token.Line, p.Name.Token.Column)] = "parameter"
+				}
+			}
+		case *ast.StructField:
+			if x != nil && x.Name != nil {
+				kinds[semanticPositionKey(x.Name.Token.Line, x.Name.Token.Column)] = "property"
+			}
+		case *ast.EnumVariant:
+			if x != nil && x.Name != nil {
+				kinds[semanticPositionKey(x.Name.Token.Line, x.Name.Token.Column)] = "enumMember"
+			}
+		case *ast.FieldAccessExpression:
+			if x != nil && x.Field != nil {
+				kinds[semanticPositionKey(x.Field.Token.Line, x.Field.Token.Column)] = "property"
+			}
+		case *ast.MethodCallExpression:
+			if x != nil && x.Method != nil {
+				kinds[semanticPositionKey(x.Method.Token.Line, x.Method.Token.Column)] = "method"
+			}
+		case *ast.SimpleType:
+			if x != nil && x.Name != "" && !token.IsType(x.Token.Type) {
+				kinds[semanticPositionKey(x.Token.Line, x.Token.Column)] = "type"
+			}
+		case *ast.GenericType:
+			if x != nil && x.Name != "" {
+				kinds[semanticPositionKey(x.Token.Line, x.Token.Column)] = "type"
+			}
+		}
+	})
+	return kinds
+}
+
+func semanticPositionKey(line, col int) string {
+	return strconv.Itoa(line) + ":" + strconv.Itoa(col)
+}
+
+func semanticKindForRefID(id string) string {
+	kind, _, ok := strings.Cut(id, ":")
+	if !ok {
+		return ""
+	}
+	switch kind {
+	case "func":
+		return "function"
+	case "method":
+		return "method"
+	case "field":
+		return "property"
+	case "param", "parameter":
+		return "parameter"
+	case "struct":
+		return "struct"
+	case "enum":
+		return "enum"
+	case "type", "alias":
+		return "type"
+	case "const", "var":
+		return "variable"
+	}
+	return ""
 }
 
 func semanticTypeForToken(tok token.Token, declKinds map[string]string) string {

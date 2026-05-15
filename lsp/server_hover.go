@@ -249,6 +249,7 @@ func (s *Server) hoverInfoForMethodCall(n *ast.MethodCallExpression, result *Ana
 		return hoverInfo{}
 	}
 	key := baseTypeName(t) + "." + n.Method.Value
+	mutatesReceiver := methodDeclIsMutable(result, baseTypeName(t), n.Method.Value)
 
 	if h := lookupSymbol(result.Index, key); !h.empty() {
 		if h.sig != "" {
@@ -256,12 +257,53 @@ func (s *Server) hoverInfoForMethodCall(n *ast.MethodCallExpression, result *Ana
 				h.sig = specializeGenericSignatureWithParams(h.sig, t, structDef.TypeParams)
 			}
 		}
-		return h
+		return enrichMethodHover(h, t, mutatesReceiver)
 	}
 	if h := s.lookupInImportedModules(result, uri, key, n.Method.Value); !h.empty() {
+		return enrichMethodHover(h, t, mutatesReceiver)
+	}
+	return enrichMethodHover(s.lookupInPrelude(key, n.Method.Value), t, mutatesReceiver)
+}
+
+func methodDeclIsMutable(result *AnalysisResult, typeName, methodName string) bool {
+	if result == nil || result.AST == nil || typeName == "" || methodName == "" {
+		return false
+	}
+	for _, stmt := range result.AST.Statements {
+		impl, ok := stmt.(*ast.ImplDecl)
+		if !ok || impl == nil || impl.TypeName == nil || impl.TypeName.Value != typeName {
+			continue
+		}
+		for _, method := range impl.Methods {
+			if method != nil && method.Name != nil && method.Name.Value == methodName {
+				return method.Mutable
+			}
+		}
+	}
+	return false
+}
+
+func enrichMethodHover(h hoverInfo, receiverType string, mutatesReceiver bool) hoverInfo {
+	if h.empty() {
 		return h
 	}
-	return s.lookupInPrelude(key, n.Method.Value)
+	lines := []string{}
+	if receiverType != "" {
+		lines = append(lines, strfmt.Named("Receiver: `{Receiver}`.", "Receiver", receiverType))
+	}
+	if mutatesReceiver || strings.HasPrefix(strings.TrimSpace(h.sig), "mut func") {
+		lines = append(lines, "Mutates the receiver.")
+	}
+	if len(lines) == 0 {
+		return h
+	}
+	extra := strings.Join(lines, "\n")
+	if h.doc == "" {
+		h.doc = extra
+	} else if !strings.Contains(h.doc, extra) {
+		h.doc += "\n\n" + extra
+	}
+	return h
 }
 
 func (s *Server) hoverInfoForCallExpression(n *ast.CallExpression, result *AnalysisResult, uri string) hoverInfo {

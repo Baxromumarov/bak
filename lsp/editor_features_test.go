@@ -226,6 +226,50 @@ func TestHoverTracksVecLengthThroughMutableHelper(t *testing.T) {
 	}
 }
 
+func TestHoverShowsMethodReceiverDetails(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"impl Data as d {",
+		"    mut func setAge(age: int) -> (void) {",
+		"        d.age = age",
+		"        return void",
+		"    }",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var d: Data",
+		"    d.setAge(42)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "setAge(42)")
+	if line < 0 {
+		t.Fatalf("hover target not found")
+	}
+	hover := s.handleHover(mustRequest(t, HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}))
+	if hover == nil {
+		t.Fatalf("expected hover result")
+	}
+	if !strings.Contains(hover.Contents.Value, "Receiver: `Data`") ||
+		!strings.Contains(hover.Contents.Value, "Mutates the receiver") {
+		t.Fatalf("expected method receiver hover details, got %q", hover.Contents.Value)
+	}
+}
+
 func TestHoverTracksVecLengthInsideIfBranch(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -883,6 +927,60 @@ func TestCompletionSuggestsStdlibAutoImportWithEdit(t *testing.T) {
 	}
 }
 
+func TestCompletionSuggestsLocalAutoImportWithEdit(t *testing.T) {
+	dir := t.TempDir()
+	utilPath := filepath.Join(dir, "util.bak")
+	mainPath := filepath.Join(dir, "main.bak")
+	utilSrc := strings.Join([]string{
+		"package util",
+		"",
+		"pub struct Widget {",
+		"    pub id: int",
+		"}",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    Wid",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(utilPath, []byte(utilSrc), 0o644); err != nil {
+		t.Fatalf("write util: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+	uri := pathToURI(mainPath)
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[uri] = mainSrc
+	analyzeForTest(t, s, uri, mainSrc)
+
+	line, col := findLineCol(mainSrc, "Wid")
+	if line < 0 {
+		t.Fatalf("local auto import completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Wid")},
+	}))
+
+	item, ok := completionItemByLabel(completion, "Widget")
+	if !ok {
+		t.Fatalf("expected Widget local auto-import completion, got %#v", completion.Items)
+	}
+	if item.InsertText != "util.Widget" || !strings.Contains(item.Detail, "auto import from util") {
+		t.Fatalf("expected qualified local auto-import completion, got %#v", item)
+	}
+	if len(item.AdditionalTextEdits) != 1 || item.AdditionalTextEdits[0].NewText != "import util \"./util.bak\"\n" {
+		t.Fatalf("expected local import edit, got %#v", item.AdditionalTextEdits)
+	}
+}
+
 func TestCompletionSuggestsEnumVariantsAfterDot(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -925,6 +1023,53 @@ func TestCompletionSuggestsEnumVariantsAfterDot(t *testing.T) {
 	}
 	if rgb.InsertText != "Rgb($0)" || !strings.Contains(rgb.Detail, "int, int, int") {
 		t.Fatalf("expected payload variant snippet/detail, got %#v", rgb)
+	}
+}
+
+func TestCompletionSuggestsMissingSwitchVariants(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"enum Color {",
+		"    Red",
+		"    Green",
+		"    Rgb(int, int, int)",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var color: Color = Red",
+		"    switch color {",
+		"    case Red {",
+		"    }",
+		"    case ",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "    case \n")
+	if line < 0 {
+		t.Fatalf("switch case completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("    case ")},
+	}))
+
+	if completionHasLabel(completion, "Red") {
+		t.Fatalf("already-covered variant leaked into completion: %#v", completion.Items)
+	}
+	if !completionHasLabel(completion, "Green") || !completionHasLabel(completion, "Rgb") {
+		t.Fatalf("expected missing switch variants, got %#v", completion.Items)
+	}
+	rgb, ok := completionItemByLabel(completion, "Rgb")
+	if !ok || rgb.InsertTextFormat != 2 || !strings.Contains(rgb.InsertText, "${1:_}") {
+		t.Fatalf("expected payload variant snippet, got %#v", rgb)
 	}
 }
 
@@ -1302,6 +1447,101 @@ func TestSemanticTokensFullReturnsLexicalTokens(t *testing.T) {
 	}
 }
 
+func TestSemanticTokensPreferExactPositionsOverNameMatches(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var age: int = 1",
+		"    mut var d: Data",
+		"    d.age = age",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	tokens := s.handleSemanticTokensFull(mustRequest(t, SemanticTokensParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}))
+	fieldLine, fieldCol := findLineCol(src, "age: int")
+	localLine, localCol := findLineCol(src, "var age")
+	useLine, useCol := findLineCol(src, "= age")
+	if fieldLine < 0 || localLine < 0 || useLine < 0 {
+		t.Fatalf("semantic token targets not found")
+	}
+	if got := semanticTokenTypeAt(tokens, fieldLine, fieldCol); got != "property" {
+		t.Fatalf("expected struct field age to be property, got %q", got)
+	}
+	if got := semanticTokenTypeAt(tokens, localLine, localCol+len("var ")); got != "variable" {
+		t.Fatalf("expected local age declaration to be variable, got %q", got)
+	}
+	if got := semanticTokenTypeAt(tokens, useLine, useCol+len("= ")); got != "variable" {
+		t.Fatalf("expected local age use to be variable, got %q", got)
+	}
+}
+
+func TestSemanticTokensHandleVoidReturns(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"pub func hello() -> (void) {",
+		"    var x: int = 10",
+		"    if x > 5 {",
+		"        println(x)",
+		"    }",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	tokens := s.handleSemanticTokensFull(mustRequest(t, SemanticTokensParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}))
+	if tokens == nil {
+		t.Fatalf("expected semantic token response")
+	}
+}
+
+func semanticTokenTypeAt(tokens *SemanticTokens, wantLine, wantChar int) string {
+	if tokens == nil {
+		return ""
+	}
+	line := 0
+	char := 0
+	for i := 0; i+4 < len(tokens.Data); i += 5 {
+		deltaLine := tokens.Data[i]
+		deltaStart := tokens.Data[i+1]
+		length := tokens.Data[i+2]
+		tokenType := tokens.Data[i+3]
+		line += deltaLine
+		if deltaLine == 0 {
+			char += deltaStart
+		} else {
+			char = deltaStart
+		}
+		if line == wantLine && wantChar >= char && wantChar < char+length {
+			if tokenType >= 0 && tokenType < len(semanticTokenTypes) {
+				return semanticTokenTypes[tokenType]
+			}
+			return ""
+		}
+	}
+	return ""
+}
+
 func completionItemByLabel(list CompletionList, label string) (CompletionItem, bool) {
 	for _, item := range list.Items {
 		if item.Label == label {
@@ -1589,6 +1829,277 @@ func TestCodeActionOffersStructuredMethodRenameFix(t *testing.T) {
 	}
 	if !foundFix {
 		t.Fatalf("expected structured method quick fix action, got %#v", actions)
+	}
+}
+
+func TestCodeActionMakesVariableMutable(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var items: Vec<int, _> = Vec.from([])",
+		"    items.push(1)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 4, Character: 4},
+			End:   Position{Line: 4, Character: 14},
+		},
+		Context: CodeActionContext{
+			Diagnostics: []Diagnostic{{
+				Range: Range{
+					Start: Position{Line: 4, Character: 4},
+					End:   Position{Line: 4, Character: 14},
+				},
+				Message: "cannot call 'push' on immutable variable 'items'",
+			}},
+		},
+	}))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Make 'items' mutable" {
+			continue
+		}
+		found = true
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 || edits[0].NewText != "mut var" {
+			t.Fatalf("expected mut var edit, got %#v", edits)
+		}
+	}
+	if !found {
+		t.Fatalf("expected mutability action, got %#v", actions)
+	}
+}
+
+func TestCodeActionCreatesMissingMethod(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var d: Data",
+		"    d.setEmail(\"a@b.com\")",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 8, Character: 6},
+			End:   Position{Line: 8, Character: 14},
+		},
+		Context: CodeActionContext{
+			Diagnostics: []Diagnostic{{
+				Range: Range{
+					Start: Position{Line: 8, Character: 6},
+					End:   Position{Line: 8, Character: 14},
+				},
+				Message: "undefined method 'setEmail' for Data",
+			}},
+		},
+	}))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Create method 'setEmail' on Data" {
+			continue
+		}
+		found = true
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 ||
+			!strings.Contains(edits[0].NewText, "mut func setEmail(email: string)") ||
+			!strings.Contains(edits[0].NewText, "d.email = email") ||
+			!strings.Contains(edits[0].NewText, "impl Data as d") {
+			t.Fatalf("expected missing method insertion, got %#v", edits)
+		}
+	}
+	if !found {
+		t.Fatalf("expected create method action, got %#v", actions)
+	}
+}
+
+func TestCodeActionAddsMissingField(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var d: Data",
+		"    d.email = \"a@b.com\"",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 8, Character: 6},
+			End:   Position{Line: 8, Character: 11},
+		},
+		Context: CodeActionContext{
+			Diagnostics: []Diagnostic{{
+				Range: Range{
+					Start: Position{Line: 8, Character: 6},
+					End:   Position{Line: 8, Character: 11},
+				},
+				Message: "struct 'Data' has no field 'email'",
+			}},
+		},
+	}))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Add field 'email' to Data" {
+			continue
+		}
+		found = true
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 || edits[0].NewText != "    email: string\n" {
+			t.Fatalf("expected missing field insertion, got %#v", edits)
+		}
+	}
+	if !found {
+		t.Fatalf("expected create field action, got %#v", actions)
+	}
+}
+
+func TestCodeActionSuggestsLocalAutoImport(t *testing.T) {
+	dir := t.TempDir()
+	utilPath := filepath.Join(dir, "util.bak")
+	mainPath := filepath.Join(dir, "main.bak")
+	utilSrc := strings.Join([]string{
+		"package util",
+		"",
+		"pub struct Widget {",
+		"    pub id: int",
+		"}",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var w: Widget",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(utilPath, []byte(utilSrc), 0o644); err != nil {
+		t.Fatalf("write util: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+	uri := pathToURI(mainPath)
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[uri] = mainSrc
+	analyzeForTest(t, s, uri, mainSrc)
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 3, Character: 11},
+			End:   Position{Line: 3, Character: 17},
+		},
+		Context: CodeActionContext{
+			Diagnostics: []Diagnostic{{
+				Range: Range{
+					Start: Position{Line: 3, Character: 11},
+					End:   Position{Line: 3, Character: 17},
+				},
+				Message: "undefined: Widget",
+			}},
+		},
+	}))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Import 'Widget' from util" {
+			continue
+		}
+		found = true
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 || edits[0].NewText != "import util \"./util.bak\"\n" {
+			t.Fatalf("expected local import edit, got %#v", edits)
+		}
+	}
+	if !found {
+		t.Fatalf("expected local auto-import action, got %#v", actions)
+	}
+}
+
+func TestCodeActionAddsMissingEnumSwitchCases(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"enum Color {",
+		"    Red",
+		"    Green",
+		"    Blue",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var color: Color = Red",
+		"    switch color {",
+		"    case Red {",
+		"    }",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 10, Character: 4},
+			End:   Position{Line: 10, Character: 16},
+		},
+		Context: CodeActionContext{},
+	}))
+
+	found := false
+	for _, action := range actions {
+		if action.Title != "Add missing enum cases" {
+			continue
+		}
+		found = true
+		edits := action.Edit.Changes[uri]
+		if len(edits) != 1 ||
+			!strings.Contains(edits[0].NewText, "case Green") ||
+			!strings.Contains(edits[0].NewText, "case Blue") ||
+			strings.Contains(edits[0].NewText, "case Red") {
+			t.Fatalf("expected missing switch cases for Green/Blue, got %#v", edits)
+		}
+	}
+	if !found {
+		t.Fatalf("expected missing enum cases action, got %#v", actions)
 	}
 }
 

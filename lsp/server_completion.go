@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -64,6 +65,10 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		result := s.completionAnalysisResult(params.TextDocument.URI)
 		if structItems := s.completeStructLiteralFields(ctx, result, text, params.TextDocument.URI, params.Position); len(structItems) > 0 {
 			out.Items = rankCompletionItems(structItems, qualifier, fieldCompletionPriority)
+			return out
+		}
+		if switchItems := completeSwitchCaseVariants(text, params.Position); len(switchItems) > 0 {
+			out.Items = rankCompletionItems(switchItems, wordPrefixAt(lineText, params.Position.Character), memberCompletionPriority)
 			return out
 		}
 	}
@@ -517,6 +522,10 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		autoImportPrefix = wordPrefixAt(lineText, params.Position.Character)
 	}
 	s.appendAutoImportCompletions(&items, s.completionAnalysisResult(params.TextDocument.URI), params.TextDocument.URI, autoImportPrefix)
+	if autoImportPrefix != "" {
+		s.ensureWorkspaceIndexes(ctx)
+		s.appendLocalAutoImportCompletions(&items, s.completionAnalysisResult(params.TextDocument.URI), params.TextDocument.URI, autoImportPrefix)
+	}
 
 	snippets := []struct {
 		label  string
@@ -577,6 +586,53 @@ func (s *Server) completionAnalysisResult(uri string) *AnalysisResult {
 		return result
 	}
 	return s.resultForDocument(uri)
+}
+
+func completeSwitchCaseVariants(text string, pos Position) []CompletionItem {
+	line := lineAt(text, pos.Line)
+	before := line
+	if pos.Character >= 0 && pos.Character < len(line) {
+		before = line[:pos.Character]
+	}
+	trimmed := strings.TrimSpace(before)
+	if trimmed != "case" && !strings.HasPrefix(trimmed, "case ") {
+		return nil
+	}
+	switchLine, switchVar, closeLine, ok := textualSwitchAt(text, pos.Line)
+	if !ok || switchVar == "" {
+		return nil
+	}
+	typeName := baseTypeName(declaredLocalTypeBefore(text, switchLine, switchVar))
+	if typeName == "" {
+		return nil
+	}
+	seen := textualSwitchCaseNames(text, switchLine, closeLine)
+	items := []CompletionItem{}
+	for _, variant := range textualEnumVariantInfos(text, typeName) {
+		if variant.Name == "" || seen[variant.Name] {
+			continue
+		}
+		insertText := variant.Name
+		insertFormat := 1
+		detail := typeName + "." + variant.Name
+		if len(variant.Fields) > 0 {
+			args := make([]string, len(variant.Fields))
+			for i := range args {
+				args[i] = "${" + strconv.Itoa(i+1) + ":_}"
+			}
+			insertText += "(" + strings.Join(args, ", ") + ")"
+			insertFormat = 2
+			detail += "(" + strings.Join(variant.Fields, ", ") + ")"
+		}
+		items = append(items, CompletionItem{
+			Label:            variant.Name,
+			Kind:             completionKind("enumMember"),
+			Detail:           detail,
+			InsertText:       insertText,
+			InsertTextFormat: insertFormat,
+		})
+	}
+	return items
 }
 
 var primitiveTypeNames = []string{
@@ -1458,6 +1514,68 @@ func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *An
 				AdditionalTextEdits: []TextEdit{{
 					Range:   Range{Start: insertPos, End: insertPos},
 					NewText: importLine,
+				}},
+				Data: completionResolveData{
+					Kind:       "autoImport",
+					Symbol:     sym.Name,
+					Alias:      alias,
+					ImportPath: importPath,
+				},
+			})
+		}
+	}
+}
+
+func (s *Server) appendLocalAutoImportCompletions(items *[]CompletionItem, result *AnalysisResult, uri string, prefix string) {
+	if result == nil || strings.TrimSpace(prefix) == "" {
+		return
+	}
+	prefixFolded := strings.ToLower(strings.TrimSpace(prefix))
+	currentPath := uriToPath(uri)
+	currentDir := filepath.Dir(currentPath)
+	imported := map[string]bool{}
+	for alias := range result.Imports {
+		imported[alias] = true
+	}
+	seen := map[string]bool{}
+	for _, idx := range s.indexSnapshot() {
+		if idx == nil || idx.Symbols == nil {
+			continue
+		}
+		for _, sym := range sortedSymbols(idx) {
+			if !sym.Exported || sym.Location.URI == "" || sym.Location.URI == uri || strings.Contains(sym.Name, ".") {
+				continue
+			}
+			if !strings.HasPrefix(strings.ToLower(sym.Name), prefixFolded) {
+				continue
+			}
+			targetPath := uriToPath(sym.Location.URI)
+			importPath, alias := localImportPathAndAlias(currentDir, targetPath)
+			if importPath == "" || alias == "" || imported[alias] {
+				continue
+			}
+			key := alias + "." + sym.Name
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			insertText := alias + "." + sym.Name
+			insertFormat := 1
+			if sym.Kind == "func" {
+				insertText += "($0)"
+				insertFormat = 2
+			}
+			insertPos := findImportInsertPosition(result)
+			*items = append(*items, CompletionItem{
+				Label:            sym.Name,
+				Kind:             completionKind(sym.Kind),
+				Detail:           "auto import from " + alias,
+				Documentation:    completionDoc(strfmt.Named("Auto-import from `{Alias}`.", "Alias", alias)),
+				InsertText:       insertText,
+				InsertTextFormat: insertFormat,
+				AdditionalTextEdits: []TextEdit{{
+					Range:   Range{Start: insertPos, End: insertPos},
+					NewText: strfmt.Named("import {Alias} \"{ImportPath}\"\n", "Alias", alias, "ImportPath", importPath),
 				}},
 				Data: completionResolveData{
 					Kind:       "autoImport",
