@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -468,7 +469,11 @@ func (s *Server) addLocalAutoImportActions(actions []CodeAction, result *Analysi
 				continue
 			}
 			importPath, alias := localImportPathAndAlias(currentDir, targetPath)
-			if importPath == "" || alias == "" || imported[alias] {
+			if importPath == "" || alias == "" || importPathAlreadyPresent(result.Imports, importPath, currentDir) {
+				continue
+			}
+			alias, ok = uniqueImportAlias(imported, alias)
+			if !ok {
 				continue
 			}
 			importLine := strfmt.Named("import {Alias} \"{ImportPath}\"\n", "Alias", alias, "ImportPath", importPath)
@@ -494,8 +499,68 @@ func localImportPathAndAlias(currentDir, targetPath string) (string, string) {
 	if !strings.HasPrefix(rel, ".") {
 		rel = "./" + rel
 	}
-	alias := sanitizePackageName(strings.TrimSuffix(filepath.Base(targetPath), ".bak"))
+	alias := localPackageName(targetPath)
+	if alias == "" {
+		alias = strings.TrimSuffix(filepath.Base(targetPath), ".bak")
+	}
+	alias = sanitizePackageName(alias)
 	return rel, alias
+}
+
+func localPackageName(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) == 2 && fields[0] == "package" {
+			return fields[1]
+		}
+	}
+	return ""
+}
+
+func importPathAlreadyPresent(imports map[string]string, importPath, currentDir string) bool {
+	for _, existing := range imports {
+		if existing == importPath {
+			return true
+		}
+		if currentDir == "" {
+			continue
+		}
+		resolved := existing
+		if !filepath.IsAbs(resolved) && strings.HasPrefix(existing, ".") {
+			resolved = filepath.ToSlash(filepath.Clean(filepath.Join(currentDir, existing)))
+		}
+		target := importPath
+		if !filepath.IsAbs(target) && strings.HasPrefix(importPath, ".") {
+			target = filepath.ToSlash(filepath.Clean(filepath.Join(currentDir, importPath)))
+		}
+		if resolved == target {
+			return true
+		}
+	}
+	return false
+}
+
+func uniqueImportAlias(imported map[string]bool, alias string) (string, bool) {
+	alias = sanitizePackageName(alias)
+	if alias == "" {
+		return "", false
+	}
+	if !imported[alias] {
+		imported[alias] = true
+		return alias, true
+	}
+	for i := 2; i < 100; i++ {
+		candidate := strfmt.Named("{Alias}{N}", "Alias", alias, "N", i)
+		if !imported[candidate] {
+			imported[candidate] = true
+			return candidate, true
+		}
+	}
+	return "", false
 }
 
 func addMutabilityActions(actions []CodeAction, uri, text string, diagnostics []Diagnostic) []CodeAction {

@@ -116,21 +116,10 @@ func isPositionInComment(text string, pos Position) bool {
 }
 
 func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisResult, s *Server) *SignatureHelp {
-	lineText := lineAt(text, pos.Line)
-	if lineText == "" {
+	token, argText, ok := signatureCallContext(text, pos)
+	if !ok {
 		return nil
 	}
-	char := min(pos.Character, len(lineText))
-	left := lineText[:char]
-	openIdx := strings.LastIndex(left, "(")
-	if openIdx == -1 {
-		return nil
-	}
-	prefix := strings.TrimSpace(left[:openIdx])
-	if prefix == "" {
-		return nil
-	}
-	token := scanCallableToken(prefix)
 	if token == "" {
 		return nil
 	}
@@ -217,12 +206,7 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 		return nil
 	}
 
-	activeParam := 0
-	for _, ch := range left[openIdx+1:] {
-		if ch == ',' {
-			activeParam++
-		}
-	}
+	activeParam := activeSignatureParam(argText)
 	if activeParam >= len(sig.Params) {
 		activeParam = max(len(sig.Params)-1, 0)
 	}
@@ -249,6 +233,90 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 		ActiveSignature: 0,
 		ActiveParameter: activeParam,
 	}
+}
+
+func signatureCallContext(text string, pos Position) (string, string, bool) {
+	offset := offsetAt(text, pos.Line, pos.Character)
+	if offset < 0 {
+		return "", "", false
+	}
+	if offset > len(text) {
+		offset = len(text)
+	}
+	depth := 0
+	for i := offset - 1; i >= 0; i-- {
+		switch text[i] {
+		case ')':
+			depth++
+		case '(':
+			if depth > 0 {
+				depth--
+				continue
+			}
+			token := callableTokenBefore(text, i)
+			if token == "" {
+				return "", "", false
+			}
+			return token, text[i+1 : offset], true
+		}
+	}
+	return "", "", false
+}
+
+func callableTokenBefore(text string, openIdx int) string {
+	i := openIdx - 1
+	for i >= 0 && (text[i] == ' ' || text[i] == '\t' || text[i] == '\n' || text[i] == '\r') {
+		i--
+	}
+	end := i + 1
+	for i >= 0 && (isWordChar(text[i]) || text[i] == '.') {
+		i--
+	}
+	if end <= i+1 {
+		return ""
+	}
+	return scanCallableToken(text[i+1 : end])
+}
+
+func activeSignatureParam(argText string) int {
+	active := 0
+	parenDepth := 0
+	angleDepth := 0
+	bracketDepth := 0
+	braceDepth := 0
+	for i := 0; i < len(argText); i++ {
+		switch argText[i] {
+		case '(':
+			parenDepth++
+		case ')':
+			if parenDepth > 0 {
+				parenDepth--
+			}
+		case '<':
+			angleDepth++
+		case '>':
+			if angleDepth > 0 {
+				angleDepth--
+			}
+		case '[':
+			bracketDepth++
+		case ']':
+			if bracketDepth > 0 {
+				bracketDepth--
+			}
+		case '{':
+			braceDepth++
+		case '}':
+			if braceDepth > 0 {
+				braceDepth--
+			}
+		case ',':
+			if parenDepth == 0 && angleDepth == 0 && bracketDepth == 0 && braceDepth == 0 {
+				active++
+			}
+		}
+	}
+	return active
 }
 
 func lookupUniqueBuiltinMethod(name string) (string, builtinMethodInfo, bool) {

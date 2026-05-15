@@ -51,9 +51,10 @@ type FileIndex struct {
 }
 
 type SignatureInfo struct {
-	Label  string
-	Params []string
-	Doc    string
+	Label   string
+	Params  []string
+	Doc     string
+	Mutable bool
 }
 
 type StructInfo struct {

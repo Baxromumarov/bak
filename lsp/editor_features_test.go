@@ -226,6 +226,58 @@ func TestHoverTracksVecLengthThroughMutableHelper(t *testing.T) {
 	}
 }
 
+func TestDynArrEditorRegression(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "dyn_arr.bak"))
+	if err != nil {
+		t.Fatalf("read dyn_arr.bak: %v", err)
+	}
+	src := string(data)
+	src = strings.Replace(src, "    d.setAge(30)", "    d.\n    d.setAge(30)", 1)
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, _ := findLineCol(src, "\n    d.\n")
+	if line < 0 {
+		t.Fatalf("d. completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line + 1, Character: len("    d.")},
+	}))
+	for _, want := range []string{"age", "name", "fl", "setAge", "setName", "setFl"} {
+		if !completionHasLabel(completion, want) {
+			t.Fatalf("expected dyn_arr d. completion %q, got %#v", want, completion.Items)
+		}
+	}
+
+	helpLine, helpCol := findLineCol(src, "Data{")
+	if helpLine < 0 {
+		t.Fatalf("append signature target not found")
+	}
+	help := s.handleSignatureHelp(mustRequest(t, SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: helpLine, Character: helpCol},
+	}))
+	if help == nil || len(help.Signatures) == 0 || !strings.Contains(help.Signatures[0].Label, "append(mut d: Vec<Data, _>, input: Data)") {
+		t.Fatalf("expected dyn_arr append signature help, got %#v", help)
+	}
+
+	hoverLine, hoverCol := findLineCol(src, "        dVec,\n    )\n\n    mut var d")
+	if hoverLine < 0 {
+		t.Fatalf("dVec hover target not found")
+	}
+	hover := s.handleHover(mustRequest(t, HoverParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: hoverLine, Character: hoverCol + len("        ")},
+	}))
+	if hover == nil || !strings.Contains(hover.Contents.Value, "Vec<Data, 1>") {
+		t.Fatalf("expected dyn_arr inferred vec size, got %#v", hover)
+	}
+}
+
 func TestHoverShowsMethodReceiverDetails(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -636,6 +688,65 @@ func TestSignatureHelpAndHoverSpecializeGenericVecMethodDetails(t *testing.T) {
 	}
 }
 
+func TestSignatureHelpWorksAcrossMultilineCallsAndStaticMethods(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int",
+		"}",
+		"",
+		"func append(mut d: Vec<Data, _>, input: Data) -> (void) {",
+		"    d.push(input)",
+		"    return void",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    mut var items: Vec<Data, _> = Vec.from([])",
+		"    append(",
+		"        mut items,",
+		"        Data{age: 1},",
+		"    )",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "Data{age")
+	if line < 0 {
+		t.Fatalf("multiline signature target not found")
+	}
+	help := s.handleSignatureHelp(mustRequest(t, SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col},
+	}))
+	if help == nil || len(help.Signatures) == 0 {
+		t.Fatalf("expected multiline signature help")
+	}
+	if !strings.Contains(help.Signatures[0].Label, "append(mut d: Vec<Data, _>, input: Data)") {
+		t.Fatalf("expected append signature, got %#v", help.Signatures)
+	}
+	if help.ActiveParameter != 1 {
+		t.Fatalf("expected active input parameter, got %d", help.ActiveParameter)
+	}
+
+	staticLine, staticCol := findLineCol(src, "Vec.from(")
+	if staticLine < 0 {
+		t.Fatalf("static signature target not found")
+	}
+	help = s.handleSignatureHelp(mustRequest(t, SignatureHelpParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: staticLine, Character: staticCol + len("Vec.from(")},
+	}))
+	if help == nil || len(help.Signatures) == 0 || !strings.Contains(help.Signatures[0].Label, "Vec.from") {
+		t.Fatalf("expected Vec.from signature help, got %#v", help)
+	}
+}
+
 func TestCompletionSignatureAndHoverSpecializeUserGenericMethods(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
@@ -696,6 +807,13 @@ func TestCompletionSignatureAndHoverSpecializeUserGenericMethods(t *testing.T) {
 	}
 	if !strings.Contains(setItem.Detail, "int") || strings.Contains(setItem.Detail, " T") {
 		t.Fatalf("expected specialized set detail, got %q", setItem.Detail)
+	}
+	resolvedSet := s.handleCompletionResolve(mustRequest(t, setItem))
+	if resolvedSet.Documentation == nil ||
+		!strings.Contains(resolvedSet.Documentation.Value, "```bak") ||
+		!strings.Contains(resolvedSet.Documentation.Value, "Receiver: `Box<int>`") ||
+		!strings.Contains(resolvedSet.Documentation.Value, "Mutates the receiver") {
+		t.Fatalf("expected rich resolved method docs, got %#v", resolvedSet.Documentation)
 	}
 
 	callLine, callCol := findLineCol(src, "box.set(")
@@ -978,6 +1096,72 @@ func TestCompletionSuggestsLocalAutoImportWithEdit(t *testing.T) {
 	}
 	if len(item.AdditionalTextEdits) != 1 || item.AdditionalTextEdits[0].NewText != "import util \"./util.bak\"\n" {
 		t.Fatalf("expected local import edit, got %#v", item.AdditionalTextEdits)
+	}
+}
+
+func TestCompletionLocalAutoImportUsesPackageNameAndDisambiguatesAlias(t *testing.T) {
+	dir := t.TempDir()
+	widgetPath := filepath.Join(dir, "feature.bak")
+	otherPath := filepath.Join(dir, "other.bak")
+	mainPath := filepath.Join(dir, "main.bak")
+	widgetSrc := strings.Join([]string{
+		"package widgets",
+		"",
+		"pub struct Widget {",
+		"    pub id: int",
+		"}",
+		"",
+	}, "\n")
+	otherSrc := strings.Join([]string{
+		"package widgets",
+		"",
+		"pub func existing() -> (void) { return void }",
+		"",
+	}, "\n")
+	mainSrc := strings.Join([]string{
+		"package main",
+		"",
+		"import widgets \"./other.bak\"",
+		"",
+		"func main() -> (void) {",
+		"    Wid",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(widgetPath, []byte(widgetSrc), 0o644); err != nil {
+		t.Fatalf("write widget: %v", err)
+	}
+	if err := os.WriteFile(otherPath, []byte(otherSrc), 0o644); err != nil {
+		t.Fatalf("write other: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+	uri := pathToURI(mainPath)
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[uri] = mainSrc
+	analyzeForTest(t, s, uri, mainSrc)
+
+	line, col := findLineCol(mainSrc, "Wid")
+	if line < 0 {
+		t.Fatalf("local auto import completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("Wid")},
+	}))
+
+	item, ok := completionItemByLabel(completion, "Widget")
+	if !ok {
+		t.Fatalf("expected Widget local auto-import completion, got %#v", completion.Items)
+	}
+	if item.InsertText != "widgets2.Widget" {
+		t.Fatalf("expected disambiguated package-name alias insert, got %q", item.InsertText)
+	}
+	if len(item.AdditionalTextEdits) != 1 || item.AdditionalTextEdits[0].NewText != "import widgets2 \"./feature.bak\"\n" {
+		t.Fatalf("expected disambiguated import edit, got %#v", item.AdditionalTextEdits)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/prelude"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
@@ -629,9 +630,15 @@ func (s *Server) handleWorkspaceSymbol(req Request) []SymbolInformation {
 }
 
 func (s *Server) handleRename(req Request) *WorkspaceEdit {
+	ctx := requestContext(req)
 	params, ok := requestParams[RenameParams](req)
 	if !ok {
 		return nil
+	}
+
+	s.ensureWorkspaceRefIndex(ctx)
+	if ctx.Err() != nil {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
 
 	result, ok := s.analysisResult(params.TextDocument.URI)
@@ -646,14 +653,15 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	if node == nil || isNil(node) {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
-	if result.RefByPos != nil {
-		key := nodeRefKey(node)
-		if key == "" {
-			return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
-		}
-		if _, ok := result.RefByPos[key]; !ok {
-			return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
-		}
+	if result.RefByPos == nil {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
+	key := nodeRefKey(node)
+	if key == "" {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
+	if _, ok := result.RefByPos[key]; !ok {
+		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
 
 	refParams := ReferenceParams{
@@ -662,13 +670,26 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 		Context:      ReferenceContext{IncludeDeclaration: true},
 	}
 
-	refs := s.handleReferences(Request{ParamsValue: refParams, Context: requestContext(req)})
+	refs := s.handleReferences(Request{ParamsValue: refParams, Context: ctx})
 	if len(refs) == 0 {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
 
 	changes := make(map[string][]TextEdit)
+	seen := map[string]bool{}
 	for _, loc := range refs {
+		key := strfmt.Named(
+			"{URI}:{SL}:{SC}:{EL}:{EC}",
+			"URI", loc.URI,
+			"SL", loc.Range.Start.Line,
+			"SC", loc.Range.Start.Character,
+			"EL", loc.Range.End.Line,
+			"EC", loc.Range.End.Character,
+		)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
 		changes[loc.URI] = append(changes[loc.URI], TextEdit{
 			Range:   loc.Range,
 			NewText: params.NewName,

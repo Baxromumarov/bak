@@ -385,6 +385,7 @@ func indexProgram(
 					s.Parameters,
 					s.ReturnType,
 					index.Docs[s.Name.Value],
+					false,
 				); sig.Label != "" {
 					index.Sigs[s.Name.Value] = sig
 				}
@@ -592,6 +593,7 @@ func indexProgram(
 					m.Parameters,
 					m.ReturnType,
 					index.Docs[name],
+					m.Mutable,
 				); sig.Label != "" {
 					index.Sigs[name] = sig
 				}
@@ -606,6 +608,7 @@ func buildFuncSignature(
 	params []*ast.Parameter,
 	ret ast.TypeExpression,
 	doc string,
+	mutable bool,
 ) SignatureInfo {
 	if name == "" {
 		return SignatureInfo{}
@@ -646,9 +649,10 @@ func buildFuncSignature(
 	)
 
 	return SignatureInfo{
-		Label:  label,
-		Params: paramLabels,
-		Doc:    doc,
+		Label:   label,
+		Params:  paramLabels,
+		Doc:     doc,
+		Mutable: mutable,
 	}
 }
 

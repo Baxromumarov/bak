@@ -158,6 +158,13 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 								Detail:           detail,
 								InsertText:       insertText,
 								InsertTextFormat: insertFormat,
+								Data: completionResolveData{
+									Kind:      "method",
+									Symbol:    methodName,
+									TypeName:  typeStr,
+									Signature: detail,
+									Mutable:   methodSig.Mutable,
+								},
 							})
 						}
 
@@ -294,6 +301,14 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		for _, sym := range sortedSymbols(result.Index) {
 			insertText := sym.Name
 			insertFormat := 1
+			sig := SignatureInfo{}
+			if result.Index.Sigs != nil {
+				sig = result.Index.Sigs[sym.Name]
+			}
+			doc := ""
+			if result.Index.Docs != nil {
+				doc = result.Index.Docs[sym.Name]
+			}
 			if sym.Kind == "func" || sym.Kind == "method" {
 				insertFormat = 2
 				insertText = sym.Name + "($0)"
@@ -306,8 +321,12 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				InsertText:       insertText,
 				InsertTextFormat: insertFormat,
 				Data: completionResolveData{
-					Kind:   sym.Kind,
-					Symbol: sym.Name,
+					Kind:      sym.Kind,
+					Symbol:    sym.Name,
+					Signature: sig.Label,
+					Doc:       doc,
+					Mutable:   sig.Mutable,
+					Source:    sym.Location.URI,
 				},
 			})
 
@@ -409,8 +428,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				InsertText:       insertText,
 				InsertTextFormat: insertFormat,
 				Data: completionResolveData{
-					Kind:   "builtin",
-					Symbol: name,
+					Kind:      "builtin",
+					Symbol:    name,
+					Signature: detail,
 				},
 			})
 			seen[name] = true
@@ -1202,9 +1222,12 @@ func appendBuiltinTypeMethodCompletionsForType(
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
 			Data: completionResolveData{
-				Kind:     "method",
-				Symbol:   methodName,
-				TypeName: typeName,
+				Kind:      "method",
+				Symbol:    methodName,
+				TypeName:  fullType,
+				Signature: detail,
+				Doc:       info.Doc,
+				Mutable:   false,
 			},
 		})
 	}
@@ -1233,6 +1256,8 @@ func appendIndexedMethodCompletions(
 		}
 
 		detail := "method"
+		doc := ""
+		mutable := false
 		insertText := methodName
 		insertFormat := 1
 		if index.Sigs != nil {
@@ -1240,8 +1265,14 @@ func appendIndexedMethodCompletions(
 				detail = sig.Label
 				insertText = methodName + "($0)"
 				insertFormat = 2
+				doc = sig.Doc
+				mutable = sig.Mutable
 			}
 		}
+		if index.Docs != nil && doc == "" {
+			doc = index.Docs[sym.Name]
+		}
+		mutable = mutable || strings.HasPrefix(strings.TrimSpace(detail), "mut ")
 
 		if isStatic {
 			// Syntax-only indexes do not yet distinguish static methods from
@@ -1257,9 +1288,12 @@ func appendIndexedMethodCompletions(
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
 			Data: completionResolveData{
-				Kind:     "method",
-				Symbol:   methodName,
-				TypeName: typeName,
+				Kind:      "method",
+				Symbol:    methodName,
+				TypeName:  typeName,
+				Signature: detail,
+				Doc:       doc,
+				Mutable:   mutable,
 			},
 		})
 	}
@@ -1300,6 +1334,7 @@ func appendTextualTypeMemberCompletions(
 				Kind:     "method",
 				Symbol:   method,
 				TypeName: typeName,
+				Mutable:  true,
 			},
 		})
 	}
@@ -1396,6 +1431,10 @@ type completionResolveData struct {
 	TypeName   string `json:"typeName,omitempty"`
 	ImportPath string `json:"importPath,omitempty"`
 	Alias      string `json:"alias,omitempty"`
+	Signature  string `json:"signature,omitempty"`
+	Doc        string `json:"doc,omitempty"`
+	Source     string `json:"source,omitempty"`
+	Mutable    bool   `json:"mutable,omitempty"`
 }
 
 func completionDoc(doc string) *MarkupContent {
@@ -1418,24 +1457,56 @@ func (s *Server) handleCompletionResolve(req Request) CompletionItem {
 	}
 	switch data.Kind {
 	case "autoImport":
-		item.Documentation = completionDoc(strfmt.Named(
-			"Auto-imports `{symbol}` from `{alias}` (`{path}`).",
-			"symbol", data.Symbol,
-			"alias", data.Alias,
-			"path", data.ImportPath,
-		))
-	case "method":
-		if data.TypeName != "" {
-			item.Documentation = completionDoc(strfmt.Named(
-				"Method `{symbol}` on `{typeName}`.",
-				"symbol", data.Symbol,
-				"typeName", data.TypeName,
-			))
+		lines := []string{strfmt.Named("Auto-imports `{symbol}` from `{alias}` (`{path}`).", "symbol", data.Symbol, "alias", data.Alias, "path", data.ImportPath)}
+		if data.Signature != "" {
+			lines = append(lines, "", "```bak\n"+data.Signature+"\n```")
 		}
+		if data.Doc != "" {
+			lines = append(lines, "", data.Doc)
+		}
+		item.Documentation = completionDoc(strings.Join(lines, "\n"))
+	case "method":
+		lines := []string{}
+		if data.Signature != "" {
+			lines = append(lines, "```bak\n"+data.Signature+"\n```")
+		}
+		if data.TypeName != "" {
+			lines = append(lines, strfmt.Named("Receiver: `{typeName}`.", "typeName", data.TypeName))
+		}
+		if data.Mutable {
+			lines = append(lines, "Mutates the receiver.")
+		}
+		if data.Doc != "" {
+			lines = append(lines, "", data.Doc)
+		}
+		if len(lines) == 0 && data.TypeName != "" {
+			lines = append(lines, strfmt.Named("Method `{symbol}` on `{typeName}`.", "symbol", data.Symbol, "typeName", data.TypeName))
+		}
+		item.Documentation = completionDoc(strings.Join(lines, "\n"))
+	case "func":
+		lines := []string{}
+		if data.Signature != "" {
+			lines = append(lines, "```bak\n"+data.Signature+"\n```")
+		}
+		if data.Doc != "" {
+			lines = append(lines, data.Doc)
+		}
+		if data.Source != "" {
+			lines = append(lines, strfmt.Named("Source: `{source}`.", "source", data.Source))
+		}
+		item.Documentation = completionDoc(strings.Join(lines, "\n"))
 	case "builtin":
-		item.Documentation = completionDoc("Built-in function `" + data.Symbol + "`.")
+		lines := []string{"Built-in function `" + data.Symbol + "`."}
+		if data.Signature != "" {
+			lines = append(lines, "", "```bak\n"+data.Signature+"\n```")
+		}
+		item.Documentation = completionDoc(strings.Join(lines, "\n"))
 	case "type":
-		item.Documentation = completionDoc("Type `" + data.Symbol + "`.")
+		lines := []string{"Type `" + data.Symbol + "`."}
+		if data.Doc != "" {
+			lines = append(lines, "", data.Doc)
+		}
+		item.Documentation = completionDoc(strings.Join(lines, "\n"))
 	}
 	return item
 }
@@ -1468,6 +1539,7 @@ func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *An
 	for alias := range result.Imports {
 		imported[alias] = true
 	}
+	currentDir := filepath.Dir(uriToPath(uri))
 	insertPos := findImportInsertPosition(result)
 	seen := map[string]bool{}
 	for _, importPath := range s.getStdImportPaths() {
@@ -1480,7 +1552,12 @@ func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *An
 			continue
 		}
 		alias := importAliasForPath(importPath)
-		if alias == "" || imported[alias] {
+		if alias == "" || importPathAlreadyPresent(result.Imports, importPath, currentDir) {
+			continue
+		}
+		var ok bool
+		alias, ok = uniqueImportAlias(imported, alias)
+		if !ok {
 			continue
 		}
 		for _, sym := range sortedSymbols(idx) {
@@ -1502,6 +1579,14 @@ func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *An
 				insertText += "($0)"
 				insertFormat = 2
 			}
+			sig := SignatureInfo{}
+			if idx.Sigs != nil {
+				sig = idx.Sigs[sym.Name]
+			}
+			doc := ""
+			if idx.Docs != nil {
+				doc = idx.Docs[sym.Name]
+			}
 
 			importLine := strfmt.Named("import {Alias} \"{ImportPath}\"\n", "Alias", alias, "ImportPath", importPath)
 			*items = append(*items, CompletionItem{
@@ -1520,6 +1605,9 @@ func (s *Server) appendAutoImportCompletions(items *[]CompletionItem, result *An
 					Symbol:     sym.Name,
 					Alias:      alias,
 					ImportPath: importPath,
+					Signature:  sig.Label,
+					Doc:        doc,
+					Mutable:    sig.Mutable,
 				},
 			})
 		}
@@ -1551,7 +1639,12 @@ func (s *Server) appendLocalAutoImportCompletions(items *[]CompletionItem, resul
 			}
 			targetPath := uriToPath(sym.Location.URI)
 			importPath, alias := localImportPathAndAlias(currentDir, targetPath)
-			if importPath == "" || alias == "" || imported[alias] {
+			if importPath == "" || alias == "" || importPathAlreadyPresent(result.Imports, importPath, currentDir) {
+				continue
+			}
+			var ok bool
+			alias, ok = uniqueImportAlias(imported, alias)
+			if !ok {
 				continue
 			}
 			key := alias + "." + sym.Name
@@ -1564,6 +1657,14 @@ func (s *Server) appendLocalAutoImportCompletions(items *[]CompletionItem, resul
 			if sym.Kind == "func" {
 				insertText += "($0)"
 				insertFormat = 2
+			}
+			sig := SignatureInfo{}
+			if idx.Sigs != nil {
+				sig = idx.Sigs[sym.Name]
+			}
+			doc := ""
+			if idx.Docs != nil {
+				doc = idx.Docs[sym.Name]
 			}
 			insertPos := findImportInsertPosition(result)
 			*items = append(*items, CompletionItem{
@@ -1582,6 +1683,9 @@ func (s *Server) appendLocalAutoImportCompletions(items *[]CompletionItem, resul
 					Symbol:     sym.Name,
 					Alias:      alias,
 					ImportPath: importPath,
+					Signature:  sig.Label,
+					Doc:        doc,
+					Mutable:    sig.Mutable,
 				},
 			})
 		}
