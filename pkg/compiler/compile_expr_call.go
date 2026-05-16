@@ -1,6 +1,11 @@
 package compiler
 
-import "github.com/baxromumarov/bak/pkg/ast"
+import (
+	"sort"
+	"strings"
+
+	"github.com/baxromumarov/bak/pkg/ast"
+)
 
 func (c *Compiler) compileCallExpression(ce *ast.CallExpression) error {
 	if handled, err := c.compileSpecialCallExpression(ce); handled {
@@ -21,6 +26,9 @@ func (c *Compiler) compileCallExpression(ce *ast.CallExpression) error {
 
 func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, error) {
 	if ident, ok := ce.Function.(*ast.Identifier); ok {
+		if _, _, shadowsBuiltin := c.resolveLocalMeta(ident.Value); shadowsBuiltin {
+			return false, nil
+		}
 		if builtinID, isBuiltin := LookupBuiltinID(ident.Value); isBuiltin {
 			if err := c.compileBuiltinCall(builtinID, ce.Arguments); err != nil {
 				return true, err
@@ -42,6 +50,9 @@ func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, e
 }
 
 func (c *Compiler) compileBuiltinCall(builtinID BuiltinID, args []ast.Expression) error {
+	if c.compileCompileTimeReflectionBuiltin(builtinID, args) {
+		return nil
+	}
 	if err := c.compileCallArguments(args); err != nil {
 		return err
 	}
@@ -49,6 +60,52 @@ func (c *Compiler) compileBuiltinCall(builtinID BuiltinID, args []ast.Expression
 	c.emitByte(byte(builtinID))
 	c.emitByte(byte(len(args)))
 	return nil
+}
+
+func (c *Compiler) compileCompileTimeReflectionBuiltin(builtinID BuiltinID, args []ast.Expression) bool {
+	if builtinID != BUILTIN_FIELDS && builtinID != BUILTIN_METHODS {
+		return false
+	}
+	if len(args) != 1 {
+		return false
+	}
+	ident, ok := args[0].(*ast.Identifier)
+	if !ok || ident == nil {
+		return false
+	}
+	if _, ok := c.module.StructDefs[ident.Value]; !ok {
+		return false
+	}
+
+	var names []string
+	switch builtinID {
+	case BUILTIN_FIELDS:
+		if def := c.module.StructDefs[ident.Value]; def != nil {
+			names = make([]string, 0, len(def.Fields))
+			for _, field := range def.Fields {
+				names = append(names, field.Name)
+			}
+		}
+	case BUILTIN_METHODS:
+		prefix := ident.Value + "."
+		for methodName := range c.module.Methods {
+			if strings.HasPrefix(methodName, prefix) {
+				names = append(names, strings.TrimPrefix(methodName, prefix))
+			}
+		}
+		sort.Strings(names)
+	}
+
+	c.emitStringVec(names)
+	return true
+}
+
+func (c *Compiler) emitStringVec(values []string) {
+	for _, value := range values {
+		c.emitConstant(NewString(value))
+	}
+	c.emitConstant(NewInt(int64(len(values))))
+	c.emit(OP_NEW_VEC_DYNAMIC)
 }
 
 func (c *Compiler) compileCallArguments(args []ast.Expression) error {

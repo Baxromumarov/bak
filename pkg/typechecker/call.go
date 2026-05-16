@@ -205,6 +205,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {
 	funcName := ""
 	var sig *FunctionSig
+	sigFromCallableExpr := false
 	unresolvedDirectFunction := ""
 
 	// Handle direct function calls (funcName())
@@ -487,6 +488,12 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 				Parameters: ft.Params,
 				ReturnType: ft.ReturnType,
 			}
+			sigFromCallableExpr = true
+			if ident, ok := ce.Function.(*ast.Identifier); ok && tc.isBuiltin(ident.Value) {
+				if _, shadowsBuiltin := tc.lookupSymbolWithoutMark(ident.Value); !shadowsBuiltin {
+					sigFromCallableExpr = false
+				}
+			}
 		}
 	}
 
@@ -501,7 +508,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	}
 
 	if sig != nil {
-		if tc.isBuiltin(funcName) {
+		if tc.isBuiltin(funcName) && !sigFromCallableExpr {
 			var earlyReturn ast.TypeExpression
 			var done bool
 			sig, earlyReturn, done = tc.resolveBuiltinSig(funcName, ce, sig)
@@ -611,6 +618,15 @@ func (tc *TypeChecker) resolveBuiltinSig(
 		return sig, sig.ReturnType, true
 	}
 
+	if isReflectionBuiltin(funcName) && len(ce.Arguments) == 1 {
+		if ident, ok := ce.Arguments[0].(*ast.Identifier); ok {
+			if _, found := tc.env.LookupStruct(ident.Value); found {
+				tc.env.MarkUsed(ident.Value)
+				return sig, builtinSpec.Signature.ReturnType, true
+			}
+		}
+	}
+
 	if !builtinSpec.acceptsArgCount(len(ce.Arguments)) {
 		if builtinSpec.MinArgs == builtinSpec.MaxArgs {
 			tc.errorArgumentCountMismatchAt(
@@ -659,6 +675,10 @@ func (tc *TypeChecker) resolveBuiltinSig(
 	}
 
 	return newSig, nil, false
+}
+
+func isReflectionBuiltin(name string) bool {
+	return name == "fields" || name == "methods"
 }
 
 // inferGenericCallSig substitutes generic type parameters in the signature

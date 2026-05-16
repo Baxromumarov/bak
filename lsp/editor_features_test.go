@@ -664,6 +664,85 @@ func TestCompletionSuggestsVecInstanceMethodsForVariable(t *testing.T) {
 	}
 }
 
+func TestCompletionOmitsMutatingVecMethodsForImmutableVariable(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var arr: Vec<int,_> = Vec.from([1,2,3])",
+		"    arr.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "arr.")
+	if line < 0 {
+		t.Fatalf("arr completion target not found")
+	}
+
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("arr.")},
+	}))
+
+	labels := map[string]bool{}
+	for _, item := range completion.Items {
+		labels[item.Label] = true
+	}
+	for _, expected := range []string{"len", "get", "first"} {
+		if !labels[expected] {
+			t.Fatalf("expected immutable-safe Vec completion %q, got %#v", expected, completion.Items)
+		}
+	}
+	for _, unexpected := range []string{"append", "clear", "pop", "push", "remove", "reverse", "set"} {
+		if labels[unexpected] {
+			t.Fatalf("did not expect mutating completion %q for immutable arr, got %#v", unexpected, completion.Items)
+		}
+	}
+}
+
+func TestCompletionRanksResultIntentMethodsFirst(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func main() -> (void) {",
+		"    var r: Result<int, string> = Ok(1)",
+		"    r.",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "r.")
+	if line < 0 {
+		t.Fatalf("Result completion target not found")
+	}
+
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("r.")},
+	}))
+	if len(completion.Items) < 3 {
+		t.Fatalf("expected Result completions, got %#v", completion.Items)
+	}
+	got := []string{completion.Items[0].Label, completion.Items[1].Label, completion.Items[2].Label}
+	want := []string{"isOk", "isErr", "unwrap"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected top Result completions %v, got %v in %#v", want, got, completion.Items)
+		}
+	}
+}
+
 func TestCompletionSpecializesGenericVecMethodDetails(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

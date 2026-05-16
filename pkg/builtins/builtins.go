@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,8 @@ var Builtins = map[string]*object.Builtin{
 	"fromChars": {Fn: builtinFromChars},
 	"print":     {Fn: builtinPrint},
 	"println":   {Fn: builtinPrintln},
+	"fields":    {Fn: builtinFields},
+	"methods":   {Fn: builtinMethods},
 	"type":      {Fn: builtinType},
 	"typeof":    {Fn: builtinType},
 	"int":       {Fn: builtinInt},
@@ -296,6 +299,33 @@ func builtinType(args ...object.Object) object.Object {
 	}
 
 	return object.NewString(string(args[0].Type()))
+}
+
+func builtinFields(args ...object.Object) object.Object {
+	if len(args) != 1 {
+		return argCountError("", len(args), "1")
+	}
+	st, ok := args[0].(*object.Struct)
+	if !ok || st == nil {
+		return &object.Vec{Elements: []object.Object{}, ElemType: "string", Size: -1, Mutable: false}
+	}
+	names := make([]string, 0, len(st.Fields))
+	for name := range st.Fields {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	elements := make([]object.Object, 0, len(names))
+	for _, name := range names {
+		elements = append(elements, object.NewString(name))
+	}
+	return &object.Vec{Elements: elements, ElemType: "string", Size: -1, Mutable: false}
+}
+
+func builtinMethods(args ...object.Object) object.Object {
+	if len(args) != 1 {
+		return argCountError("", len(args), "1")
+	}
+	return &object.Vec{Elements: []object.Object{}, ElemType: "string", Size: -1, Mutable: false}
 }
 
 func builtinInt(args ...object.Object) object.Object {

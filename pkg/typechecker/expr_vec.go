@@ -2,6 +2,7 @@ package typechecker
 
 import (
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -284,13 +285,69 @@ func (tc *TypeChecker) checkVecPush(mc *ast.MethodCallExpression, elemType ast.T
 	}
 	argType := tc.inferType(mc.Arguments[0])
 	if argType != nil && !tc.typesMatch(elemType, argType) {
-		tc.errorTypeMismatchAt(callPos,
-			typeToString(elemType), typeToString(argType),
-			strfmt.Named("argument to '{varName}.push'", "VarName", varName),
-			mc.Arguments[0])
+		tc.errorVecPushTypeMismatchAt(varName, elemType, argType, mc.Arguments[0], callPos)
 		return &ast.ErrorType{Message: "type mismatch"}
 	}
 	return &ast.VoidType{}
+}
+
+func (tc *TypeChecker) errorVecPushTypeMismatchAt(
+	varName string,
+	elemType ast.TypeExpression,
+	argType ast.TypeExpression,
+	arg ast.Expression,
+	callPos ast.Position,
+) {
+	expected := typeToString(elemType)
+	got := typeToString(argType)
+	targetName := varName
+	if targetName == "" {
+		targetName = "vector"
+	}
+
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrTypeMismatch,
+		callPos,
+		strfmt.Named(
+			"cannot push {got} into Vec<{expected}, _>",
+			"Got", got,
+			"Expected", expected,
+		),
+	)
+	diag.Help = strfmt.Named(
+		"use a {expected} value, convert the argument, or change '{target}' to store {got}",
+		"Expected", expected,
+		"Target", targetName,
+		"Got", got,
+	)
+
+	if varName != "" {
+		if info, found := tc.lookupSymbolWithoutMark(varName); found && info.Line > 0 {
+			diag.Notes = append(diag.Notes, diagnostics.Note{
+				Message: strfmt.Named(
+					"because: '{varName}' stores {expected} elements",
+					"VarName", varName,
+					"Expected", expected,
+				),
+				Line:   info.Line,
+				Column: info.Column,
+				File:   tc.currentPkgPath,
+			})
+		}
+	}
+	if tok, ok := extractTokenFromNode(arg); ok && tok.Line > 0 {
+		diag.Notes = append(diag.Notes, diagnostics.Note{
+			Message: strfmt.Named(
+				"because: pushed value has type {got}",
+				"Got", got,
+			),
+			Line:   tok.Line,
+			Column: tok.Column,
+			File:   tc.currentPkgPath,
+		})
+	}
+
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) checkVecAppend(mc *ast.MethodCallExpression, elemType ast.TypeExpression, varName string, callPos ast.Position) ast.TypeExpression {

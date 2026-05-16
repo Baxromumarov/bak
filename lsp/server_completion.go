@@ -98,6 +98,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					currentPkg = currentPackageName(astRoot)
 				}
 
+				receiverMutable := true
 				addMembers := func(typeStr string, isStatic bool) {
 					if typeStr == "" {
 						return
@@ -137,6 +138,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 								}
 							} else {
 								if !methodSig.IsInstance {
+									continue
+								}
+								if !receiverMutable && (methodSig.Mutable || isBuiltinMutatingMethod(baseType, methodName)) {
 									continue
 								}
 							}
@@ -185,7 +189,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					}
 
 					if !hasStructDef {
-						if appendBuiltinTypeMethodCompletionsForType(&items, baseType, typeStr, isStatic) {
+						if appendBuiltinTypeMethodCompletionsForType(&items, baseType, typeStr, isStatic, receiverMutable) {
 							return
 						}
 					}
@@ -220,7 +224,10 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 						typeStr = tc.GetNodeType(n.Object)
 						if ident, ok := n.Object.(*ast.Identifier); ok {
 							locals := collectLocalSymbols(astRoot, params.Position.Line+1)
-							_, isLocal := locals[ident.Value]
+							local, isLocal := locals[ident.Value]
+							if isLocal {
+								receiverMutable = local.Mutable
+							}
 
 							isGlobalVar := false
 							if result.Index != nil && result.Index.Vars != nil {
@@ -252,6 +259,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				if typeStr == "" && qualifier != "" && astRoot != nil {
 					locals := collectLocalSymbols(astRoot, params.Position.Line+1)
 					if local, ok := locals[qualifier]; ok && local.Node != nil {
+						receiverMutable = local.Mutable
 						if tc != nil {
 							typeStr = tc.GetNodeType(local.Node)
 						}
@@ -265,6 +273,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 					typeStr = declaredLocalTypeBefore(text, params.Position.Line, qualifier)
 					if typeStr != "" {
 						isStatic = false
+						if mutable, ok := declaredLocalMutableBefore(text, params.Position.Line, qualifier); ok {
+							receiverMutable = mutable
+						}
 					}
 				}
 				if typeStr == "" && qualifier != "" && hasBuiltinStaticCompletionType(qualifier) {
@@ -287,7 +298,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 				}
 
 				prefix := memberPrefix
-				if prefix == "" {
+				if prefix == "" && !isDotCompletion {
 					prefix = qualifier
 				}
 				out.Items = rankCompletionItems(items, prefix, memberCompletionPriority)
@@ -1038,6 +1049,12 @@ func rankCompletionItems(items []CompletionItem, prefix string, kindPriority map
 			return ki < kj
 		}
 
+		ii := completionIntentRank(items[i])
+		ij := completionIntentRank(items[j])
+		if ii != ij {
+			return ii < ij
+		}
+
 		if len(li) != len(lj) {
 			return len(li) < len(lj)
 		}
@@ -1046,6 +1063,41 @@ func rankCompletionItems(items []CompletionItem, prefix string, kindPriority map
 	})
 
 	return items
+}
+
+func completionIntentRank(item CompletionItem) int {
+	typeName := ""
+	switch data := item.Data.(type) {
+	case completionResolveData:
+		typeName = data.TypeName
+	case map[string]any:
+		if raw, ok := data["typeName"].(string); ok {
+			typeName = raw
+		}
+	}
+	if typeName == "" {
+		return 100
+	}
+	if before, _, ok := strings.Cut(typeName, "<"); ok {
+		typeName = strings.TrimSpace(before)
+	}
+	if typeName != "Result" {
+		return 100
+	}
+	switch item.Label {
+	case "isOk":
+		return 0
+	case "isErr":
+		return 1
+	case "unwrap":
+		return 2
+	case "unwrapOr":
+		return 3
+	case "unwrapErr":
+		return 4
+	default:
+		return 50
+	}
 }
 
 func splitIndexedFieldCompletion(field string) (string, string) {
@@ -1188,7 +1240,7 @@ func appendBuiltinTypeMethodCompletions(
 	typeName string,
 	isStatic bool,
 ) bool {
-	return appendBuiltinTypeMethodCompletionsForType(items, typeName, typeName, isStatic)
+	return appendBuiltinTypeMethodCompletionsForType(items, typeName, typeName, isStatic, true)
 }
 
 func appendBuiltinTypeMethodCompletionsForType(
@@ -1196,6 +1248,7 @@ func appendBuiltinTypeMethodCompletionsForType(
 	typeName string,
 	fullType string,
 	isStatic bool,
+	receiverMutable bool,
 ) bool {
 	var methods map[string]builtinMethodInfo
 	if isStatic {
@@ -1210,6 +1263,9 @@ func appendBuiltinTypeMethodCompletionsForType(
 
 	for methodName, info := range methods {
 		if strings.HasPrefix(info.Doc, "Deprecated:") {
+			continue
+		}
+		if !isStatic && !receiverMutable && isBuiltinMutatingMethod(typeName, methodName) {
 			continue
 		}
 
@@ -1228,12 +1284,33 @@ func appendBuiltinTypeMethodCompletionsForType(
 				TypeName:  fullType,
 				Signature: detail,
 				Doc:       info.Doc,
-				Mutable:   false,
+				Mutable:   isBuiltinMutatingMethod(typeName, methodName),
 			},
 		})
 	}
 
 	return true
+}
+
+func isBuiltinMutatingMethod(typeName, methodName string) bool {
+	switch typeName {
+	case "Vec":
+		switch methodName {
+		case "append", "clear", "pop", "push", "remove", "reverse", "set":
+			return true
+		}
+	case "HashMap":
+		switch methodName {
+		case "clear", "insert", "remove":
+			return true
+		}
+	case "Map":
+		switch methodName {
+		case "clear", "remove":
+			return true
+		}
+	}
+	return false
 }
 
 func appendIndexedMethodCompletions(
@@ -1808,8 +1885,10 @@ var builtinSignatures = map[string]string{
 	"eprintln": "eprintln(values: any...) -> (void)",
 
 	// Type inspection
-	"type":   "type(value: any) -> (string)",
-	"typeof": "typeof(value: any) -> (string)",
+	"type":    "type(value: any) -> (string)",
+	"typeof":  "typeof(value: any) -> (string)",
+	"fields":  "fields(typeOrValue: any) -> (Vec<string, _>)",
+	"methods": "methods(typeOrValue: any) -> (Vec<string, _>)",
 
 	// String operations
 	"concat": "concat(values: string...) -> (string)",

@@ -14,6 +14,14 @@ func init() {
 		"string": {ReturnType: ast.NewSimpleType("string")},
 		"char":   {ReturnType: ast.NewSimpleType("char")},
 		"dbg":    {ReturnType: &ast.VoidType{}},
+		"fields": {
+			Params:     nil,
+			ReturnType: builtinVecDynamic(ast.NewSimpleType("string")),
+		},
+		"methods": {
+			Params:     nil,
+			ReturnType: builtinVecDynamic(ast.NewSimpleType("string")),
+		},
 
 		// File I/O
 		"__builtin_read_file": {

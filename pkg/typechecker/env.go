@@ -35,6 +35,7 @@ func (sig *FunctionSig) paramMutable(index int) bool {
 // FieldDef represents a field in a struct for type checking
 type StructDef struct {
 	Fields      map[string]FieldDef
+	FieldOrder  []string
 	Methods     map[string]*FunctionSig
 	TypeParams  []string // Generic type parameter names
 	Package     string   // The package name where this struct is defined

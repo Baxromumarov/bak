@@ -63,6 +63,28 @@ func main() -> (void) {
 `)
 }
 
+func TestBuiltinSignature_ReflectionAcceptsTypeOrValue(t *testing.T) {
+	expectNoErrors(t, `
+package main
+struct Data {
+	age: int
+	name: string
+}
+impl Data as d {
+	func label() -> (string) {
+		return d.name
+	}
+}
+func main() -> (void) {
+	var d: Data = Data{age: 1, name: "Ada"}
+	var fs: Vec<string, _> = fields(Data)
+	var ms: Vec<string, _> = methods(Data)
+	var valueFields: Vec<string, _> = fields(d)
+	println(fs, ms, valueFields)
+}
+`)
+}
+
 func TestBuiltinSignature_PgQuerySupportsOptionalParams(t *testing.T) {
 	expectNoErrors(t, `
 package main

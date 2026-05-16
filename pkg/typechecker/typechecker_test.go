@@ -1222,6 +1222,65 @@ func main() -> (void) {
 `, "expects type")
 }
 
+func TestCheck_StructFieldTypeMismatchShowsShape(t *testing.T) {
+	errs := checkSourceStructured(t, `
+package main
+struct Data {
+	age: int
+	name: string
+	fl: float64
+}
+func main() -> (void) {
+	var d: Data = Data{age: "wrong", fl: 1.5}
+}
+`)
+	for _, err := range errs {
+		if strings.Contains(err.Message, "field 'age' expects type int, got string") &&
+			strings.Contains(err.Help, "shape of Data") &&
+			strings.Contains(err.Help, "age: int provided") &&
+			strings.Contains(err.Help, "name: string missing") &&
+			strings.Contains(err.Help, "fl: float64 provided") {
+			return
+		}
+	}
+	t.Fatalf("expected shape-aware struct field diagnostic, got %#v", errs)
+}
+
+func TestCheck_VecPushTypeMismatchExplainsPath(t *testing.T) {
+	errs := checkSourceStructured(t, `
+package main
+struct User {
+	id: int
+}
+struct Order {
+	id: int
+}
+func main() -> (void) {
+	mut var users: Vec<User, _> = Vec.from([])
+	var order: Order = Order{id: 1}
+	users.push(order)
+}
+`)
+	for _, err := range errs {
+		if !strings.Contains(err.Message, "cannot push Order into Vec<User, _>") {
+			continue
+		}
+		if !strings.Contains(err.Help, "use a User value") {
+			t.Fatalf("expected actionable Vec push help, got %#v", err)
+		}
+		notes := ""
+		for _, note := range err.Notes {
+			notes += note.Message + "\n"
+		}
+		if strings.Contains(notes, "'users' stores User elements") &&
+			strings.Contains(notes, "pushed value has type Order") {
+			return
+		}
+		t.Fatalf("expected Vec push explanatory notes, got %#v", err.Notes)
+	}
+	t.Fatalf("expected Vec push mismatch diagnostic, got %#v", errs)
+}
+
 func TestCheck_MissingReturn(t *testing.T) {
 	expectError(t, `
 package main

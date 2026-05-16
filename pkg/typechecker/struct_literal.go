@@ -1,9 +1,11 @@
 package typechecker
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
@@ -99,27 +101,85 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 		// 3. Check type match
 		if !tc.fitsInType(fieldDef.Type, valueExpr) {
 			valueType := tc.inferType(valueExpr)
-			// Try to get better error location from value expression if possible,
-			// but ast.Expression interface doesn't enforce Token accessor directly in all implementations
-			// without type assertion in some AST designs, but here Node has TokenLiteral.
-			// TypeChecker usually tracks line/col. inferType handles recursive checks.
-			// We use sl.Token for simplicity unless we want to reflect on valueExpr.
-			tc.addError(
-				sl.Token.Line,
-				sl.Token.Column,
-				strfmt.Named(
-					"field '{fieldName}' expects type {expected}, got {got}",
-					"fieldName", fieldName,
-					"expected", typeToString(fieldDef.Type),
-					"got", typeToString(valueType),
-				),
-			)
+			tc.errorStructFieldTypeMismatch(sl, structName, structDef, fieldName, fieldDef, valueType)
 		}
 
 		// initializedFields[fieldName] = true
 	}
 
 	return &ast.SimpleType{Name: structName}
+}
+
+func (tc *TypeChecker) errorStructFieldTypeMismatch(
+	sl *ast.StructLiteral,
+	structName string,
+	structDef *StructDef,
+	fieldName string,
+	fieldDef FieldDef,
+	valueType ast.TypeExpression,
+) {
+	pos := sl.Pos()
+	diag := tc.baseDiagnostic(
+		diagnostics.ErrTypeMismatch,
+		pos,
+		strfmt.Named(
+			"field '{fieldName}' expects type {expected}, got {got}",
+			"fieldName", fieldName,
+			"expected", typeToString(fieldDef.Type),
+			"got", typeToString(valueType),
+		),
+	)
+	diag.Help = strfmt.Named(
+		"shape of {structName}: {shape}",
+		"StructName", structName,
+		"Shape", structShapeSummary(structDef, sl.Fields),
+	)
+	if fieldDef.Line > 0 {
+		diag.Notes = append(diag.Notes, diagnostics.Note{
+			Message: strfmt.Named(
+				"where expected: field '{fieldName}' is declared as {expected}",
+				"FieldName", fieldName,
+				"Expected", typeToString(fieldDef.Type),
+			),
+			Line:   fieldDef.Line,
+			Column: fieldDef.Column,
+			File:   tc.currentPkgPath,
+		})
+	}
+	tc.emitError(diag)
+}
+
+func structShapeSummary(structDef *StructDef, provided map[string]ast.Expression) string {
+	if structDef == nil {
+		return ""
+	}
+	order := structDef.FieldOrder
+	if len(order) == 0 {
+		order = make([]string, 0, len(structDef.Fields))
+		for name := range structDef.Fields {
+			order = append(order, name)
+		}
+		sort.Strings(order)
+	}
+
+	parts := make([]string, 0, len(order))
+	for _, name := range order {
+		fieldDef, ok := structDef.Fields[name]
+		if !ok {
+			continue
+		}
+		state := "missing"
+		if _, ok := provided[name]; ok {
+			state = "provided"
+		}
+		parts = append(parts, strfmt.Named(
+			"{name}: {typ} {state}",
+			"Name", name,
+			"Typ", typeToString(fieldDef.Type),
+			"State", state,
+		))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // resolveImportedStructDef tries to resolve a struct definition from an imported
@@ -154,14 +214,19 @@ func (tc *TypeChecker) resolveImportedStructDef(structName string) (*StructDef, 
 	}
 
 	fields := make(map[string]FieldDef)
+	fieldOrder := make([]string, 0, len(structDecl.Fields))
 	for _, f := range structDecl.Fields {
+		fieldOrder = append(fieldOrder, f.Name.Value)
 		fields[f.Name.Value] = FieldDef{
 			Type:       f.Type,
 			Visibility: f.Visibility,
+			Line:       f.Name.Token.Line,
+			Column:     f.Name.Token.Column,
 		}
 	}
 	return &StructDef{
 		Fields:     fields,
+		FieldOrder: fieldOrder,
 		Methods:    make(map[string]*FunctionSig),
 		TypeParams: []string{},
 		Package:    pkgAlias, // Use alias as package identifier for visibility check

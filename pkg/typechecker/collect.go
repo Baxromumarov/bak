@@ -89,18 +89,23 @@ func (tc *TypeChecker) registerStructDecl(s *ast.StructDecl) {
 
 	typeParams := typeParamNames(s.TypeParams)
 	fields := make(map[string]FieldDef)
+	fieldOrder := make([]string, 0, len(s.Fields))
 	for _, f := range s.Fields {
 		if f == nil || f.Name == nil {
 			continue
 		}
+		fieldOrder = append(fieldOrder, f.Name.Value)
 		fields[f.Name.Value] = FieldDef{
 			Type:       f.Type,
 			Visibility: f.Visibility,
+			Line:       f.Name.Token.Line,
+			Column:     f.Name.Token.Column,
 		}
 	}
 
 	tc.env.DefineStruct(s.Name.Value, &StructDef{
 		Fields:      fields,
+		FieldOrder:  fieldOrder,
 		Methods:     make(map[string]*FunctionSig),
 		TypeParams:  typeParams,
 		Package:     tc.currentPkgName,

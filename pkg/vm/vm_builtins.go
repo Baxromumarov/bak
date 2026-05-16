@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -131,6 +132,85 @@ func vmBuiltinInvalidHandleError(kind string, id int) error {
 
 func vmBuiltinOutOfRangeError(name string) error {
 	return fmt.Errorf("%s: index out of range", name)
+}
+
+func (vm *VM) stringVecValue(values []string) compiler.Value {
+	elements := make([]compiler.Value, 0, len(values))
+	for _, value := range values {
+		elements = append(elements, compiler.NewString(value))
+	}
+	return compiler.Value{
+		Type: compiler.VAL_ARRAY,
+		AsObject: &compiler.ArrayInstance{
+			Elements: elements,
+		},
+	}
+}
+
+func (vm *VM) fieldNamesForValue(value compiler.Value) []string {
+	if value.Type != compiler.VAL_STRUCT {
+		return nil
+	}
+	inst, ok := value.AsObject.(*compiler.StructInstance)
+	if !ok || inst == nil {
+		return nil
+	}
+	def := vm.module.StructDefByID[inst.TypeID]
+	if def == nil {
+		def = vm.module.StructDefs[inst.TypeName]
+	}
+	if def == nil {
+		return nil
+	}
+	names := make([]string, 0, len(def.Fields))
+	for _, field := range def.Fields {
+		names = append(names, field.Name)
+	}
+	return names
+}
+
+func (vm *VM) methodNamesForValue(value compiler.Value) []string {
+	typeName := ""
+	switch value.Type {
+	case compiler.VAL_STRUCT:
+		if inst, ok := value.AsObject.(*compiler.StructInstance); ok && inst != nil {
+			typeName = inst.TypeName
+		}
+	case compiler.VAL_ARRAY:
+		typeName = "Vec"
+	case compiler.VAL_STRING:
+		typeName = "string"
+	case compiler.VAL_RESULT:
+		typeName = "Result"
+	}
+	if typeName == "" {
+		return nil
+	}
+	names := make([]string, 0)
+	prefix := typeName + "."
+	for methodName := range vm.module.Methods {
+		if strings.HasPrefix(methodName, prefix) {
+			names = append(names, strings.TrimPrefix(methodName, prefix))
+		}
+	}
+	if len(names) == 0 {
+		names = builtinReflectionMethodNames(typeName)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func builtinReflectionMethodNames(typeName string) []string {
+	switch typeName {
+	case "Vec":
+		return []string{"append", "cap", "clear", "contains", "first", "get", "isEmpty", "join", "last", "len", "pop", "push", "remove", "reverse", "set", "slice", "toVec"}
+	case "string":
+		return []string{"bytes", "chars", "contains", "endsWith", "get", "hash", "indexOf", "lastIndexOf", "len", "lines", "parseFloat", "parseInt", "repeat", "replace", "split", "startsWith", "substring", "toLower", "toString", "toUpper", "trim", "trimEnd", "trimStart"}
+	case "Result":
+		return []string{"isErr", "isOk", "toString", "unwrap", "unwrapErr", "unwrapOr"}
+	default:
+		return nil
+	}
 }
 
 // callBuiltin handles builtin function calls
@@ -341,6 +421,18 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			fmt.Println(vm.debugValue(arg))
 		}
 		return compiler.NewNil(), nil
+
+	case compiler.BUILTIN_FIELDS:
+		if len(args) != 1 {
+			return compiler.NewNil(), fmt.Errorf("fields() requires exactly 1 argument")
+		}
+		return vm.stringVecValue(vm.fieldNamesForValue(args[0])), nil
+
+	case compiler.BUILTIN_METHODS:
+		if len(args) != 1 {
+			return compiler.NewNil(), fmt.Errorf("methods() requires exactly 1 argument")
+		}
+		return vm.stringVecValue(vm.methodNamesForValue(args[0])), nil
 
 	case compiler.BUILTIN_LEN:
 		if len(args) != 1 {

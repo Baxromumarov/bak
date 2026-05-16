@@ -584,6 +584,55 @@ func declaredLocalTypeBefore(text string, line int, name string) string {
 	return ""
 }
 
+func declaredLocalMutableBefore(text string, line int, name string) (bool, bool) {
+	if name == "" || line < 0 {
+		return false, false
+	}
+	lines := strings.Split(text, "\n")
+	if line >= len(lines) {
+		line = len(lines) - 1
+	}
+	for i := line; i >= 0; i-- {
+		if mutable, ok := declaredMutableInLine(lines[i], name); ok {
+			return mutable, true
+		}
+	}
+	return false, false
+}
+
+func declaredMutableInLine(line, name string) (bool, bool) {
+	trimmed := strings.TrimSpace(line)
+	for _, decl := range []struct {
+		prefix  string
+		mutable bool
+	}{
+		{prefix: "mut var ", mutable: true},
+		{prefix: "var ", mutable: false},
+		{prefix: "const ", mutable: false},
+	} {
+		if !strings.HasPrefix(trimmed, decl.prefix) {
+			continue
+		}
+		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, decl.prefix))
+		if strings.HasPrefix(rest, "(") {
+			inside := strings.TrimPrefix(rest, "(")
+			if closeIdx := strings.Index(inside, ")"); closeIdx >= 0 {
+				inside = inside[:closeIdx]
+			}
+			for _, part := range strings.Split(inside, ",") {
+				if strings.TrimSpace(part) == name {
+					return decl.mutable, true
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(rest, name) && isWordBoundary(rest, 0, len(name)) {
+			return decl.mutable, true
+		}
+	}
+	return false, false
+}
+
 func declaredTypeInLine(line, name string) string {
 	trimmed := strings.TrimSpace(line)
 	for _, prefix := range []string{"mut var ", "var ", "const "} {
@@ -748,9 +797,10 @@ func structLiteralTypeAt(text string, pos Position) string {
 }
 
 type localSymbol struct {
-	Node   ast.Node
-	Detail string
-	Type   string
+	Node    ast.Node
+	Detail  string
+	Type    string
+	Mutable bool
 }
 
 func collectLocalSymbols(
@@ -767,7 +817,7 @@ func collectLocalSymbols(
 	}
 	for _, p := range fn.Parameters {
 		if p != nil && p.Name != nil {
-			out[p.Name.Value] = localSymbolBuilder(p.Name, "param", p.Type)
+			out[p.Name.Value] = localSymbolBuilder(p.Name, "param", p.Type, p.Mutable)
 		}
 	}
 	collectLocalSymbolsFromBlock(fn.Body, out)
@@ -778,15 +828,17 @@ func localSymbolBuilder(
 	nodeName *ast.Identifier,
 	detail string,
 	typ ast.TypeExpression,
+	mutable bool,
 ) localSymbol {
 	typeStr := ""
 	if typ != nil {
 		typeStr = typ.String()
 	}
 	return localSymbol{
-		Node:   nodeName,
-		Detail: detail,
-		Type:   typeStr,
+		Node:    nodeName,
+		Detail:  detail,
+		Type:    typeStr,
+		Mutable: mutable,
 	}
 }
 
@@ -820,11 +872,11 @@ func collectLocalSymbolsFromBlock(
 		switch s := stmt.(type) {
 		case *ast.VarStatement:
 			if s != nil && s.Name != nil {
-				out[s.Name.Value] = localSymbolBuilder(s.Name, "var", s.Type)
+				out[s.Name.Value] = localSymbolBuilder(s.Name, "var", s.Type, s.Mutable)
 			}
 		case *ast.ConstStatement:
 			if s != nil && s.Name != nil {
-				out[s.Name.Value] = localSymbolBuilder(s.Name, "const", s.Type)
+				out[s.Name.Value] = localSymbolBuilder(s.Name, "const", s.Type, false)
 			}
 		case *ast.MultiVarStatement:
 			if s != nil {
@@ -834,14 +886,14 @@ func collectLocalSymbolsFromBlock(
 						if i < len(s.Types) {
 							typ = s.Types[i]
 						}
-						out[n.Value] = localSymbolBuilder(n, "var", typ)
+						out[n.Value] = localSymbolBuilder(n, "var", typ, s.Mutable)
 
 					}
 				}
 			}
 		case *ast.ForStatement:
 			if s != nil && s.Variable != nil {
-				out[s.Variable.Value] = localSymbolBuilder(s.Variable, "var", nil)
+				out[s.Variable.Value] = localSymbolBuilder(s.Variable, "var", nil, false)
 			}
 			collectLocalSymbolsFromBlock(s.Body, out)
 		case *ast.WhileStatement:
