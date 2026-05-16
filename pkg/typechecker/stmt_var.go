@@ -68,6 +68,10 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	// Explicit type check legacy logic
 	// Special handling for Vec types
 	if gt, ok := vs.Type.(*ast.GenericType); ok && gt.Name == "Vec" {
+		tc.validateTypeUsage(
+			vs.Type,
+			vs.Name.Pos(),
+		)
 		tc.checkVecDeclaration(vs, gt)
 		tc.env.DefineSymbolAt(
 			vs.Name.Value,

@@ -301,6 +301,7 @@ func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
 
 	if len(e.Arguments) == 1 {
 		arg := e.Arguments[0]
+		s.emitPrintDebugPrefix(arg)
 		// Check if it's an integer type
 		// println(expr): evaluate expr
 		if err := s.emitExpression(arg); err != nil {
@@ -354,6 +355,7 @@ func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
 			emitSyscall(&s.Code)
 			emitPopReg(&s.Code, RAX)
 		}
+		s.emitPrintDebugPrefix(arg)
 		if err := s.emitExpression(arg); err != nil {
 			return err
 		}
@@ -396,6 +398,7 @@ func (s *EmitState) emitBuiltinPrint(e *ast.CallExpression) error {
 		return fmt.Errorf("native: print expects 1 argument")
 	}
 	arg := e.Arguments[0]
+	s.emitPrintDebugPrefix(arg)
 
 	if err := s.emitExpression(arg); err != nil {
 		return err
@@ -422,6 +425,74 @@ func (s *EmitState) emitBuiltinPrint(e *ast.CallExpression) error {
 		Target:    target,
 	})
 	return nil
+}
+
+func (s *EmitState) emitPrintDebugPrefix(expr ast.Expression) {
+	prefix := s.printDebugPrefix(expr)
+	if prefix == "" {
+		return
+	}
+	idx := s.addStringLiteral(prefix)
+	s.emitDataAddr(idx)
+	emitMovRegReg(&s.Code, RDI, RAX)
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{
+		ImmOffset: callSite,
+		Target:    "__rt_print_str",
+	})
+}
+
+func (s *EmitState) printDebugPrefix(expr ast.Expression) string {
+	if s.isStringExpression(expr) || s.isFloatExpression(expr) || s.isIntExpression(expr) {
+		return ""
+	}
+	if typ := s.genericExpressionType(expr); typ != "" {
+		switch typ {
+		case "Vec":
+			return "Vec@"
+		case "HashMap":
+			return "Map@"
+		default:
+			return typ + "@"
+		}
+	}
+	if structType := s.getExpressionStructType(expr); structType != "" {
+		return "Struct " + structType + "@"
+	}
+	switch e := expr.(type) {
+	case *ast.VecLiteral:
+		return "Vec@"
+	case *ast.StructLiteral:
+		if e.Name != nil {
+			return "Struct " + e.Name.Value + "@"
+		}
+		return "Struct@"
+	}
+	return ""
+}
+
+func (s *EmitState) genericExpressionType(expr ast.Expression) string {
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		return s.GenericVariables[e.Value]
+	case *ast.MutableIdentifier:
+		return s.GenericVariables[e.Value]
+	case *ast.DerefExpression:
+		return s.genericExpressionType(e.Value)
+	case *ast.FieldAccessExpression:
+		if objType := s.getExpressionStructType(e.Object); objType != "" {
+			if sd := s.findStructDecl(objType); sd != nil {
+				for _, f := range sd.Fields {
+					if f.Name.Value == e.Field.Value {
+						if gt, ok := f.Type.(*ast.GenericType); ok {
+							return gt.Name
+						}
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func (s *EmitState) emitBuiltinLen(e *ast.CallExpression) error {

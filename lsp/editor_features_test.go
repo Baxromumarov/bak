@@ -227,11 +227,69 @@ func TestHoverTracksVecLengthThroughMutableHelper(t *testing.T) {
 }
 
 func TestDynArrEditorRegression(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "dyn_arr.bak"))
-	if err != nil {
-		t.Fatalf("read dyn_arr.bak: %v", err)
-	}
-	src := string(data)
+	src := `package main
+
+struct Data {
+    age:  int
+    name: string
+    fl:   float64
+}
+
+func append(mut d: Vec<Data, _>, input: Data) -> (void) {
+    d.push(input)
+
+    return void
+}
+
+impl Data as d {
+    mut func setAge(age: int) -> (void) {
+        d.age = age
+
+        return void
+    }
+
+    mut func setName(name: string) -> (void) {
+        d.name = name
+
+        return void
+    }
+
+    mut func setFl(fl: float64) -> (void) {
+        d.fl = fl
+
+        return void
+    }
+}
+
+func main() -> (void) {
+    mut var dVec: Vec<Data, _> = Vec.from([])
+
+    append(
+        mut dVec,
+        Data{
+            age:  25,
+            fl:   2.71,
+            name: "Bob",
+        },
+    )
+    println(
+        "Data Vector:",
+        dVec,
+    )
+
+    mut var d: Data
+
+    d.setAge(30)
+    d.setName("Alice")
+    d.setFl(3.14)
+    println(
+        "Age:",
+        d,
+    )
+
+    return void
+}
+`
 	src = strings.Replace(src, "    d.setAge(30)", "    d.\n    d.setAge(30)", 1)
 	uri := writeTempBakFile(t, src)
 

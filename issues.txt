@@ -1,0 +1,23 @@
+still showing not used Data: 
+package main
+
+struct Data {
+    age:  int
+    name: string
+    fl:   float64
+}
+
+func main() -> (void) {
+    var arr: Vec<Data, _> = Vec.from([])
+
+    println(arr)
+
+    return void
+}
+
+
+
+// when printing array, struct, hashmap, etc,... think about adding prefix: Arr, map,..
+
+2. Think about adding special print, like seeing the struct impls, func fields, some internal explanation,..
+

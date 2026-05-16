@@ -72,6 +72,38 @@ func main() -> (void) {
 	}
 }
 
+func TestPrintComplexValuesIncludesDebugPrefixes(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+struct Data {
+	age: int
+}
+
+func main() -> (void) {
+	var arr: Vec<Data, _> = Vec.from([])
+	var d: Data = Data{age: 7}
+	println(arr)
+	println(d)
+	return void
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d\noutput:\n%s", exitCode, output)
+	}
+	if !strings.Contains(output, "Vec@") {
+		t.Fatalf("expected Vec debug prefix in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Struct Data@") {
+		t.Fatalf("expected struct debug prefix in output, got:\n%s", output)
+	}
+}
+
 func TestBuildExecutableBuildsIRProgramSet(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

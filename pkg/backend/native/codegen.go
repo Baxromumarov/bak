@@ -88,6 +88,8 @@ type EmitState struct {
 	StructVariables map[string]string
 	// Track Vec element struct types (vec var name -> element struct type name)
 	VecElementTypes map[string]string
+	// Track generic container variables (variable name -> generic type name)
+	GenericVariables map[string]string
 	// Track Option/Result payload types for pattern binding
 	OptionPayloadTypes map[string]ast.TypeExpression
 	ResultOkTypes      map[string]ast.TypeExpression
@@ -144,6 +146,7 @@ func newEmitState(options BuildOptions) *EmitState {
 		StructVariables:      make(map[string]string),
 		StructDeclModule:     make(map[*ast.StructDecl]string),
 		VecElementTypes:      make(map[string]string),
+		GenericVariables:     make(map[string]string),
 		OptionPayloadTypes:   make(map[string]ast.TypeExpression),
 		ResultOkTypes:        make(map[string]ast.TypeExpression),
 		ResultErrTypes:       make(map[string]ast.TypeExpression),
@@ -357,6 +360,7 @@ func (s *EmitState) applyBindingType(name string, t ast.TypeExpression) {
 			}
 		}
 	case *ast.GenericType:
+		s.GenericVariables[name] = tt.Name
 		switch tt.Name {
 		case "Vec":
 			if len(tt.TypeParams) >= 1 {

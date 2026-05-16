@@ -27,6 +27,41 @@ func checkSource(t *testing.T, source string) []string {
 	return tc.Check(program)
 }
 
+func checkSourceWithUnused(t *testing.T, source string) []TypeError {
+	t.Helper()
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+	tc := New()
+	tc.Check(program)
+	return tc.GetErrors()
+}
+
+func TestUnusedStructUsedAsGenericTypeArgument(t *testing.T) {
+	source := `
+package main
+
+struct Data {
+    age: int
+}
+
+func main() -> (void) {
+    var arr: Vec<Data, _> = Vec.from([])
+    println(arr)
+    return void
+}
+`
+	errs := checkSourceWithUnused(t, source)
+	for _, err := range errs {
+		if err.Code == diagnostics.WarnUnusedType && strings.Contains(err.Message, "Data") {
+			t.Fatalf("Data used as Vec element type should not be reported unused: %#v", errs)
+		}
+	}
+}
+
 func TestCheck_MissingImportReportsTriedPaths(t *testing.T) {
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.bak")
