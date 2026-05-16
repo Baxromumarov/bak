@@ -13,6 +13,7 @@ func init() {
 		"float":  {ReturnType: ast.NewSimpleType("float64")},
 		"string": {ReturnType: ast.NewSimpleType("string")},
 		"char":   {ReturnType: ast.NewSimpleType("char")},
+		"dbg":    {ReturnType: &ast.VoidType{}},
 
 		// File I/O
 		"__builtin_read_file": {
@@ -35,6 +36,7 @@ func init() {
 			Params:     []ast.TypeExpression{ast.NewSimpleType("string")},
 			ReturnType: ast.NewSimpleType("int"),
 		},
+		"__builtin_dbg": {ReturnType: &ast.VoidType{}},
 
 		// File system operations
 		"__builtin_write_file":       {Params: []ast.TypeExpression{ast.NewSimpleType("string"), ast.NewSimpleType("string")}, ReturnType: builtinResultVoidError("string")},

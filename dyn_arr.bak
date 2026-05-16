@@ -6,10 +6,58 @@ struct Data {
     fl:   float64
 }
 
-func main() -> (void) {
-    var arr: Vec<Data, _> = Vec.from([])
+struct DebugInfo {
+    label: string
+    code:  int
+}
 
+func main() -> (void) {
+    var nums: Vec<int, _> = Vec.from([
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    ])
+
+    println(nums)
+    // This uses Data only as a Vec type argument.
+    // The typechecker should not report: unused struct: 'Data'.
+    mut var arr: Vec<Data, _> = Vec.from([])
+
+    // println stays normal user-facing output.
+    println(
+        "Empty Vec:",
+        arr,
+    )
+    arr.push(
+        Data{
+            age:  12,
+            fl:   12.2,
+            name: "Hello",
+        },
+    )
+    arr.push(
+        Data{
+            age:  63,
+            fl:   1543.32,
+            name: "Hello2",
+        },
+    )
     println(arr)
+
+    // It shows the value kind, rendered value, and available internal metadata.
+    var info: DebugInfo = DebugInfo{
+        code:  200,
+        label: "ready",
+    }
+
+    // println still pretty-prints the value.
+    println(
+        "Struct value:",
+        info,
+    )
 
     return void
 }

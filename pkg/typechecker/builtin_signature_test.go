@@ -41,6 +41,28 @@ func main() -> (void) {
 `)
 }
 
+func TestBuiltinSignature_DbgRequiresValue(t *testing.T) {
+	expectError(t, `
+package main
+func main() -> (void) {
+	dbg()
+}
+`, "function 'dbg' expects at least 1 argument(s)")
+}
+
+func TestBuiltinSignature_DbgAcceptsAnyValue(t *testing.T) {
+	expectNoErrors(t, `
+package main
+struct Data {
+	age: int
+}
+func main() -> (void) {
+	var d: Data = Data{age: 30}
+	dbg(d, 1, "ok")
+}
+`)
+}
+
 func TestBuiltinSignature_PgQuerySupportsOptionalParams(t *testing.T) {
 	expectNoErrors(t, `
 package main

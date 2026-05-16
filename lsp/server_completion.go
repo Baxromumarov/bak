@@ -581,6 +581,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 		// Common patterns
 		{"println", "println(${1:values})", "Print line"},
+		{"dbg", "dbg(${1:values})", "Debug inspect value"},
 		{"result", "Result<${1:T}, ${2:E}>", "Result type"},
 		{"vec", "Vec<${1:T}, ${2:_}>", "Vector type"},
 		{"map", "HashMap<${1:K}, ${2:V}>", "Hash map type"},
@@ -1802,6 +1803,7 @@ var builtinSignatures = map[string]string{
 	// Output functions
 	"print":    "print(values: any...) -> (void)",
 	"println":  "println(values: any...) -> (void)",
+	"dbg":      "dbg(values: any...) -> (void)",
 	"eprint":   "eprint(values: any...) -> (void)",
 	"eprintln": "eprintln(values: any...) -> (void)",
 

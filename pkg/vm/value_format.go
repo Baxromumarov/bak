@@ -139,11 +139,7 @@ func (vm *VM) formatStructCollection(inst *compiler.StructInstance, depth int) (
 		if !ok {
 			return "", false
 		}
-		items := make([]string, 0, vecLen)
-		for i := range vecLen {
-			items = append(items, vm.formatValueDepth(arr.Elements[i], depth+1))
-		}
-		return "[" + strings.Join(items, ", ") + "]", true
+		return vm.formatVecElements(arr.Elements[:vecLen], depth+1), true
 	}
 
 	if isHashMapTypeName(inst.TypeName) {
@@ -202,6 +198,10 @@ func (vm *VM) formatStructCollection(inst *compiler.StructInstance, depth int) (
 }
 
 func (vm *VM) formatStructInstance(inst *compiler.StructInstance, depth int) string {
+	return inst.TypeName + vm.formatStructBody(inst, depth)
+}
+
+func (vm *VM) formatStructBody(inst *compiler.StructInstance, depth int) string {
 	fields := make([]string, 0, len(inst.Fields))
 	def := vm.structDefForInstance(inst)
 
@@ -213,7 +213,66 @@ func (vm *VM) formatStructInstance(inst *compiler.StructInstance, depth int) str
 		fields = append(fields, name+": "+vm.formatValueDepth(fieldValue, depth+1))
 	}
 
-	return inst.TypeName + "{" + strings.Join(fields, ", ") + "}"
+	return "{" + strings.Join(fields, ", ") + "}"
+}
+
+func (vm *VM) formatVecElements(elements []compiler.Value, depth int) string {
+	if elemType, ok := homogeneousStructElementType(elements); ok {
+		return vm.formatHomogeneousStructVec(elemType, elements, depth)
+	}
+
+	items := make([]string, 0, len(elements))
+	for _, elem := range elements {
+		items = append(items, vm.formatValueDepth(elem, depth+1))
+	}
+	return "[" + strings.Join(items, ", ") + "]"
+}
+
+func (vm *VM) formatHomogeneousStructVec(elemType string, elements []compiler.Value, depth int) string {
+	itemIndent := formatIndent(depth - 1)
+	closeIndent := formatIndent(depth - 2)
+	items := make([]string, 0, len(elements))
+
+	for _, elem := range elements {
+		inst := elem.AsObject.(*compiler.StructInstance)
+		items = append(items, itemIndent+vm.formatStructBody(inst, depth+1))
+	}
+
+	return "Vec<" + elemType + ">[\n" + strings.Join(items, ",\n") + "\n" + closeIndent + "]"
+}
+
+func formatIndent(depth int) string {
+	if depth <= 0 {
+		return ""
+	}
+	return strings.Repeat("  ", depth)
+}
+
+func homogeneousStructElementType(elements []compiler.Value) (string, bool) {
+	if len(elements) == 0 {
+		return "", false
+	}
+
+	first := elements[0]
+	if first.Type != compiler.VAL_STRUCT {
+		return "", false
+	}
+	firstInst, ok := first.AsObject.(*compiler.StructInstance)
+	if !ok || firstInst.TypeName == "" || isVecTypeName(firstInst.TypeName) || isHashMapTypeName(firstInst.TypeName) {
+		return "", false
+	}
+
+	for _, elem := range elements[1:] {
+		if elem.Type != compiler.VAL_STRUCT {
+			return "", false
+		}
+		inst, ok := elem.AsObject.(*compiler.StructInstance)
+		if !ok || inst.TypeName != firstInst.TypeName {
+			return "", false
+		}
+	}
+
+	return firstInst.TypeName, true
 }
 
 func (vm *VM) structDefForInstance(inst *compiler.StructInstance) *compiler.StructDef {

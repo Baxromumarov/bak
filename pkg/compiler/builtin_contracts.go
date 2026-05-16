@@ -72,6 +72,7 @@ func variadicArity(name string, min int) BuiltinContract {
 var builtinContractsByID = map[BuiltinID]BuiltinContract{
 	BUILTIN_PRINT:   variadicArity("print", 0),
 	BUILTIN_PRINTLN: variadicArity("println", 0),
+	BUILTIN_DBG:     variadicArity("dbg", 1),
 	BUILTIN_LEN:     fixedArity("len", 1),
 	BUILTIN_PUSH:    fixedArity("push", 2),
 	BUILTIN_POP:     fixedArity("pop", 1),

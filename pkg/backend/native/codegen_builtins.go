@@ -16,6 +16,8 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		return true, s.emitBuiltinPrintln(e)
 	case "print":
 		return true, s.emitBuiltinPrint(e)
+	case "dbg":
+		return true, s.emitBuiltinDebug(e)
 	case "len":
 		return true, s.emitBuiltinLen(e)
 	case "__builtin_string_from_bytes":
@@ -186,6 +188,8 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		return true, s.emitBuiltinPrint(e)
 	case "__builtin_println":
 		return true, s.emitBuiltinPrintln(e)
+	case "__builtin_dbg":
+		return true, s.emitBuiltinDebug(e)
 	case "__builtin_eprint", "__builtin_eprintln":
 		return true, s.emitBuiltinPrint(e)
 	case "__builtin_read_line":
@@ -427,12 +431,45 @@ func (s *EmitState) emitBuiltinPrint(e *ast.CallExpression) error {
 	return nil
 }
 
-func (s *EmitState) emitPrintDebugPrefix(expr ast.Expression) {
-	prefix := s.printDebugPrefix(expr)
-	if prefix == "" {
-		return
+func (s *EmitState) emitBuiltinDebug(e *ast.CallExpression) error {
+	if len(e.Arguments) == 0 {
+		return fmt.Errorf("native: dbg expects at least 1 argument")
 	}
-	idx := s.addStringLiteral(prefix)
+
+	for i, arg := range e.Arguments {
+		if i > 0 {
+			s.emitPrintNewline()
+		}
+		s.emitPrintStringLiteral("dbg: ")
+		s.emitPrintDebugPrefix(arg)
+		if err := s.emitExpression(arg); err != nil {
+			return err
+		}
+		if s.isRefExpression(arg) {
+			s.emitSafeRefDeref()
+		}
+		emitMovRegReg(&s.Code, RDI, RAX)
+
+		target := "__rt_print_int"
+		if s.isStringExpression(arg) {
+			target = "__rt_print_str"
+		} else if s.isFloatExpression(arg) {
+			target = "__rt_print_float"
+		} else if s.isIntExpression(arg) {
+			target = "__rt_print_int"
+		}
+		callSite := emitCallRel32(&s.Code, 0)
+		s.CallPatches = append(s.CallPatches, CallPatch{
+			ImmOffset: callSite,
+			Target:    target,
+		})
+	}
+	s.emitPrintNewline()
+	return nil
+}
+
+func (s *EmitState) emitPrintStringLiteral(text string) {
+	idx := s.addStringLiteral(text)
 	s.emitDataAddr(idx)
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)
@@ -440,6 +477,25 @@ func (s *EmitState) emitPrintDebugPrefix(expr ast.Expression) {
 		ImmOffset: callSite,
 		Target:    "__rt_print_str",
 	})
+}
+
+func (s *EmitState) emitPrintNewline() {
+	emitMovRegImm32(&s.Code, RAX, 0x0A)
+	emitPushReg(&s.Code, RAX)
+	emitMovRegReg(&s.Code, RSI, RSP)
+	emitMovRegImm32(&s.Code, RDX, 1)
+	emitMovRegImm32(&s.Code, RDI, 1)
+	emitMovRegImm32(&s.Code, RAX, 1)
+	emitSyscall(&s.Code)
+	emitPopReg(&s.Code, RAX)
+}
+
+func (s *EmitState) emitPrintDebugPrefix(expr ast.Expression) {
+	prefix := s.printDebugPrefix(expr)
+	if prefix == "" {
+		return
+	}
+	s.emitPrintStringLiteral(prefix)
 }
 
 func (s *EmitState) printDebugPrefix(expr ast.Expression) string {

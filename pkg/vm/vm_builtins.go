@@ -43,6 +43,16 @@ func (vm *VM) registerBuiltins() {
 		return compiler.NewNil()
 	}
 
+	vm.builtins["dbg"] = func(args []compiler.Value) compiler.Value {
+		for i, arg := range args {
+			if i > 0 {
+				fmt.Println()
+			}
+			fmt.Println(vm.debugValue(arg))
+		}
+		return compiler.NewNil()
+	}
+
 	vm.builtins["len"] = func(args []compiler.Value) compiler.Value {
 		if len(args) != 1 {
 			return compiler.NewNil()
@@ -321,6 +331,15 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			fmt.Print(vm.formatValue(arg))
 		}
 		fmt.Println()
+		return compiler.NewNil(), nil
+
+	case compiler.BUILTIN_DBG:
+		for i, arg := range args {
+			if i > 0 {
+				fmt.Println()
+			}
+			fmt.Println(vm.debugValue(arg))
+		}
 		return compiler.NewNil(), nil
 
 	case compiler.BUILTIN_LEN:

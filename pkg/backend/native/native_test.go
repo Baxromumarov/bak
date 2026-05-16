@@ -104,6 +104,31 @@ func main() -> (void) {
 	}
 }
 
+func TestDebugBuiltinPrintsNativeValues(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+func main() -> (void) {
+	dbg(42, "ok")
+	return void
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d\noutput:\n%s", exitCode, output)
+	}
+	if !strings.Contains(output, "dbg: 42") {
+		t.Fatalf("expected integer debug output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "dbg: ok") {
+		t.Fatalf("expected string debug output, got:\n%s", output)
+	}
+}
+
 func TestBuildExecutableBuildsIRProgramSet(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

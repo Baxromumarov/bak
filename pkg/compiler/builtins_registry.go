@@ -88,6 +88,7 @@ const (
 	BUILTIN_VEC_GET            = 87
 	BUILTIN_VEC_SET            = 88
 	BUILTIN_VEC_GROW           = 89
+	BUILTIN_DBG                = 90
 )
 
 // builtinNames maps builtin names to their IDs.
@@ -103,6 +104,7 @@ var builtinNames = map[string]BuiltinID{
 	"__builtin_socket_accept":      BUILTIN_SOCKET_ACCEPT,
 	"print":                        BUILTIN_PRINT,
 	"println":                      BUILTIN_PRINTLN,
+	"dbg":                          BUILTIN_DBG,
 	"len":                          BUILTIN_LEN,
 	"push":                         BUILTIN_PUSH,
 	"pop":                          BUILTIN_POP,
@@ -152,6 +154,7 @@ var builtinNames = map[string]BuiltinID{
 	"__vec_grow":                   BUILTIN_VEC_GROW,
 	"__builtin_print":              BUILTIN_PRINT,
 	"__builtin_println":            BUILTIN_PRINTLN,
+	"__builtin_dbg":                BUILTIN_DBG,
 	"__builtin_eprint":             BUILTIN_EPRINT,
 	"__builtin_eprintln":           BUILTIN_EPRINTLN,
 	"__builtin_read_line":          BUILTIN_READ_LINE,

@@ -71,6 +71,19 @@ func main() -> (void) {
 `)
 }
 
+func TestCompileDbgBuiltin(t *testing.T) {
+	compileSource(t, `
+package main
+struct Data {
+	age: int
+}
+func main() -> (void) {
+	var d: Data = Data{age: 30}
+	dbg(d, "ok")
+}
+`)
+}
+
 func TestCompileConstantFoldsIntegerComparison(t *testing.T) {
 	module := compileSourceToModule(t, `
 package main
