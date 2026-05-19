@@ -9,76 +9,31 @@ import (
 	"github.com/baxromumarov/bak/pkg/parser"
 )
 
-func TestLintSourceFindsNamingConventionIssue(t *testing.T) {
-	source := "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"
-
-	findings := LintSource("demo.bak", source, nil)
-	if len(findings) == 0 {
-		t.Fatalf("expected lint findings")
-	}
-	if findings[0].Rule != "naming-convention" {
-		t.Fatalf("unexpected first rule: %s", findings[0].Rule)
-	}
-	if findings[0].File != "demo.bak" {
-		t.Fatalf("unexpected file path on finding: %s", findings[0].File)
-	}
-}
-
-func TestLintSourceRespectsDisabledRules(t *testing.T) {
-	config := DefaultConfig()
-	config.DisabledRules["naming-convention"] = true
-
-	findings := LintSource("demo.bak", "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n", config)
-	if len(findings) != 0 {
-		t.Fatalf("expected naming-convention findings to be disabled, got %#v", findings)
-	}
-}
-
-func TestLintSourceAllowsStructCamelCase(t *testing.T) {
-	source := "package main\n\nstruct dataModel {\n    name: string,\n}\n"
+func TestLintSourceAllowsAnyDeclarationNaming(t *testing.T) {
+	source := strings.Join([]string{
+		"package main",
+		"",
+		"struct data_model {",
+		"    weird_field_name: string,",
+		"}",
+		"",
+		"enum result_state {",
+		"    all_good,",
+		"}",
+		"",
+		"const max_count: int = 1",
+		"",
+		"func half_age(user_value: data_model) -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
 
 	findings := LintSource("demo.bak", source, nil)
 	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'dataModel'") {
-			t.Fatalf("did not expect struct camelCase warning, got %#v", findings)
+		if f.Rule == "naming-convention" || strings.Contains(f.Message, "should be camelCase") {
+			t.Fatalf("did not expect naming lint finding, got %#v", findings)
 		}
-	}
-}
-
-func TestLintSourceWarnsForStructSnakeCase(t *testing.T) {
-	source := "package main\n\nstruct data_model {\n    name: string,\n}\n"
-
-	findings := LintSource("demo.bak", source, nil)
-	found := false
-	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "struct 'data_model' should be PascalCase or camelCase") {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("expected struct naming finding, got %#v", findings)
-	}
-}
-
-func TestLintSourceKeepsLintWhenParseErrorsExist(t *testing.T) {
-	source := "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n)\n"
-
-	findings := LintSource("demo.bak", source, nil)
-	if len(findings) == 0 {
-		t.Fatalf("expected lint findings even with parse errors")
-	}
-
-	found := false
-	for _, f := range findings {
-		if f.Rule == "naming-convention" && strings.Contains(f.Message, "function 'BadName' should be camelCase") {
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		t.Fatalf("expected naming finding despite parse errors, got %#v", findings)
 	}
 }
 
@@ -104,7 +59,6 @@ func TestAvailableRulesSorted(t *testing.T) {
 		"complexity",
 		"empty-block",
 		"import-style",
-		"naming-convention",
 		"public-api-style",
 		"style",
 	}
@@ -217,9 +171,9 @@ func TestLintSourceWarnsForLegacyStdImportPath(t *testing.T) {
 
 func TestApplyDisabledRulesCSV(t *testing.T) {
 	config := DefaultConfig()
-	ApplyDisabledRulesCSV(config, " naming-convention , style ,, ")
-	if !config.DisabledRules["naming-convention"] {
-		t.Fatalf("expected naming-convention to be disabled")
+	ApplyDisabledRulesCSV(config, " public-api-style , style ,, ")
+	if !config.DisabledRules["public-api-style"] {
+		t.Fatalf("expected public-api-style to be disabled")
 	}
 	if !config.DisabledRules["style"] {
 		t.Fatalf("expected style to be disabled")
@@ -230,7 +184,15 @@ func TestApplyDisabledRulesCSV(t *testing.T) {
 }
 
 func TestLintProgramMatchesLintSource(t *testing.T) {
-	source := "package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"
+	source := strings.Join([]string{
+		"package main",
+		`import strings "src/std/strings/strings.bak"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
 	l := lexer.New(source)
 	p := parser.New(l)
 	program := p.ParseProgram()

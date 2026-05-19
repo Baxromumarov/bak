@@ -14,47 +14,56 @@ import (
 func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeExpression {
 	// Check if the object is an identifier that refers to an imported module
 	if ident, ok := fa.Object.(*ast.Identifier); ok {
-		if _, ok := tc.importedPkgPaths[ident.Value]; ok {
+		if pkgPath, ok := tc.importedPkgPaths[ident.Value]; ok {
 			tc.markImportUsed(ident.Value)
-		}
-		// Check if this identifier is a module alias
-		if symbols, exists := tc.importedSymbols[ident.Value]; exists {
-			// Look for the field in the imported symbols
-			if sym, ok := symbols[fa.Field.Value]; ok {
-				// Mark the imported symbol as used so the defining package won't warn
-				tc.markImportedSymbolUsed(ident.Value, fa.Field.Value)
-				// For types and constants, return appropriate type
-				switch sym.Kind {
-				case packages.SymbolConst:
-					// For constants, try to infer type from the node
-					if constStmt, ok := sym.Node.(*ast.ConstStatement); ok {
-						return constStmt.Type
-					}
-				case packages.SymbolType, packages.SymbolStruct, packages.SymbolEnum, packages.SymbolAlias:
-					// For types, return a simple type with the name qualified by module
-					return &ast.SimpleType{
-						Token: fa.Token,
-						Name:  ident.Value + "." + fa.Field.Value,
-					}
-				case packages.SymbolFunc:
-					// Needed for function calls like os.exit() where os is module
-					if funcDecl, ok := sym.Node.(*ast.FunctionDecl); ok {
-						paramTypes := make([]ast.TypeExpression, len(funcDecl.Parameters))
-						for i, p := range funcDecl.Parameters {
-							paramTypes[i] = p.Type
+
+			// Check if this identifier is a module alias
+			if symbols, exists := tc.importedSymbols[ident.Value]; exists {
+				// Look for the field in the imported symbols
+				if sym, ok := symbols[fa.Field.Value]; ok {
+					// Mark the imported symbol as used so the defining package won't warn
+					tc.markImportedSymbolUsed(ident.Value, fa.Field.Value)
+					// For types and constants, return appropriate type
+					switch sym.Kind {
+					case packages.SymbolConst:
+						// For constants, try to infer type from the node
+						if constStmt, ok := sym.Node.(*ast.ConstStatement); ok {
+							return constStmt.Type
 						}
-						return &ast.FunctionType{
-							Params:     paramTypes,
-							ReturnType: funcDecl.ReturnType,
+					case packages.SymbolType, packages.SymbolStruct, packages.SymbolEnum, packages.SymbolAlias:
+						// For types, return a simple type with the name qualified by module
+						return &ast.SimpleType{
+							Token: fa.Token,
+							Name:  ident.Value + "." + fa.Field.Value,
+						}
+					case packages.SymbolFunc:
+						// Needed for function calls like os.exit() where os is module
+						if funcDecl, ok := sym.Node.(*ast.FunctionDecl); ok {
+							paramTypes := make([]ast.TypeExpression, len(funcDecl.Parameters))
+							for i, p := range funcDecl.Parameters {
+								paramTypes[i] = p.Type
+							}
+							return &ast.FunctionType{
+								Params:     paramTypes,
+								ReturnType: funcDecl.ReturnType,
+							}
 						}
 					}
 				}
 			}
-			// If symbol not found, it might be a runtime-only member
-			// Return nil to let runtime evaluation handle it
-			// return nil
-		} else {
-			// Debug removed
+
+			if sym, ok := tc.registry.GetAnySymbolFromPackage(pkgPath, fa.Field.Value); ok && sym.Visibility != ast.Public {
+				tc.addErrorAt(
+					fa.Field.Pos(),
+					strfmt.Named(
+						"{kind} '{alias}.{name}' is private; export it with pub if it should be accessible from other packages",
+						"Kind", sym.Kind.String(),
+						"Alias", ident.Value,
+						"Name", fa.Field.Value,
+					),
+				)
+				return &ast.ErrorType{Message: "private imported symbol"}
+			}
 		}
 	}
 

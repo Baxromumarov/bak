@@ -75,7 +75,6 @@ type Rule interface {
 }
 
 var defaultRules = []Rule{
-	&NamingConventionRule{},
 	&PublicAPIStyleRule{},
 	&ImportStyleRule{},
 	&StyleRule{},
@@ -271,124 +270,7 @@ func canonicalStdImportPath(path string) (string, bool) {
 	return strings.Join(parts, "/"), true
 }
 
-// NamingConventionRule checks that identifiers follow naming conventions.
-type NamingConventionRule struct{}
-
-func (r *NamingConventionRule) Name() string { return "naming-convention" }
-
-func (r *NamingConventionRule) Check(
-	prog *ast.Program,
-	source string,
-	config *Config,
-) []Finding {
-	var findings []Finding
-
-	for _, stmt := range prog.Statements {
-		findings = append(findings, r.checkStatement(stmt)...)
-	}
-
-	return findings
-}
-
-func (r *NamingConventionRule) extractNamedNodes(stmt ast.Statement) []NamedNode {
-	switch s := stmt.(type) {
-	case *ast.FunctionDecl:
-		// We return the function itself AND its parameters
-		list := []NamedNode{s}
-		for _, p := range s.Parameters {
-			list = append(list, p)
-		}
-		return list
-
-	case *ast.StructDecl:
-		if s == nil {
-			return nil
-		}
-		return r.extractIdentifierAsNode(s.Name, "struct")
-
-	case *ast.EnumDecl:
-		if s == nil {
-			return nil
-		}
-		return r.extractIdentifierAsNode(s.Name, "enum")
-
-	case *ast.ConstStatement:
-		if s == nil {
-			return nil
-		}
-		return r.extractIdentifierAsNode(s.Name, "constant")
-
-	default:
-		return nil
-	}
-}
-
-func (r *NamingConventionRule) extractIdentifierAsNode(name *ast.Identifier, kind string) []NamedNode {
-	if name == nil {
-		return nil
-	}
-	return []NamedNode{namedNodeAdapter{
-		name: name.Value,
-		tok:  name.Token,
-		kind: kind,
-	}}
-}
-
 type Validator func(string) bool
-
-var namingRegistry = map[string]struct {
-	validate Validator
-	expected string
-}{
-	"function":  {isCamelCase, "camelCase"},
-	"parameter": {isCamelCase, "camelCase"},
-	"struct":    {isPascalOrCamel, "PascalCase or camelCase"},
-	"enum":      {isPascalCase, "PascalCase"},
-	"constant":  {isUpperSnakeOrPascal, "UPPER_SNAKE_CASE or PascalCase"},
-}
-
-func (r *NamingConventionRule) checkStatement(stmt ast.Statement) []Finding {
-	var findings []Finding
-
-	// 1. Extract all potential nodes to check from this statement
-	nodes := r.extractNamedNodes(stmt)
-
-	// 2. Run the unified validation pipeline
-	for _, node := range nodes {
-		name := node.NodeName()
-
-		// Skip ignored names (standard in production linters)
-		if name == "" ||
-			name == "_" ||
-			name == "main" ||
-			strings.HasPrefix(name, "_") {
-			continue
-		}
-
-		// Look up the rule in our registry
-		rule, exists := namingRegistry[node.Kind()]
-		if !exists {
-			continue
-		}
-
-		// Validate
-		if !rule.validate(name) {
-			findings = append(findings, Finding{
-				Rule:  "naming-convention",
-				Level: "warning",
-				Message: strfmt.Named("{Kind} '{Value}' should be {Expected}",
-					"Kind", node.Kind(),
-					"Value", name,
-					"Expected", rule.expected,
-				),
-				Line:   node.NodeToken().Line,
-				Column: node.NodeToken().Column,
-			})
-		}
-	}
-
-	return findings
-}
 
 // PublicAPIStyleRule enforces Bak's public API naming surface.
 type PublicAPIStyleRule struct{}

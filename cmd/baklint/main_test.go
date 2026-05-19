@@ -23,8 +23,9 @@ func TestBaklintRequiresPaths(t *testing.T) {
 
 func TestBaklintReportsFindings(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "bad_name.bak")
-	if err := os.WriteFile(path, []byte("package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"), 0o644); err != nil {
+	path := filepath.Join(dir, "long_line.bak")
+	source := "package main\n\nfunc main() -> (void) {\n    println(\"" + strings.Repeat("x", 130) + "\")\n    return void\n}\n"
+	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}
 
@@ -32,7 +33,8 @@ func TestBaklintReportsFindings(t *testing.T) {
 	if exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d stderr=%q", exitCode, stderr)
 	}
-	if !strings.Contains(stderr, path+":3:6: function 'BadName' should be camelCase [naming-convention]") {
+	if !strings.Contains(stderr, path+":4:121: line exceeds 120 characters") ||
+		!strings.Contains(stderr, "[style/line-length]") {
 		t.Fatalf("expected lint finding, got %q", stderr)
 	}
 	if !strings.Contains(stderr, "1 finding(s) in 1 file(s)") {
@@ -42,12 +44,13 @@ func TestBaklintReportsFindings(t *testing.T) {
 
 func TestBaklintDisableSuppressesRule(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "bad_name.bak")
-	if err := os.WriteFile(path, []byte("package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"), 0o644); err != nil {
+	path := filepath.Join(dir, "long_line.bak")
+	source := "package main\n\nfunc main() -> (void) {\n    println(\"" + strings.Repeat("x", 130) + "\")\n    return void\n}\n"
+	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}
 
-	stdout, stderr, exitCode := runBaklint(t, []string{"--disable", "naming-convention", path})
+	stdout, stderr, exitCode := runBaklint(t, []string{"--disable", "style", path})
 	if exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d stdout=%q stderr=%q", exitCode, stdout, stderr)
 	}
@@ -58,16 +61,17 @@ func TestBaklintDisableSuppressesRule(t *testing.T) {
 
 func TestBaklintWalksDirectoriesAndSkipsBakCache(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "bad_name.bak")
+	path := filepath.Join(dir, "long_line.bak")
 	cacheDir := filepath.Join(dir, ".bak-cache")
 	cachePath := filepath.Join(cacheDir, "ignored.bak")
-	if err := os.WriteFile(path, []byte("package main\n\nfunc BadName() -> (void) {\n    return void\n}\n"), 0o644); err != nil {
+	source := "package main\n\nfunc main() -> (void) {\n    println(\"" + strings.Repeat("x", 130) + "\")\n    return void\n}\n"
+	if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 		t.Fatalf("write source: %v", err)
 	}
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		t.Fatalf("mkdir cache dir: %v", err)
 	}
-	if err := os.WriteFile(cachePath, []byte("package main\n\nfunc AlsoBad() -> (void) {\n    return void\n}\n"), 0o644); err != nil {
+	if err := os.WriteFile(cachePath, []byte(source), 0o644); err != nil {
 		t.Fatalf("write cached file: %v", err)
 	}
 
@@ -92,7 +96,7 @@ func TestBaklintListRules(t *testing.T) {
 		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
 	got := strings.Fields(stdout)
-	want := []string{"complexity", "empty-block", "import-style", "naming-convention", "public-api-style", "style"}
+	want := []string{"complexity", "empty-block", "import-style", "public-api-style", "style"}
 	if len(got) != len(want) {
 		t.Fatalf("unexpected rules: got=%v want=%v", got, want)
 	}

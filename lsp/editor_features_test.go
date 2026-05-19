@@ -50,6 +50,25 @@ func TestFormattingHandlesHalfOpenRanges(t *testing.T) {
 	}
 }
 
+func TestFormattingPreservesTryExpression(t *testing.T) {
+	src := "package main\nfunc load()->(Result<int, string>){return Ok(1)}\nfunc work()->(Result<int, string>){var x:int=try load()\nreturn Ok(x)}"
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+
+	params := DocumentFormattingParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+	}
+	edits := s.handleFormatting(mustRequest(t, params))
+	if len(edits) != 1 {
+		t.Fatalf("expected one text edit, got %d", len(edits))
+	}
+	if !strings.Contains(edits[0].NewText, "var x: int = try load()") {
+		t.Fatalf("expected formatter to preserve try expression, got %q", edits[0].NewText)
+	}
+}
+
 func TestFormattingKeepsSwitchCasesParseable(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

@@ -899,6 +899,14 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 	case *ast.PrefixExpression:
 		p.write(e.Operator)
 		p.printExpression(e.Right, precPrefix)
+	case *ast.UnwrapExpression:
+		if e.IsTry {
+			p.write("try ")
+			p.printExpression(e.Value, precPrefix)
+		} else {
+			p.printExpression(e.Value, precCall)
+			p.write("?")
+		}
 	case *ast.InfixExpression:
 		prec := infixPrecedence(e.Operator)
 		p.printExpression(e.Left, prec)
@@ -1324,6 +1332,11 @@ func precedence(expr ast.Expression) int {
 		return infixPrecedence(e.Operator)
 	case *ast.PrefixExpression, *ast.BorrowExpression, *ast.DerefExpression:
 		return precPrefix
+	case *ast.UnwrapExpression:
+		if e.IsTry {
+			return precPrefix
+		}
+		return precIndex
 	case *ast.CallExpression:
 		return precCall
 	case *ast.IndexExpression:

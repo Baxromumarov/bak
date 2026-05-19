@@ -732,6 +732,22 @@ func (r *Registry) GetSymbolFromPackage(pkgPath string, symbolName string, calle
 	return pkg.GetSymbol(symbolName, fromSamePackage)
 }
 
+// GetAnySymbolFromPackage retrieves a symbol without applying visibility rules.
+// It is intended for diagnostics that need to distinguish "missing" from
+// "exists but private".
+func (r *Registry) GetAnySymbolFromPackage(pkgPath string, symbolName string) (*Symbol, bool) {
+	pkg, exists := r.GetPackage(pkgPath)
+	if !exists {
+		return nil, false
+	}
+
+	sym, err := pkg.GetSymbol(symbolName, true)
+	if err != nil {
+		return nil, false
+	}
+	return sym, true
+}
+
 // GetAllSymbolsFromPackage returns all accessible symbols from a package
 func (r *Registry) GetAllSymbolsFromPackage(pkgPath string, callerPkgPath string) (map[string]*Symbol, error) {
 	r.mu.RLock()

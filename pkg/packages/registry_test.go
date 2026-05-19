@@ -61,6 +61,30 @@ func TestGetSymbolPrivateIncludesPubHint(t *testing.T) {
 	}
 }
 
+func TestRegistryGetAnySymbolFromPackageIncludesPrivateSymbols(t *testing.T) {
+	reg := NewRegistry()
+	path := filepath.Join(t.TempDir(), "demo.bak")
+	reg.RegisterPackage(&Package{
+		Name: "demo",
+		Path: path,
+		Symbols: map[string]*Symbol{
+			"secret": {
+				Name:       "secret",
+				Visibility: ast.Private,
+				Kind:       SymbolConst,
+			},
+		},
+	})
+
+	sym, ok := reg.GetAnySymbolFromPackage(path, "secret")
+	if !ok {
+		t.Fatalf("expected private symbol to be visible to raw lookup")
+	}
+	if sym.Kind != SymbolConst || sym.Visibility != ast.Private {
+		t.Fatalf("unexpected symbol: %#v", sym)
+	}
+}
+
 func TestRegistryNormalizesPackagePaths(t *testing.T) {
 	reg := NewRegistry()
 	cwd, err := os.Getwd()

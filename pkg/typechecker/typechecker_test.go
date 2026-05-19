@@ -485,6 +485,55 @@ func main() -> (void) {
 	t.Fatalf("expected private imported field error, got %#v", tc.GetErrors())
 }
 
+func TestCheck_ImportedPrivateConstAccessIsRejected(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "limits.bak")
+	libSource := `
+package limits
+
+const INTERNAL_MAX: int = 999
+pub const PUBLIC_MAX: int = 10
+`
+	mainSource := `
+package main
+import limits "./limits.bak"
+
+func main() -> (void) {
+	var max: int = limits.INTERNAL_MAX
+	println(max)
+	return void
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatalf("write limits.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	for _, err := range tc.GetErrors() {
+		if strings.Contains(err.Message, "constant 'limits.INTERNAL_MAX' is private") {
+			if strings.Contains(err.Message, "has no field") {
+				t.Fatalf("private const error should not be reported as missing field: %#v", tc.GetErrors())
+			}
+			return
+		}
+	}
+	t.Fatalf("expected private imported const error, got %#v", tc.GetErrors())
+}
+
 func checkSourceStructured(t *testing.T, source string) []TypeError {
 	t.Helper()
 	l := lexer.New(source)

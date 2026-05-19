@@ -398,7 +398,8 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",
 		"",
-		"func BadName() -> (void) {",
+		"func main() -> (void) {",
+		`    println("` + strings.Repeat("x", 130) + `")`,
 		"    return void",
 		"}",
 		"",
@@ -449,7 +450,7 @@ func TestAnalyzeAndPublishIncludesLintDiagnostics(t *testing.T) {
 	for _, diag := range params.Diagnostics {
 		if diag.Source == "bak-linter" {
 			foundLint = true
-			if !strings.Contains(diag.Message, "camelCase") {
+			if fmt.Sprint(diag.Code) != "style/line-length" {
 				t.Fatalf("unexpected lint diagnostic message: %s", diag.Message)
 			}
 		}

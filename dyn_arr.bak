@@ -16,6 +16,12 @@ impl Data as d {
     }
 }
 
+func half_age(d: Data) -> (Result<int64, string>) {
+    var out: int64 = try d.divide_age()
+    
+    return Ok(out)
+}
+
 func main() -> (void) {
     var d: Data = Data{
         age:  12,
@@ -23,7 +29,7 @@ func main() -> (void) {
         name: "hello",
     }
 
-    switch d.divide_age() {
+    switch half_age(d) {
         case Ok(out) {
             println("here error: ", out)
         }

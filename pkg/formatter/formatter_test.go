@@ -59,6 +59,35 @@ func TestFormatVarShorthandWithoutType(t *testing.T) {
 	}
 }
 
+func TestFormatTryExpression(t *testing.T) {
+	input := "package main\nfunc load()->(Result<int, string>){return Ok(1)}\nfunc work()->(Result<int, string>){var x:int=try load()\nreturn Ok(x)}"
+	want := "package main\n\nfunc load() -> (Result<int, string>) {\n    return Ok(1)\n}\n\nfunc work() -> (Result<int, string>) {\n    var x: int = try load()\n\n    return Ok(x)\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+	if _, errs := Format(got); len(errs) > 0 {
+		t.Fatalf("formatted try expression should parse again: %v\n%s", errs, got)
+	}
+}
+
+func TestFormatPostfixUnwrapExpression(t *testing.T) {
+	input := "package main\nfunc work()->(Result<int, string>){var x:int=load()?\nreturn Ok(x)}"
+	want := "package main\n\nfunc work() -> (Result<int, string>) {\n    var x: int = load()?\n\n    return Ok(x)\n}\n"
+
+	got, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if got != want {
+		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
+	}
+}
+
 func TestFormatStructFieldAlignment(t *testing.T) {
 	input := "package main\nstruct Point{x: int\nlonger_name: string\n}"
 	padX := strings.Repeat(" ", 11)
