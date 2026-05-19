@@ -127,6 +127,7 @@ type TypeChecker struct {
 	nodeTypes         map[ast.Node]string                    // Map to store inferred types for LSP
 	switchExhaustive  map[*ast.SwitchStatement]bool          // Switch exhaustiveness info for return checks
 	suppressUnused    bool                                   // when true, skip emitting unused-symbol warnings
+	enforceMainVoid   bool                                   // when true, main must have a void return type
 	finalized         bool                                   // whether finalization (unused checks) ran for this checker
 	resultGuardFacts  map[string]resultGuardState            // variable -> flow fact from isOk/isErr guards
 	registry          *packages.Registry                     // package state scoped to this checker run
@@ -242,6 +243,12 @@ func (tc *TypeChecker) HasErrors() bool {
 // SetSuppressUnused controls whether unused symbol warnings are emitted.
 func (tc *TypeChecker) SetSuppressUnused(v bool) {
 	tc.suppressUnused = v
+}
+
+// SetEnforceMainVoid controls whether the checker enforces Bak's CLI entry
+// point rule: main is a process entry point and must return void.
+func (tc *TypeChecker) SetEnforceMainVoid(v bool) {
+	tc.enforceMainVoid = v
 }
 
 // SetContext makes typechecking cooperatively cancelable.

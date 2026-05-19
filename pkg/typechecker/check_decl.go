@@ -166,6 +166,14 @@ func (tc *TypeChecker) checkFunctionDecl(fd *ast.FunctionDecl) {
 
 	// Validate function return type annotations (catch uses like 'float')
 	tc.validateTypeUsage(fd.ReturnType, fd.Name.Pos())
+	if tc.enforceMainVoid && fd.Name != nil && fd.Name.Value == "main" && fd.ReturnType != nil && !tc.isVoidType(fd.ReturnType) {
+		tc.addErrorWithHelp(
+			fd.Name.Token.Line,
+			fd.Name.Token.Column,
+			"change the entry point signature to `func main() -> (void)` and handle Result values inside main",
+			strfmt.Named("main function must return void, got {typeToString}", "TypeToString", typeToString(fd.ReturnType)),
+		)
+	}
 
 	oldRet := tc.currentFuncRet
 	tc.currentFuncRet = fd.ReturnType

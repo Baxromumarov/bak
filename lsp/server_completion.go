@@ -472,6 +472,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"mut",
 		"const",
 		"return",
+		"try",
 		"if",
 		"else",
 		"while",

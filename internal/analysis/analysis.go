@@ -104,6 +104,7 @@ func TypecheckProgram(
 	tc := typechecker.NewWithPathAndRegistry(filename, registry)
 	tc.SetContext(ctx)
 	tc.SetSuppressUnused(opts.SuppressUnused)
+	tc.SetEnforceMainVoid(opts.EnforceMainVoid)
 	result.TypeMessages = tc.Check(program)
 	result.TypeChecker = tc
 	result.TypeErrors = tc.GetErrors()

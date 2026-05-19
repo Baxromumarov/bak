@@ -16,6 +16,7 @@ type Options struct {
 	SuppressUnused       bool
 	InvalidatePackage    bool
 	TypecheckParseErrors bool
+	EnforceMainVoid      bool
 	Registry             *packages.Registry
 	ProjectRoot          string
 }
@@ -23,7 +24,8 @@ type Options struct {
 // CLIOptions returns the stable command-line analysis behavior.
 func CLIOptions() Options {
 	return Options{
-		InjectPrelude: true,
+		InjectPrelude:   true,
+		EnforceMainVoid: true,
 	}
 }
 
@@ -39,6 +41,7 @@ func LSPOptionsWithRoot(filename, root string) Options {
 		RestoreProgram:      true,
 		SuppressUnused:      strings.HasSuffix(filename, "_test.bak"),
 		InvalidatePackage:   true,
+		EnforceMainVoid:     true,
 		ProjectRoot:         root,
 	}
 }

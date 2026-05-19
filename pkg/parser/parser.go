@@ -231,6 +231,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.AMPERSAND, p.parseBorrowExpression)
 	p.registerPrefix(token.ASTERISK, p.parseDerefExpression)
 	p.registerPrefix(token.BITNOT, p.parsePrefixExpression)
+	p.registerPrefix(token.TRY, p.parseTryExpression)
 	p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(token.LBRACKET, p.parseVecLiteral)
 	p.registerPrefix(token.LBRACE, p.parseInferredStructLiteral)
@@ -2757,6 +2758,18 @@ func (p *Parser) parseExpressionList(end token.TokenType) []ast.Expression {
 
 func (p *Parser) parseUnwrapExpression(left ast.Expression) ast.Expression {
 	return &ast.UnwrapExpression{NodeBase: ast.NodeBase{Token: p.curToken}, Value: left}
+}
+
+func (p *Parser) parseTryExpression() ast.Expression {
+	expression := &ast.UnwrapExpression{
+		NodeBase: ast.NodeBase{Token: p.curToken},
+		IsTry:    true,
+	}
+
+	p.nextToken()
+	expression.Value = p.parseExpression(PREFIX)
+
+	return expression
 }
 
 func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {

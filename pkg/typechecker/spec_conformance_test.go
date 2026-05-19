@@ -49,19 +49,19 @@ trace func compute(values Vec<int, _>) -> (Result<int, string>) {
 	return Err("non-positive total")
 }
 
-func main() -> (int) {
+func main() -> (void) {
     mut var counter: Counter = Counter{value: 1}
     counter.inc()
 	var result: Result<int, string> = compute(Vec.from([counter.value, 2, 3]))
     switch result {
 		case Ok(total) {
-			return total
+			println(total)
         }
         case Err(msg) {
             println(msg)
-            return 1
         }
     }
+	return void
 }`
 
 	parseErrs, typeErrs := parseAndCheckSource(t, source)

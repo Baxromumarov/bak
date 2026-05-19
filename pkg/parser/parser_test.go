@@ -61,6 +61,23 @@ func TestParserShorthandConstBlock(t *testing.T) {
 	`))
 }
 
+func TestParserTryExpression(t *testing.T) {
+	t.Parallel()
+	program := parseValidSource(t, source(`
+		package main
+		func main() -> (Result<int, string>) {
+			var value: int = try load()
+			return Ok(value)
+		}
+	`))
+	fn := program.Statements[1].(*ast.FunctionDecl)
+	stmt := fn.Body.Statements[0].(*ast.VarStatement)
+	unwrap, ok := stmt.Value.(*ast.UnwrapExpression)
+	if !ok || !unwrap.IsTry {
+		t.Fatalf("expected try expression, got %#v", stmt.Value)
+	}
+}
+
 func TestParserErrorHintForFunctionParameter(t *testing.T) {
 	t.Parallel()
 	p := parseSourceWithErrors(source(`

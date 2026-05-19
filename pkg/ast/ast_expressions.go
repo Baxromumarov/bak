@@ -393,11 +393,15 @@ type UnwrapExpression struct {
 	Span Span
 	NodeBase
 	Value Expression
+	IsTry bool
 }
 
 func (ue *UnwrapExpression) expressionNode() {}
 
 func (ue *UnwrapExpression) String() string {
+	if ue.IsTry {
+		return "try " + ue.Value.String()
+	}
 	return ue.Value.String() + "?"
 }
 
@@ -519,6 +523,9 @@ func (ev *EnumVariantExpression) Pos() Position {
 func (ue *UnwrapExpression) Pos() Position {
 	if ue == nil {
 		return Position{}
+	}
+	if ue.IsTry {
+		return ue.NodeBase.Pos()
 	}
 	if pos := ue.Value.Pos(); pos != (Position{}) {
 		return pos

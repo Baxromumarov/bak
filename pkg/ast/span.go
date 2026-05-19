@@ -352,10 +352,17 @@ func spanNode(node Node) Span {
 		)
 		return n.Span
 	case *UnwrapExpression:
-		n.Span = mergeSpans(
-			spanNode(n.Value),
-			tokenSpan(n.Token),
-		)
+		if n.IsTry {
+			n.Span = mergeSpans(
+				tokenSpan(n.Token),
+				spanNode(n.Value),
+			)
+		} else {
+			n.Span = mergeSpans(
+				spanNode(n.Value),
+				tokenSpan(n.Token),
+			)
+		}
 		return n.Span
 	case *FunctionLiteral:
 		n.Span = mergeSpans(

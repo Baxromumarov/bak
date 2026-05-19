@@ -63,6 +63,25 @@ func main() -> (void) {
 	}
 }
 
+func TestAnalyzeSourceCLIOptionsEnforceVoidMain(t *testing.T) {
+	src := `package main
+
+func main() -> (Result<void, string>) {
+    return Ok(void)
+}
+`
+	result, err := AnalyzeSource(context.Background(), "main.bak", src, CLIOptions())
+	if err != nil {
+		t.Fatalf("AnalyzeSource failed: %v", err)
+	}
+	if len(result.TypeErrors) == 0 {
+		t.Fatalf("expected main return type error")
+	}
+	if !strings.Contains(result.TypeErrors[0].Message, "main function must return void") {
+		t.Fatalf("expected main return type error, got %#v", result.TypeErrors)
+	}
+}
+
 func TestAnalyzeSourceUsesExplicitProjectRoot(t *testing.T) {
 	root := t.TempDir()
 	otherCWD := t.TempDir()

@@ -108,6 +108,7 @@ var bakKeywords = map[string]bool{
 	"struct":   true,
 	"switch":   true,
 	"true":     true,
+	"try":      true,
 	"type":     true,
 	"unsafe":   true,
 	"var":      true,

@@ -101,6 +101,7 @@ const (
 	AS       TokenType = "AS"
 	BREAK    TokenType = "BREAK"
 	CONTINUE TokenType = "CONTINUE"
+	TRY      TokenType = "TRY"
 	TYPE     TokenType = "TYPE"  // type declaration: type Status = string
 	ALIAS    TokenType = "ALIAS" // type alias: alias Status = string
 	TRUE     TokenType = "TRUE"
@@ -165,6 +166,7 @@ var keywords = map[string]TokenType{
 	"as":       AS,
 	"break":    BREAK,
 	"continue": CONTINUE,
+	"try":      TRY,
 	"type":     TYPE,
 	"alias":    ALIAS,
 	"true":     TRUE,
@@ -233,6 +235,7 @@ func IsKeyword(t TokenType) bool {
 		AS,
 		BREAK,
 		CONTINUE,
+		TRY,
 		TRUE,
 		FALSE,
 		PUB,

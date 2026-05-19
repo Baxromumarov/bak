@@ -4,6 +4,7 @@ package typechecker
 
 import (
 	"github.com/baxromumarov/bak/pkg/ast"
+	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -93,6 +94,9 @@ func (tc *TypeChecker) inferUnwrapType(e *ast.UnwrapExpression) ast.TypeExpressi
 	if gt, ok := inner.(*ast.GenericType); ok {
 		if gt.Name == "Result" && len(gt.TypeParams) == 2 {
 			inferred := gt.TypeParams[0]
+			if e.IsTry {
+				tc.validateTryReturnCompatibility(e, gt.TypeParams[1])
+			}
 			tc.nodeTypes[e] = typeToString(inferred)
 			return inferred
 		} else if gt.Name == "Option" {
@@ -103,15 +107,59 @@ func (tc *TypeChecker) inferUnwrapType(e *ast.UnwrapExpression) ast.TypeExpressi
 		}
 	}
 
-	tc.addError(
-		e.Token.Line,
-		e.Token.Column,
-		strfmt.Named("cannot use '?' operator on non-Result type '{typeToString}'", "TypeToString", typeToString(inner)),
+	operator := "?"
+	if e.IsTry {
+		operator = "try"
+	}
+	tc.addErrorAt(
+		e.Pos(),
+		strfmt.Named("cannot use '{operator}' on non-Result type '{typeToString}'", "Operator", operator, "TypeToString", typeToString(inner)),
 	)
 
 	inferred := &ast.ErrorType{Message: "invalid ? operator"}
 	tc.nodeTypes[e] = typeToString(inferred)
 	return inferred
+}
+
+func (tc *TypeChecker) validateTryReturnCompatibility(e *ast.UnwrapExpression, errType ast.TypeExpression) {
+	if e == nil {
+		return
+	}
+	ret := tc.resolveType(tc.currentFuncRet)
+	retResult, ok := ret.(*ast.GenericType)
+	if !ok || retResult.Name != "Result" || len(retResult.TypeParams) != 2 {
+		retName := typeToString(ret)
+		if retName == "" {
+			retName = "void"
+		}
+		diag := tc.baseDiagnostic(
+			diagnostics.ErrTypeMismatch,
+			e.Pos(),
+			strfmt.Named(
+				"try can early-return Err({errType}), but this function returns {returnType}",
+				"ErrType", typeToString(errType),
+				"ReturnType", retName,
+			),
+		)
+		diag.Help = "change the function return type to Result<_, " + typeToString(errType) + "> or handle the Result with switch/isErr"
+		tc.emitError(diag)
+		return
+	}
+
+	expectedErr := retResult.TypeParams[1]
+	if !tc.typesMatch(expectedErr, errType) {
+		diag := tc.baseDiagnostic(
+			diagnostics.ErrTypeMismatch,
+			e.Pos(),
+			strfmt.Named(
+				"try can early-return Err({errType}), but this function returns Result<_, {returnErrType}>",
+				"ErrType", typeToString(errType),
+				"ReturnErrType", typeToString(expectedErr),
+			),
+		)
+		diag.Help = "make the Result error types match or handle the error explicitly"
+		tc.emitError(diag)
+	}
 }
 
 // inferIndexType extracts the element type from Vec or string indexing.

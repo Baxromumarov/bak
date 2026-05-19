@@ -1281,6 +1281,89 @@ func main() -> (void) {
 	t.Fatalf("expected Vec push mismatch diagnostic, got %#v", errs)
 }
 
+func TestCheck_TryExpressionAcceptsResultReturn(t *testing.T) {
+	expectNoErrors(t, `
+package main
+func load() -> (Result<int64, string>) {
+	return Ok(42)
+}
+func work() -> (Result<int64, string>) {
+	var out: int64 = try load()
+	return Ok(out)
+}
+func main() -> (void) {
+	var result: Result<int64, string> = work()
+	switch result {
+		case Ok(out) { println(out) }
+		case Err(err) { println(err) }
+	}
+	return void
+}
+`)
+}
+
+func TestCheck_TryExpressionRequiresResultReturn(t *testing.T) {
+	errs := checkSourceStructured(t, `
+package main
+func load() -> (Result<int64, string>) {
+	return Ok(42)
+}
+func main() -> (void) {
+	var out: int64 = try load()
+	println(out)
+}
+`)
+	if len(errs) != 1 {
+		t.Fatalf("expected exactly one try diagnostic, got %#v", errs)
+	}
+	if !strings.Contains(errs[0].Message, "try can early-return Err(string), but this function returns void") {
+		t.Fatalf("expected try return diagnostic, got %#v", errs)
+	}
+}
+
+func TestCheck_TryExpressionErrorTypeMustMatchReturn(t *testing.T) {
+	expectError(t, `
+package main
+func load() -> (Result<int64, string>) {
+	return Ok(42)
+}
+func work() -> (Result<int64, int>) {
+	var out: int64 = try load()
+	return Ok(out)
+}
+func main() -> (void) {
+	return void
+}
+`, "try can early-return Err(string), but this function returns Result<_, int>")
+}
+
+func TestCheck_MainMustReturnVoid(t *testing.T) {
+	l := lexer.New(`
+package main
+func main() -> (Result<void, string>) {
+	return Ok(void)
+}
+`)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+	tc := New()
+	tc.SetSuppressUnused(true)
+	tc.SetEnforceMainVoid(true)
+	errs := tc.Check(program)
+	if len(errs) == 0 {
+		t.Fatalf("expected main return type error")
+	}
+	for _, err := range errs {
+		if strings.Contains(err, "main function must return void") {
+			return
+		}
+	}
+	t.Fatalf("expected main return type error, got %v", errs)
+}
+
 func TestCheck_MissingReturn(t *testing.T) {
 	expectError(t, `
 package main

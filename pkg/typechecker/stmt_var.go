@@ -25,7 +25,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		// Enforce strict type annotations: only allow inference from function/method calls
 		canInfer := false
 		switch vs.Value.(type) {
-		case *ast.CallExpression, *ast.MethodCallExpression, *ast.FunctionLiteral:
+		case *ast.CallExpression, *ast.MethodCallExpression, *ast.FunctionLiteral, *ast.UnwrapExpression:
 			canInfer = true
 		}
 
@@ -86,8 +86,8 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 
 	valueType := tc.inferType(vs.Value)
 
-	if vs.Type != nil && valueType != nil {
-		if !tc.fitsInType(vs.Type, vs.Value) {
+	if vs.Type != nil && valueType != nil && !tc.isErrorType(valueType) {
+		if !tc.fitsInTypeWithActual(vs.Type, valueType, vs.Value) {
 			tc.addErrorWithHelp(vs.Token.Line, vs.Token.Column, tc.suggestTypeFix(typeToString(vs.Type), typeToString(valueType)), strfmt.Named(
 				"cannot assign {valueType} to variable '{name}' of type {varType}",
 				"valueType", typeToString(valueType),
