@@ -524,14 +524,243 @@ func main() -> (void) {
 	tc.SetSuppressUnused(true)
 	tc.Check(program)
 	for _, err := range tc.GetErrors() {
+		if err.Code != diagnostics.ErrPrivateImport {
+			continue
+		}
 		if strings.Contains(err.Message, "constant 'limits.INTERNAL_MAX' is private") {
 			if strings.Contains(err.Message, "has no field") {
 				t.Fatalf("private const error should not be reported as missing field: %#v", tc.GetErrors())
+			}
+			if len(err.Notes) == 0 || err.Notes[0].File != libPath || !strings.Contains(err.Notes[0].Message, "declared here") {
+				t.Fatalf("expected declaration note for private const, got %#v", err.Notes)
+			}
+			if len(err.Fixes) == 0 {
+				t.Fatalf("expected make-public fix for private const")
+			}
+			fix := err.Fixes[0]
+			if fix.File != libPath || fix.Replacement != "pub " || fix.StartLine <= 0 || fix.StartColumn <= 0 {
+				t.Fatalf("unexpected private const fix: %#v", fix)
 			}
 			return
 		}
 	}
 	t.Fatalf("expected private imported const error, got %#v", tc.GetErrors())
+}
+
+func TestCheck_ImportedPrivateSymbolsUsePrivacyDiagnostic(t *testing.T) {
+	cases := []struct {
+		name        string
+		mainSource  string
+		wantMessage string
+	}{
+		{
+			name: "private function",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: int = lib.internalHelper()
+	println(value)
+	return void
+}
+`,
+			wantMessage: "function 'lib.internalHelper' is private",
+		},
+		{
+			name: "private struct type annotation",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: lib.InternalData = lib.InternalData{value: 1}
+	println(value)
+	return void
+}
+`,
+			wantMessage: "struct 'lib.InternalData' is private",
+		},
+		{
+			name: "private struct literal",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value = lib.InternalData{value: 1}
+	println(value)
+	return void
+}
+`,
+			wantMessage: "struct 'lib.InternalData' is private",
+		},
+		{
+			name: "private alias",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: lib.InternalScore = 1
+	println(value)
+	return void
+}
+`,
+			wantMessage: "alias 'lib.InternalScore' is private",
+		},
+		{
+			name: "private type definition",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: lib.InternalID = lib.InternalID(1)
+	println(value)
+	return void
+}
+`,
+			wantMessage: "type 'lib.InternalID' is private",
+		},
+		{
+			name: "private enum",
+			mainSource: `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: lib.InternalState = lib.InternalState.Ready
+	println(value)
+	return void
+}
+`,
+			wantMessage: "enum 'lib.InternalState' is private",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := checkMainWithVisibilityLib(t, tt.mainSource)
+			for _, err := range errs {
+				if err.Code == diagnostics.ErrPrivateImport && strings.Contains(err.Message, tt.wantMessage) {
+					if strings.Contains(err.Message, "undefined") || strings.Contains(err.Message, "has no field") {
+						t.Fatalf("privacy diagnostic should not be reported as fallback error: %#v", errs)
+					}
+					return
+				}
+			}
+			t.Fatalf("expected private import diagnostic containing %q, got %#v", tt.wantMessage, errs)
+		})
+	}
+}
+
+func TestCheck_ImportedModuleCanUseItsOwnPrivateSymbols(t *testing.T) {
+	mainSource := `
+package main
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: int = lib.publicValue()
+	println(value)
+	return void
+}
+`
+	errs := checkMainWithVisibilityLib(t, mainSource)
+	if len(errs) != 0 {
+		t.Fatalf("expected imported module to use its own private symbols, got %#v", errs)
+	}
+}
+
+func TestCheck_SamePackageImportCanUsePrivateSymbolsAcrossFiles(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "lib.bak")
+	libSource := `
+package demo
+
+const internalMax: int = 7
+`
+	mainSource := `
+package demo
+import lib "./lib.bak"
+
+func main() -> (void) {
+	var value: int = lib.internalMax
+	println(value)
+	return void
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatalf("write lib.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	if errs := tc.GetErrors(); len(errs) != 0 {
+		t.Fatalf("expected same-package private import to typecheck, got %#v", errs)
+	}
+}
+
+func checkMainWithVisibilityLib(t *testing.T, mainSource string) []TypeError {
+	t.Helper()
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.bak")
+	libPath := filepath.Join(dir, "lib.bak")
+	libSource := `
+package lib
+
+struct InternalData {
+	pub value: int
+}
+
+alias InternalScore = int
+type InternalID = int
+enum InternalState {
+	Ready,
+}
+
+const INTERNAL_MAX: int = 999
+
+func internalHelper() -> (int) {
+	return INTERNAL_MAX
+}
+
+pub func publicValue() -> (int) {
+	return internalHelper()
+}
+`
+	if err := os.WriteFile(libPath, []byte(libSource), 0644); err != nil {
+		t.Fatalf("write lib.bak: %v", err)
+	}
+	if err := os.WriteFile(mainPath, []byte(mainSource), 0644); err != nil {
+		t.Fatalf("write main.bak: %v", err)
+	}
+
+	l := lexer.New(mainSource)
+	p := parser.New(l)
+	p.SetFilename(mainPath)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+
+	tc := NewWithPath(mainPath)
+	tc.SetSuppressUnused(true)
+	tc.Check(program)
+	return tc.GetErrors()
 }
 
 func checkSourceStructured(t *testing.T, source string) []TypeError {

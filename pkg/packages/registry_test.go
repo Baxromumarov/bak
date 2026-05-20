@@ -85,6 +85,36 @@ func TestRegistryGetAnySymbolFromPackageIncludesPrivateSymbols(t *testing.T) {
 	}
 }
 
+func TestRegistrySamePackageScopeAllowsPrivateSymbolsAcrossFiles(t *testing.T) {
+	reg := NewRegistry()
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "lib.bak")
+	otherPath := filepath.Join(dir, "other.bak")
+	reg.RegisterPackage(&Package{
+		Name: "demo",
+		Path: libPath,
+		Symbols: map[string]*Symbol{
+			"secret": {
+				Name:       "secret",
+				Visibility: ast.Private,
+				Kind:       SymbolConst,
+			},
+		},
+	})
+	reg.RegisterPackage(&Package{
+		Name:    "demo",
+		Path:    otherPath,
+		Symbols: map[string]*Symbol{},
+	})
+
+	if !reg.SamePackageScope(libPath, otherPath) {
+		t.Fatalf("expected files in same directory/package to share visibility scope")
+	}
+	if _, err := reg.GetSymbolFromPackage(libPath, "secret", otherPath); err != nil {
+		t.Fatalf("expected same-package private symbol access, got %v", err)
+	}
+}
+
 func TestRegistryNormalizesPackagePaths(t *testing.T) {
 	reg := NewRegistry()
 	cwd, err := os.Getwd()

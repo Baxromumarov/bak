@@ -198,7 +198,11 @@ func addQuickFixActions(
 		if title == "" {
 			title = "Apply suggested fix"
 		}
-		actions = append(actions, codeActionWithTextEdit(title, "quickfix", uri, []Diagnostic{diag}, TextEdit{
+		targetURI := uri
+		if fix.URI != "" {
+			targetURI = fix.URI
+		}
+		actions = append(actions, codeActionWithTextEdit(title, "quickfix", targetURI, []Diagnostic{diag}, TextEdit{
 			Range:   fix.Range,
 			NewText: fix.NewText,
 		}))

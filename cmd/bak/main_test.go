@@ -90,6 +90,7 @@ func TestExplainDiagnosticCodeImportAndParserCodes(t *testing.T) {
 		{code: "E0702", want: "duplicate import alias"},
 		{code: "E0704", want: "import cycle"},
 		{code: "E0705", want: "imported module error"},
+		{code: "E0706", want: "private imported symbol"},
 		{code: "p0001", want: "parse error"},
 		{code: "import-style", want: "import style"},
 		{code: "public-api-style", want: "public API style"},

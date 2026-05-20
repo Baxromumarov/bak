@@ -238,8 +238,13 @@ func typeErrorFixesToLSP(typeErr typechecker.TypeError) []DiagnosticFix {
 
 	fixes := make([]DiagnosticFix, 0, len(typeErr.Fixes))
 	for _, fix := range typeErr.Fixes {
+		uri := ""
+		if fix.File != "" {
+			uri = pathToURI(fix.File)
+		}
 		fixes = append(fixes, DiagnosticFix{
 			Title: fix.Title,
+			URI:   uri,
 			Range: rangeFromLineColBounds(
 				fix.StartLine,
 				fix.StartColumn,

@@ -397,6 +397,13 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 					}
 				}
 			}
+			if tc.emitPrivateImportedSymbolAt(modIdent.Value, fa.Field.Value, fa.Field.Pos()) {
+				for _, arg := range ce.Arguments {
+					tc.inferType(arg)
+				}
+				tc.clearBorrows(ce.Arguments)
+				return &ast.ErrorType{Message: "private imported symbol"}
+			}
 		}
 
 		if enumName, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(fa); ok {

@@ -59,6 +59,7 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrSelfImport:      {LevelError, "package cannot import itself", "remove the self import or move shared code to another package"},
 	ErrImportCycle:     {LevelError, "package import cycle detected", "move shared declarations into a third package"},
 	ErrImportedModule:  {LevelError, "imported module has errors", "fix errors in the imported module before running this program"},
+	ErrPrivateImport:   {LevelError, "imported symbol is private", "export it with pub if it should be accessible from other packages"},
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly: {LevelError, "cannot call '{method}' on fixed-size {vecType}", "use Vec<T, _> for dynamic arrays"},
@@ -124,6 +125,7 @@ var catalogTitles = map[DiagnosticCode]string{
 	ErrSelfImport:          "self import",
 	ErrImportCycle:         "import cycle",
 	ErrImportedModule:      "imported module error",
+	ErrPrivateImport:       "private imported symbol",
 	ErrVecDynamicOnly:      "dynamic vector required",
 	ErrVecFixedOnly:        "fixed vector required",
 	ErrVecInvalidInit:      "invalid vector initialization",

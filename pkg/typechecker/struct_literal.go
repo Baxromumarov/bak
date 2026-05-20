@@ -48,7 +48,7 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 
 	// Logic for imported structs (e.g. math.Calc)
 	if !ok && strings.Contains(structName, ".") {
-		if importedDef, found := tc.resolveImportedStructDef(structName); found {
+		if importedDef, found := tc.resolveImportedStructDef(structName, sl.Name.Pos()); found {
 			structDef = importedDef
 			ok = true
 		}
@@ -184,7 +184,7 @@ func structShapeSummary(structDef *StructDef, provided map[string]ast.Expression
 
 // resolveImportedStructDef tries to resolve a struct definition from an imported
 // package given a qualified name like "math.Calc".
-func (tc *TypeChecker) resolveImportedStructDef(structName string) (*StructDef, bool) {
+func (tc *TypeChecker) resolveImportedStructDef(structName string, pos ast.Position) (*StructDef, bool) {
 	parts := strings.Split(structName, ".")
 	if len(parts) != 2 {
 		return nil, false
@@ -199,6 +199,7 @@ func (tc *TypeChecker) resolveImportedStructDef(structName string) (*StructDef, 
 
 	sym, symExists := symbols[typeName]
 	if !symExists {
+		tc.emitPrivateImportedSymbolAt(pkgAlias, typeName, pos)
 		return nil, false
 	}
 

@@ -817,16 +817,23 @@ func (s *Server) completeImportedModuleMembers(
 		return nil, true
 	}
 
-	modIndex := s.getOrIndexFile(path)
+	modIndex := s.getOrIndexFileIncludingPrivate(path)
 	items := make([]CompletionItem, 0)
 	for _, sym := range sortedSymbols(modIndex) {
-		if !sym.Exported || strings.Contains(sym.Name, ".") {
+		if strings.Contains(sym.Name, ".") {
 			continue
 		}
 
 		insertText := sym.Name
 		insertFormat := 1
 		detail := sym.Kind
+		tags := []int(nil)
+		docPrefix := ""
+		if !sym.Exported {
+			detail = "private " + detail
+			tags = []int{1}
+			docPrefix = strfmt.Named("`{symbol}` is private to module `{module}`.\n\n", "Symbol", sym.Name, "Module", qualifier)
+		}
 		if sym.Kind == "func" {
 			insertFormat = 2
 			insertText = sym.Name + "($0)"
@@ -840,6 +847,7 @@ func (s *Server) completeImportedModuleMembers(
 		if modIndex.Docs != nil {
 			doc = modIndex.Docs[sym.Name]
 		}
+		doc = docPrefix + doc
 
 		items = append(items, CompletionItem{
 			Label:            sym.Name,
@@ -848,6 +856,7 @@ func (s *Server) completeImportedModuleMembers(
 			Kind:             completionKind(sym.Kind),
 			InsertText:       insertText,
 			InsertTextFormat: insertFormat,
+			Tags:             tags,
 			Data: completionResolveData{
 				Kind:   sym.Kind,
 				Symbol: sym.Name,

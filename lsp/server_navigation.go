@@ -67,7 +67,7 @@ func (s *Server) importedModuleIndex(result *AnalysisResult, originURI, alias st
 	if path == "" {
 		return nil
 	}
-	return s.getOrIndexFile(path)
+	return s.getOrIndexFileIncludingPrivate(path)
 }
 
 func (s *Server) lookupImportedSymbol(
@@ -646,8 +646,13 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
 	}
 
-	if _, _, ok := renameTargetAt(result.AST, params.Position); !ok {
+	renameName, _, ok := renameTargetAt(result.AST, params.Position)
+	if !ok {
 		return &WorkspaceEdit{Changes: map[string][]TextEdit{}}
+	}
+	privateLocalOnly := false
+	if sym, ok := result.Index.Symbols[renameName]; ok && !sym.Exported && sym.Location.URI == params.TextDocument.URI {
+		privateLocalOnly = true
 	}
 	node := findNode(result.AST, params.Position.Line+1, params.Position.Character+1)
 	if node == nil || isNil(node) {
@@ -678,6 +683,9 @@ func (s *Server) handleRename(req Request) *WorkspaceEdit {
 	changes := make(map[string][]TextEdit)
 	seen := map[string]bool{}
 	for _, loc := range refs {
+		if privateLocalOnly && loc.URI != params.TextDocument.URI {
+			continue
+		}
 		key := strfmt.Named(
 			"{URI}:{SL}:{SC}:{EL}:{EC}",
 			"URI", loc.URI,

@@ -155,9 +155,11 @@ func (tc *TypeChecker) checkImportStatement(is *ast.ImportStatement) {
 			}
 		}
 
-		// Store the public symbols for this import
-		publicSymbols := pkg.GetPublicSymbols()
-		tc.importedSymbols[alias] = publicSymbols
+		symbols, err := tc.registry.GetAllSymbolsFromPackage(importPath, tc.currentPkgPath)
+		if err != nil {
+			symbols = pkg.GetPublicSymbols()
+		}
+		tc.importedSymbols[alias] = symbols
 	}
 }
 

@@ -132,6 +132,7 @@ type DiagnosticRelatedInformation struct {
 
 type DiagnosticFix struct {
 	Title   string `json:"title"`
+	URI     string `json:"uri,omitempty"`
 	Range   Range  `json:"range"`
 	NewText string `json:"newText"`
 }
@@ -217,6 +218,7 @@ type CompletionItem struct {
 	InsertText          string         `json:"insertText,omitempty"`
 	InsertTextFormat    int            `json:"insertTextFormat,omitempty"`
 	AdditionalTextEdits []TextEdit     `json:"additionalTextEdits,omitempty"`
+	Tags                []int          `json:"tags,omitempty"`
 	Data                any            `json:"data,omitempty"`
 }
 

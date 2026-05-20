@@ -164,6 +164,17 @@ func publicIndexFromText(text, uri string) *FileIndex {
 	return indexProgram(prog, uri, comments, false)
 }
 
+func privateIndexFromText(text, uri string) *FileIndex {
+	l := lexer.New(text)
+	p := parser.New(l)
+	prog := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		return nil
+	}
+	comments := formatter.ScanComments(text)
+	return indexProgram(prog, uri, comments, true)
+}
+
 func (s *Server) packageDoc(path string) (string, string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -215,6 +226,51 @@ func (s *Server) getOrIndexFile(path string) *FileIndex {
 	}
 	s.setPublicIndex(uri, idx)
 	return idx
+}
+
+func (s *Server) getOrIndexFileIncludingPrivate(path string) *FileIndex {
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return s.getOrIndexDirIncludingPrivate(path)
+	}
+	uri := pathToURI(path)
+	if res, ok := s.analysisResult(uri); ok && res != nil && res.Index != nil {
+		return res.Index
+	}
+	if text, ok := s.document(uri); ok {
+		return privateIndexFromText(text, uri)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return privateIndexFromText(string(data), uri)
+}
+
+func (s *Server) getOrIndexDirIncludingPrivate(dirPath string) *FileIndex {
+	merged := &FileIndex{
+		Symbols: make(map[string]SymbolInfo),
+		Docs:    make(map[string]string),
+		Sigs:    make(map[string]SignatureInfo),
+		Structs: make(map[string]StructInfo),
+		Consts:  make(map[string]ConstInfo),
+		Types:   make(map[string]TypeDeclInfo),
+		Aliases: make(map[string]AliasInfo),
+		Enums:   make(map[string]EnumInfo),
+		Vars:    make(map[string]VarInfo),
+	}
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".bak") {
+			continue
+		}
+		if idx := s.getOrIndexFileIncludingPrivate(filepath.Join(dirPath, entry.Name())); idx != nil {
+			mergeFileIndex(merged, idx)
+		}
+	}
+	return merged
 }
 
 func (s *Server) getOrIndexDir(dirPath string) *FileIndex {

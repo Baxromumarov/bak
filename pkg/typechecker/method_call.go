@@ -71,14 +71,21 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	if !ok {
 		return nil, false
 	}
-	symbols, exists := tc.importedSymbols[ident.Value]
-	if !exists {
+	if _, exists := tc.importedPkgPaths[ident.Value]; !exists {
 		return nil, false
 	}
 
 	methodName := mc.Method.Value
+	symbols := tc.importedSymbols[ident.Value]
 	sym, ok := symbols[methodName]
 	if !ok || sym.Kind != packages.SymbolFunc {
+		if tc.emitPrivateImportedSymbolAt(ident.Value, methodName, mc.Method.Pos()) {
+			for _, arg := range mc.Arguments {
+				tc.inferType(arg)
+			}
+			tc.clearBorrows(mc.Arguments)
+			return &ast.ErrorType{Message: "private imported symbol"}, true
+		}
 		return nil, false
 	}
 	funcDecl, ok := sym.Node.(*ast.FunctionDecl)

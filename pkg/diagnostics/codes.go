@@ -98,6 +98,7 @@ const (
 	ErrSelfImport      DiagnosticCode = "E0703"
 	ErrImportCycle     DiagnosticCode = "E0704"
 	ErrImportedModule  DiagnosticCode = "E0705"
+	ErrPrivateImport   DiagnosticCode = "E0706"
 
 	// Vec-specific errors (E06xx)
 	ErrVecDynamicOnly DiagnosticCode = "E0600"
@@ -137,6 +138,7 @@ type Note struct {
 // Positions are 1-based and inclusive-exclusive.
 type Fix struct {
 	Title       string
+	File        string
 	Replacement string
 	StartLine   int
 	StartColumn int

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -2169,6 +2170,201 @@ func TestCodeActionOffersStructuredMethodRenameFix(t *testing.T) {
 	}
 	if !foundFix {
 		t.Fatalf("expected structured method quick fix action, got %#v", actions)
+	}
+}
+
+func TestPrivateImportedDiagnosticOffersDefinitionAndMakePublicFix(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "typelib.bak")
+	libURI := pathToURI(libPath)
+	libSrc := strings.Join([]string{
+		"package types",
+		"",
+		"const INTERNAL_MAX: int = 999",
+		"pub const publicMax: int = 1",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write lib: %v", err)
+	}
+	mainPath := filepath.Join(dir, "main.bak")
+	mainURI := pathToURI(mainPath)
+	mainSrc := strings.Join([]string{
+		"package main",
+		"import types \"./typelib.bak\"",
+		"",
+		"func main() -> (void) {",
+		"    var max: int = types.INTERNAL_MAX",
+		"    println(max)",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[mainURI] = mainSrc
+	published := analyzeDiagnostics(t, s, mainURI, mainSrc)
+
+	var privateDiag Diagnostic
+	for _, diag := range published.Diagnostics {
+		if fmt.Sprint(diag.Code) == "E0706" {
+			privateDiag = diag
+			break
+		}
+	}
+	if privateDiag.Message == "" {
+		t.Fatalf("expected E0706 diagnostic, got %#v", published.Diagnostics)
+	}
+	if len(privateDiag.RelatedInformation) == 0 || privateDiag.RelatedInformation[0].Location.URI != libURI {
+		t.Fatalf("expected declaration related information in lib, got %#v", privateDiag.RelatedInformation)
+	}
+
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: mainURI},
+		Range:        privateDiag.Range,
+		Context:      CodeActionContext{Diagnostics: published.Diagnostics},
+	}))
+	foundFix := false
+	for _, action := range actions {
+		if action.Title != "Make INTERNAL_MAX public" || action.Edit == nil {
+			continue
+		}
+		edits := action.Edit.Changes[libURI]
+		if len(edits) != 1 || edits[0].NewText != "pub " {
+			t.Fatalf("unexpected make-public edit: %#v", action.Edit.Changes)
+		}
+		foundFix = true
+	}
+	if !foundFix {
+		t.Fatalf("expected make-public quick fix, got %#v", actions)
+	}
+
+	line, col := findLineCol(mainSrc, "INTERNAL_MAX")
+	defs := s.handleDefinition(mustRequest(t, DefinitionParams{
+		TextDocument: TextDocumentIdentifier{URI: mainURI},
+		Position:     Position{Line: line, Character: col},
+	}))
+	if len(defs) != 1 || defs[0].URI != libURI {
+		t.Fatalf("expected go-to-definition for private symbol in lib, got %#v", defs)
+	}
+}
+
+func TestCompletionShowsPrivateImportedMembersAsUnavailable(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "typelib.bak")
+	libSrc := strings.Join([]string{
+		"package types",
+		"",
+		"const INTERNAL_MAX: int = 999",
+		"pub const publicMax: int = 1",
+		"func internalHelper() -> (int) { return 1 }",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write lib: %v", err)
+	}
+	mainPath := filepath.Join(dir, "main.bak")
+	mainURI := pathToURI(mainPath)
+	mainSrc := strings.Join([]string{
+		"package main",
+		"import types \"./typelib.bak\"",
+		"",
+		"func main() -> (void) {",
+		"    types.",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[mainURI] = mainSrc
+	analyzeForTest(t, s, mainURI, mainSrc)
+	line, col := findLineCol(mainSrc, "types.")
+	list := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: mainURI},
+		Position:     Position{Line: line, Character: col + len("types.")},
+	}))
+
+	privateItem, ok := completionItemByLabel(list, "INTERNAL_MAX")
+	if !ok {
+		t.Fatalf("expected private symbol completion, got %#v", list.Items)
+	}
+	if !strings.Contains(privateItem.Detail, "private") || len(privateItem.Tags) == 0 || privateItem.Tags[0] != 1 {
+		t.Fatalf("expected private completion to be dimmed/unavailable, got %#v", privateItem)
+	}
+	publicItem, ok := completionItemByLabel(list, "publicMax")
+	if !ok {
+		t.Fatalf("expected public symbol completion, got %#v", list.Items)
+	}
+	if len(publicItem.Tags) != 0 {
+		t.Fatalf("expected public completion to have no unavailable tag, got %#v", publicItem)
+	}
+}
+
+func TestRenameKeepsPrivateSymbolsLocalButPublicSymbolsCrossPackage(t *testing.T) {
+	dir := t.TempDir()
+	libPath := filepath.Join(dir, "lib.bak")
+	libURI := pathToURI(libPath)
+	libSrc := strings.Join([]string{
+		"package lib",
+		"",
+		"const internalMax: int = 1",
+		"pub const publicMax: int = 2",
+		"",
+	}, "\n")
+	if err := os.WriteFile(libPath, []byte(libSrc), 0o644); err != nil {
+		t.Fatalf("write lib: %v", err)
+	}
+	mainPath := filepath.Join(dir, "main.bak")
+	mainURI := pathToURI(mainPath)
+	mainSrc := strings.Join([]string{
+		"package main",
+		"import lib \"./lib.bak\"",
+		"",
+		"func main() -> (void) {",
+		"    println(lib.internalMax)",
+		"    println(lib.publicMax)",
+		"}",
+		"",
+	}, "\n")
+	if err := os.WriteFile(mainPath, []byte(mainSrc), 0o644); err != nil {
+		t.Fatalf("write main: %v", err)
+	}
+
+	s := NewServer()
+	s.RootPath = dir
+	s.Documents[libURI] = libSrc
+	s.Documents[mainURI] = mainSrc
+	analyzeForTest(t, s, libURI, libSrc)
+	analyzeForTest(t, s, mainURI, mainSrc)
+
+	privLine, privCol := findLineCol(libSrc, "internalMax")
+	privateEdit := s.handleRename(mustRequest(t, RenameParams{
+		TextDocument: TextDocumentIdentifier{URI: libURI},
+		Position:     Position{Line: privLine, Character: privCol},
+		NewName:      "renamedInternal",
+	}))
+	if len(privateEdit.Changes[mainURI]) != 0 {
+		t.Fatalf("expected private rename to stay local, got %#v", privateEdit.Changes)
+	}
+	if len(privateEdit.Changes[libURI]) == 0 {
+		t.Fatalf("expected private declaration edit in lib, got %#v", privateEdit.Changes)
+	}
+
+	pubLine, pubCol := findLineCol(libSrc, "publicMax")
+	publicEdit := s.handleRename(mustRequest(t, RenameParams{
+		TextDocument: TextDocumentIdentifier{URI: libURI},
+		Position:     Position{Line: pubLine, Character: pubCol},
+		NewName:      "renamedPublic",
+	}))
+	if len(publicEdit.Changes[mainURI]) == 0 {
+		t.Fatalf("expected public rename to include importing file, got %#v", publicEdit.Changes)
 	}
 }
 

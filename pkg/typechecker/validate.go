@@ -158,9 +158,21 @@ func (tc *TypeChecker) validateTypeName(name string, pos ast.Position, filename 
 	if strings.Contains(name, ".") {
 		parts := strings.SplitN(name, ".", 2)
 		if len(parts) == 2 {
-			if _, ok := tc.importedPkgPaths[parts[0]]; ok {
-				tc.markImportedSymbolUsed(parts[0], parts[1])
-				return true
+			pkgAlias := parts[0]
+			typeName := parts[1]
+			if _, ok := tc.importedPkgPaths[pkgAlias]; ok {
+				tc.markImportUsed(pkgAlias)
+				if symbols, ok := tc.importedSymbols[pkgAlias]; ok {
+					if sym, ok := symbols[typeName]; ok && isImportedTypeKind(sym.Kind) {
+						tc.markImportedSymbolUsed(pkgAlias, typeName)
+						return true
+					}
+				}
+				if tc.emitPrivateImportedSymbolAt(pkgAlias, typeName, pos) {
+					return false
+				}
+				tc.errorUndefinedTypeInFileAt(name, pos, filename)
+				return false
 			}
 		}
 	}

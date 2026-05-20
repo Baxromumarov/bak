@@ -343,6 +343,9 @@ func referenceTarget(s *Server, uri string, node ast.Node) (name, modulePath str
 		if res, ok := s.analysisResult(uri); ok && res.Index != nil {
 			if sym, ok := res.Index.Symbols[name]; ok {
 				if sym.Location.URI == uri && sym.Location.Range.Start.Line == n.Token.Line-1 {
+					if !sym.Exported {
+						return name, "", true, true
+					}
 					return name, uriToPath(uri), false, true
 				}
 			}
@@ -499,7 +502,7 @@ func (b *refBuilder) resolveModuleSymbol(alias, name string) *symbolDef {
 	if path == "" {
 		return nil
 	}
-	modIndex := b.srv.getOrIndexFile(path)
+	modIndex := b.srv.getOrIndexFileIncludingPrivate(path)
 	if modIndex == nil {
 		return nil
 	}

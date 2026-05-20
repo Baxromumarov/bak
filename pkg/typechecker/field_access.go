@@ -14,7 +14,7 @@ import (
 func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeExpression {
 	// Check if the object is an identifier that refers to an imported module
 	if ident, ok := fa.Object.(*ast.Identifier); ok {
-		if pkgPath, ok := tc.importedPkgPaths[ident.Value]; ok {
+		if _, ok := tc.importedPkgPaths[ident.Value]; ok {
 			tc.markImportUsed(ident.Value)
 
 			// Check if this identifier is a module alias
@@ -52,16 +52,7 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 				}
 			}
 
-			if sym, ok := tc.registry.GetAnySymbolFromPackage(pkgPath, fa.Field.Value); ok && sym.Visibility != ast.Public {
-				tc.addErrorAt(
-					fa.Field.Pos(),
-					strfmt.Named(
-						"{kind} '{alias}.{name}' is private; export it with pub if it should be accessible from other packages",
-						"Kind", sym.Kind.String(),
-						"Alias", ident.Value,
-						"Name", fa.Field.Value,
-					),
-				)
+			if tc.emitPrivateImportedSymbolAt(ident.Value, fa.Field.Value, fa.Field.Pos()) {
 				return &ast.ErrorType{Message: "private imported symbol"}
 			}
 		}

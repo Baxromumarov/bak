@@ -728,7 +728,7 @@ func (r *Registry) GetSymbolFromPackage(pkgPath string, symbolName string, calle
 		return nil, fmt.Errorf("package '%s' not found", pkgPath)
 	}
 
-	fromSamePackage := normalizedPkgPath == normalizePath(callerPkgPath)
+	fromSamePackage := r.samePackageScopeLocked(normalizedPkgPath, normalizePath(callerPkgPath))
 	return pkg.GetSymbol(symbolName, fromSamePackage)
 }
 
@@ -759,11 +759,45 @@ func (r *Registry) GetAllSymbolsFromPackage(pkgPath string, callerPkgPath string
 		return nil, fmt.Errorf("package '%s' not found", pkgPath)
 	}
 
-	fromSamePackage := normalizedPkgPath == normalizePath(callerPkgPath)
+	fromSamePackage := r.samePackageScopeLocked(normalizedPkgPath, normalizePath(callerPkgPath))
 	if fromSamePackage {
 		return pkg.Symbols, nil
 	}
 	return pkg.GetPublicSymbols(), nil
+}
+
+// SamePackageScope reports whether two package paths belong to the same package
+// visibility scope. Besides exact path equality, files in the same directory
+// with the same declared package name share private visibility.
+func (r *Registry) SamePackageScope(pkgPath string, callerPkgPath string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.samePackageScopeLocked(normalizePath(pkgPath), normalizePath(callerPkgPath))
+}
+
+func (r *Registry) samePackageScopeLocked(pkgPath, callerPkgPath string) bool {
+	if pkgPath == "" || callerPkgPath == "" {
+		return false
+	}
+	if pkgPath == callerPkgPath {
+		return true
+	}
+	pkg := r.packages[pkgPath]
+	caller := r.packages[callerPkgPath]
+	if pkg == nil || caller == nil || pkg.Name == "" || caller.Name == "" || pkg.Name != caller.Name {
+		return false
+	}
+	return packageScopeDir(pkg.Path) == packageScopeDir(caller.Path)
+}
+
+func packageScopeDir(path string) string {
+	if path == "" {
+		return ""
+	}
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		return filepath.Clean(path)
+	}
+	return filepath.Dir(filepath.Clean(path))
 }
 
 // GetAllPackages returns all registered packages

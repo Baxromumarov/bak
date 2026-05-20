@@ -65,15 +65,15 @@ echo ""
 
 run_error_test "Private struct access" \
     "$TESTS_DIR/err_private_struct.bak" \
-    "undefined struct|private"
+    "private"
 
 run_error_test "Private function access" \
     "$TESTS_DIR/err_private_func.bak" \
-    "undefined function|Typecheck: OK"
+    "private"
 
 run_error_test "Private constant access" \
     "$TESTS_DIR/err_private_const.bak" \
-    "no field 'INTERNAL_MAX'|undefined"
+    "private"
 
 echo ""
 echo "=============================================="

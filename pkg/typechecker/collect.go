@@ -244,10 +244,20 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 		}
 		restore()
 	case *ast.TypeDecl:
-		tc.validateTypeUsage(s.Underlying, s.Pos())
+		tc.validateTypeUsage(s.Underlying, typeUsagePos(s.Underlying, s.Pos()))
 	case *ast.AliasDecl:
-		tc.validateTypeUsage(s.Underlying, s.Pos())
+		tc.validateTypeUsage(s.Underlying, typeUsagePos(s.Underlying, s.Pos()))
 	}
+}
+
+func typeUsagePos(t ast.TypeExpression, fallback ast.Position) ast.Position {
+	if t == nil {
+		return fallback
+	}
+	if pos := t.Pos(); pos != (ast.Position{}) {
+		return pos
+	}
+	return fallback
 }
 
 func (tc *TypeChecker) isTestFile() bool {
