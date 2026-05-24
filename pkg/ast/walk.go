@@ -5,7 +5,7 @@ package ast
 // Non-Node children (e.g. Parameter, StructField) are transparently unwrapped
 // so that their Node-valued children are still visited.
 func Walk(node Node, fn func(Node)) {
-	if node == nil {
+	if isNilNode(node) {
 		return
 	}
 	fn(node)
