@@ -811,16 +811,24 @@ func collectLocalSymbols(
 	if prog == nil {
 		return out
 	}
-	fn := findEnclosingFunction(prog, line)
-	if fn == nil {
+	scope := findEnclosingLocalScope(prog, line)
+	if scope == nil {
 		return out
 	}
-	for _, p := range fn.Parameters {
+	if scope.receiver != nil {
+		out[scope.receiver.Value] = localSymbol{
+			Node:    scope.receiver,
+			Detail:  "receiver",
+			Type:    scope.receiverType,
+			Mutable: scope.receiverMutable,
+		}
+	}
+	for _, p := range scope.params {
 		if p != nil && p.Name != nil {
 			out[p.Name.Value] = localSymbolBuilder(p.Name, "param", p.Type, p.Mutable)
 		}
 	}
-	collectLocalSymbolsFromBlock(fn.Body, out)
+	collectLocalSymbolsFromBlock(scope.body, out)
 	return out
 }
 
@@ -842,23 +850,75 @@ func localSymbolBuilder(
 	}
 }
 
-func findEnclosingFunction(
+type localScope struct {
+	startLine       int
+	params          []*ast.Parameter
+	body            *ast.BlockStatement
+	receiver        *ast.Identifier
+	receiverType    string
+	receiverMutable bool
+}
+
+func findEnclosingLocalScope(
 	prog *ast.Program,
 	line int,
-) *ast.FunctionDecl {
-	var best *ast.FunctionDecl
+) *localScope {
+	var best *localScope
 	for _, stmt := range prog.Statements {
-		fn, ok := stmt.(*ast.FunctionDecl)
-		if !ok || fn == nil {
-			continue
-		}
-		if fn.Token.Line <= line {
-			if best == nil || fn.Token.Line > best.Token.Line {
-				best = fn
+		switch s := stmt.(type) {
+		case *ast.FunctionDecl:
+			if s == nil || s.Token.Line > line {
+				continue
+			}
+			if best == nil || s.Token.Line > best.startLine {
+				best = &localScope{
+					startLine: s.Token.Line,
+					params:    s.Parameters,
+					body:      s.Body,
+				}
+			}
+		case *ast.ImplDecl:
+			if s == nil || s.Token.Line > line {
+				continue
+			}
+			for _, method := range s.Methods {
+				if method == nil || method.Token.Line > line {
+					continue
+				}
+				if best == nil || method.Token.Line > best.startLine {
+					best = &localScope{
+						startLine:       method.Token.Line,
+						params:          method.Parameters,
+						body:            method.Body,
+						receiver:        s.Receiver,
+						receiverType:    implReceiverTypeString(s),
+						receiverMutable: method.Mutable,
+					}
+				}
 			}
 		}
 	}
 	return best
+}
+
+func implReceiverTypeString(impl *ast.ImplDecl) string {
+	if impl == nil || impl.TypeName == nil {
+		return ""
+	}
+	if len(impl.TypeParams) == 0 {
+		return impl.TypeName.Value
+	}
+	params := make([]string, 0, len(impl.TypeParams))
+	for _, param := range impl.TypeParams {
+		if param == nil || param.Name == nil {
+			continue
+		}
+		params = append(params, param.Name.Value)
+	}
+	if len(params) == 0 {
+		return impl.TypeName.Value
+	}
+	return impl.TypeName.Value + "<" + strings.Join(params, ", ") + ">"
 }
 
 func collectLocalSymbolsFromBlock(

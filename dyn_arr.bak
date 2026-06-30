@@ -1,13 +1,13 @@
 package main
 
-struct Data {
-    age:  int64
-    name: string
-    fl:   float64
+pub struct Data {
+    pub age:  int64
+    pub name: string
+    pub fl:   float64
 }
 
 impl Data as d {
-    func divide_age() -> (Result<int64, string>) {
+    pub func divideAge() -> (Result<int64, string>) {
         if d.age == 0 {
             return Err("zero division error")
         }
@@ -16,9 +16,9 @@ impl Data as d {
     }
 }
 
-func half_age(d: Data) -> (Result<int64, string>) {
-    var out: int64 = try d.divide_age()
-    
+pub func halfAge(d: Data) -> (Result<int64, string>) {
+    var out: int64 = try d.divideAge()
+
     return Ok(out)
 }
 
@@ -29,12 +29,18 @@ func main() -> (void) {
         name: "hello",
     }
 
-    switch half_age(d) {
+    switch halfAge(d) {
         case Ok(out) {
-            println("here error: ", out)
+            println(
+                "half age: ",
+                out,
+            )
         }
         case Err(err) {
-            println("here error: ", err)
+            println(
+                "here error: ",
+                err,
+            )
         }
     }
 

@@ -1108,6 +1108,52 @@ func TestCompletionSuggestsStructFieldsAndImplMethodsForVariable(t *testing.T) {
 	}
 }
 
+func TestCompletionSuggestsReceiverFieldsAndMethodsInsideImpl(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"struct Data {",
+		"    age: int64",
+		"    name: string",
+		"    fl: float64",
+		"}",
+		"",
+		"impl Data as d {",
+		"    func divide_age() -> (Result<int64, string>) {",
+		"        if d. {",
+		"            return Err(\"zero division error\")",
+		"        }",
+		"",
+		"        return Ok(d.age / 2)",
+		"    }",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	line, col := findLineCol(src, "d. {")
+	if line < 0 {
+		t.Fatalf("receiver completion target not found")
+	}
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: line, Character: col + len("d.")},
+	}))
+
+	for _, want := range []string{"age", "name", "fl", "divide_age"} {
+		if !completionHasLabel(completion, want) {
+			t.Fatalf("expected receiver completion %q, got %#v", want, completion.Items)
+		}
+		if got := completionLabelCount(completion, want); got != 1 {
+			t.Fatalf("expected one receiver completion %q, got %d in %#v", want, got, completion.Items)
+		}
+	}
+}
+
 func TestCompletionSuggestsImplMethodsInIncompleteDotBuffer(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

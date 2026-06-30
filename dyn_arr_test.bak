@@ -1,160 +1,71 @@
 package main
 
 import dyn "dyn_arr.bak"
-import "std/test"
+import test "std/test"
 
-struct input {
-    a:        int
-    b:        int
-    expected: int
-}
-
-func assertSumCase(
-    t: &mut test.T,
-    caseName: string,
-    a: int,
-    b: int,
-    expected: int,
-) -> (void) {
-    t.setCase(caseName)
-
-    var result: int = dyn.sum(
-        a,
-        b,
-    )
-
-    t.eq(
-        result,
-        expected,
-    )
-    t.clearCase()
-
-    return void
-}
-
-func testSumPositiveValues() -> (void) {
-    mut var t: test.T = test.new("testSumPositiveValues")
-
-    assertSumCase(
-        &mut t,
-        "positive numbers",
-        1,
-        2,
-        3,
-    )
-    assertSumCase(
-        &mut t,
-        "larger positive numbers",
-        10,
-        25,
-        35,
-    )
-    t.finish()
-
-    return void
-}
-
-func testSumNegativeValues() -> (void) {
-    mut var t: test.T = test.new("testSumNegativeValues")
-
-    assertSumCase(
-        &mut t,
-        "negative numbers",
-        -1,
-        -2,
-        -3,
-    )
-    assertSumCase(
-        &mut t,
-        "mixed negative magnitudes",
-        -10,
-        -5,
-        -15,
-    )
-    t.finish()
-
-    return void
-}
-
-func testSumZeroAndIdentity() -> (void) {
-    mut var t: test.T = test.new("testSumZeroAndIdentity")
-
-    assertSumCase(
-        &mut t,
-        "zero plus zero",
-        0,
-        0,
-        0,
-    )
-    assertSumCase(
-        &mut t,
-        "left identity",
-        0,
-        7,
-        7,
-    )
-    assertSumCase(
-        &mut t,
-        "right identity",
-        8,
-        0,
-        8,
-    )
-    t.finish()
-
-    return void
-}
-
-func testSumCommutativeExamples() -> (void) {
-    mut var t: test.T = test.new("testSumCommutativeExamples")
-    var inputs: Vec<input, _> = Vec.from(
-        [
-            input{
-                a:        2,
-                b:        5,
-                expected: 7,
-            },
-            input{
-                a:        -4,
-                b:        9,
-                expected: 5,
-            },
-            input{
-                a:        11,
-                b:        -3,
-                expected: 8,
-            },
-        ],
-    )
-
-    for i in 0..inputs.len() {
-        var input: input = inputs[i]
-        var forward: int = dyn.sum(
-            input.a,
-            input.b,
-        )
-        var backward: int = dyn.sum(
-            input.b,
-            input.a,
-        )
-
-        t.setCase("pair {i}")
-
-        if forward != input.expected {
-            t.fail("sum({input.a}, {input.b}) = {forward}, expected {input.expected}")
-        }
-
-        if backward != input.expected {
-            t.fail("sum({input.b}, {input.a}) = {backward}, expected {input.expected}")
-        }
-
-        if forward != backward {
-            t.fail("sum should be commutative for pair {i}")
-        }
-
-        t.clearCase()
+func make_data(age: int64) -> (dyn.Data) {
+    return dyn.Data{
+        age:  age,
+        fl:   12.0,
+        name: "hello",
     }
+}
 
+func test_divide_age_ok() -> (void) {
+    mut var t: test.T = test.new("test_divide_age_ok")
+    var d: dyn.Data = make_data(12)
+    var result: Result<int64, string> = d.divideAge()
+
+    t.isOk(result)
+    t.eq(
+        result.unwrap(),
+        int64(6),
+    )
+    t.finish()
+
+    return void
+}
+
+func test_divide_age_zero_error() -> (void) {
+    mut var t: test.T = test.new("test_divide_age_zero_error")
+    var d: dyn.Data = make_data(0)
+    var result: Result<int64, string> = d.divideAge()
+
+    t.isErr(result)
+    t.eqString(
+        result.unwrapErr(),
+        "zero division error",
+    )
+    t.finish()
+
+    return void
+}
+
+func test_half_age_uses_divide_age() -> (void) {
+    mut var t: test.T = test.new("test_half_age_uses_divide_age")
+    var d: dyn.Data = make_data(14)
+    var result: Result<int64, string> = dyn.halfAge(d)
+
+    t.isOk(result)
+    t.eq(
+        result.unwrap(),
+        int64(7),
+    )
+    t.finish()
+
+    return void
+}
+
+func test_half_age_propagates_zero_error() -> (void) {
+    mut var t: test.T = test.new("test_half_age_propagates_zero_error")
+    var d: dyn.Data = make_data(0)
+    var result: Result<int64, string> = dyn.halfAge(d)
+
+    t.isErr(result)
+    t.eqString(
+        result.unwrapErr(),
+        "zero division error",
+    )
     t.finish()
 
     return void
