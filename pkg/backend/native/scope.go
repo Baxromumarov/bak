@@ -1,5 +1,7 @@
 package native
 
+import "slices"
+
 import "github.com/baxromumarov/bak/pkg/ast"
 
 // Variable and scope management for the native code generator.
@@ -61,8 +63,8 @@ func (s *EmitState) declareLocal(name string, size int) int {
 // resolveLocal searches all scopes (innermost first) for a variable by name.
 // Returns the RBP offset and true if found.
 func (s *EmitState) resolveLocal(name string) (int, bool) {
-	for i := len(s.Scopes) - 1; i >= 0; i-- {
-		for _, l := range s.Scopes[i].Locals {
+	for _, v := range slices.Backward(s.Scopes) {
+		for _, l := range v.Locals {
 			if l.Name == name {
 				return l.Offset, true
 			}

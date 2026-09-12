@@ -8,6 +8,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -1243,8 +1244,8 @@ func (s *EmitState) emitDeferredBodies() error {
 	}
 	// Save return value (RAX) on stack before running deferred code
 	emitPushReg(&s.Code, RAX)
-	for i := len(s.DeferStack) - 1; i >= 0; i-- {
-		if err := s.emitBlockInScope(s.DeferStack[i]); err != nil {
+	for _, v := range slices.Backward(s.DeferStack) {
+		if err := s.emitBlockInScope(v); err != nil {
 			return err
 		}
 	}
@@ -1834,8 +1835,8 @@ func (s *EmitState) emitForIterable(st *ast.ForStatement) error {
 	if len(s.Scopes) > 0 {
 		scope := &s.Scopes[len(s.Scopes)-1]
 		for _, name := range loopInternals {
-			for i := len(scope.Locals) - 1; i >= 0; i-- {
-				if scope.Locals[i].Name == name {
+			for i, v := range slices.Backward(scope.Locals) {
+				if v.Name == name {
 					scope.Locals = append(scope.Locals[:i], scope.Locals[i+1:]...)
 					break
 				}

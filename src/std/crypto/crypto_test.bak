@@ -3,6 +3,7 @@ package crypto
 import test "std/test"
 import c "std/crypto"
 import bytes "std/bytes"
+import types "std/bytes/types"
 
 func test_fnv1a_hash() -> (void) {
     mut var t: test.T = test.new("test_fnv1a_hash")
@@ -12,7 +13,7 @@ func test_fnv1a_hash() -> (void) {
         1335831723,
     )
 
-    var b: bytes.Bytes = bytes.fromString("hello")
+    var b: types.Bytes = bytes.fromString("hello")
 
     t.eq(
         c.fnv1aBytes(bytes.toVec(&b)),

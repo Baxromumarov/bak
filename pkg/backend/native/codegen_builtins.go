@@ -6,6 +6,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"os"
+	"slices"
 	"strings"
 )
 
@@ -1794,7 +1795,7 @@ func (s *EmitState) emitEnumVariantConstruction(ed *ast.EnumDecl, variantIdx int
 	}
 
 	// Pop payload values in reverse and store in slot order.
-	for i := len(args) - 1; i >= 0; i-- {
+	for i := range slices.Backward(args) {
 		emitPopReg(&s.Code, RCX)
 		payloadOffset := 8 + i*8
 		emitMovMemBaseDispReg(&s.Code, RAX, payloadOffset, RCX)

@@ -27,6 +27,7 @@ func test_string_set_basic() -> (void) {
     )
     s.clear()
     t.isTrue(s.isEmpty())
+    t.finish()
 }
 
 func test_int_set_basic() -> (void) {
@@ -49,6 +50,7 @@ func test_int_set_basic() -> (void) {
         s.len(),
         1,
     )
+    t.finish()
 }
 
 func test_string_set_algebra() -> (void) {
@@ -90,6 +92,7 @@ func test_string_set_algebra() -> (void) {
     t.isTrue(diff.contains("a"))
     t.isTrue(inter.isSubsetOf(&u))
     t.isFalse(u.isSubsetOf(&inter))
+    t.finish()
 }
 
 func test_int_set_algebra() -> (void) {
@@ -131,6 +134,7 @@ func test_int_set_algebra() -> (void) {
     t.isTrue(diff.contains(1))
     t.isTrue(inter.isSubsetOf(&u))
     t.isFalse(u.isSubsetOf(&inter))
+    t.finish()
 }
 
 func test_queue_basic() -> (void) {
@@ -203,6 +207,7 @@ func test_queue_basic() -> (void) {
     }
 
     t.isTrue(q.isEmpty())
+    t.finish()
 }
 
 func test_string_queue_basic() -> (void) {
@@ -237,6 +242,7 @@ func test_string_queue_basic() -> (void) {
     }
 
     t.isTrue(q.isEmpty())
+    t.finish()
 }
 
 func test_vec_map_filter_utils() -> (void) {
@@ -385,4 +391,5 @@ func test_vec_map_filter_utils() -> (void) {
         case Err(_) {
         }
     }
+    t.finish()
 }

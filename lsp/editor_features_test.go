@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -1761,12 +1762,7 @@ func TestInitializeAdvertisesModernDocumentFeatures(t *testing.T) {
 		t.Fatalf("expected semantic token legend")
 	}
 	hasTrigger := func(want string) bool {
-		for _, ch := range result.Capabilities.CompletionProvider.TriggerCharacters {
-			if ch == want {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(result.Capabilities.CompletionProvider.TriggerCharacters, want)
 	}
 	for _, want := range []string{"i", "n", "t", "_", "9", "."} {
 		if !hasTrigger(want) {

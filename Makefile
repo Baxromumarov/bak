@@ -22,6 +22,7 @@ DUMPBC_BIN := $(BINDIR)/dump_bc
 LSP_BIN := $(BINDIR)/bak-lsp
 
 TEST_SCRIPTS := \
+	tests/run_feature_stability_tests.sh \
 	tests/run_alias_type_tests.sh \
 	tests/run_defer_panic_conformance.sh \
 	tests/run_func_arg_tests.sh \

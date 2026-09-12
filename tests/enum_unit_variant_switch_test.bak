@@ -25,4 +25,5 @@ func test_switch_unit_variant() -> (void) {
         out,
         "red",
     )
+    t.finish()
 }

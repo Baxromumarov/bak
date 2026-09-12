@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 
@@ -256,8 +257,8 @@ func (c *Compiler) compileGlobalMultiVarInit(mvs *ast.MultiVarStatement) error {
 	c.emit(OP_UNPACK_N)
 	c.emitByte(byte(len(mvs.Names)))
 
-	for i := len(mvs.Names) - 1; i >= 0; i-- {
-		c.emitGlobal(OP_SET_GLOBAL, mvs.Names[i].Value)
+	for _, v := range slices.Backward(mvs.Names) {
+		c.emitGlobal(OP_SET_GLOBAL, v.Value)
 	}
 	return nil
 }
@@ -701,8 +702,8 @@ func (c *Compiler) compileMultiVarStatement(mvs *ast.MultiVarStatement) error {
 		return nil
 	}
 
-	for i := len(mvs.Names) - 1; i >= 0; i-- {
-		c.emitGlobal(OP_SET_GLOBAL, mvs.Names[i].Value)
+	for _, v := range slices.Backward(mvs.Names) {
+		c.emitGlobal(OP_SET_GLOBAL, v.Value)
 	}
 	return nil
 }
@@ -715,8 +716,8 @@ func (c *Compiler) compileImportStatement(is *ast.ImportStatement) error {
 		// Extract basename from path for default alias
 		parts := []byte(is.Path)
 		lastSlash := -1
-		for i := len(parts) - 1; i >= 0; i-- {
-			if parts[i] == '/' {
+		for i, part := range slices.Backward(parts) {
+			if part == '/' {
 				lastSlash = i
 				break
 			}
@@ -1241,10 +1242,10 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 				continue
 			}
 
-			if boundName, jump, ok := c.matchUserEnumCasePattern(caseValue, switchSlot); ok {
+			if boundNames, jump, ok := c.matchUserEnumCasePattern(caseValue, switchSlot); ok {
 				patternState.isUserEnumPattern = true
-				if boundName != "" {
-					patternState.boundVar = boundName
+				if len(boundNames) > 0 {
+					patternState.boundVars = boundNames
 				}
 				caseJumps = append(caseJumps, jump)
 				continue
@@ -1302,6 +1303,7 @@ func (c *Compiler) compileSwitchStatement(ss *ast.SwitchStatement) error {
 
 type switchCasePatternState struct {
 	boundVar          string
+	boundVars         []string
 	isUserEnumPattern bool
 	isOkPattern       bool
 	isErrPattern      bool
@@ -1353,30 +1355,26 @@ func (c *Compiler) emitSwitchBuiltinPatternJump(switchSlot int, builtinID Builti
 	return c.emitJump(OP_JMP_IF_TRUE)
 }
 
-func (c *Compiler) matchUserEnumCasePattern(caseValue ast.Expression, switchSlot int) (string, int, bool) {
-	call, ok := caseValue.(*ast.CallExpression)
+func (c *Compiler) matchUserEnumCasePattern(caseValue ast.Expression, switchSlot int) ([]string, int, bool) {
+	variantName, args, ok := userEnumCasePatternParts(caseValue)
 	if !ok {
-		return "", 0, false
-	}
-	ident, ok := call.Function.(*ast.Identifier)
-	if !ok {
-		return "", 0, false
+		return nil, 0, false
 	}
 
 	for _, enumDef := range c.module.EnumDefs {
-		variantIdx, ok := enumDef.VariantIndex[ident.Value]
+		variantIdx, ok := enumDef.VariantIndex[variantName]
 		if !ok {
 			continue
 		}
 
 		variant := enumDef.Variants[variantIdx]
-		if len(call.Arguments) != variant.PayloadCount {
+		if len(args) != variant.PayloadCount {
 			continue
 		}
 
-		bindings := make([]string, 0, len(call.Arguments))
+		bindings := make([]string, 0, len(args))
 		validBindings := true
-		for _, arg := range call.Arguments {
+		for _, arg := range args {
 			name, ok := patternBindingName(arg)
 			if !ok {
 				validBindings = false
@@ -1396,17 +1394,38 @@ func (c *Compiler) matchUserEnumCasePattern(caseValue ast.Expression, switchSlot
 		jump := c.emitJump(OP_JMP_IF_TRUE)
 
 		if len(bindings) > 0 {
-			return bindings[0], jump, true // For now, support single binding.
+			return bindings, jump, true
 		}
-		return "", jump, true
+		return nil, jump, true
 	}
 
-	return "", 0, false
+	return nil, 0, false
+}
+
+func userEnumCasePatternParts(expr ast.Expression) (string, []ast.Expression, bool) {
+	switch v := expr.(type) {
+	case *ast.EnumVariantExpression:
+		if v.Variant == nil {
+			return "", nil, false
+		}
+		return v.Variant.Value, v.Values, true
+	case *ast.CallExpression:
+		switch fn := v.Function.(type) {
+		case *ast.Identifier:
+			return fn.Value, v.Arguments, true
+		case *ast.FieldAccessExpression:
+			if fn.Field == nil {
+				return "", nil, false
+			}
+			return fn.Field.Value, v.Arguments, true
+		}
+	}
+	return "", nil, false
 }
 
 func (c *Compiler) beginSwitchCaseScope(switchSlot int, state switchCasePatternState) {
 	c.beginScope()
-	if state.boundVar == "" {
+	if state.boundVar == "" && len(state.boundVars) == 0 {
 		return
 	}
 
@@ -1426,11 +1445,13 @@ func (c *Compiler) beginSwitchCaseScope(switchSlot int, state switchCasePatternS
 		c.addLocal(state.boundVar)
 		c.materializeEscapingLocalSlot(len(c.locals) - 1)
 	case state.isUserEnumPattern:
-		c.emitGetLocalValue(switchSlot)
-		c.emitConstant(NewInt(0)) // payload index 0
-		c.emit(OP_GET_PAYLOAD)
-		c.addLocal(state.boundVar)
-		c.materializeEscapingLocalSlot(len(c.locals) - 1)
+		for i, name := range state.boundVars {
+			c.emitGetLocalValue(switchSlot)
+			c.emitConstant(NewInt(int64(i)))
+			c.emit(OP_GET_PAYLOAD)
+			c.addLocal(name)
+			c.materializeEscapingLocalSlot(len(c.locals) - 1)
+		}
 	}
 }
 
@@ -1566,8 +1587,8 @@ func (c *Compiler) emitLoopCleanup() {
 	if depth < 0 {
 		return
 	}
-	for i := len(c.locals) - 1; i >= 0; i-- {
-		if c.locals[i].Depth <= depth {
+	for _, v := range slices.Backward(c.locals) {
+		if v.Depth <= depth {
 			break
 		}
 		c.emit(OP_POP)
@@ -2156,9 +2177,9 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 }
 
 func (c *Compiler) resolveLocal(name string) int {
-	for i := len(c.locals) - 1; i >= 0; i-- {
-		if c.locals[i].Name == name {
-			return c.locals[i].Slot
+	for _, v := range slices.Backward(c.locals) {
+		if v.Name == name {
+			return v.Slot
 		}
 	}
 	return -1

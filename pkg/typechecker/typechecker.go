@@ -303,6 +303,7 @@ func (tc *TypeChecker) Errors() []string {
 // GetErrors returns structured diagnostics for tools that need raw positions,
 // notes, help, and fixes.
 func (tc *TypeChecker) GetErrors() []TypeError {
+	tc.emitter.Sort()
 	diags := tc.emitter.Diagnostics()
 	result := make([]TypeError, 0, len(diags))
 	for _, d := range diags {

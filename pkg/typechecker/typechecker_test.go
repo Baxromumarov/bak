@@ -40,6 +40,20 @@ func checkSourceWithUnused(t *testing.T, source string) []TypeError {
 	return tc.GetErrors()
 }
 
+func TestGetErrorsSortsStructuredDiagnostics(t *testing.T) {
+	tc := New()
+	tc.addError(20, 1, "later")
+	tc.addError(10, 1, "earlier")
+
+	errs := tc.GetErrors()
+	if len(errs) != 2 {
+		t.Fatalf("expected two diagnostics, got %#v", errs)
+	}
+	if errs[0].Line != 10 || errs[1].Line != 20 {
+		t.Fatalf("expected structured diagnostics sorted by position, got %#v", errs)
+	}
+}
+
 func TestUnusedStructUsedAsGenericTypeArgument(t *testing.T) {
 	source := `
 package main

@@ -20,6 +20,19 @@ func TestAnalyzeSourceBuildsPackageGraph(t *testing.T) {
 pub func answer() -> (int) {
     return 42
 }
+
+func TestAnalyzeSourceReturnsContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result, err := AnalyzeSource(ctx, "main.bak", "package main\n", Options{})
+	if result != nil {
+		t.Fatalf("expected no analysis result after cancellation, got %#v", result)
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
 `
 	if err := os.WriteFile(utilPath, []byte(utilSrc), 0o644); err != nil {
 		t.Fatal(err)

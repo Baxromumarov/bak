@@ -273,8 +273,7 @@ func (tc *TypeChecker) emitImportCycleError(is *ast.ImportStatement, err error) 
 	)
 	diag.Help = "check for a circular dependency chain or simplify the module graph"
 
-	var cycleErr *packages.ImportCycleError
-	if errors.As(err, &cycleErr) {
+	if cycleErr, ok := errors.AsType[*packages.ImportCycleError](err); ok {
 		diag.Notes = append(diag.Notes, tc.importCycleNotes(is, cycleErr.Chain)...)
 	}
 	tc.emitError(diag)

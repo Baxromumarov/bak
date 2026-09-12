@@ -161,7 +161,7 @@ func structToMap(rv reflect.Value) map[string]any {
 		out[strings.ToLower(field.Name)] = val
 
 		if tag := field.Tag.Get("json"); tag != "" && tag != "-" {
-			name := strings.Split(tag, ",")[0]
+			name, _, _ := strings.Cut(tag, ",")
 			if name != "" {
 				out[name] = val
 			}

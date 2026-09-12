@@ -66,12 +66,6 @@
       }
     },
     {
-      "scope": "keyword.control",
-      "settings": {
-        "foreground": "#569CD6"
-      }
-    },
-    {
       "scope": "entity.name.namespace",
       "settings": {
         "foreground": "#569CD6"

@@ -47,7 +47,7 @@ impl Vec {
         }
     }
 
-    pub func from(arr: Vec<T, N>) -> (Vec<T, _>) {
+    pub func from<N>(arr: Vec<T, N>) -> (Vec<T, _>) {
         // arr is fixed array.
         var len: int = arr.len()
         mut var v: Vec<T, _> = Vec.withCap(len)

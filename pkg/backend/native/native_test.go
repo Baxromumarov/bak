@@ -712,8 +712,7 @@ func runNativeBinary(t *testing.T, binary []byte) (int, string) {
 		return 0, string(output)
 	}
 
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok {
 		return exitErr.ExitCode(), string(output)
 	}
 

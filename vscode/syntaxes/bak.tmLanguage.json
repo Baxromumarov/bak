@@ -197,7 +197,7 @@
       "patterns": [
         {
           "name": "keyword.control",
-          "match": "\\b(return|if|else|while|for|in|switch|case|default|break|continue|defer|import|as|var|mut|const|unsafe|pub|struct|enum|impl|func|type|alias|package)\\b"
+          "match": "\\b(return|if|else|while|for|in|switch|case|default|break|continue|defer|import|as|var|mut|const|unsafe|pub|struct|enum|impl|func|type|alias|package|panic)\\b"
         }
       ]
     },

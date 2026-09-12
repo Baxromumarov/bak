@@ -89,8 +89,8 @@ func (c *Compiler) compileCompileTimeReflectionBuiltin(builtinID BuiltinID, args
 	case BUILTIN_METHODS:
 		prefix := ident.Value + "."
 		for methodName := range c.module.Methods {
-			if strings.HasPrefix(methodName, prefix) {
-				names = append(names, strings.TrimPrefix(methodName, prefix))
+			if after, ok0 := strings.CutPrefix(methodName, prefix); ok0 {
+				names = append(names, after)
 			}
 		}
 		sort.Strings(names)

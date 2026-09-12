@@ -12,6 +12,8 @@ run() {
 echo "Bak comprehensive release gate"
 
 run go test ./...
+run go build -mod=readonly -o bak ./cmd/bak
+run bash tests/run_feature_stability_tests.sh
 run bash tests/run_alias_type_tests.sh
 run bash tests/run_defer_panic_conformance.sh
 run bash tests/run_func_arg_tests.sh

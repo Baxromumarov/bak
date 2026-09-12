@@ -1,0 +1,209 @@
+package main
+
+import test "std/test"
+
+const BASE_LIMIT: int = 40
+const LIMIT: int = BASE_LIMIT + 2
+const (
+    GREETING: string = "bak"
+    TAB:      char = '\t'
+)
+
+alias Score = int
+
+struct Counter {
+    value: int
+}
+
+impl Counter as c {
+    pub mut func add(delta: int) -> (void) {
+        c.value = c.value + delta
+    }
+
+    pub func current() -> (int) {
+        return c.value
+    }
+}
+
+enum Event {
+    Started
+    Data(int, string)
+    Done(bool)
+}
+
+func eventScore(e: Event) -> (int) {
+    switch e {
+        case Started {
+            return 1
+        }
+        case Data(
+            code,
+            name,
+        ) {
+            if name == "ok" {
+                return code
+            }
+
+            return 0
+        }
+        case Done(success) {
+            if success {
+                return 100
+            }
+
+            return -100
+        }
+    }
+
+    return -1
+}
+
+func loadValue(ok: bool) -> (Result<int, string>) {
+    if ok {
+        return Ok(21)
+    }
+
+    return Err("load failed")
+}
+
+func doubleLoaded() -> (Result<int, string>) {
+    var value: int = try loadValue(true)
+
+    return Ok(value * 2)
+}
+
+func apply(f: func(int) -> (int), value: int) -> (int) {
+    return f(value)
+}
+
+func sumBorrowed(items: &Vec<int, _>) -> (int) {
+    mut var total: int = 0
+
+    for item in *items {
+        total = total + item
+    }
+
+    return total
+}
+
+func test_constants_aliases_and_conversions() -> (void) {
+    mut var t: test.T = test.new("test_constants_aliases_and_conversions")
+    var score: Score = LIMIT
+
+    t.eq(
+        score,
+        42,
+    )
+    t.eqString(
+        GREETING + "lang",
+        "baklang",
+    )
+    t.eq(
+        TAB.toAscii(),
+        9,
+    )
+    t.finish()
+}
+
+func test_struct_methods_and_mutation() -> (void) {
+    mut var t: test.T = test.new("test_struct_methods_and_mutation")
+    mut var counter: Counter = Counter{value: 3}
+
+    counter.add(4)
+    t.eq(
+        counter.current(),
+        7,
+    )
+    t.finish()
+}
+
+func test_enum_payload_switch_and_result_try() -> (void) {
+    mut var t: test.T = test.new("test_enum_payload_switch_and_result_try")
+
+    t.eq(
+        eventScore(Event.Started),
+        1,
+    )
+    t.eq(
+        eventScore(Event.Data(
+            42,
+            "ok",
+        )),
+        42,
+    )
+    t.eq(
+        eventScore(Event.Done(false)),
+        -100,
+    )
+
+    switch doubleLoaded() {
+        case Ok(value) {
+            t.eq(
+                value,
+                42,
+            )
+        }
+        case Err(err) {
+            t.fail("unexpected error: " + err)
+        }
+    }
+
+    switch loadValue(false) {
+        case Ok(_) {
+            t.fail("expected loadValue(false) to fail")
+        }
+        case Err(err) {
+            t.eqString(
+                err,
+                "load failed",
+            )
+        }
+    }
+
+    t.finish()
+}
+
+func test_functions_vectors_and_borrows() -> (void) {
+    mut var t: test.T = test.new("test_functions_vectors_and_borrows")
+    var tripled: int = apply(
+        func(n: int) -> (int) {
+            return n * 3
+        },
+        5,
+    )
+
+    t.eq(
+        tripled,
+        15,
+    )
+
+    mut var nums: Vec<int, _> = Vec.from([1, 2, 3])
+
+    nums.push(4)
+    t.eq(
+        sumBorrowed(&nums),
+        10,
+    )
+    t.eq(
+        nums.len(),
+        4,
+    )
+
+    switch nums.pop() {
+        case Ok(last) {
+            t.eq(
+                last,
+                4,
+            )
+        }
+        case Err(err) {
+            t.fail("unexpected pop error: " + err)
+        }
+    }
+
+    t.eq(
+        nums.len(),
+        3,
+    )
+    t.finish()
+}

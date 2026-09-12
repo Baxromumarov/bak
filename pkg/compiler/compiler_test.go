@@ -418,6 +418,23 @@ func main() -> (void) {
 `)
 }
 
+func TestCompileEnumSwitchBindsAllPayloadFields(t *testing.T) {
+	compileSource(t, `
+package main
+enum Message {
+	Move(int, int)
+}
+func main() -> (void) {
+	var msg: Message = Move(3, 4)
+	switch msg {
+		case Move(x, y) {
+			println(x + y)
+		}
+	}
+}
+`)
+}
+
 // =============================================================================
 // String Operations
 // =============================================================================

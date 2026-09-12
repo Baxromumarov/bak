@@ -614,12 +614,12 @@ func declaredMutableInLine(line, name string) (bool, bool) {
 			continue
 		}
 		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, decl.prefix))
-		if strings.HasPrefix(rest, "(") {
-			inside := strings.TrimPrefix(rest, "(")
+		if after, ok := strings.CutPrefix(rest, "("); ok {
+			inside := after
 			if closeIdx := strings.Index(inside, ")"); closeIdx >= 0 {
 				inside = inside[:closeIdx]
 			}
-			for _, part := range strings.Split(inside, ",") {
+			for part := range strings.SplitSeq(inside, ",") {
 				if strings.TrimSpace(part) == name {
 					return decl.mutable, true
 				}

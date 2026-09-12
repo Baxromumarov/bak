@@ -97,11 +97,11 @@ func extractMissingField(msg string) (string, string, bool) {
 
 func extractMutabilityVariable(msg string) string {
 	const marker = " immutable variable '"
-	idx := strings.Index(msg, marker)
-	if idx == -1 {
+	_, after, ok0 := strings.Cut(msg, marker)
+	if !ok0 {
 		return ""
 	}
-	rest := msg[idx+len(marker):]
+	rest := after
 	name, _, ok := strings.Cut(rest, "'")
 	if !ok {
 		return ""
@@ -516,7 +516,7 @@ func localPackageName(path string) string {
 	if err != nil {
 		return ""
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	for line := range strings.SplitSeq(string(data), "\n") {
 		fields := strings.Fields(strings.TrimSpace(line))
 		if len(fields) == 2 && fields[0] == "package" {
 			return fields[1]
@@ -809,8 +809,8 @@ func inferMissingFieldType(text string, lineNo int, fieldName string) string {
 	}
 	if idx := strings.Index(line, "."+fieldName); idx != -1 {
 		rest := line[idx+len(fieldName)+1:]
-		if eq := strings.Index(rest, "="); eq != -1 {
-			return inferLiteralType(rest[eq+1:])
+		if _, after, ok := strings.Cut(rest, "="); ok {
+			return inferLiteralType(after)
 		}
 	}
 	return "any"
@@ -829,7 +829,7 @@ func structClosingLine(text string, result *AnalysisResult, typeName string) (in
 		}
 	}
 	lines := strings.Split(text, "\n")
-	for i := 0; i < len(lines); i++ {
+	for i := range lines {
 		trimmed := strings.TrimSpace(lines[i])
 		if !strings.HasPrefix(trimmed, "struct "+typeName) || !strings.Contains(trimmed, "{") {
 			continue
@@ -985,7 +985,7 @@ func textualSwitchCaseNames(text string, startLine, endLine int) map[string]bool
 		}
 		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "case "))
 		rest = strings.TrimSpace(strings.TrimSuffix(rest, "{"))
-		for _, part := range strings.Split(rest, ",") {
+		for part := range strings.SplitSeq(rest, ",") {
 			name := strings.TrimSpace(part)
 			if before, _, ok := strings.Cut(name, "("); ok {
 				name = strings.TrimSpace(before)
