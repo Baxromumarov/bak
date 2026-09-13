@@ -1,6 +1,6 @@
 package main
 
-func main() -> (int) {
+func main() -> (void) {
     mut var score: int = 0
     mut var v: Vec<int, _> = Vec.new()
 
@@ -123,5 +123,5 @@ func main() -> (int) {
         score = score + 1
     }
 
-    return score
+    return void
 }
