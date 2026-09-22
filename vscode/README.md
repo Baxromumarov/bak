@@ -9,14 +9,15 @@ npm run build
 
 ## Package VSIX
 
-This uses `@vscode/vsce` via `npx` to avoid a global install.
-Packaging also builds and bundles `bin/bak-lsp` into the extension.
+This uses `@vscode/vsce` via `npx` to avoid a global install. Packaging builds
+and verifies a platform-targeted LSP bundle at `bin/<platform>/bak-lsp` (or
+`bak-lsp.exe` on Windows).
 
 ```sh
 ./scripts/package-vsix.sh
 ```
 
-The VSIX will be created in `vscode/`.
+The VSIX will be created in `vscode/` with its platform target in the name.
 
 ## Install VSIX
 

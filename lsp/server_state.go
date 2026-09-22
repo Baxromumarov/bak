@@ -88,18 +88,25 @@ func (s *Server) finishRequest(id json.RawMessage) {
 	}
 
 	s.stateMu.Lock()
-	defer s.stateMu.Unlock()
-
+	cancel := s.activeRequests[key]
 	delete(s.canceled, key)
 	delete(s.activeRequests, key)
+	s.stateMu.Unlock()
+
+	// A context created for a completed request must always be canceled. This
+	// releases any descendants that the request handler created, even when the
+	// client did not explicitly cancel the request.
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *Server) startRequest(id json.RawMessage) context.Context {
 	key := requestIDKey(id)
-	ctx, cancel := context.WithCancel(context.Background())
 	if key == "" {
-		return ctx
+		return context.Background()
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 
 	s.stateMu.Lock()
 	if _, ok := s.canceled[key]; ok {

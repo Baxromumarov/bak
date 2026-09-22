@@ -2,8 +2,12 @@
   "name": "bak",
   "displayName": "Bak Language",
   "description": "Bak language support with LSP",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "bak",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/baxromumarov/bak.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

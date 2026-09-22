@@ -60,6 +60,18 @@ function workspaceRoots(): string[] {
   return [process.cwd()];
 }
 
+function bundledServerPath(context: vscode.ExtensionContext): string | undefined {
+  const target = `${process.platform}-${process.arch}`;
+  const executable = lspExecutableName();
+
+  // Release packages contain only the LSP for their target platform. Keep the
+  // legacy location as a fallback so a development checkout built before the
+  // platform-specific layout continues to work.
+  return existingExecutable(context.asAbsolutePath(path.join("bin", target, executable))) ||
+    existingExecutable(context.asAbsolutePath(path.join("bin", executable))) ||
+    existingExecutable(context.asAbsolutePath(executable));
+}
+
 function resolveServerPath(context: vscode.ExtensionContext): string | undefined {
   const config = vscode.workspace.getConfiguration("bak");
   const configured = config.get<string>("lspPath")?.trim();
@@ -81,13 +93,18 @@ function resolveServerPath(context: vscode.ExtensionContext): string | undefined
     candidates.push(path.join(root, "bin", executable));
     candidates.push(path.join(root, executable));
   }
-  candidates.push(context.asAbsolutePath(path.join("bin", executable)));
-  candidates.push(context.asAbsolutePath(executable));
 
   for (const candidate of candidates) {
     const found = existingExecutable(candidate);
     if (found) {
       return found;
+    }
+  }
+
+  if (!configured) {
+    const bundled = bundledServerPath(context);
+    if (bundled) {
+      return bundled;
     }
   }
 

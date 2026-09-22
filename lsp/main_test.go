@@ -208,6 +208,20 @@ func TestCancelRequestCancelsActiveRequestContext(t *testing.T) {
 	server.finishRequest(id)
 }
 
+func TestFinishRequestCancelsRequestContext(t *testing.T) {
+	server := NewServer()
+	id := json.RawMessage(`"completed"`)
+	ctx := server.startRequest(id)
+
+	server.finishRequest(id)
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(time.Second):
+		t.Fatalf("expected completed request context to be canceled")
+	}
+}
+
 func TestServerCloseCancelsPendingTimersAndRequests(t *testing.T) {
 	server := NewServer()
 	id := json.RawMessage(`22`)

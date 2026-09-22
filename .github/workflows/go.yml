@@ -1,7 +1,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Go
+name: Verify
 
 on:
   push:
@@ -10,19 +10,52 @@ on:
     branches: [ "main" ]
 
 jobs:
-
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
-        go-version: '1.20'
+        go-version: '1.27.x'
 
     - name: Build
-      run: go build -v ./...
+      run: go build -mod=readonly -v ./...
 
-    - name: Test
-      run: go test -v ./...
+    - name: Run release gate
+      run: make release-check
+
+  vscode-package:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: vscode
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.27.x'
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: npm
+        cache-dependency-path: vscode/package-lock.json
+
+    - name: Build and verify VSIX
+      run: bash ./scripts/package-vsix.sh
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: vscode-${{ matrix.os }}
+        path: vscode/*.vsix

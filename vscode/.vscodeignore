@@ -1,0 +1,10 @@
+# Development-only extension sources and tooling.
+src/**
+scripts/**
+tsconfig.json
+**/*.map
+
+# The package script emits a target-specific server under bin/<target>/.
+# Do not accidentally ship a legacy development binary beside it.
+bin/bak-lsp
+bin/bak-lsp.exe

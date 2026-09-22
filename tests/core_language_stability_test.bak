@@ -6,7 +6,7 @@ const BASE_LIMIT: int = 40
 const LIMIT: int = BASE_LIMIT + 2
 const (
     GREETING: string = "bak"
-    TAB:      char = '\t'
+    TAB: char = '\t'
 )
 
 alias Score = int
@@ -125,10 +125,12 @@ func test_enum_payload_switch_and_result_try() -> (void) {
         1,
     )
     t.eq(
-        eventScore(Event.Data(
-            42,
-            "ok",
-        )),
+        eventScore(
+            Event.Data(
+                42,
+                "ok",
+            ),
+        ),
         42,
     )
     t.eq(

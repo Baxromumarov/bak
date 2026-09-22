@@ -7,3 +7,17 @@
 .codex
 .agents
 *.zip
+
+# Generated compiler, language-server, and editor-extension artifacts.
+/bin/
+/bak
+/bakfmt
+/baklint
+/bakcheck
+/bak-lsp
+/dump_bc
+*.bakbc.json
+/vscode/node_modules/
+/vscode/out/
+/vscode/bin/
+/vscode/*.vsix

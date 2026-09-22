@@ -27,9 +27,11 @@ func TestVMNativeParityMatrix(t *testing.T) {
 	root := findRepoRoot(t)
 
 	tests := []struct {
-		name        string
-		sourcePath  string
-		permissions runtimecap.Permissions
+		name           string
+		sourcePath     string
+		permissions    runtimecap.Permissions
+		expectedResult int
+		assertExpected bool
 	}{
 		{
 			name:        "enum_result",
@@ -57,9 +59,11 @@ func TestVMNativeParityMatrix(t *testing.T) {
 			permissions: runtimecap.Permissions{},
 		},
 		{
-			name:        "result_surface",
-			sourcePath:  filepath.Join(root, "tests", "native_result_surface.bak"),
-			permissions: runtimecap.Permissions{},
+			name:           "result_surface",
+			sourcePath:     filepath.Join(root, "tests", "native_result_surface.bak"),
+			permissions:    runtimecap.Permissions{},
+			expectedResult: 14,
+			assertExpected: true,
 		},
 		{
 			name:        "vec_result_methods",
@@ -96,7 +100,13 @@ func TestVMNativeParityMatrix(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
 			vmResult := runVMProgramFromFile(t, testCase.sourcePath, testCase.permissions)
+			if testCase.assertExpected && vmResult != testCase.expectedResult {
+				t.Fatalf("VM result for %s: got %d, want %d", testCase.sourcePath, vmResult, testCase.expectedResult)
+			}
 			nativeResult := runNativeProgramFromFile(t, testCase.sourcePath, testCase.permissions)
+			if testCase.assertExpected && nativeResult != testCase.expectedResult {
+				t.Fatalf("native result for %s: got %d, want %d", testCase.sourcePath, nativeResult, testCase.expectedResult)
+			}
 			if vmResult != nativeResult {
 				t.Fatalf("VM/native mismatch for %s: vm=%d native=%d", testCase.sourcePath, vmResult, nativeResult)
 			}

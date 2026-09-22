@@ -391,5 +391,6 @@ func test_vec_map_filter_utils() -> (void) {
         case Err(_) {
         }
     }
+
     t.finish()
 }
