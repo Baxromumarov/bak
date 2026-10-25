@@ -11,13 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/baxromumarov/bak/internal/buildinfo"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/typechecker"
 )
-
-const VERSION = "dev"
 
 // RunDoctor runs doctor checks and returns an error when checks fail.
 func RunDoctor(w io.Writer, root string) error {
@@ -34,7 +33,10 @@ func RunDoctor(w io.Writer, root string) error {
 	}
 
 	_, _ = strfmt.Fprintln(w, "Bak doctor")
-	_, _ = strfmt.Fprintln(w, "version: ", VERSION)
+	_, _ = strfmt.Fprintln(w, "version: ", buildinfo.Version)
+	_, _ = strfmt.Fprintln(w, "language: v", buildinfo.LanguageVersion, " (", buildinfo.LanguageStatus, ")")
+	_, _ = strfmt.Fprintln(w, "production backend: ", buildinfo.ProductionBackend, " (", buildinfo.VMStatus, ")")
+	_, _ = strfmt.Fprintln(w, "native backend: ", buildinfo.NativeStatus, " (", buildinfo.NativeTarget, ")")
 	_, _ = strfmt.Fprintln(w, "host: ", runtime.GOOS, "/", runtime.GOARCH)
 
 	absRoot, err := filepath.Abs(root)

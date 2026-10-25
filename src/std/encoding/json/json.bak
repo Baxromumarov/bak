@@ -118,8 +118,8 @@ pub func marshalArray<T>(items: Vec<T, _>, f: func(T) -> (Json)) -> (string) {
 // JSON Access Helpers
 // =============================================================================
 pub func isNull(j: Json) -> (bool) {
-    switch j {
-        case Null {
+    switch (j) {
+        case (Null) {
             return true
         }
     }
@@ -155,7 +155,7 @@ pub func getString(obj: &Json, key: string) -> (Result<string, string>) {
         key,
     ) {
         case Ok(val) {
-            switch val {
+            switch (val) {
                 case String(v) {
                     return Ok(v)
                 }
@@ -177,7 +177,7 @@ pub func getNumber(obj: &Json, key: string) -> (Result<float64, string>) {
         key,
     ) {
         case Ok(val) {
-            switch val {
+            switch (val) {
                 case Int(v) {
                     return Ok(float64(v))
                 }
@@ -203,7 +203,7 @@ pub func getInt(obj: &Json, key: string) -> (Result<int, string>) {
         key,
     ) {
         case Ok(val) {
-            switch val {
+            switch (val) {
                 case Int(v) {
                     return Ok(v)
                 }
@@ -226,7 +226,7 @@ pub func getFloat(obj: &Json, key: string) -> (Result<float64, string>) {
         key,
     ) {
         case Ok(val) {
-            switch val {
+            switch (val) {
                 case Float(v) {
                     return Ok(v)
                 }
@@ -248,7 +248,7 @@ pub func getBool(obj: &Json, key: string) -> (Result<bool, string>) {
         key,
     ) {
         case Ok(val) {
-            switch val {
+            switch (val) {
                 case Boolean(v) {
                     return Ok(v)
                 }
@@ -263,7 +263,7 @@ pub func getBool(obj: &Json, key: string) -> (Result<bool, string>) {
 }
 
 pub func asArray(j: Json) -> (Result<Vec<Json, _>, string>) {
-    switch j {
+    switch (j) {
         case Array(items) {
             return Ok(items)
         }
@@ -273,7 +273,7 @@ pub func asArray(j: Json) -> (Result<Vec<Json, _>, string>) {
 }
 
 pub func asObject(j: Json) -> (Result<Json, string>) {
-    switch j {
+    switch (j) {
         case Object(_) {
             return Ok(j)
         }
@@ -924,8 +924,8 @@ func indent_str(depth: int, indent: int) -> (string) {
 }
 
 func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
-    switch j {
-        case Null {
+    switch (j) {
+        case (Null) {
             return "null"
         }
         case Boolean(b) {
@@ -1023,8 +1023,8 @@ func marshal_pretty_inner(j: Json, depth: int, indent: int) -> (string) {
 
 // marshal converts a Json value to its string representation
 pub func marshal(j: Json) -> (string) {
-    switch j {
-        case Null {
+    switch (j) {
+        case (Null) {
             return "null"
         }
         case Boolean(b) {
@@ -1182,7 +1182,7 @@ impl JsonParser as p {
             return p.parse_number()
         }
 
-        switch c {
+        switch (c) {
             case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                 return p.parse_number()
             }
@@ -1390,7 +1390,7 @@ impl JsonParser as p {
             var c: char = p.code[p.pos]
             mut var is_d: bool = false
 
-            switch c {
+            switch (c) {
                 case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                     is_d = true
                 }
@@ -1411,7 +1411,7 @@ impl JsonParser as p {
                 var c: char = p.code[p.pos]
                 mut var is_d: bool = false
 
-                switch c {
+                switch (c) {
                     case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' {
                         is_d = true
                     }

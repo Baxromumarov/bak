@@ -55,7 +55,7 @@ impl Row as r {
             &name,
         )
 
-        switch idx_result {
+        switch (idx_result) {
             case Ok(idx) {
                 if idx < 0 || idx >= r.values.len() {
                     return Err("column index out of bounds")

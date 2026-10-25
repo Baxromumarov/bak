@@ -8,7 +8,7 @@ func main() -> (void) {
 
     var result: Result<string, string> = fs.readFile("examples/hello.bak")
 
-    switch result {
+    switch (result) {
         case Ok(content) {
             println("File read successfully!")
             println(
@@ -49,7 +49,7 @@ func main() -> (void) {
 
     var entries: Result<Vec<string, _>, string> = fs.readDir("examples")
 
-    switch entries {
+    switch (entries) {
         case Ok(files) {
             println(
                 "Found",
@@ -99,7 +99,7 @@ func main() -> (void) {
 
     var info: Result<string, string> = fs.stat("examples/hello.bak")
 
-    switch info {
+    switch (info) {
         case Ok(stat) {
             println(
                 "File:",
@@ -122,13 +122,13 @@ func main() -> (void) {
         "Hello from bak!",
     )
 
-    switch writeResult {
+    switch (writeResult) {
         case Ok(v) {
             println("File written successfully!")
 
             var readBack: Result<string, string> = fs.readFile("/tmp/bak_test.txt")
 
-            switch readBack {
+            switch (readBack) {
                 case Ok(content) {
                     println(
                         "Read back:",

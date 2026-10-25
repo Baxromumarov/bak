@@ -6,9 +6,23 @@ import (
 	"log"
 	"os"
 	"runtime/debug"
+
+	"github.com/baxromumarov/bak/internal/buildinfo"
 )
 
 func main() {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-version") {
+		if err := buildinfo.WriteVersion(os.Stdout, "bak-lsp", false); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+	if len(os.Args) == 2 && os.Args[1] == "--version-json" {
+		if err := buildinfo.WriteVersion(os.Stdout, "bak-lsp", true); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	// Logging to file for debugging (stderr is used by some editors but usually safe,
 	// but stdout is reserved for JSON-RPC)
 	// For now we don't log to file unless needed.

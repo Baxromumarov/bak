@@ -77,13 +77,15 @@
     }
   },
   "scripts": {
-    "build": "tsc -p ./",
-    "watch": "tsc -w -p ./",
+	"check": "tsc -p ./ --noEmit",
+	"build": "npm run check && esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
+	"watch": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js --watch",
     "package": "sh ./scripts/package-vsix.sh"
   },
   "devDependencies": {
     "@types/node": "^20.11.19",
     "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.4.2"
   },
   "dependencies": {

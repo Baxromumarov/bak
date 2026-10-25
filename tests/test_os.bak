@@ -32,7 +32,7 @@ func main() -> (void) {
 
     var cwd: Result<string, string> = os.cwd()
 
-    switch cwd {
+    switch (cwd) {
         case Ok(path) {
             println(
                 "CWD:",
@@ -52,7 +52,7 @@ func main() -> (void) {
 
     var home: Result<string, string> = os.getenv("HOME")
 
-    switch home {
+    switch (home) {
         case Ok(path) {
             println(
                 "HOME:",
@@ -66,7 +66,7 @@ func main() -> (void) {
 
     var user: Result<string, string> = os.getenv("USER")
 
-    switch user {
+    switch (user) {
         case Ok(name) {
             println(
                 "USER:",
@@ -116,7 +116,7 @@ func main() -> (void) {
 
     var exe: Result<string, string> = os.executable()
 
-    switch exe {
+    switch (exe) {
         case Ok(path) {
             println(
                 "Executable:",
@@ -136,7 +136,7 @@ func main() -> (void) {
         Vec.from(["Hello from shell!"]),
     )
 
-    switch result {
+    switch (result) {
         case Ok(output) {
             println(
                 "Command output:",
@@ -163,7 +163,7 @@ func main() -> (void) {
         Vec.from(["-la", "examples"]),
     )
 
-    switch lsResult {
+    switch (lsResult) {
         case Ok(output) {
             println(
                 "Exit code:",

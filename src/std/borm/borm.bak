@@ -743,7 +743,7 @@ impl InsertBuilder as b {
     pub func exec(conn: &postgres.Connection) -> (Result<bool, string>) {
         var state = finalize_insert(b)
 
-        switch state {
+        switch (state) {
             case Ok(parts) {
                 var sql = build_insert_sql(
                     parts.table,
@@ -769,7 +769,7 @@ impl InsertReturningInt as b {
     pub func exec(conn: &postgres.Connection) -> (Result<int, string>) {
         var state = finalize_insert(b.base)
 
-        switch state {
+        switch (state) {
             case Ok(parts) {
                 var sql = build_insert_sql(
                     parts.table,
@@ -783,7 +783,7 @@ impl InsertReturningInt as b {
                     parts.params,
                 )
 
-                switch result {
+                switch (result) {
                     case Ok(qr) {
                         var rows: Vec<postgres.Row, _> = postgres.rows(&qr)
 
@@ -796,7 +796,7 @@ impl InsertReturningInt as b {
                             0,
                         )
 
-                        switch ret_result {
+                        switch (ret_result) {
                             case Ok(ret_val) {
                                 switch strconv.parseInt(
                                     &ret_val,

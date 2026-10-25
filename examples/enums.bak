@@ -10,7 +10,7 @@ enum Shape {
 }
 
 func calculateArea(shape: Shape) -> (float64) {
-    switch shape {
+    switch (shape) {
         case Circle(radius) {
             // Area = π * r²
             return 3.14159 * radius * radius
@@ -38,14 +38,14 @@ enum TrafficLight {
 }
 
 func getAction(light: TrafficLight) -> (string) {
-    switch light {
-        case Red {
+    switch (light) {
+        case (Red) {
             return "Stop!"
         }
-        case Yellow {
+        case (Yellow) {
             return "Slow down"
         }
-        case Green {
+        case (Green) {
             return "Go!"
         }
     }

@@ -3,6 +3,7 @@ src/**
 scripts/**
 tsconfig.json
 **/*.map
+node_modules/**
 
 # The package script emits a target-specific server under bin/<target>/.
 # Do not accidentally ship a legacy development binary beside it.

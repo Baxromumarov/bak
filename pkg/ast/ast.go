@@ -50,7 +50,7 @@ type Program struct {
 }
 
 func (p *Program) TokenLiteral() string {
-	if len(p.Statements) > 0 {
+	if len(p.Statements) > 0 && !IsNilNode(p.Statements[0]) {
 		return p.Statements[0].TokenLiteral()
 	}
 	return ""
@@ -60,6 +60,9 @@ func (p *Program) String() string {
 	var out strings.Builder
 
 	for _, s := range p.Statements {
+		if IsNilNode(s) {
+			continue
+		}
 		out.WriteString(s.String())
 	}
 
@@ -67,7 +70,7 @@ func (p *Program) String() string {
 }
 
 func (p *Program) Pos() Position {
-	if len(p.Statements) > 0 {
+	if len(p.Statements) > 0 && !IsNilNode(p.Statements[0]) {
 		return p.Statements[0].Pos()
 	}
 

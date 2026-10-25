@@ -15,7 +15,7 @@ pub func connect(host: string, port: int) -> (Result<TcpStream, string>) {
         port,
     )
 
-    switch res {
+    switch (res) {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})
         }
@@ -31,7 +31,7 @@ pub func connectTls(host: string, port: int) -> (Result<TcpStream, string>) {
         port,
     )
 
-    switch res {
+    switch (res) {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})
         }
@@ -76,7 +76,7 @@ pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
         port,
     )
 
-    switch res {
+    switch (res) {
         case Ok(fd) {
             return Ok(TcpListener{fd: fd})
         }
@@ -89,7 +89,7 @@ pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
 pub func accept(l: &mut TcpListener) -> (Result<TcpStream, string>) {
     var res = __builtin_socket_accept((*l).fd)
 
-    switch res {
+    switch (res) {
         case Ok(fd) {
             return Ok(TcpStream{fd: fd})
         }

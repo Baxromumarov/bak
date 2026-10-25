@@ -1,0 +1,2 @@
+go test fuzz v1
+string("package A func A0000(00Vec ->(0{var(")

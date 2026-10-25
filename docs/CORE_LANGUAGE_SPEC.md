@@ -1,6 +1,6 @@
 # Core Language Spec (Frozen v0.1)
 
-Last updated: 2026-05-09
+Last updated: 2026-10-25
 
 This document is the canonical compatibility contract for the Bak language.
 
@@ -23,15 +23,20 @@ If `README.md`, design notes, experiments, examples, or parser behavior disagree
 
 ## Backend Conformance
 
-For the frozen `v0.1` surface, the Go interpreter/evaluator, bytecode VM, and native backend are expected to implement the same language semantics.
+The bytecode VM is the normative, stable execution backend for the frozen
+`v0.1` surface. The native backend is a Linux/amd64 preview and implements only
+the explicitly parity-locked subset in `BACKEND_CONFORMANCE.md`.
 
 That means:
 
-- stable programs should parse, typecheck, and behave consistently across supported backends,
-- backend-specific divergence on the stable surface is a bug,
-- parity tests are part of the compatibility contract for the frozen language line.
+- stable programs must parse, typecheck, and behave consistently on the VM,
+- native programs in the documented parity subset must match VM behavior,
+- native features outside that subset must fail with an explicit diagnostic
+  rather than compile to a silent stub,
+- parity tests are part of the compatibility contract for the native subset.
 
-Performance, tracing depth details, and exact diagnostic wording may differ, but stable program meaning must not.
+Performance, tracing depth details, and exact diagnostic wording may differ.
+See `SUPPORT_MATRIX_V0.1.md` for the complete production boundary.
 
 ## Current Runtime Guardrails (Parity-Locked)
 

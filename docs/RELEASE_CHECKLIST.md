@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last updated: 2026-04-19
+Last updated: 2026-10-25
 
 This checklist is required for any Bak release that changes the stable language surface, user-visible tooling behavior, or runtime/package policy.
 
@@ -10,6 +10,7 @@ Use this together with:
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/PACKAGE_BOUNDARIES.md`
 - `docs/STDLIB_STABLE_V0.1.md`
+- `docs/SUPPORT_MATRIX_V0.1.md`
 - `docs/RESULT_MIGRATION_NOTES.md` (when Result-oriented API behavior changes)
 
 ## Language and Compatibility
@@ -25,7 +26,11 @@ Use this together with:
 - [ ] Parser/typechecker/compiler/runtime tests were updated for the changed behavior.
 - [ ] Spec-conformance tests were updated when the frozen surface changed.
 - [ ] Negative tests exist for newly rejected or gated behavior.
-- [ ] `make release-check` passes.
+- [ ] `make production-check` passes on a clean checkout.
+- [ ] Bounded fuzzing and the saved regression corpus pass.
+- [ ] Race-enabled tests and Go module checksum verification pass.
+- [ ] Go static analysis (`go vet ./...`) passes.
+- [ ] VM/native differential tests pass for the documented native subset.
 
 ## Tooling
 
@@ -33,6 +38,7 @@ Use this together with:
 - [ ] `bakfmt` behavior was reviewed and updated if syntax or formatting rules changed.
 - [ ] `baklint` behavior was reviewed and updated if syntax or diagnostics changed.
 - [ ] LSP behavior was reviewed and updated if syntax, diagnostics, formatting, completion, or code actions changed.
+- [ ] `bak version --json` reports the intended version and support profile.
 
 ## Docs and Examples
 
@@ -45,6 +51,17 @@ Use this together with:
 - [ ] Runtime permission implications were reviewed.
 - [ ] `docs/TRUST_MODEL.md` was updated if runtime or package trust assumptions changed.
 - [ ] Package-manager integrity or lockfile behavior changes were covered by tests and docs.
+- [ ] The release is still restricted to trusted workloads unless an external
+  sandbox is part of the deployment.
+
+## Artifacts
+
+- [ ] `dist/release-manifest.json` lists every intended platform archive.
+- [ ] `dist/checksums.txt` verifies against the uploaded archives.
+- [ ] Every archive contains all five public tools, a manifest, and the frozen
+  support/specification documents.
+- [ ] The native backend is labeled preview; it is not advertised as the VM's
+  full replacement.
 
 ## Release Notes
 

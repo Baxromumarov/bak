@@ -12,7 +12,7 @@ func main() -> (int) {
     )
     mut var result: int = 0
 
-    switch s {
+    switch (s) {
         case Circle(r) {
             result = r
         }

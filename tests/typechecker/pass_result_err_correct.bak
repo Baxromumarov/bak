@@ -14,7 +14,7 @@ func parseValue(s: string) -> (Result<int, string>) {
 func main() -> (void) {
     var result = parseValue("")
 
-    switch result {
+    switch (result) {
         case Ok(v) {
             println(
                 "Parsed:",

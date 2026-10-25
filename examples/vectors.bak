@@ -29,7 +29,7 @@ func main() -> (void) {
     // Pop from dynamic vec
     var popped = dynamicVec.pop()
 
-    switch popped {
+    switch (popped) {
         case Ok(v) {
             println(
                 "Popped:",
@@ -64,7 +64,7 @@ func main() -> (void) {
     // Getting elements safely
     var elem = dynamicVec.get(1)
 
-    switch elem {
+    switch (elem) {
         case Ok(v) {
             println(
                 "Element at index 1:",
@@ -79,7 +79,7 @@ func main() -> (void) {
     // Index out of bounds
     var outOfBounds = dynamicVec.get(100)
 
-    switch outOfBounds {
+    switch (outOfBounds) {
         case Ok(v) {
             println(
                 "Element:",

@@ -4,7 +4,7 @@ func main() -> (int) {
     var a: Result<int, string> = Err("none")
     mut var result: int = 0
 
-    switch a {
+    switch (a) {
         case Ok(x) {
             result = x
         }

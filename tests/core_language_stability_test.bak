@@ -32,8 +32,8 @@ enum Event {
 }
 
 func eventScore(e: Event) -> (int) {
-    switch e {
-        case Started {
+    switch (e) {
+        case (Started) {
             return 1
         }
         case Data(

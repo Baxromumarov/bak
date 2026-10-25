@@ -27,7 +27,7 @@ func factorial(n: int) -> (int) {
 
 // Function with multiple parameters
 func calculate(a: int, b: int, op: string) -> (int) {
-    switch op {
+    switch (op) {
         case "add" {
             return a + b
         }

@@ -246,6 +246,49 @@ func TestNextToken_CharEscape(t *testing.T) {
 	}
 }
 
+func TestNextToken_CharacterHexAndUnicodeEscapes(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{input: `'\x10'`, want: `\x10`},
+		{input: `'\u263a'`, want: `\u263a`},
+		{input: `'\U0001f642'`, want: `\U0001f642`},
+	} {
+		l := New(tc.input)
+		tok := l.NextToken()
+		if tok.Type != token.CHAR || tok.Literal != tc.want || len(l.Errors()) != 0 {
+			t.Fatalf("lex %q: token=(%s, %q), errors=%v", tc.input, tok.Type, tok.Literal, l.Errors())
+		}
+	}
+}
+
+func TestNextToken_RejectsInvalidCharacterEscapes(t *testing.T) {
+	t.Parallel()
+	for _, input := range []string{`''`, `'\q'`, `'\x1'`, "'a"} {
+		l := New(input)
+		_ = l.NextToken()
+		if len(l.Errors()) == 0 {
+			t.Fatalf("expected %q to report a lexer error", input)
+		}
+	}
+}
+
+func TestNextToken_RejectsEmbeddedNUL(t *testing.T) {
+	t.Parallel()
+	l := New("\x001")
+	if tok := l.NextToken(); tok.Type != token.ILLEGAL {
+		t.Fatalf("first token = %s, want ILLEGAL", tok.Type)
+	}
+	if tok := l.NextToken(); tok.Type != token.INT || tok.Literal != "1" {
+		t.Fatalf("lexer did not recover after NUL: %s %q", tok.Type, tok.Literal)
+	}
+	if len(l.Errors()) == 0 {
+		t.Fatal("expected embedded NUL error")
+	}
+}
+
 func TestNextToken_RawString(t *testing.T) {
 	t.Parallel()
 	l := New("`raw string`")

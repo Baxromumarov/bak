@@ -17,7 +17,7 @@ func main() -> (void) {
         2,
     )
 
-    switch result {
+    switch (result) {
         case Ok(v) {
             println(
                 "Result:",

@@ -2,7 +2,7 @@ package std
 
 impl Result as self {
     pub func isOk() -> (bool) {
-        switch self {
+        switch (self) {
             case Ok(_) {
                 return true
             }
@@ -13,7 +13,7 @@ impl Result as self {
     }
 
     pub func isErr() -> (bool) {
-        switch self {
+        switch (self) {
             case Ok(_) {
                 return false
             }
@@ -24,7 +24,7 @@ impl Result as self {
     }
 
     pub func unwrap() -> (T) {
-        switch self {
+        switch (self) {
             case Ok(v) {
                 return v
             }
@@ -35,7 +35,7 @@ impl Result as self {
     }
 
     pub func unwrapErr() -> (E) {
-        switch self {
+        switch (self) {
             case Ok(_) {
                 panic "unwrapErr called on Ok result"
             }
@@ -46,7 +46,7 @@ impl Result as self {
     }
 
     pub func toString() -> (string) {
-        switch self {
+        switch (self) {
             case Ok(v) {
                 return "Ok(" + string(v) + ")"
             }

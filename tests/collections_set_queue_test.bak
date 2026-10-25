@@ -365,7 +365,7 @@ func test_vec_map_filter_utils() -> (void) {
         },
     )
 
-    switch found_three {
+    switch (found_three) {
         case Ok(v) {
             t.eq(
                 v,
@@ -384,7 +384,7 @@ func test_vec_map_filter_utils() -> (void) {
         },
     )
 
-    switch found_missing {
+    switch (found_missing) {
         case Ok(_) {
             t.fail("expected not found")
         }

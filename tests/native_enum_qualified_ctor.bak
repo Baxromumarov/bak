@@ -15,7 +15,7 @@ struct EnumVariant {
 }
 
 func score(expr: TypeExpr) -> (int) {
-    switch expr {
+    switch (expr) {
         case TypeExpr.Simple(st) {
             if st.Name == "ok" {
                 return 42

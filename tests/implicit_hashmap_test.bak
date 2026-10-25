@@ -8,7 +8,7 @@ func test_implicit_hashmap() -> (void) {
     println("Running HashMap Test")
 
     // HashMap should be available without import
-    mut var m = HashMap.new()
+    mut var m = HashMap.new();
 
     // Use explicit borrow to avoid moving/consuming m
     {
@@ -25,7 +25,7 @@ func test_implicit_hashmap() -> (void) {
     )
 
     // Test capacity constructor
-    mut var m2 = HashMap.withCap(10)
+    mut var m2 = HashMap.withCap(10);
 
     {
         (&mut m2).insert(

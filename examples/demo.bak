@@ -77,7 +77,7 @@ func main() -> (void) {
     // Pop from vector
     var popped: Result<int, string> = numbers.pop()
 
-    switch popped {
+    switch (popped) {
         case Ok(value) {
             println(
                 "Popped:",

@@ -6,7 +6,7 @@ func main() -> (void) {
     // Test os.cwd
     var cwd_result: Result<string, string> = os.cwd()
 
-    switch cwd_result {
+    switch (cwd_result) {
         case Ok(cwd) {
             println(
                 "Current directory:",
@@ -24,7 +24,7 @@ func main() -> (void) {
     // Test os.getenv  
     var home: Result<string, string> = os.getenv("HOME")
 
-    switch home {
+    switch (home) {
         case Ok(h) {
             println(
                 "HOME:",
@@ -38,7 +38,7 @@ func main() -> (void) {
 
     var path: Result<string, string> = os.getenv("PATH")
 
-    switch path {
+    switch (path) {
         case Ok(p) {
             println(
                 "PATH exists (length",
@@ -54,7 +54,7 @@ func main() -> (void) {
     // Test non-existent env var
     var nonexistent: Result<string, string> = os.getenv("DEFINITELY_NOT_SET_XYZ123")
 
-    switch nonexistent {
+    switch (nonexistent) {
         case Ok(v) {
             println(
                 "ERROR: Found non-existent var:",

@@ -1,6 +1,6 @@
 # Language Stability Policy
 
-Last updated: 2026-05-09
+Last updated: 2026-10-25
 
 Bak is now operating under a language freeze for the `v0.1` line.
 
@@ -105,9 +105,11 @@ For the next phase of Bak, maintainers should prefer work in this order:
 
 ## Current status
 
-As of 2026-04-19:
+As of 2026-10-25:
 
 - the frozen language line is `Bak v0.1`,
 - the Go implementation in `pkg/` and `cmd/` is the supported compiler,
 - `src/std` contains the Bak standard library sources,
 - syntax not named in `docs/CORE_LANGUAGE_SPEC.md` should be treated as unsupported in user code.
+- the VM is the production backend; native output remains a versioned
+  Linux/amd64 preview as defined in `docs/SUPPORT_MATRIX_V0.1.md`.

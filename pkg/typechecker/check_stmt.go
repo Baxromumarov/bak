@@ -7,7 +7,7 @@ import (
 
 // checkStatement type checks a statement
 func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
-	if tc.checkCanceled() {
+	if tc.checkCanceled() || ast.IsNilNode(stmt) {
 		return
 	}
 	switch s := stmt.(type) {

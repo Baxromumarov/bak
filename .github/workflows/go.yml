@@ -10,7 +10,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test:
+  production-gate:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -20,14 +20,40 @@ jobs:
       with:
         go-version: '1.27.x'
 
-    - name: Build
-      run: go build -mod=readonly -v ./...
+    - name: Run production gate
+      run: make production-check
 
-    - name: Run release gate
-      run: make release-check
+    - name: Verify release checksums
+      working-directory: dist
+      run: sha256sum --check checksums.txt
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: development-release-archives
+        path: dist/
+
+  platform-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.27.x'
+
+    - name: Compile and test host toolchain
+      shell: bash
+      run: |
+        go build -mod=readonly ./cmd/bak ./cmd/bakfmt ./cmd/baklint ./cmd/bakcheck ./lsp
+        go test ./...
 
   vscode-package:
-    needs: test
+    needs: production-gate
     strategy:
       fail-fast: false
       matrix:

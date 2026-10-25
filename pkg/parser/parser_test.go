@@ -778,3 +778,14 @@ func checkParserErrors(t *testing.T, p *Parser) {
 	}
 	t.FailNow()
 }
+
+func TestParserSurfacesLexerErrors(t *testing.T) {
+	t.Parallel()
+	l := lexer.New("package main\nfunc main() -> (void) { var c: char = ' }")
+	p := New(l)
+	_ = p.ParseProgram()
+	joined := strings.Join(p.Errors(), "\n")
+	if !strings.Contains(joined, "unterminated character literal") {
+		t.Fatalf("expected lexer error through parser API, got %q", joined)
+	}
+}

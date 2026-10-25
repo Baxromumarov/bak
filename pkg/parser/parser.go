@@ -6,6 +6,7 @@ package parser
 import (
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
@@ -460,17 +461,21 @@ func (p *Parser) ParseProgram() *ast.Program {
 	for !p.curTokenIs(token.EOF) {
 		errCountBefore := len(p.errors)
 		stmt := p.parseStatement()
-		if stmt != nil {
+		if !ast.IsNilNode(stmt) {
 			program.Statements = append(program.Statements, stmt)
 		}
 		// If parsing produced new errors and returned nil, synchronize
 		// to the next statement boundary to prevent cascading errors.
-		if stmt == nil && len(p.errors) > errCountBefore {
+		if ast.IsNilNode(stmt) && len(p.errors) > errCountBefore {
 			p.synchronize()
 		} else {
 			p.nextToken()
 		}
 	}
+	// Lexing continues lazily as the parser advances. Surface every lexer error
+	// through the parser API so malformed literals cannot be mistaken for a
+	// valid AST by the formatter, typechecker, or command-line tools.
+	p.errors = append(p.errors, p.l.Errors()...)
 
 	ast.PopulateSpans(program)
 	return program
@@ -884,7 +889,11 @@ func (p *Parser) parseImportBlock() ast.Statement {
 
 	// Single import: import "path" or import alias "path".
 	p.nextToken()
-	return p.parseSingleImport(importToken)
+	stmt := p.parseSingleImport(importToken)
+	if stmt == nil {
+		return nil
+	}
+	return stmt
 }
 
 func (p *Parser) parseSingleImport(start token.Token) *ast.ImportStatement {
@@ -951,7 +960,7 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 		stmt.Type = p.parseTypeExpression()
 	} else if p.peekTokenIs(token.ASSIGN) {
 		// no type annotation
-	} else {
+	} else if tokenStartsType(p.peekToken.Type) {
 		p.nextToken() // move to type token
 		stmt.Type = p.parseTypeExpression()
 	}
@@ -964,6 +973,15 @@ func (p *Parser) parseVarStatement(mutable bool) ast.Statement {
 	}
 
 	return stmt
+}
+
+func tokenStartsType(t token.TokenType) bool {
+	return t == token.IDENT ||
+		t == token.AMPERSAND ||
+		t == token.FUNC ||
+		t == token.LPAREN ||
+		t == token.VOID ||
+		token.IsType(t)
 }
 
 // parseMultiVarStatement parses: var (a, b, c) = expr or var (_, b, _) = expr
@@ -1287,8 +1305,17 @@ func (p *Parser) parseSwitchStatement() *ast.SwitchStatement {
 		switchCase := p.parseSwitchCase()
 		if switchCase != nil {
 			stmt.Cases = append(stmt.Cases, switchCase)
+		} else {
+			p.errors = append(p.errors, p.formatMessage(
+				tokenPos(p.curToken),
+				"expected 'case' or 'default' in switch body",
+				"add a case/default clause or remove this token",
+			))
 		}
 		p.nextToken()
+	}
+	if p.curTokenIs(token.EOF) {
+		p.addUnterminatedBraceError(stmt.Token, "switch")
 	}
 
 	return stmt
@@ -1363,13 +1390,24 @@ func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 
 	for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
 		stmt := p.parseStatement()
-		if stmt != nil {
+		if !ast.IsNilNode(stmt) {
 			block.Statements = append(block.Statements, stmt)
 		}
 		p.nextToken()
 	}
+	if p.curTokenIs(token.EOF) {
+		p.addUnterminatedBraceError(block.Token, "block")
+	}
 
 	return block
+}
+
+func (p *Parser) addUnterminatedBraceError(open token.Token, construct string) {
+	p.errors = append(p.errors, p.formatMessage(
+		tokenPos(open),
+		"unterminated "+construct+"; expected '}'",
+		"add a closing '}'",
+	))
 }
 
 // =============================================================================
@@ -1384,7 +1422,11 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Handle function types
 	if p.curTokenIs(token.FUNC) {
-		return p.parseFunctionType()
+		functionType := p.parseFunctionType()
+		if functionType == nil {
+			return nil
+		}
+		return functionType
 	}
 
 	// Handle VOID type
@@ -1399,6 +1441,11 @@ func (p *Parser) parseTypeExpression() ast.TypeExpression {
 
 	// Simple type or generic type
 	if !p.curTokenIs(token.IDENT) && !token.IsType(p.curToken.Type) {
+		p.errors = append(p.errors, p.formatMessage(
+			tokenPos(p.curToken),
+			"expected a type, got "+p.describeToken(p.curToken),
+			"use a built-in type or a declared type name",
+		))
 		return nil
 	}
 
@@ -1948,6 +1995,9 @@ func (p *Parser) parseStructDecl() *ast.StructDecl {
 		}
 		p.nextToken()
 	}
+	if p.curTokenIs(token.EOF) {
+		p.addUnterminatedBraceError(stmt.Token, "struct declaration")
+	}
 
 	return stmt
 }
@@ -2005,6 +2055,9 @@ func (p *Parser) parseEnumDecl() *ast.EnumDecl {
 			stmt.Variants = append(stmt.Variants, variant)
 		}
 		p.nextToken()
+	}
+	if p.curTokenIs(token.EOF) {
+		p.addUnterminatedBraceError(stmt.Token, "enum declaration")
 	}
 
 	return stmt
@@ -2160,6 +2213,9 @@ func (p *Parser) parseImplDecl() *ast.ImplDecl {
 			stmt.Methods = append(stmt.Methods, method)
 		}
 		p.nextToken()
+	}
+	if p.curTokenIs(token.EOF) {
+		p.addUnterminatedBraceError(stmt.Token, "impl declaration")
 	}
 
 	return stmt
@@ -2555,6 +2611,15 @@ func (p *Parser) processStringEscapes(s string) string {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '\\' && i+1 < len(s) {
 			switch s[i+1] {
+			case 'a':
+				result = append(result, '\a')
+				i++
+			case 'b':
+				result = append(result, '\b')
+				i++
+			case 'f':
+				result = append(result, '\f')
+				i++
 			case 'n':
 				result = append(result, '\n')
 				i++
@@ -2563,6 +2628,9 @@ func (p *Parser) processStringEscapes(s string) string {
 				i++
 			case 'r':
 				result = append(result, '\r')
+				i++
+			case 'v':
+				result = append(result, '\v')
 				i++
 			case '\\':
 				result = append(result, '\\')
@@ -2588,6 +2656,23 @@ func (p *Parser) processStringEscapes(s string) string {
 				} else {
 					result = append(result, s[i])
 				}
+			case 'u', 'U':
+				digits := 4
+				if s[i+1] == 'U' {
+					digits = 8
+				}
+				end := i + 2 + digits
+				if end <= len(s) {
+					value, err := strconv.ParseUint(s[i+2:end], 16, 32)
+					if err == nil && utf8.ValidRune(rune(value)) {
+						result = utf8.AppendRune(result, rune(value))
+						i = end - 1
+						break
+					}
+				}
+				// Preserve malformed escapes; lexer/parser diagnostics can still
+				// report their surrounding source without losing bytes.
+				result = append(result, s[i])
 			default:
 				result = append(result, s[i])
 			}
@@ -2607,12 +2692,20 @@ func (p *Parser) parseCharLiteral() ast.Expression {
 	// Handle escape sequences
 	if len(literal) > 1 && literal[0] == '\\' {
 		switch literal[1] {
+		case 'a':
+			lit.Value = '\a'
+		case 'b':
+			lit.Value = '\b'
+		case 'f':
+			lit.Value = '\f'
 		case 'n':
 			lit.Value = '\n'
 		case 't':
 			lit.Value = '\t'
 		case 'r':
 			lit.Value = '\r'
+		case 'v':
+			lit.Value = '\v'
 		case '\\':
 			lit.Value = '\\'
 		case '\'':
@@ -2621,11 +2714,22 @@ func (p *Parser) parseCharLiteral() ast.Expression {
 			lit.Value = '"'
 		case '0':
 			lit.Value = 0 // Null character
+		case 'x', 'u', 'U':
+			value, err := strconv.ParseUint(literal[2:], 16, 32)
+			if err != nil || !utf8.ValidRune(rune(value)) {
+				p.errors = append(p.errors, p.formatMessage(
+					tokenPos(p.curToken),
+					"invalid Unicode character escape",
+					"use a valid Unicode scalar value",
+				))
+				return lit
+			}
+			lit.Value = rune(value)
 		default:
 			lit.Value = rune(literal[1])
 		}
 	} else {
-		lit.Value = rune(literal[0])
+		lit.Value, _ = utf8.DecodeRuneInString(literal)
 	}
 	return lit
 }

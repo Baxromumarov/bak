@@ -20,24 +20,21 @@ func test_parse_quotes_crlf_and_multiline_fields() -> (void) {
         csv.get(
             &records[0],
             0,
-        ).unwrap(
-        ),
+        ).unwrap(),
         "name",
     )
     t.eqString(
         csv.get(
             &records[1],
             1,
-        ).unwrap(
-        ),
+        ).unwrap(),
         "hello, \"world\"",
     )
     t.eqString(
         csv.get(
             &records[2],
             1,
-        ).unwrap(
-        ),
+        ).unwrap(),
         "one\ntwo",
     )
     t.finish()
@@ -68,16 +65,14 @@ func test_write_round_trip_and_bounds() -> (void) {
         csv.get(
             &decoded[0],
             2,
-        ).unwrap(
-        ),
+        ).unwrap(),
         "quote \" here",
     )
     t.eqString(
         csv.get(
             &decoded[1],
             0,
-        ).unwrap(
-        ),
+        ).unwrap(),
         "",
     )
     t.isErr(

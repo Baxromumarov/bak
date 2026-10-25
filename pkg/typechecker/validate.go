@@ -49,13 +49,13 @@ func (tc *TypeChecker) isCompileTimeConstant(expr ast.Expression) bool {
 
 // validateTypeUsage checks for invalid or ambiguous type names used in annotations
 func (tc *TypeChecker) validateTypeUsage(t ast.TypeExpression, pos ast.Position) {
-	if t == nil {
+	if ast.IsNilNode(t) {
 		return
 	}
 	// Walk the type expression and mark any referenced user types as used.
 	var walk func(ast.TypeExpression)
 	walk = func(te ast.TypeExpression) {
-		if te == nil {
+		if ast.IsNilNode(te) {
 			return
 		}
 		switch tt := te.(type) {

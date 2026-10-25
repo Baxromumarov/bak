@@ -23,14 +23,14 @@ enum MaybeInt {
 }
 
 func describeColor(c: Color) -> (string) {
-    switch c {
-        case Red {
+    switch (c) {
+        case (Red) {
             return "The color is red"
         }
-        case Green {
+        case (Green) {
             return "The color is green"
         }
-        case Blue {
+        case (Blue) {
             return "The color is blue"
         }
     }
@@ -39,8 +39,8 @@ func describeColor(c: Color) -> (string) {
 }
 
 func processMessage(msg: Message) -> (string) {
-    switch msg {
-        case Quit {
+    switch (msg) {
+        case (Quit) {
             return "Quitting..."
         }
         case Move(
@@ -141,7 +141,7 @@ func main() -> (void) {
         none,
     )
 
-    switch some {
+    switch (some) {
         case Ok(val) {
             println(
                 "  Unwrapped:",
@@ -170,7 +170,7 @@ func main() -> (void) {
         err,
     )
 
-    switch ok {
+    switch (ok) {
         case Ok(val) {
             println(
                 "  Success value:",

@@ -6,8 +6,9 @@ BINDIR ?= bin
 
 VERSION ?= dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
-DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS := -X github.com/baxromumarov/bak/internal/cliapp.Version=$(VERSION) -X github.com/baxromumarov/bak/internal/cliapp.Commit=$(COMMIT) -X github.com/baxromumarov/bak/internal/cliapp.Date=$(DATE)
+DATE ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
+LDFLAGS := -X github.com/baxromumarov/bak/internal/buildinfo.Version=$(VERSION) -X github.com/baxromumarov/bak/internal/buildinfo.Commit=$(COMMIT) -X github.com/baxromumarov/bak/internal/buildinfo.Date=$(DATE)
+DISTDIR ?= dist
 
 define go_build
 	@echo "$(GO) build -mod=readonly -ldflags '$(LDFLAGS)' -o $(1) $(2)"
@@ -34,7 +35,7 @@ FORMAT_CHECK_ROOTS := src/std examples tests
 API_STYLE_ROOTS := src/std test_project tests
 LINT_ROOTS := src/std examples test_project
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check lint-check api-style-check test-projects test-runtime stability-fast test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt dist test test-unit test-vet test-scripts test-negative test-imports test-stdlib examples-check format-check lint-check api-style-check test-projects test-runtime test-race test-fuzz-smoke verify-modules stability-fast test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check production-check clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -56,10 +57,12 @@ help:
 	@echo "  make build-bakcheck   Build $(BAKCHECK_BIN)"
 	@echo "  make build-dump-bc    Build $(DUMPBC_BIN)"
 	@echo "  make build-lsp        Build $(LSP_BIN)"
+	@echo "  make dist             Build reproducible release archives and SHA-256 checksums"
 	@echo ""
 	@echo "Test targets:"
 	@echo "  make test             Run go test ./..."
 	@echo "  make test-unit        Run go test ./..."
+	@echo "  make test-vet         Run go vet ./..."
 	@echo "  make test-scripts     Run focused shell guardrails under tests/"
 	@echo "  make test-negative    Run expected-failure compiler guardrails"
 	@echo "  make test-imports     Run package/import guardrails"
@@ -70,6 +73,9 @@ help:
 	@echo "  make api-style-check  Verify public Bak APIs follow the style contract"
 	@echo "  make test-projects    Check real-world test_project programs"
 	@echo "  make test-runtime     Run runtime integration projects"
+	@echo "  make test-race        Run the Go suite with the race detector"
+	@echo "  make test-fuzz-smoke  Run bounded lexer/parser/typechecker/formatter/parity fuzzing"
+	@echo "  make verify-modules   Verify downloaded Go module checksums"
 	@echo "  make stability-fast   Run unit tests + API style + real-world project checks"
 	@echo "  make test-parity      Run VM/native parity guardrails"
 	@echo "  make test-lsp-verify  Run the LSP smoke verifier"
@@ -77,6 +83,7 @@ help:
 	@echo "  make language-stability Run release gate + LSP + formatter + API/project checks"
 	@echo "  make test-comprehensive Run the comprehensive release gate"
 	@echo "  make release-check    Build tools and run release-quality checks"
+	@echo "  make production-check Run the complete production-candidate gate"
 	@echo "  make test-all         Alias for test-lanes"
 	@echo "  make test-all-go      Run Go tests + parity"
 	@echo ""
@@ -120,10 +127,16 @@ build-dump-bc: | $(BINDIR)
 build-lsp: | $(BINDIR)
 	$(call go_build,$(LSP_BIN),./lsp)
 
+dist:
+	$(GO) run ./scripts/build_release -out $(DISTDIR) -version $(VERSION) -commit $(COMMIT) -date $(DATE)
+
 test: test-unit
 
 test-unit:
 	$(GO) test ./...
+
+test-vet:
+	$(GO) vet ./...
 
 test-scripts: build-root-bak
 	$(call run_script_list,$(TEST_SCRIPTS))
@@ -157,6 +170,15 @@ test-projects: build-bak
 test-runtime: build-bak
 	@BAK_BIN=$(BAK_BIN) bash test_project/run_runtime.sh
 
+test-race:
+	$(GO) test -race ./...
+
+test-fuzz-smoke:
+	@bash scripts/run_fuzz_smoke.sh
+
+verify-modules:
+	$(GO) mod verify
+
 stability-fast: test-unit api-style-check test-projects
 
 test-comprehensive: build-root-bak
@@ -172,7 +194,7 @@ test-lsp-verify: build-lsp
 
 test-lanes: test-unit test-scripts test-imports test-stdlib examples-check test-parity
 
-language-stability: test-comprehensive test-lsp-verify format-check lint-check api-style-check test-projects
+language-stability: test-comprehensive test-lsp-verify format-check lint-check api-style-check test-projects test-runtime
 
 test-all: test-lanes
 
@@ -180,8 +202,11 @@ test-all-go: test-unit test-parity
 
 release-check: build language-stability
 
+production-check: release-check verify-modules test-vet test-race test-fuzz-smoke dist
+
 clean: clean-binaries
 	@rm -f coverage.out *.prof *.cov
+	@rm -rf $(DISTDIR)
 	@find . -type d -name '.bak-cache' -prune -exec rm -rf {} +
 
 clean-binaries:

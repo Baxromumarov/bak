@@ -9,6 +9,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
+	"github.com/baxromumarov/bak/pkg/token"
 )
 
 // =============================================================================
@@ -409,13 +410,16 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 
 func (tc *TypeChecker) ensurePackageDeclaration(program *ast.Program) bool {
 	firstStmt := program.Statements[0]
-	if ps, ok := firstStmt.(*ast.PackageStatement); ok {
+	if ps, ok := firstStmt.(*ast.PackageStatement); ok && ps != nil {
 		tc.checkPackageStatement(ps)
 		return true
 	}
 
 	// Report error at the first statement.
-	tok := firstStmt.GetToken()
+	tok := token.Token{Line: 1, Column: 1}
+	if !ast.IsNilNode(firstStmt) {
+		tok = firstStmt.GetToken()
+	}
 	tc.emitter.Emit(diagnostics.Diagnostic{
 		Code:    diagnostics.ErrMissingPackage,
 		Level:   diagnostics.LevelError,
@@ -434,7 +438,7 @@ func (tc *TypeChecker) checkPackagePlacement(program *ast.Program) bool {
 		if tc.checkCanceled() {
 			return false
 		}
-		if ps, ok := program.Statements[i].(*ast.PackageStatement); ok {
+		if ps, ok := program.Statements[i].(*ast.PackageStatement); ok && ps != nil {
 			tc.emitter.Emit(diagnostics.Diagnostic{
 				Code:    diagnostics.ErrMissingPackage,
 				Level:   diagnostics.LevelError,

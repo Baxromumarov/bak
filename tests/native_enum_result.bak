@@ -4,7 +4,7 @@ func main() -> (int) {
     var r: Result<int, int> = Ok(10)
     mut var result: int = 0
 
-    switch r {
+    switch (r) {
         case Ok(v) {
             result = v
         }

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
+	"github.com/baxromumarov/bak/internal/buildinfo"
 	"github.com/baxromumarov/bak/pkg/formatter"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
@@ -16,11 +17,20 @@ import (
 func main() {
 	write := flag.Bool("w", false, "write result to (source) file instead of stdout")
 	list := flag.Bool("l", false, "list files whose formatting differs from bakfmt's")
+	version := flag.Bool("version", false, "print version and support information")
+	versionJSON := flag.Bool("version-json", false, "print version and support information as JSON")
 	flag.Usage = func() {
 		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Usage: bakfmt [flags] [path ...]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if *version || *versionJSON {
+		if err := buildinfo.WriteVersion(os.Stdout, "bakfmt", *versionJSON); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	paths := flag.Args()
 	if len(paths) == 0 {

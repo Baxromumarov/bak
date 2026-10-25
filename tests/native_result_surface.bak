@@ -85,7 +85,7 @@ func main() -> (int) {
 
     var ok: Result<int, string> = Ok(42)
 
-    switch ok {
+    switch (ok) {
         case Ok(v) {
             if v == 42 {
                 score = score + 1
@@ -105,7 +105,7 @@ func main() -> (int) {
 
     var err: Result<int, string> = Err("x")
 
-    switch err {
+    switch (err) {
         case Err(msg) {
             if msg.len() == 1 {
                 score = score + 1

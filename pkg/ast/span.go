@@ -419,12 +419,19 @@ func spanNode(node Node) Span {
 	return Span{}
 }
 
-func isNilNode(node Node) bool {
+// IsNilNode reports whether node is nil, including an interface containing a
+// typed nil pointer. Parsers and compiler passes use it at API boundaries so a
+// malformed source file cannot turn into a compiler panic.
+func IsNilNode(node Node) bool {
 	if node == nil {
 		return true
 	}
 	v := reflect.ValueOf(node)
 	return v.Kind() == reflect.Pointer && v.IsNil()
+}
+
+func isNilNode(node Node) bool {
+	return IsNilNode(node)
 }
 
 func spanFromStatements(stmts []Statement) Span {

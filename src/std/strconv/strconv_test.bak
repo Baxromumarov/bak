@@ -131,8 +131,7 @@ func test_format_int() -> (void) {
     var minValue: int = s.parseInt(
         &minSource,
         10,
-    ).unwrap(
-    )
+    ).unwrap()
 
     t.eqString(
         s.formatInt(

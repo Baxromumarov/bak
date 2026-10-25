@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
+	"github.com/baxromumarov/bak/internal/buildinfo"
 	"github.com/baxromumarov/bak/pkg/linter"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
@@ -16,12 +17,21 @@ func main() {
 	maxNesting := flag.Int("max-nesting", 5, "maximum nesting depth")
 	disable := flag.String("disable", "", "comma-separated list of rules to disable")
 	listRules := flag.Bool("list-rules", false, "list available lint rules and exit")
+	version := flag.Bool("version", false, "print version and support information")
+	versionJSON := flag.Bool("version-json", false, "print version and support information as JSON")
 	flag.Usage = func() {
 		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Usage: baklint [flags] [path ...]\n\n")
 		_, _ = strfmt.Fprint(flag.CommandLine.Output(), "Lint Bak source files for style and correctness issues.\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if *version || *versionJSON {
+		if err := buildinfo.WriteVersion(os.Stdout, "baklint", *versionJSON); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if *listRules {
 		for _, rule := range linter.AvailableRules() {

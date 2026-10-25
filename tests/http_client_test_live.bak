@@ -11,7 +11,7 @@ func main() -> (void) {
 
     var res = http.get(url)
 
-    switch res {
+    switch (res) {
         case Ok(response) {
             println("Status: " + string(response.status))
             println("Reason: " + response.reason)

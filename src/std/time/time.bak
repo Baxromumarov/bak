@@ -388,7 +388,7 @@ pub func parseDuration(s: &string) -> (Result<Duration, string>) {
 
     var numRes: Result<int, string> = strconv.atoi(&numStr)
 
-    switch numRes {
+    switch (numRes) {
         case Err(e) {
             return Err(e)
         }

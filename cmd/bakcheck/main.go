@@ -11,6 +11,7 @@ import (
 
 	"github.com/baxromumarov/bak/cmd/internal/bakfiles"
 	"github.com/baxromumarov/bak/internal/analysis"
+	"github.com/baxromumarov/bak/internal/buildinfo"
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/strfmt"
@@ -20,6 +21,25 @@ var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 func main() {
 	paths := os.Args[1:]
+	if len(paths) == 1 {
+		switch paths[0] {
+		case "-version", "--version":
+			if err := buildinfo.WriteVersion(os.Stdout, "bakcheck", false); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
+		case "--version-json":
+			if err := buildinfo.WriteVersion(os.Stdout, "bakcheck", true); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			return
+		case "-h", "--help":
+			fmt.Fprintln(os.Stdout, "Usage: bakcheck [path ...]\n\nParse and typecheck Bak packages without running them.\n  --version       print version and support information\n  --version-json  print version and support information as JSON")
+			return
+		}
+	}
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}

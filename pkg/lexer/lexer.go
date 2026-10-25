@@ -216,8 +216,14 @@ func (l *Lexer) NextToken() token.Token {
 		tok.EndColumn = l.column
 		return tok
 	case 0:
-		tok.Literal = ""
-		tok.Type = token.EOF
+		if l.position < len(l.input) {
+			tok.Literal = "\x00"
+			tok.Type = token.ILLEGAL
+			l.addError(newSourcePos(startLine, startColumn), "NUL byte is not allowed in source")
+		} else {
+			tok.Literal = ""
+			tok.Type = token.EOF
+		}
 		tok.Line = startLine
 		tok.Column = startColumn
 		tok.EndLine = startLine
@@ -455,22 +461,58 @@ func (l *Lexer) readCharLiteral() string {
 		l.addError(newSourcePos(startLine, startCol), "unterminated character literal")
 		return ""
 	}
-	ch := string(l.ch)
+	if l.ch == '\n' || l.ch == '\r' {
+		l.addError(newSourcePos(startLine, startCol), "character literal cannot contain a raw newline")
+		return ""
+	}
+	if l.ch == '\'' {
+		l.addError(newSourcePos(startLine, startCol), "empty character literal")
+		l.readChar()
+		return ""
+	}
+
+	literal := string(l.ch)
 	if l.ch == '\\' {
 		l.readChar()
 		if l.ch == 0 {
 			l.addError(newSourcePos(startLine, startCol), "unterminated character literal (ends with backslash)")
 			return "\\"
 		}
-		ch = "\\" + string(l.ch)
+		escape := l.ch
+		literal = "\\" + string(escape)
+		hexDigits := 0
+		switch escape {
+		case 'a', 'b', 'f', 'n', 'r', 't', 'v', '\\', '\'', '"', '0':
+		case 'x':
+			hexDigits = 2
+		case 'u':
+			hexDigits = 4
+		case 'U':
+			hexDigits = 8
+		default:
+			l.addError(newSourcePos(startLine, startCol), "invalid character escape \\"+string(escape))
+		}
+		l.readChar()
+		for range hexDigits {
+			if l.ch == 0 || l.ch == '\'' || l.ch == '\n' || l.ch == '\r' {
+				l.addError(newSourcePos(startLine, startCol), "incomplete hexadecimal character escape")
+				break
+			}
+			if !isHexDigit(l.ch) {
+				l.addError(newSourcePos(startLine, startCol), "invalid hexadecimal character escape")
+			}
+			literal += string(l.ch)
+			l.readChar()
+		}
+	} else {
+		l.readChar()
 	}
-	l.readChar() // consume the char
 	if l.ch == '\'' {
 		l.readChar() // consume closing quote
 	} else {
 		l.addError(newSourcePos(startLine, startCol), "unterminated character literal, expected closing '")
 	}
-	return ch
+	return literal
 }
 
 // readRawString reads a raw string literal enclosed in backticks.

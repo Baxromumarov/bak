@@ -269,3 +269,128 @@ func TestFormatPreservesStringEscapes(t *testing.T) {
 		t.Fatalf("formatted output mismatch\nwant:\n%q\ngot:\n%q", want, got)
 	}
 }
+
+func TestFormatRejectsMalformedCharacterLiteral(t *testing.T) {
+	if _, errs := Format("A'"); len(errs) == 0 {
+		t.Fatal("expected malformed character literal to be rejected")
+	}
+}
+
+func TestFormatSeparatesExpressionFromBareBlock(t *testing.T) {
+	first, errs := Format("(A){}")
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if !strings.Contains(first, "A;") {
+		t.Fatalf("expected explicit statement separator, got %q", first)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors after formatting: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestFormatCharacterEscapeIdempotence(t *testing.T) {
+	input := "'\\x10'"
+	first, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced unparseable character literal: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestFormatUnicodeStringIdempotence(t *testing.T) {
+	input := "\"\u07b9\""
+	first, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced unparseable string: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestFormatGroupsIdentifierSwitchCases(t *testing.T) {
+	input := "{switch(0){case(A){}}}"
+	first, errs := Format(input)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if !strings.Contains(first, "case (A)") {
+		t.Fatalf("expected grouped switch case, got %q", first)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced unparseable switch: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestFormatPreservesEmptyFString(t *testing.T) {
+	first, errs := Format(`f""""`)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if !strings.Contains(first, `f""`) {
+		t.Fatalf("expected f-string in output, got %q", first)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced invalid f-string: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestScanCommentsIgnoresRawStringContents(t *testing.T) {
+	if comments := ScanComments("`/* not a comment */` // real"); len(comments) != 1 || comments[0].Text != "// real" {
+		t.Fatalf("unexpected comments: %#v", comments)
+	}
+}
+
+func TestFormatSeparatesChainedNumericMembers(t *testing.T) {
+	first, errs := Format("A0.0 .0")
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if !strings.Contains(first, ".0 .0") {
+		t.Fatalf("expected numeric member boundary, got %q", first)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced invalid numeric member access: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}
+
+func TestFormatPreservesSingleElementTupleReturn(t *testing.T) {
+	first, errs := Format("func A()->(A,){0}")
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	second, errs := Format(first)
+	if len(errs) > 0 {
+		t.Fatalf("formatter produced invalid tuple return: %v", errs)
+	}
+	if first != second {
+		t.Fatalf("formatting is not idempotent: first=%q second=%q", first, second)
+	}
+}

@@ -51,7 +51,7 @@ func main() -> (void) {
     // Test fs.readFile
     var result: Result<string, string> = fs.readFile("tests/native_fs_test.bak")
 
-    switch result {
+    switch (result) {
         case Ok(content) {
             println("PASS: fs.readFile succeeded")
 
@@ -76,14 +76,14 @@ func main() -> (void) {
         test_content,
     )
 
-    switch write_result {
+    switch (write_result) {
         case Ok(_) {
             println("PASS: fs.writeFile succeeded")
 
             // Verify by reading back
             var read_back: Result<string, string> = fs.readFile(test_file)
 
-            switch read_back {
+            switch (read_back) {
                 case Ok(content) {
                     if content == test_content {
                         println("PASS: Read back content matches written content")

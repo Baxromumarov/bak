@@ -33,7 +33,7 @@ func main() -> (void) {
         2,
     )
 
-    switch result1 {
+    switch (result1) {
         case Ok(v) {
             println(
                 "10 / 2 =",
@@ -53,7 +53,7 @@ func main() -> (void) {
         0,
     )
 
-    switch result2 {
+    switch (result2) {
         case Ok(v) {
             println(
                 "10 / 0 =",
@@ -83,7 +83,7 @@ func main() -> (void) {
         30,
     )
 
-    switch found {
+    switch (found) {
         case Ok(idx) {
             println(
                 "Found 30 at index:",
@@ -100,7 +100,7 @@ func main() -> (void) {
         100,
     )
 
-    switch notFound {
+    switch (notFound) {
         case Ok(idx) {
             println(
                 "Found 100 at index:",

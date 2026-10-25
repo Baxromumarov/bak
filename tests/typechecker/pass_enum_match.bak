@@ -9,14 +9,14 @@ enum Color {
 }
 
 func colorName(c: Color) -> (string) {
-    switch c {
-        case Red {
+    switch (c) {
+        case (Red) {
             return "Red"
         }
-        case Green {
+        case (Green) {
             return "Green"
         }
-        case Blue {
+        case (Blue) {
             return "Blue"
         }
         case RGB(

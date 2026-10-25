@@ -20,7 +20,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 		if tc.checkCanceled() {
 			return
 		}
-		if stmt == nil {
+		if ast.IsNilNode(stmt) {
 			continue
 		}
 		switch s := stmt.(type) {
@@ -62,7 +62,7 @@ func (tc *TypeChecker) collectDefinitions(program *ast.Program) {
 		if tc.checkCanceled() {
 			return
 		}
-		if stmt == nil {
+		if ast.IsNilNode(stmt) {
 			continue
 		}
 		switch s := stmt.(type) {
@@ -251,7 +251,7 @@ func (tc *TypeChecker) validateDeclTypeUsage(stmt ast.Statement) {
 }
 
 func typeUsagePos(t ast.TypeExpression, fallback ast.Position) ast.Position {
-	if t == nil {
+	if ast.IsNilNode(t) {
 		return fallback
 	}
 	if pos := t.Pos(); pos != (ast.Position{}) {

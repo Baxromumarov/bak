@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -541,6 +542,31 @@ func TestCLIVersionFlag(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "bak dev") {
 		t.Fatalf("expected version output, got: %s", string(out))
+	}
+	if !strings.Contains(string(out), "language v0.1 (frozen)") ||
+		!strings.Contains(string(out), "production backend: vm (stable)") ||
+		!strings.Contains(string(out), "native backend: preview (linux/amd64)") {
+		t.Fatalf("expected support profile in version output, got: %s", string(out))
+	}
+}
+
+func TestCLIVersionJSON(t *testing.T) {
+	cmd := exec.Command(os.Args[0], "-test.run=TestCLIHelperProcess", "--", "bak", "version", "--json")
+	cmd.Env = append(os.Environ(), "BAK_TEST_MAIN_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("expected JSON version to succeed, got err=%v output=%s", err, string(out))
+	}
+	var info struct {
+		LanguageVersion   string `json:"languageVersion"`
+		ProductionBackend string `json:"productionBackend"`
+		NativeStatus      string `json:"nativeStatus"`
+	}
+	if err := json.Unmarshal(out, &info); err != nil {
+		t.Fatalf("expected valid JSON version output, got %q: %v", string(out), err)
+	}
+	if info.LanguageVersion != "0.1" || info.ProductionBackend != "vm" || info.NativeStatus != "preview" {
+		t.Fatalf("unexpected JSON support profile: %#v", info)
 	}
 }
 

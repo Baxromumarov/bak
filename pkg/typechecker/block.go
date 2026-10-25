@@ -81,6 +81,9 @@ func (tc *TypeChecker) identifierOccursInNode(node any, name string) bool {
 	if node == nil {
 		return false
 	}
+	if astNode, ok := node.(ast.Node); ok && ast.IsNilNode(astNode) {
+		return false
+	}
 
 	switch n := node.(type) {
 	case *ast.BlockStatement:

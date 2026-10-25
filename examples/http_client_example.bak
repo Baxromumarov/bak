@@ -43,8 +43,7 @@ func main() -> (void) {
                 http.text(
                     200,
                     "ok",
-                ).bodyString(
-                ),
+                ).bodyString(),
             )
         }
         case Err(e) {

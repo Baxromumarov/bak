@@ -4,9 +4,12 @@ This document defines the current backend contract for the frozen v0.1 line.
 
 ## Supported Execution Paths
 
-- VM execution through `bak run` is the primary user execution path.
-- Native executable output through `bak build` is supported for the frozen surface covered by parity tests.
+- VM execution through `bak run` is the stable production execution path.
+- Native executable output through `bak build` is a Linux/amd64 preview for the
+  frozen subset covered by parity tests.
 - Parser/typechecker behavior is shared and should not differ by backend.
+
+See `SUPPORT_MATRIX_V0.1.md` for the authoritative maturity and platform tiers.
 
 ## Required Parity
 
@@ -31,7 +34,7 @@ Backend divergence on these areas is a bug.
 | `Result<T, E>` | `tests/run_typechecker_tests.sh` | `go test ./pkg/vm` | `make test-parity` |
 | `Vec<T, _>` | `./bak test src/std` | `./bak test src/std` | `make test-parity` |
 | defer/panic | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` |
-| stable examples | `make examples-check` | future `examples-run` lane | future `examples-native` lane |
+| stable examples | `make examples-check` | `make examples-check` | parity corpus only |
 
 ## Native-Limited Areas
 
@@ -40,7 +43,7 @@ Native may reject or return an explicit `Err(...)` for APIs that are not yet imp
 - database builtins,
 - socket/network builtins,
 - interactive input helpers,
-- threading or synchronization features not covered by parity tests.
+- threading or synchronization features not covered by parity tests,
 - the convenience `string.parseInt()` and `string.parseFloat()` methods, plus
   `int(string)` and `float(string)` conversion shortcuts. Native builds reject
   these explicitly; import `std/strconv` and use `atoi` or `atof`.
@@ -55,8 +58,8 @@ The backend release gate is:
 make test-parity
 ```
 
-The broader release gate is:
+The publication gate is:
 
 ```sh
-make release-check
+make production-check
 ```

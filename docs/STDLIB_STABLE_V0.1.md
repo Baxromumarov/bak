@@ -2,6 +2,10 @@
 
 This document names the standard-library packages that are treated as the stable v0.1 surface.
 
+The stable API promise applies to the production VM backend. Native availability
+is limited to the subset in `BACKEND_CONFORMANCE.md`; a stable package is not by
+itself a promise that every one of its operations can be emitted natively.
+
 Stable imports should use Go-like package paths:
 
 ```bak
@@ -53,7 +57,7 @@ These packages are usable but are not yet frozen as a compatibility promise:
 Any change to a stable package must run:
 
 ```sh
-make release-check
+make production-check
 ```
 
 If a stable package changes behavior, update the release notes and add or update the package tests under `src/std`.

@@ -58,7 +58,7 @@ func main() -> (void) {
     // Switch statement (no fallthrough!)
     var day: int = 3
 
-    switch day {
+    switch (day) {
         case 1 {
             println("Monday")
         }

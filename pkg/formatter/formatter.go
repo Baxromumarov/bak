@@ -143,6 +143,25 @@ func ScanComments(input string) []Comment {
 			continue
 		}
 
+		if ch == '`' {
+			i++
+			for i < len(input) {
+				ch = input[i]
+				if ch == '\n' {
+					line++
+					col = 0
+					i++
+					continue
+				}
+				col++
+				i++
+				if ch == '`' {
+					break
+				}
+			}
+			continue
+		}
+
 		if ch == '/' && i+1 < len(input) {
 			next := input[i+1]
 			if next == '/' {
@@ -212,6 +231,9 @@ func (p *printer) printProgram(program *ast.Program) {
 		p.writeIndent()
 		p.printStatement(stmt)
 		if i < len(program.Statements)-1 {
+			if needsStatementSeparator(stmt, program.Statements[i+1]) {
+				p.write(";")
+			}
 			p.newline()
 			if needsBlankLine(stmt, program.Statements[i+1]) {
 				p.newline()
@@ -360,6 +382,9 @@ func (p *printer) printStatements(stmts []ast.Statement) {
 		p.flushCommentsBefore(statementPosition(stmt))
 		p.writeIndent()
 		p.printStatement(stmt)
+		if i < len(stmts)-1 && needsStatementSeparator(stmt, stmts[i+1]) {
+			p.write(";")
+		}
 		p.newline()
 
 		if i < len(stmts)-1 {
@@ -370,6 +395,77 @@ func (p *printer) printStatements(stmts []ast.Statement) {
 				p.newline()
 			}
 		}
+	}
+}
+
+// A bare block immediately after an expression can be reparsed as a struct
+// literal because newlines are not significant in Bak. Keep the explicit
+// statement boundary so formatting never changes the AST on the next pass.
+func needsStatementSeparator(current, next ast.Statement) bool {
+	if !statementCanAbsorbContinuation(current) {
+		return false
+	}
+	_, block := next.(*ast.BlockStatement)
+	if block {
+		return true
+	}
+	leading, ok := statementLeadingExpression(next)
+	return ok && expressionCanContinuePrevious(leading)
+}
+
+func statementCanAbsorbContinuation(stmt ast.Statement) bool {
+	switch s := stmt.(type) {
+	case *ast.ExpressionStatement:
+		return !ast.IsNilNode(s.Expression)
+	case *ast.AssignmentStatement:
+		return !ast.IsNilNode(s.Value)
+	case *ast.VarStatement:
+		return !ast.IsNilNode(s.Value)
+	case *ast.MultiVarStatement:
+		return !ast.IsNilNode(s.Value)
+	case *ast.ConstStatement:
+		return !ast.IsNilNode(s.Value)
+	case *ast.ReturnStatement:
+		return !ast.IsNilNode(s.ReturnValue)
+	case *ast.PanicStatement:
+		return !ast.IsNilNode(s.Message)
+	default:
+		return false
+	}
+}
+
+func statementLeadingExpression(stmt ast.Statement) (ast.Expression, bool) {
+	switch s := stmt.(type) {
+	case *ast.ExpressionStatement:
+		return s.Expression, !ast.IsNilNode(s.Expression)
+	case *ast.AssignmentStatement:
+		return s.Left, !ast.IsNilNode(s.Left)
+	default:
+		return nil, false
+	}
+}
+
+func expressionCanContinuePrevious(expr ast.Expression) bool {
+	switch e := expr.(type) {
+	case *ast.BorrowExpression, *ast.DerefExpression, *ast.VecLiteral,
+		*ast.TupleExpression, *ast.StructLiteral, *ast.RangeExpression:
+		return true
+	case *ast.PrefixExpression:
+		return e.Operator == "-"
+	case *ast.InfixExpression:
+		return expressionCanContinuePrevious(e.Left)
+	case *ast.CallExpression:
+		return expressionCanContinuePrevious(e.Function)
+	case *ast.MethodCallExpression:
+		return expressionCanContinuePrevious(e.Object)
+	case *ast.FieldAccessExpression:
+		return expressionCanContinuePrevious(e.Object)
+	case *ast.IndexExpression:
+		return expressionCanContinuePrevious(e.Left)
+	case *ast.UnwrapExpression:
+		return !e.IsTry && expressionCanContinuePrevious(e.Value)
+	default:
+		return false
 	}
 }
 
@@ -477,7 +573,13 @@ func (p *printer) printStatement(stmt ast.Statement) {
 			}
 		}
 	case *ast.ExpressionStatement:
-		p.printExpression(s.Expression, precLowest)
+		if expressionNeedsStatementGrouping(s.Expression) {
+			p.write("(")
+			p.printExpression(s.Expression, precLowest)
+			p.write(")")
+		} else {
+			p.printExpression(s.Expression, precLowest)
+		}
 	case *ast.AssignmentStatement:
 		p.printExpression(s.Left, precLowest)
 		p.write(" = ")
@@ -540,6 +642,29 @@ func (p *printer) printStatement(stmt ast.Statement) {
 	}
 }
 
+func expressionNeedsStatementGrouping(expr ast.Expression) bool {
+	switch e := expr.(type) {
+	case *ast.StructLiteral:
+		return e.Name == nil || e.Name.Value == ""
+	case *ast.FunctionLiteral, *ast.MutableIdentifier:
+		return true
+	case *ast.InfixExpression:
+		return expressionNeedsStatementGrouping(e.Left)
+	case *ast.CallExpression:
+		return expressionNeedsStatementGrouping(e.Function)
+	case *ast.MethodCallExpression:
+		return expressionNeedsStatementGrouping(e.Object)
+	case *ast.FieldAccessExpression:
+		return expressionNeedsStatementGrouping(e.Object)
+	case *ast.IndexExpression:
+		return expressionNeedsStatementGrouping(e.Left)
+	case *ast.UnwrapExpression:
+		return !e.IsTry && expressionNeedsStatementGrouping(e.Value)
+	default:
+		return false
+	}
+}
+
 func (p *printer) printVarBlock(vb *ast.VarBlock) {
 	p.write("var ")
 	p.write("(")
@@ -583,7 +708,13 @@ func (p *printer) printIfStatement(stmt *ast.IfStatement) {
 
 func (p *printer) printSwitchStatement(stmt *ast.SwitchStatement) {
 	p.write("switch ")
-	p.printExpression(stmt.Value, precLowest)
+	if _, ambiguous := stmt.Value.(*ast.Identifier); ambiguous {
+		p.write("(")
+		p.printExpression(stmt.Value, precLowest)
+		p.write(")")
+	} else {
+		p.printExpression(stmt.Value, precLowest)
+	}
 	p.write(" ")
 	p.write("{")
 	p.newline()
@@ -601,7 +732,15 @@ func (p *printer) printSwitchStatement(stmt *ast.SwitchStatement) {
 				if i > 0 {
 					p.write(", ")
 				}
-				p.printExpression(value, precLowest)
+				if _, ambiguous := value.(*ast.Identifier); ambiguous {
+					// Without grouping, `case A {}` can be reparsed as the
+					// empty struct literal A{} followed by a missing case body.
+					p.write("(")
+					p.printExpression(value, precLowest)
+					p.write(")")
+				} else {
+					p.printExpression(value, precLowest)
+				}
 			}
 		}
 		p.write(" ")
@@ -847,7 +986,7 @@ func (p *printer) parameterInlineLength(param *ast.Parameter) int {
 }
 
 func (p *printer) expressionInlineLength(expr ast.Expression) int {
-	if expr == nil {
+	if ast.IsNilNode(expr) {
 		return 0
 	}
 	return len(expr.String())
@@ -864,7 +1003,7 @@ func (p *printer) printBlock(block *ast.BlockStatement) {
 }
 
 func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
-	if expr == nil {
+	if ast.IsNilNode(expr) {
 		return
 	}
 
@@ -886,6 +1025,8 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 		p.write(e.Token.Literal)
 	case *ast.StringLiteral:
 		p.write(strconv.Quote(e.Value))
+	case *ast.FStringLiteral:
+		p.printFStringLiteral(e)
 	case *ast.CharLiteral:
 		p.write(strconv.QuoteRune(e.Value))
 	case *ast.BooleanLiteral:
@@ -917,19 +1058,21 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 	case *ast.CallExpression:
 		p.printExpression(e.Function, precCall)
 		p.write("(")
-		multiline := isSourceMultiline(e) || p.isComplex(e)
+		multiline := len(e.Arguments) > 0 && (isSourceMultiline(e) || p.isComplex(e))
 		p.printExpressionList(e.Arguments, multiline)
 		p.write(")")
 	case *ast.MethodCallExpression:
 		p.printExpression(e.Object, precIndex)
+		p.writeNumericMemberBoundary(e.Object)
 		p.write(".")
 		p.write(e.Method.Value)
 		p.write("(")
-		multiline := isSourceMultiline(e) || p.isComplex(e)
+		multiline := len(e.Arguments) > 0 && (isSourceMultiline(e) || p.isComplex(e))
 		p.printExpressionList(e.Arguments, multiline)
 		p.write(")")
 	case *ast.FieldAccessExpression:
 		p.printExpression(e.Object, precIndex)
+		p.writeNumericMemberBoundary(e.Object)
 		p.write(".")
 		p.write(e.Field.Value)
 	case *ast.IndexExpression:
@@ -961,6 +1104,9 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 			p.write("&mut ")
 		} else {
 			p.write("&")
+			if _, nestedBorrow := e.Value.(*ast.BorrowExpression); nestedBorrow {
+				p.write(" ")
+			}
 		}
 		p.printExpression(e.Value, precPrefix)
 	case *ast.DerefExpression:
@@ -986,6 +1132,38 @@ func (p *printer) printExpression(expr ast.Expression, parentPrec int) {
 	if needsParens {
 		p.write(")")
 	}
+}
+
+func (p *printer) writeNumericMemberBoundary(object ast.Expression) {
+	if _, integer := object.(*ast.IntegerLiteral); integer {
+		// `0.0` is a float token; tuple-style numeric access on an integer
+		// literal must retain a separating space (`0 .0`).
+		p.write(" ")
+		return
+	}
+	field, ok := object.(*ast.FieldAccessExpression)
+	if ok && field.Field != nil && field.Field.Token.Type == token.INT {
+		// `tuple.0.1` is lexed as `tuple`, `.`, `0.1` unless the two
+		// tuple-index member operations remain separated.
+		p.write(" ")
+	}
+}
+
+func (p *printer) printFStringLiteral(literal *ast.FStringLiteral) {
+	p.write(`f"`)
+	for _, element := range literal.Elements {
+		if text, ok := element.(*ast.StringLiteral); ok {
+			value := strings.ReplaceAll(text.Value, "{", "{{")
+			value = strings.ReplaceAll(value, "}", "}}")
+			quoted := strconv.Quote(value)
+			p.write(quoted[1 : len(quoted)-1])
+			continue
+		}
+		p.write("{")
+		p.printExpression(element, precLowest)
+		p.write("}")
+	}
+	p.write(`"`)
 }
 
 func (p *printer) printRangeExpression(re *ast.RangeExpression) {
@@ -1149,7 +1327,7 @@ func (p *printer) printVecLiteral(vl *ast.VecLiteral) {
 }
 
 func (p *printer) isComplex(expr ast.Expression) bool {
-	if expr == nil {
+	if ast.IsNilNode(expr) {
 		return false
 	}
 	switch e := expr.(type) {

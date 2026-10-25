@@ -4,7 +4,7 @@ import bytes "std/bytes"
 
 func main() -> (int) {
     mut var score: int = 0
-    mut var b: bytes.Bytes = bytes.fromString("hi")
+    mut var b: bytes.Bytes = bytes.fromString("hi");
 
     {
         if bytes.length(&b) == 2 {

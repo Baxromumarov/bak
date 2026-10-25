@@ -1,6 +1,8 @@
-# Bak v0.1 Release Notes Draft
+# Bak v0.1 Release Notes
 
-This draft records the intended shape of the first small release.
+Bak v0.1 freezes the first production-supported language contract. The stable
+deployment profile is trusted Bak code executed by the VM on Linux/amd64; the
+complete boundary is in `SUPPORT_MATRIX_V0.1.md`.
 
 ## Included Tools
 
@@ -22,7 +24,8 @@ Highlights:
 - `Result<T, E>` and `Vec<T, _>`,
 - lexical ownership and borrowing,
 - `if`, `while`, `for`, `switch`, `defer`, and `panic`,
-- VM/native parity for the guarded frozen surface.
+- VM semantics for the complete frozen surface and native parity for the
+  explicitly guarded preview subset.
 
 ## Correctness and Tooling Hardening
 
@@ -38,22 +41,30 @@ Highlights:
 - LSP completions describe only the stable v0.1 surface. The VS Code extension
   includes configurable server discovery, restart support, indentation rules,
   semantic highlighting, and coordinated dark and light themes.
+- Malformed parser/typechecker input is covered by persistent fuzz regression
+  corpora and cannot become a compiler panic at typed-nil AST boundaries.
+- Release archives are reproducibly cross-built with manifests, embedded
+  version/support metadata, and SHA-256 checksums.
 
 ## Explicitly Not Included
 
 - package fetching,
 - stable project manifests,
 - user-facing `Option<T>`,
-- general user-defined generics as a frozen contract,
 - FFI,
 - sandboxed execution for untrusted code.
+
+Native output, package fetching, database/BORM APIs, network-server APIs, and
+threading remain outside the production-stable profile as documented in the
+support matrix.
 
 ## Release Check
 
 Run:
 
 ```sh
-make release-check
+make production-check
 ```
 
-This builds the toolchain and runs the release-quality test lanes.
+This builds the toolchain and distributable archives and runs conformance,
+integration, tooling, race, fuzz, differential, and dependency-integrity gates.

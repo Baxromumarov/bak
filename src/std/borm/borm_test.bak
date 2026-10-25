@@ -151,7 +151,7 @@ func test_select_raw_defaults() -> (void) {
 
     b.resetQueryHooks()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -188,7 +188,7 @@ func test_select_raw_with_where() -> (void) {
 
     b.resetQueryHooks()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -239,7 +239,7 @@ func test_select_typed_mapper() -> (void) {
 
     b.resetQueryHooks()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -274,7 +274,7 @@ func test_insert_builds_placeholders() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -330,7 +330,7 @@ func test_batch_insert_rows() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -384,7 +384,7 @@ func test_update_with_where() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -423,7 +423,7 @@ func test_delete_requires_all() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
             t.fail("expected error without where or all")
         }
@@ -446,7 +446,7 @@ func test_delete_with_where() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -481,7 +481,7 @@ func test_delete_all() -> (void) {
 
     b.resetExecHook()
 
-    switch result {
+    switch (result) {
         case Ok(_) {
         }
         case Err(err) {
@@ -532,7 +532,7 @@ func test_insert_returning_int() -> (void) {
 
     b.resetQueryHooks()
 
-    switch result {
+    switch (result) {
         case Ok(id) {
             t.eq(
                 id,

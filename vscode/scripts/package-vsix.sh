@@ -36,12 +36,16 @@ fi
 
 VERSION="$(node -p 'require("./package.json").version')"
 OUTPUT="$ROOT_DIR/bak-$VERSION-$TARGET.vsix"
+COMMIT="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+BUILD_DATE="$(git -C "$REPO_DIR" show -s --format=%cI HEAD 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)"
+LDFLAGS="-s -w -X github.com/baxromumarov/bak/internal/buildinfo.Version=v$VERSION -X github.com/baxromumarov/bak/internal/buildinfo.Commit=$COMMIT -X github.com/baxromumarov/bak/internal/buildinfo.Date=$BUILD_DATE"
 
 npm ci
+npm audit --audit-level=high
 npm run build
 
 mkdir -p "$ROOT_DIR/bin/$TARGET"
-GOOS="$GOOS" GOARCH="$GOARCH" go build -trimpath -ldflags='-s -w' -o "$ROOT_DIR/bin/$TARGET/$EXECUTABLE" "$REPO_DIR/lsp"
+CGO_ENABLED=0 GOOS="$GOOS" GOARCH="$GOARCH" go build -mod=readonly -trimpath -buildvcs=false -ldflags="$LDFLAGS" -o "$ROOT_DIR/bin/$TARGET/$EXECUTABLE" "$REPO_DIR/lsp"
 
-npx --yes @vscode/vsce package --target "$TARGET" --out "$OUTPUT"
+npx --yes @vscode/vsce@3.9.2 package --target "$TARGET" --out "$OUTPUT"
 go run "$REPO_DIR/scripts/verify_vscode_package" -vsix "$OUTPUT"

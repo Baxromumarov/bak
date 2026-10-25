@@ -5,14 +5,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/baxromumarov/bak/internal/buildinfo"
 	"github.com/baxromumarov/bak/internal/cli"
 	commandpkg "github.com/baxromumarov/bak/internal/cli/commands"
-)
-
-var (
-	Version = "dev"
-	Commit  = "unknown"
-	Date    = "unknown"
 )
 
 // Execute parses CLI args and dispatches to the registered command set.
@@ -37,8 +32,7 @@ func Execute(rawArgs []string, stdout io.Writer) error {
 		return nil
 	}
 	if shouldShowVersion(commandArgs) {
-		printVersion(stdout)
-		return nil
+		return printVersion(stdout, commandArgs[1:])
 	}
 	if shouldShowCommandHelp(registry, commandArgs) {
 		printHelp(stdout, []string{"help", commandArgs[0]})
@@ -84,14 +78,12 @@ func shouldShowCommandHelp(registry *cli.Registry, args []string) bool {
 	return args[1] == "--help" || args[1] == "-h" || args[1] == "help"
 }
 
-func printVersion(w io.Writer) {
-	_, _ = fmt.Fprintf(w, "bak %s\n", Version)
-	if Commit != "" && Commit != "unknown" {
-		_, _ = fmt.Fprintf(w, "commit %s\n", Commit)
+func printVersion(w io.Writer, args []string) error {
+	if len(args) > 1 || len(args) == 1 && args[0] != "--json" {
+		return fmt.Errorf("version accepts only --json")
 	}
-	if Date != "" && Date != "unknown" {
-		_, _ = fmt.Fprintf(w, "built %s\n", Date)
-	}
+
+	return buildinfo.WriteVersion(w, "bak", len(args) == 1)
 }
 
 func printHelp(w io.Writer, args []string) {
@@ -157,7 +149,8 @@ var commandHelp = map[string][]string{
 		"Usage:",
 		"  bak [global flags] build [-o output] <file.bak>",
 		"",
-		"Builds a native executable. Permission flags are checked at build time for dangerous native builtins.",
+		"Builds a preview Linux/amd64 native executable for the parity-locked native subset.",
+		"Use `bak run` for the stable production VM backend. Permission flags are checked at build time.",
 	},
 	"check": {
 		"bak check",
@@ -211,7 +204,8 @@ var commandHelp = map[string][]string{
 		"bak version",
 		"",
 		"Usage:",
-		"  bak version",
+		"  bak version [--json]",
+		"  bak version --json",
 		"",
 		"Prints the Bak toolchain version and build metadata when available.",
 	},

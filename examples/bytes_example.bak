@@ -39,8 +39,7 @@ func main() -> (void) {
                 bytes.viewGet(
                     &view,
                     0,
-                ).unwrap(
-                ),
+                ).unwrap(),
             )
         }
         case Err(message) {

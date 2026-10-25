@@ -192,6 +192,9 @@ func (tt *TupleType) String() string {
 		params = append(params, e.String())
 	}
 	out.WriteString(strings.Join(params, ", "))
+	if len(tt.Elements) == 1 {
+		out.WriteString(",")
+	}
 	out.WriteString(")")
 	return out.String()
 }

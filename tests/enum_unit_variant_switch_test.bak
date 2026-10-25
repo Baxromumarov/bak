@@ -12,11 +12,11 @@ func test_switch_unit_variant() -> (void) {
     var c: Color = Color.Red
     mut var out: string = ""
 
-    switch c {
-        case Red {
+    switch (c) {
+        case (Red) {
             out = "red"
         }
-        case Green {
+        case (Green) {
             out = "green"
         }
     }

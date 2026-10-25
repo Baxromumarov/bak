@@ -1,0 +1,52 @@
+name: Release Artifacts
+
+on:
+  push:
+    tags: [ "v*" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+jobs:
+  release-candidate:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.27.x'
+
+    - name: Resolve version
+      id: version
+      shell: bash
+      run: |
+        if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          echo "value=${GITHUB_REF_NAME}" >> "${GITHUB_OUTPUT}"
+        else
+          echo "value=dev-${GITHUB_SHA::12}" >> "${GITHUB_OUTPUT}"
+        fi
+
+    - name: Run production gate and build archives
+      run: make production-check VERSION="${{ steps.version.outputs.value }}" COMMIT="${GITHUB_SHA}"
+
+    - name: Verify release checksums
+      working-directory: dist
+      run: sha256sum --check checksums.txt
+
+    - name: Attest release archives
+      uses: actions/attest-build-provenance@v2
+      with:
+        subject-path: dist/*.zip
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: bak-${{ steps.version.outputs.value }}
+        path: dist/
+        if-no-files-found: error

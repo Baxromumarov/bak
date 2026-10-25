@@ -265,7 +265,7 @@ impl T as t {
     }
 
     pub mut func isErr<U>(res: Result<U, string>) -> (void) {
-        switch res {
+        switch (res) {
             case Ok(v) {
                 t.fail("  expected: Err\n  actual:   Ok(" + formatValue(v) + ")")
             }
@@ -275,7 +275,7 @@ impl T as t {
     }
 
     pub mut func isOk<U>(res: Result<U, string>) -> (void) {
-        switch res {
+        switch (res) {
             case Ok(_) {
             }
             case Err(_) {

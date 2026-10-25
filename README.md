@@ -4,7 +4,10 @@ Current status:
 
 - The Go implementation in `pkg/` and `cmd/` is the supported compiler.
 - `src/std` contains the Bak standard library sources used by examples and tests.
-- The compatibility and release direction is tracked in `docs/`.
+- The v0.1 language is frozen and the VM path is production-qualified for
+  trusted workloads on Linux/amd64.
+- Native output remains a Linux/amd64 preview with an explicitly limited
+  parity-tested surface.
 
 Purpose: concise overview of Bak syntax, tooling, and project direction.
 
@@ -21,7 +24,10 @@ Bak is operating under a frozen `v0.1` language line.
 
 - Stable language semantics are defined only by `docs/CORE_LANGUAGE_SPEC.md`.
 - The Go implementation in `pkg/` and `cmd/` is the compiler/runtime of record.
-- Backend divergence on the frozen surface should be treated as a bug, not as “different modes”.
+- The VM is the normative production backend. Native divergence within its
+  documented parity subset is a bug.
+- The exact platform, backend, stdlib, and security boundary is documented in
+  `docs/SUPPORT_MATRIX_V0.1.md`.
 
 ---
 
@@ -247,6 +253,12 @@ Bak is developed as a Go-implemented language toolchain:
 - `bak run`, `bak check`, `bak build`, `bak test`, `bak doctor`, `bak explain`, and `bak repl` are the current CLI commands.
 - `bakfmt` formats Bak source files.
 - `baklint` reports style and correctness findings.
+- `bak version --json` reports build metadata and the machine-readable support
+  profile.
+
+Before publishing a release candidate, run `make production-check`. Official
+archives built by `make dist VERSION=v0.1.0` contain all five tools, frozen
+contract documents, manifests, and SHA-256 checksums.
 
 See:
 
@@ -254,6 +266,7 @@ See:
 - `docs/CORE_LANGUAGE_SPEC.md`
 - `docs/LANGUAGE_STABILITY_POLICY.md`
 - `docs/BACKEND_CONFORMANCE.md`
+- `docs/SUPPORT_MATRIX_V0.1.md`
 - `docs/PACKAGE_BOUNDARIES.md`
 - `docs/EXAMPLES.md`
 - `docs/STDLIB_STABLE_V0.1.md`

@@ -20,7 +20,7 @@ func RenderTypeForSyntax(t ast.TypeExpression) string {
 }
 
 func renderType(t ast.TypeExpression, unknownForNil bool) string {
-	if t == nil {
+	if ast.IsNilNode(t) {
 		if unknownForNil {
 			return "unknown"
 		}
@@ -93,6 +93,9 @@ func renderType(t ast.TypeExpression, unknownForNil bool) string {
 				out.WriteString(", ")
 			}
 			out.WriteString(renderType(elem, unknownForNil))
+		}
+		if len(tt.Elements) == 1 {
+			out.WriteString(",")
 		}
 		out.WriteString(")")
 		return out.String()
