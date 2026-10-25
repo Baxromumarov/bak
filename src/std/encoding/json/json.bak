@@ -1082,28 +1082,37 @@ pub func marshal(j: Json) -> (string) {
     return ""
 }
 
+func quote_char(c: char) -> (string) {
+    if c == '"' {
+        return "\\\""
+    }
+
+    if c == '\\' {
+        return "\\\\"
+    }
+
+    if c == '\n' {
+        return "\\n"
+    }
+
+    if c == '\r' {
+        return "\\r"
+    }
+
+    if c == '\t' {
+        return "\\t"
+    }
+
+    return string(c)
+}
+
 // Helper to escape strings
 func quote_string(s: string) -> (string) {
     mut var out: string = "\""
     mut var i: int = 0
 
     while i < s.len() {
-        var c: char = s[i]
-
-        if c == '"' {
-            out = out + "\\\""
-        } else if c == '\\' {
-            out = out + "\\\\"
-        } else if c == '\n' {
-            out = out + "\\n"
-        } else if c == '\r' {
-            out = out + "\\r"
-        } else if c == '\t' {
-            out = out + "\\t"
-        } else {
-            out = out + string(c)
-        }
-
+        out = out + quote_char(s[i])
         i = i + 1
     }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/parser"
+	"github.com/baxromumarov/bak/pkg/prelude"
 )
 
 // helper: parse and type-check, return errors
@@ -73,6 +74,38 @@ func main() -> (void) {
 		if err.Code == diagnostics.WarnUnusedType && strings.Contains(err.Message, "Data") {
 			t.Fatalf("Data used as Vec element type should not be reported unused: %#v", errs)
 		}
+	}
+}
+
+func TestShortImportAliasDoesNotShadowImportedFunctionParameters(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `
+package main
+import s "std/strings"
+
+func main() -> (void) {
+    var value: string = "banana"
+    var needle: string = "ana"
+    var index: int = s.lastIndexOf(&value, &needle)
+    println(index)
+}
+`
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parse errors: %v", p.Errors())
+	}
+	if warnings := prelude.InjectPrelude(program); len(warnings) > 0 {
+		t.Fatalf("prelude warnings: %v", warnings)
+	}
+
+	tc := NewWithPath(filepath.Join(t.TempDir(), "main.bak"))
+	tc.SetSuppressUnused(true)
+	if errs := tc.Check(program); len(errs) > 0 {
+		t.Fatalf("short package alias caused type errors: %v\nstructured: %#v", errs, tc.GetErrors())
 	}
 }
 

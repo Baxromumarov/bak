@@ -1,159 +1,60 @@
 {
-  "name": "Bak Dark+",
+  "name": "Bak Go Dark",
   "type": "dark",
   "semanticHighlighting": true,
   "semanticTokenColors": {
-    "keyword": "#569CD6",
+    "namespace": "#4EC9B0",
     "type": "#4EC9B0",
     "struct": "#4EC9B0",
-    "class": "#4EC9B0",
     "enum": "#4EC9B0",
+    "enumMember": "#B8D7A3",
     "function": "#DCDCAA",
     "method": "#DCDCAA",
-    "parameter": "#9CDCFE",
-    "variable": "#9CDCFE",
     "property": "#9CDCFE",
-    "namespace": "#569CD6"
+    "variable": "#9CDCFE",
+    "parameter": "#9CDCFE",
+    "keyword": "#C586C0",
+    "modifier": "#569CD6",
+    "string": "#CE9178",
+    "number": "#B5CEA8",
+    "operator": "#D4D4D4"
   },
   "colors": {
-    "editor.background": "#1E1E1E"
+    "editor.background": "#1E1E1E",
+    "editor.foreground": "#D4D4D4"
   },
   "tokenColors": [
     {
-      "scope": "source.bak",
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
+      "scope": ["comment", "punctuation.definition.comment"],
+      "settings": {"foreground": "#6A9955"}
     },
     {
-      "scope": [
-        "punctuation",
-        "punctuation.definition",
-        "punctuation.separator",
-        "punctuation.terminator",
-        "punctuation.accessor",
-        "punctuation.operator",
-        "keyword.operator",
-        "meta.delimiter",
-        "meta.brace",
-        "meta.brackets",
-        "meta.paren",
-        "source.bak punctuation",
-        "source.bak punctuation.definition",
-        "keyword.operator.bak",
-        "punctuation.bak"
-      ],
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": {"foreground": "#C586C0"}
     },
     {
-      "scope": [
-        "source.bak meta.declaration.impl",
-        "source.bak keyword.control",
-        "keyword.control.bak",
-        "meta.declaration.impl.bak",
-        "source.bak meta.declaration.package"
-      ],
-      "settings": {
-        "foreground": "#569CD6"
-      }
+      "scope": ["entity.name.namespace", "entity.name.type", "support.type", "support.class"],
+      "settings": {"foreground": "#4EC9B0"}
     },
     {
-      "scope": "keyword.control",
-      "settings": {
-        "foreground": "#569CD6"
-      }
+      "scope": ["entity.name.function", "support.function"],
+      "settings": {"foreground": "#DCDCAA"}
     },
     {
-      "scope": "entity.name.namespace",
-      "settings": {
-        "foreground": "#569CD6"
-      }
+      "scope": ["variable", "variable.parameter", "variable.other", "variable.other.property"],
+      "settings": {"foreground": "#9CDCFE"}
     },
     {
-      "scope": "entity.name.type",
-      "settings": {
-        "foreground": "#4EC9B0"
-      }
+      "scope": ["string", "constant.character.escape"],
+      "settings": {"foreground": "#CE9178"}
     },
     {
-      "scope": "entity.name.function",
-      "settings": {
-        "foreground": "#DCDCAA"
-      }
+      "scope": ["constant.numeric", "constant.language"],
+      "settings": {"foreground": "#B5CEA8"}
     },
     {
-      "scope": "variable.other",
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
-    },
-    {
-      "scope": "variable.parameter",
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
-    },
-    {
-      "scope": "support.type",
-      "settings": {
-        "foreground": "#4EC9B0"
-      }
-    },
-    {
-      "scope": "string.quoted.double",
-      "settings": {
-        "foreground": "#CE9178"
-      }
-    },
-    {
-      "scope": "keyword.control.bak",
-      "settings": {
-        "foreground": "#569CD6"
-      }
-    },
-    {
-      "scope": "entity.name.namespace.bak",
-      "settings": {
-        "foreground": "#569CD6"
-      }
-    },
-    {
-      "scope": "entity.name.type.bak",
-      "settings": {
-        "foreground": "#4EC9B0"
-      }
-    },
-    {
-      "scope": "entity.name.function.bak",
-      "settings": {
-        "foreground": "#DCDCAA"
-      }
-    },
-    {
-      "scope": "variable.other.bak",
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
-    },
-    {
-      "scope": "variable.parameter.bak",
-      "settings": {
-        "foreground": "#9CDCFE"
-      }
-    },
-    {
-      "scope": "support.type.bak",
-      "settings": {
-        "foreground": "#4EC9B0"
-      }
-    },
-    {
-      "scope": "string.quoted.double.bak",
-      "settings": {
-        "foreground": "#CE9178"
-      }
+      "scope": ["keyword.operator", "punctuation"],
+      "settings": {"foreground": "#D4D4D4"}
     }
   ]
 }

@@ -1040,20 +1040,26 @@ pub func camelCase(s: &string) -> (string) {
 
 // truncate shortens s to maxLen, appending suffix if truncated.
 pub func truncate(s: &string, maxLen: int, suffix: &string) -> (string) {
+    if maxLen <= 0 {
+        return ""
+    }
+
     if s.len() <= maxLen {
         return *s
     }
 
-    mut var endPos: int = maxLen - suffix.len()
-
-    if endPos < 0 {
-        endPos = 0
+    if suffix.len() >= maxLen {
+        return substring(
+            suffix,
+            0,
+            maxLen,
+        )
     }
 
     return substring(
         s,
         0,
-        endPos,
+        maxLen - suffix.len(),
     ) + *suffix
 }
 

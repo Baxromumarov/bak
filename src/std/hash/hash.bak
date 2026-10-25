@@ -1,5 +1,7 @@
 package hash
 
+const fnv32Mod: int = 4294967296
+
 // =============================================================================
 // Hash Functions
 // =============================================================================
@@ -37,7 +39,12 @@ pub func fnv1a(s: &string) -> (int) {
 
     while i < s.len() {
         hash = hash ^ int(s[i])
-        hash = hash * 16777619
+        hash = hash * 16777619 % fnv32Mod
+
+        if hash < 0 {
+            hash = hash + fnv32Mod
+        }
+
         i = i + 1
     }
 

@@ -3,6 +3,7 @@ package log
 import time "std/time"
 import fs "std/fs"
 import os "std/os"
+import strconv "std/strconv"
 
 pub const levelTrace: int = 5
 pub const levelDebug: int = 10
@@ -192,15 +193,21 @@ pub func kv(key: string, value: string) -> (Field) {
 }
 
 pub func kvInt(key: string, value: int) -> (Field) {
-    return Field{key: key, value: intToString(value)}
+    return Field{key: key, value: strconv.intToString(value)}
 }
 
 pub func kvBool(key: string, value: bool) -> (Field) {
-    return Field{key: key, value: boolToString(value)}
+    return Field{key: key, value: strconv.formatBool(value)}
 }
 
 pub func kvFloat(key: string, value: float64) -> (Field) {
-    return Field{key: key, value: floatToString(value)}
+    return Field{
+        key:   key,
+        value: strconv.formatFloat(
+            value,
+            6,
+        ),
+    }
 }
 
 pub func withPrefix(prefix: string, level: int) -> (Logger) {
@@ -445,95 +452,4 @@ func formatFields(fields: &Vec<Field, _>) -> (string) {
     }
 
     return out + "}}"
-}
-
-// =============================================================================
-// HELPER FUNCTIONS (Inlined from strconv to avoid cyclic imports)
-// =============================================================================
-const ch0: int = 48
-
-func intToString(n: int) -> (string) {
-    if n == 0 {
-        return "0"
-    }
-
-    mut var negative: bool = false
-    mut var num: int = n
-
-    if num < 0 {
-        negative = true
-        num = -num
-    }
-
-    mut var digits: Vec<char, _> = Vec.new()
-
-    while num > 0 {
-        var digit: int = num % 10
-
-        digits.push(char(ch0 + digit))
-        num = num / 10
-    }
-
-    mut var result: string = ""
-
-    if negative {
-        result = "-"
-    }
-
-    mut var i: int = digits.len() - 1
-
-    while i >= 0 {
-        result = result + string(digits[i])
-        i = i - 1
-    }
-
-    return result
-}
-
-func boolToString(b: bool) -> (string) {
-    if b {
-        return "true"
-    }
-
-    return "false"
-}
-
-func floatToString(f: float64) -> (string) {
-    if f != f {
-        return "NaN"
-    }
-
-    var prec: int = 6
-    mut var negative: bool = false
-    mut var value: float64 = f
-
-    if value < 0.0 {
-        negative = true
-        value = -value
-    }
-
-    var intPart: int = int(value)
-    mut var frac: float64 = value - float64(intPart)
-    mut var result: string = ""
-
-    if negative {
-        result = "-"
-    }
-
-    result = result + intToString(intPart)
-    result = result + "."
-
-    mut var i: int = 0
-
-    while i < prec {
-        frac = frac * 10.0
-
-        var digit: int = int(frac)
-
-        result = result + string(char(ch0 + digit))
-        frac = frac - float64(digit)
-        i = i + 1
-    }
-
-    return result
 }

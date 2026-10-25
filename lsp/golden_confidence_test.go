@@ -234,6 +234,54 @@ func TestCompletionDoesNotAdvertiseOptionMethods(t *testing.T) {
 	}
 }
 
+func TestCompletionGoldenStableSurfaceAndSnippets(t *testing.T) {
+	src := "package main\n"
+	uri := writeTempBakFile(t, src)
+	s := NewServer()
+	s.Documents[uri] = src
+	analyzeForTest(t, s, uri, src)
+
+	completion := s.handleCompletion(mustRequest(t, CompletionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Position:     Position{Line: 0, Character: len("package main")},
+	}))
+	labels := make([]string, 0, len(completion.Items))
+	for _, item := range completion.Items {
+		labels = append(labels, item.Label)
+	}
+	for _, want := range []string{"trace", "alias", "Result", "Vec", "HashMap"} {
+		if !containsLabel(labels, want) {
+			t.Fatalf("stable completion %q is missing: %#v", want, labels)
+		}
+	}
+	for _, forbidden := range []string{"Option", "null", "Error", "Array", "Slice", "Map", "nil", "priv", "match"} {
+		if containsLabel(labels, forbidden) {
+			t.Fatalf("completion advertises unsupported surface %q: %#v", forbidden, labels)
+		}
+	}
+
+	wantSnippets := map[string]string{
+		"func":      "func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}",
+		"pubfunc":   "pub func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}",
+		"tracefunc": "trace func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}",
+		"type":      "type ${1:Name} = ${2:Type}",
+		"alias":     "alias ${1:Name} = ${2:Type}",
+		"impl":      "impl ${1:Name} as ${2:self} {\n\tpub func ${3:name}() -> (${4:void}) {\n\t\t$0\n\t}\n}",
+	}
+	for label, want := range wantSnippets {
+		var got string
+		for _, item := range completion.Items {
+			if item.Label == label && item.Kind == 15 {
+				got = item.InsertText
+				break
+			}
+		}
+		if got != want {
+			t.Fatalf("snippet %q mismatch:\n got %q\nwant %q", label, got, want)
+		}
+	}
+}
+
 func completionLabelsAt(t *testing.T, s *Server, uri, src, needle string) []string {
 	t.Helper()
 	line, col := findLineCol(src, needle)

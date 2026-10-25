@@ -1,66 +1,29 @@
-dynamic dispatch
+# HashMap<K, V> in Bak
 
-Status note:
-- This file is a design note, not the frozen language contract.
-- Generic declarations shown here describe the supported user-defined generics syntax.
-- The normative contract is `docs/CORE_LANGUAGE_SPEC.md`.
+`HashMap<K, V>` is the supported hash-map type. The implementation lives in
+`src/std/collections/hashmap.bak`; `Map<K, V>` is not part of the stable
+language surface.
 
-# Map<K, V> in bak
+```bak
+package main
 
-## Structure
-```
-struct Map<K, V> {
-    buckets Vec<Entry<K,V>, _>
-    len int
+import hashmap "std/collections/hashmap"
+
+func main() -> (void) {
+    mut var names: hashmap.HashMap<int, string> = hashmap.newHashMap()
+    names.insert(1, "Bak")
+
+    switch names.get(1) {
+        case Ok(name) { println(name) }
+        case Err(e) { println(e) }
+    }
 }
-struct Entry<K, V> {
-    hash u64
-    key K
-    value V
-}
 ```
 
-## API
+The main methods are `insert`, `get`, `remove`, `containsKey`, `len`, and
+`isEmpty`. Lookups and removals return owned values in `Result`; there are no
+borrowed map entries in the v0.1 API.
 
-**Construction:**
-```
-var m Map<int, string> = Map.new()
-```
-
-**Insertion:**
-```
-m.insert(key, value)
-```
-
-**Lookup:**
-```
-var v = m.get(key) // Returns V? (owned value, not a borrow)
-```
-
-**Removal:**
-```
-var v = m.remove(key) // Returns V? (ownership moves out)
-```
-
-**Size:**
-```
-m.len()
-```
-
-**Contains:**
-```
-
-```
-
-## Ownership
-- All returned values are owned (no borrows, no lifetimes).
-- Simpler and safer; get_ref() can be added if borrowing is supported in the future.
-
-## Hashing
-- Hashable types must provide a free function:
-  - `func hash_int(x int) -> (u64)`
-  - `func hash_string(s string) -> (u64)`
-- The compiler links the correct hash function for each type.
-- No dynamic dispatch or vtables required.
-
-This approach is simple, explicit, and compiler-friendly.
+Hashing is supplied by the runtime for supported key types. See
+`docs/CORE_LANGUAGE_SPEC.md` for the normative language contract and
+`docs/STDLIB_STABLE_V0.1.md` for the compatibility status of the package.

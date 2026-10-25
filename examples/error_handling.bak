@@ -1,5 +1,5 @@
 // Error Handling in bak
-// No exceptions! Errors are values using Result<T, E> and Option<T>
+// No exceptions: errors and missing values use Result<T, E>.
 package main
 
 // Function that might fail
@@ -12,18 +12,18 @@ func divide(a: int, b: int) -> (Result<int, string>) {
 }
 
 // Function that might not have a value
-func findFirst(numbers: &Vec<int, _>, target: int) -> (Option<int>) {
+func findFirst(numbers: &Vec<int, _>, target: int) -> (Result<int, string>) {
     mut var i: int = 0
 
     while i < numbers.len() {
         if numbers[i] == target {
-            return Some(i)
+            return Ok(i)
         }
 
         i = i + 1
     }
 
-    return None
+    return Err("value not found")
 }
 
 func main() -> (void) {
@@ -68,7 +68,7 @@ func main() -> (void) {
         }
     }
 
-    // Using Option
+    // Result also represents an optional lookup.
     var numbers: Vec<int, _> = Vec.from(
         [
             10,
@@ -84,13 +84,13 @@ func main() -> (void) {
     )
 
     switch found {
-        case Some(idx) {
+        case Ok(idx) {
             println(
                 "Found 30 at index:",
                 idx,
             )
         }
-        case None {
+        case Err(_) {
             println("30 not found")
         }
     }
@@ -101,13 +101,13 @@ func main() -> (void) {
     )
 
     switch notFound {
-        case Some(idx) {
+        case Ok(idx) {
             println(
                 "Found 100 at index:",
                 idx,
             )
         }
-        case None {
+        case Err(_) {
             println("100 not found")
         }
     }

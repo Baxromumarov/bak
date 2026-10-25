@@ -75,15 +75,21 @@ func main() -> (void) {
     )
 
     // Pop from vector
-    var popped: Option<int> = numbers.pop()
+    var popped: Result<int, string> = numbers.pop()
 
-    if popped.is_some() {
-        println(
-            "Popped:",
-            popped.value,
-        )
-    } else {
-        println("Popped: None")
+    switch popped {
+        case Ok(value) {
+            println(
+                "Popped:",
+                value,
+            )
+        }
+        case Err(message) {
+            println(
+                "Pop failed:",
+                message,
+            )
+        }
     }
 
     println(
@@ -135,7 +141,7 @@ func main() -> (void) {
     )
     println(
         "Is Ok:",
-        success.is_ok(),
+        success.isOk(),
     )
 
     var failure: Result<int, string> = Err("Something went wrong")
@@ -146,22 +152,22 @@ func main() -> (void) {
     )
     println(
         "Is Err:",
-        failure.is_err(),
+        failure.isErr(),
     )
 
-    // Option type  
-    var maybe: Option<int> = Some(100)
+    // Result can also model optional values.
+    var maybe: Result<int, string> = Ok(100)
 
     println(
-        "Option:",
+        "Optional result:",
         maybe,
     )
     println(
         "Has value:",
-        maybe.is_some(),
+        maybe.isOk(),
     )
 
-    var nothing: Option<int> = None()
+    var nothing: Result<int, string> = Err("no value")
 
     println(
         "Nothing:",
@@ -169,7 +175,7 @@ func main() -> (void) {
     )
     println(
         "Is None:",
-        nothing.is_none(),
+        nothing.isErr(),
     )
 
     // Struct usage

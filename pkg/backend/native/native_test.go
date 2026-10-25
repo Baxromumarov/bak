@@ -498,6 +498,111 @@ func main() -> (void) {
 	}
 }
 
+func TestBuildExecutableRejectsUnsupportedConcurrencyBuiltins(t *testing.T) {
+	tests := []struct {
+		name    string
+		builtin string
+		source  string
+	}{
+		{
+			name:    "thread id",
+			builtin: "__builtin_thread_id",
+			source:  "var _id: int = __builtin_thread_id()",
+		},
+		{
+			name:    "mutex",
+			builtin: "__builtin_mutex_new",
+			source:  "var _id: int = __builtin_mutex_new()",
+		},
+		{
+			name:    "cancellation",
+			builtin: "__builtin_cancel_new",
+			source:  "var _id: int = __builtin_cancel_new()",
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			packages.GlobalRegistry.Reset()
+			t.Cleanup(packages.GlobalRegistry.Reset)
+
+			source := "package main\n\nfunc main() -> (void) {\n    " + testCase.source + "\n    return void\n}\n"
+			err := buildNativeProgramError(t, source, runtimecap.Permissions{})
+			if err == nil {
+				t.Fatalf("expected native build to reject %s", testCase.builtin)
+			}
+			if !strings.Contains(err.Error(), "does not support "+testCase.builtin) {
+				t.Fatalf("expected explicit unsupported error for %s, got %v", testCase.builtin, err)
+			}
+		})
+	}
+}
+
+func TestBuildExecutableRejectsUnsafeStringNumberShortcuts(t *testing.T) {
+	tests := []struct {
+		name    string
+		source  string
+		message string
+	}{
+		{
+			name:    "string parse int",
+			source:  `var _value: Result<int, string> = "42".parseInt()`,
+			message: "use strconv.atoi",
+		},
+		{
+			name:    "string parse float",
+			source:  `var _value: Result<float64, string> = "3.5".parseFloat()`,
+			message: "use strconv.atof",
+		},
+		{
+			name:    "int string conversion",
+			source:  `var _value: int = int("42")`,
+			message: "use strconv.atoi",
+		},
+		{
+			name:    "float string conversion",
+			source:  `var _value: float64 = float64("3.5")`,
+			message: "use strconv.atof",
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			packages.GlobalRegistry.Reset()
+			t.Cleanup(packages.GlobalRegistry.Reset)
+
+			source := "package main\n\nfunc main() -> (void) {\n    " + testCase.source + "\n    return void\n}\n"
+			err := buildNativeProgramError(t, source, runtimecap.Permissions{})
+			if err == nil {
+				t.Fatalf("expected native build to reject %s", testCase.name)
+			}
+			if !strings.Contains(err.Error(), testCase.message) {
+				t.Fatalf("expected native error to contain %q, got %v", testCase.message, err)
+			}
+		})
+	}
+}
+
+func TestNativeNumericTypeConversions(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+func main() -> (int) {
+    mut var f: float64 = float64(7)
+    f = f + 0.9
+    return int(f)
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 7 {
+		t.Fatalf("unexpected converted value: got exit %d, output:\n%s", exitCode, output)
+	}
+}
+
 func TestBuildExecutableTimeBuiltinsAreDeterministicAndRunnable(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

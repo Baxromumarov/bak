@@ -3,6 +3,11 @@ package collections
 import test "std/test"
 import hashmap "std/collections/hashmap"
 
+struct TestPoint {
+    x: int
+    y: int
+}
+
 // =============================================================================
 // HashMap<K, V> Tests - Full Coverage
 // =============================================================================
@@ -524,6 +529,24 @@ func test_hashmap_with_cap() -> (void) {
     t.finish()
 }
 
+// --- Test: Struct keys use the generic hashing path ---
+func test_hashmap_struct_key() -> (void) {
+    mut var t: test.T = test.new("test_hashmap_struct_key")
+    mut var m: hashmap.HashMap<TestPoint, string> = hashmap.newHashMap()
+    var inserted: TestPoint = TestPoint{x: 3, y: 7}
+    var equivalent: TestPoint = TestPoint{x: 3, y: 7}
+
+    m.insert(
+        inserted,
+        "point",
+    )
+    t.eqString(
+        m.get(&equivalent).unwrap(),
+        "point",
+    )
+    t.finish()
+}
+
 // --- Main for running tests directly ---
 func main() -> (void) {
     test_hashmap_new()
@@ -542,5 +565,6 @@ func main() -> (void) {
     test_hashmap_rehash()
     test_hashmap_remove_reinsert()
     test_hashmap_with_cap()
+    test_hashmap_struct_key()
     println("All HashMap tests passed!")
 }

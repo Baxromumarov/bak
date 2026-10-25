@@ -14,7 +14,7 @@ import (
 func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeExpression {
 	// Check if the object is an identifier that refers to an imported module
 	if ident, ok := fa.Object.(*ast.Identifier); ok {
-		if _, ok := tc.importedPkgPaths[ident.Value]; ok {
+		if tc.isUnshadowedImportAlias(ident.Value) {
 			tc.markImportUsed(ident.Value)
 
 			// Check if this identifier is a module alias

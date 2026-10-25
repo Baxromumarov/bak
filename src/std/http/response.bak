@@ -168,14 +168,10 @@ pub func jsonPrettyBody(status: int, body: json.Json) -> (Response) {
 }
 
 // Generic response builder with custom content type
-pub func respond(
-    status: int,
-    body: string,
-    content_type: string,
-) -> (Response) {
+pub func respond(status: int, body: string, contentType: string) -> (Response) {
     mut var headers: Vec<Header, _> = Vec.new()
 
-    headers.push(Header{name: "Content-Type", value: content_type})
+    headers.push(Header{name: "Content-Type", value: contentType})
 
     return Response{
         body:    body.bytes(),
@@ -189,11 +185,11 @@ pub func respond(
 pub func respondBytes(
     status: int,
     body: Vec<int, _>,
-    content_type: string,
+    contentType: string,
 ) -> (Response) {
     mut var headers: Vec<Header, _> = Vec.new()
 
-    headers.push(Header{name: "Content-Type", value: content_type})
+    headers.push(Header{name: "Content-Type", value: contentType})
 
     return Response{
         body:    body,
@@ -323,7 +319,7 @@ pub func parseResponse(raw: string) -> (Result<Response, string>) {
         return Err("invalid status line: missing space")
     }
 
-    var _version = statusLine.substring(
+    var version = statusLine.substring(
         0,
         firstSpace,
     )
@@ -351,7 +347,6 @@ pub func parseResponse(raw: string) -> (Result<Response, string>) {
         )
     }
 
-    mut var headers: Vec<Header, _> = Vec.from([])
     var statusCodeResult: Result<int, string> = statusCodeStr.parseInt()
 
     if !statusCodeResult.isOk() {
@@ -359,65 +354,18 @@ pub func parseResponse(raw: string) -> (Result<Response, string>) {
     }
 
     var statusCode: int = statusCodeResult.unwrap()
-    mut var current: string = headersPart
 
-    while current.len() > 0 {
-        var lineEnd = indexOf(
-            &current,
-            &lf,
-        )
-        mut var line: string = ""
-
-        if lineEnd == -1 {
-            line = current
-            current = ""
-        } else {
-            mut var trimEnd: int = lineEnd
-
-            if lineEnd > 0 && current[lineEnd - 1] == '\r' {
-                trimEnd = lineEnd - 1
-            }
-
-            line = current.substring(
-                0,
-                trimEnd,
-            )
-            current = current.substring(
-                lineEnd + 1,
-                current.len(),
-            )
-        }
-
-        if line.len() == 0 {
-            break
-        }
-
-        var colonIndex = indexOf(
-            &line,
-            &":",
-        )
-
-        if colonIndex != -1 {
-            var name = line.substring(
-                0,
-                colonIndex,
-            )
-            mut var value: string = line.substring(
-                colonIndex + 1,
-                line.len(),
-            )
-
-            if value.startsWith(" ") {
-                value = value.substring(
-                    1,
-                    value.len(),
-                )
-            }
-
-            headers.push(Header{name: name, value: value})
-        }
+    if version.len() == 0 || statusCode < 100 || statusCode > 599 {
+        return Err("invalid status line")
     }
 
+    var headersResult: Result<Vec<Header, _>, string> = parseHeaders(headersPart)
+
+    if headersResult.isErr() {
+        return Err(headersResult.unwrapErr())
+    }
+
+    var headers: Vec<Header, _> = headersResult.unwrap()
     var body: Vec<int, _> = bodyPart.bytes()
 
     return Ok(

@@ -72,6 +72,32 @@ func test_parse_int() -> (void) {
     )
 
     t.isTrue(res_bad.isErr())
+
+    var maxSource: string = "9223372036854775807"
+    var maxValue: Result<int, string> = s.parseInt(
+        &maxSource,
+        10,
+    )
+    var aboveMax: string = "9223372036854775808"
+    var belowMin: string = "-9223372036854775809"
+
+    t.isOk(maxValue)
+    t.eq(
+        maxValue.unwrap(),
+        9223372036854775807,
+    )
+    t.isErr(
+        s.parseInt(
+            &aboveMax,
+            10,
+        ),
+    )
+    t.isErr(
+        s.parseInt(
+            &belowMin,
+            10,
+        ),
+    )
     t.finish()
 }
 
@@ -99,6 +125,21 @@ func test_format_int() -> (void) {
             10,
         ),
         "-15",
+    )
+
+    var minSource: string = "-9223372036854775808"
+    var minValue: int = s.parseInt(
+        &minSource,
+        10,
+    ).unwrap(
+    )
+
+    t.eqString(
+        s.formatInt(
+            minValue,
+            10,
+        ),
+        "-9223372036854775808",
     )
     t.finish()
 }

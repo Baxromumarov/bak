@@ -1,0 +1,71 @@
+package any
+
+import dynamic "std/any"
+import test "std/test"
+
+func test_scalar_kinds_and_extraction() -> (void) {
+    mut var t: test.T = test.new("test_scalar_kinds_and_extraction")
+    var integer: dynamic.Any = dynamic.fromInt(42)
+    var text: dynamic.Any = dynamic.fromString("bak")
+    var boolean: dynamic.Any = dynamic.fromBool(true)
+    var decimal: dynamic.Any = dynamic.fromFloat(1.5)
+
+    t.isTrue(integer.isInt())
+    t.eq(
+        integer.asInt().unwrap(),
+        42,
+    )
+    t.isErr(integer.asString())
+    t.eqString(
+        integer.typeName(),
+        "int",
+    )
+    t.eqString(
+        text.asString().unwrap(),
+        "bak",
+    )
+    t.eqString(
+        text.toString(),
+        "bak",
+    )
+    t.isTrue(boolean.asBool().unwrap())
+    t.eqString(
+        boolean.toString(),
+        "true",
+    )
+    t.eqFloat(
+        decimal.asFloat().unwrap(),
+        1.5,
+    )
+    t.finish()
+}
+
+func test_array_values() -> (void) {
+    mut var t: test.T = test.new("test_array_values")
+    mut var values: Vec<dynamic.Any, _> = Vec.new()
+
+    values.push(dynamic.fromInt(1))
+    values.push(dynamic.fromString("two"))
+
+    var value: dynamic.Any = dynamic.fromArray(values)
+    var extracted: Vec<dynamic.Any, _> = value.asArray()
+
+    t.isTrue(value.isArray())
+    t.eq(
+        extracted.len(),
+        2,
+    )
+    t.eq(
+        extracted[0].asInt().unwrap(),
+        1,
+    )
+    t.eqString(
+        extracted[1].asString().unwrap(),
+        "two",
+    )
+    t.eqString(
+        value.toString(),
+        "[1, two]",
+    )
+    t.finish()
+}

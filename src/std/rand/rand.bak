@@ -93,20 +93,20 @@ pub func intN(n: int) -> (int) {
         panic "rand.intN: n must be positive"
     }
 
-    // Use rejection sampling to avoid modulo bias
-    mut var r: int = next_raw()
+    // Use rejection sampling to avoid modulo bias. nextInt produces an even
+    // distribution over the non-negative signed integer range.
+    const maxPositive: int = 9223372036854775807
+    var limit: int = maxPositive - maxPositive % n
 
-    // Make positive
-    if r < 0 {
-        r = -r
+    while true {
+        var r: int = nextInt()
+
+        if r < limit {
+            return r % n
+        }
     }
 
-    if r < 0 {
-        // Handle int min (still negative after negation)
-        r = 0
-    }
-
-    return r % n
+    return 0
 }
 
 // intRange returns a random integer in [min, max].
@@ -119,7 +119,21 @@ pub func intRange(min: int, max: int) -> (int) {
         return min
     }
 
-    return min + intN(max - min + 1)
+    const maxPositive: int = 9223372036854775807
+    var span: int = max - min
+
+    if span < 0 {
+        panic "rand.intRange: range is too wide"
+    }
+
+    // span + 1 overflows for every interval with 2^63 possible values. The
+    // non-negative generator already covers exactly that range, so avoid the
+    // overflowing bound calculation.
+    if span == maxPositive {
+        return min + nextInt()
+    }
+
+    return min + intN(span + 1)
 }
 
 // nextInt returns a random non-negative integer.
@@ -188,7 +202,7 @@ pub func shuffleStrings(arr: &mut Vec<string, _>) -> (void) {
 pub func nextFloat() -> (float64) {
     mut var r: int = next_raw()
 
-    // To get 53 bits of precision, right shift by 11.
+    // The sign-normalized value has 63 random bits. Keep its top 53 bits.
     if r < 0 {
         r = -r
     }
@@ -197,7 +211,7 @@ pub func nextFloat() -> (float64) {
         r = 0
     }
 
-    var res: int = r >> 11
+    var res: int = r >> 10
 
     return float64(res) / 9007199254740992.0
 }

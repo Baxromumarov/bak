@@ -18,8 +18,6 @@ func (s *EmitState) emitRuntimeStubs() {
 	s.emitRuntimeStartsWith()
 	s.emitRuntimeEndsWith()
 	s.emitRuntimeItoa()
-	s.emitRuntimeAtoi()
-	s.emitRuntimeStringFromBytes()
 	s.emitRuntimeStringFromBytes()
 	s.emitRuntimeCString()
 	s.emitRuntimeReadFile()
@@ -931,7 +929,8 @@ func (s *EmitState) emitRuntimeItoa() {
 	emitPushReg(&s.Code, R14)
 	emitPushReg(&s.Code, R15)
 
-	// r12 = original value, r13 = is_negative
+	// r12 = value, r13 = is_negative. Keep negative values negative while
+	// extracting digits: negating MinInt would overflow.
 	emitMovRegReg(&s.Code, R12, RDI)
 	emitXorRegReg(&s.Code, R13, R13) // is_negative = 0
 
@@ -940,9 +939,9 @@ func (s *EmitState) emitRuntimeItoa() {
 	jnsPos := len(s.Code)
 	s.Code = append(s.Code, 0x79, 0) // jns (jump if not sign/positive)
 
-	// Negative: set is_negative = 1, negate value
+	// Negative: record its sign. The signed division loop below handles the
+	// negative magnitude without ever negating the value.
 	emitMovRegImm32(&s.Code, R13, 1)
-	emitNegReg(&s.Code, R12) // r12 = -r12
 
 	notNegPos := len(s.Code)
 	s.Code[jnsPos+1] = byte(notNegPos - jnsPos - 2)
@@ -968,17 +967,25 @@ func (s *EmitState) emitRuntimeItoa() {
 	loopStart := len(s.Code)
 	patchRel32(&s.Code, jnzLoop+2, loopStart)
 
-	// while (r12 > 0)
+	// while (r12 != 0)
 	emitTestRegReg(&s.Code, R12, R12)
 	jzEnd := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz end
 
 	// digit = r12 % 10
-	emitXorRegReg(&s.Code, RDX, RDX)
 	emitMovRegReg(&s.Code, RAX, R12)
 	emitMovRegImm32(&s.Code, RCX, 10)
+	emitCqo(&s.Code)
 	emitIdivReg(&s.Code, RCX) // rax = quotient, rdx = remainder
 	emitMovRegReg(&s.Code, R12, RAX)
+	// Remainders from signed division retain the dividend's sign. Make each
+	// negative digit positive individually; this is also safe for MinInt.
+	emitTestRegReg(&s.Code, R13, R13)
+	jzPositiveDigit := len(s.Code)
+	s.Code = append(s.Code, 0x74, 0) // jz positive_digit
+	emitNegReg(&s.Code, RDX)
+	positiveDigitPos := len(s.Code)
+	s.Code[jzPositiveDigit+1] = byte(positiveDigitPos - jzPositiveDigit - 2)
 	// Store digit as ASCII
 	emitAddRegImm32(&s.Code, RDX, int32('0'))
 	emitSubRegImm8(&s.Code, R15, 1)
@@ -1051,110 +1058,6 @@ func (s *EmitState) emitRuntimeItoa() {
 
 	// Result is in RAX (header pointer)
 	emitPopReg(&s.Code, R15)
-	emitPopReg(&s.Code, R14)
-	emitPopReg(&s.Code, R13)
-	emitPopReg(&s.Code, R12)
-
-	emitMovRegReg(&s.Code, RSP, RBP)
-	emitPopReg(&s.Code, RBP)
-	emitRet(&s.Code)
-}
-
-// emitRuntimeAtoi: __rt_atoi(str_header: rdi) -> rax (integer)
-// Parses a string to an integer.
-func (s *EmitState) emitRuntimeAtoi() {
-	s.addRuntimeFunc("__rt_atoi", 1)
-	emitPushReg(&s.Code, RBP)
-	emitMovRegReg(&s.Code, RBP, RSP)
-
-	// Save callee-saved registers
-	emitPushReg(&s.Code, R12)
-	emitPushReg(&s.Code, R13)
-	emitPushReg(&s.Code, R14)
-
-	// r12 = string ptr, r13 = length, r14 = result
-	emitMovRegMem(&s.Code, R12, RDI)            // r12 = str.ptr
-	emitMovRegMemBaseDisp(&s.Code, R13, RDI, 8) // r13 = str.len
-	emitXorRegReg(&s.Code, R14, R14)            // result = 0
-
-	// Check for empty string
-	emitTestRegReg(&s.Code, R13, R13)
-	jzEmpty := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz return_zero
-
-	// RCX = index, RDX = is_negative
-	emitXorRegReg(&s.Code, RCX, RCX) // index = 0
-	emitXorRegReg(&s.Code, RDX, RDX) // is_negative = 0
-
-	// Check for leading '-'
-	emitMovzxRaxMem8BaseDisp(&s.Code, R12, 0) // first char
-	emitCmpRegImm32(&s.Code, RAX, int32('-'))
-	jneNotNeg := len(s.Code)
-	s.Code = append(s.Code, 0x75, 0) // jne skip_neg
-	emitMovRegImm32(&s.Code, RDX, 1) // is_negative = 1
-	emitAddRegImm32(&s.Code, RCX, 1) // index++
-	skipNegPos := len(s.Code)
-	s.Code[jneNotNeg+1] = byte(skipNegPos - jneNotNeg - 2)
-
-	// Save is_negative to stack
-	emitPushReg(&s.Code, RDX)
-
-	// Parse loop
-	loopStart := len(s.Code)
-	emitCmpRegReg(&s.Code, RCX, R13)
-	jgeEnd := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x8D, 0, 0, 0, 0) // jge end
-
-	// Get digit
-	emitMovzxRaxMem8BaseIdx(&s.Code, R12, RCX) // rax = str[index]
-	emitSubRegImm32(&s.Code, RAX, int32('0'))
-
-	// Check if valid digit (0-9)
-	emitCmpRegImm32(&s.Code, RAX, 9)
-	jaDone := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x87, 0, 0, 0, 0) // ja end (unsigned >9)
-
-	// result = result * 10 + digit
-	emitPushReg(&s.Code, RAX) // save digit
-	emitMovRegReg(&s.Code, RAX, R14)
-	emitMovRegImm32(&s.Code, RDI, 10)
-	emitImulRegReg(&s.Code, RAX, RDI) // rax = result * 10
-	emitPopReg(&s.Code, RDI)          // digit
-	emitAddRegReg(&s.Code, RAX, RDI)  // rax = result * 10 + digit
-	emitMovRegReg(&s.Code, R14, RAX)
-
-	// index++
-	emitAddRegImm32(&s.Code, RCX, 1)
-	jmpLoop := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp loopStart
-	patchRel32(&s.Code, jmpLoop+1, loopStart)
-
-	// End of loop
-	endPos := len(s.Code)
-	patchRel32(&s.Code, jgeEnd+2, endPos)
-	patchRel32(&s.Code, jaDone+2, endPos)
-
-	// Check if negative
-	emitPopReg(&s.Code, RDX) // is_negative
-	emitTestRegReg(&s.Code, RDX, RDX)
-	jzNotNeg := len(s.Code)
-	s.Code = append(s.Code, 0x74, 0) // jz skip_negate
-	emitNegReg(&s.Code, R14)
-	skipNegatePos := len(s.Code)
-	s.Code[jzNotNeg+1] = byte(skipNegatePos - jzNotNeg - 2)
-
-	emitMovRegReg(&s.Code, RAX, R14)
-	jmpDone := len(s.Code)
-	s.Code = append(s.Code, 0xEB, 0) // jmp done
-
-	// Return zero for empty string
-	emptyPos := len(s.Code)
-	patchRel32(&s.Code, jzEmpty+2, emptyPos)
-	emitXorRegReg(&s.Code, RAX, RAX)
-
-	donePos := len(s.Code)
-	s.Code[jmpDone+1] = byte(donePos - jmpDone - 2)
-
 	emitPopReg(&s.Code, R14)
 	emitPopReg(&s.Code, R13)
 	emitPopReg(&s.Code, R12)

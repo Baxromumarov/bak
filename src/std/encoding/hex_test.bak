@@ -1,0 +1,67 @@
+package hex
+
+import hex "std/encoding/hex"
+import test "std/test"
+
+func test_string_round_trip() -> (void) {
+    mut var t: test.T = test.new("test_string_round_trip")
+    var input: string = "Bak 0.1"
+
+    t.eqString(
+        hex.encode(&input),
+        "42616b20302e31",
+    )
+    t.eqString(
+        hex.encodeUpper(&input),
+        "42616B20302E31",
+    )
+
+    var encoded: string = "42616b20302e31"
+    var decoded: Result<string, string> = hex.decode(&encoded)
+
+    t.isOk(decoded)
+
+    if decoded.isOk() {
+        t.eqString(
+            decoded.unwrap(),
+            input,
+        )
+    }
+
+    t.finish()
+}
+
+func test_validation_and_integers() -> (void) {
+    mut var t: test.T = test.new("test_validation_and_integers")
+    var valid: string = "00ffA1"
+    var odd: string = "abc"
+    var invalid: string = "0g"
+
+    t.isTrue(hex.isValidHex(&valid))
+    t.isFalse(hex.isValidHex(&odd))
+    t.isFalse(hex.isValidHex(&invalid))
+    t.isErr(hex.decode(&odd))
+    t.isErr(hex.decode(&invalid))
+    t.eqString(
+        hex.encodeInt(255),
+        "ff",
+    )
+    t.eqString(
+        hex.encodeInt(-255),
+        "-ff",
+    )
+
+    var negative: string = "-ff"
+    var decoded: Result<int, string> = hex.decodeInt(&negative)
+
+    t.isOk(decoded)
+
+    if decoded.isOk() {
+        t.eq(
+            decoded.unwrap(),
+            -255,
+        )
+    }
+
+    t.finish()
+}

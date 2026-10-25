@@ -251,18 +251,18 @@ pub func withoutExt(p: &string) -> (string) {
     return d + separator + s
 }
 
-pub func withExt(p: &string, new_ext: &string) -> (string) {
+pub func withExt(p: &string, newExt: &string) -> (string) {
     var root: string = withoutExt(p)
 
-    if new_ext.len() == 0 {
+    if newExt.len() == 0 {
         return root
     }
 
-    if new_ext[0] == '.' {
-        return root + *new_ext
+    if newExt[0] == '.' {
+        return root + *newExt
     }
 
-    return root + "." + *new_ext
+    return root + "." + *newExt
 }
 
 pub func split(p: &string) -> (Split) {

@@ -145,22 +145,29 @@ func (s *EmitState) emitTypeConversion(e *ast.TypeConversion) error {
 		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_itoa"})
 		return nil
 	case "int":
-		// int(string) - parse string to int
-		// int(char) - char code
+		if s.isStringExpression(e.Value) {
+			return fmt.Errorf("native backend does not support int(string); use strconv.atoi")
+		}
+
 		if err := s.emitExpression(e.Value); err != nil {
 			return err
 		}
-		// Only strings need parsing; chars/ints are already numeric
-		if s.isStringExpression(e.Value) {
-			emitMovRegReg(&s.Code, RDI, RAX)
-			callSite := emitCallRel32(&s.Code, 0)
-			s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "__rt_atoi"})
+		if s.isFloatExpression(e.Value) {
+			emitMovqXmmReg(&s.Code, XMM0, RAX)
+			emitCvttsd2si(&s.Code, RAX, XMM0)
 		}
 		return nil
-	case "float", "float64":
-		// For now, minimal float support - just return 0
+	case "float", "float32", "float64":
+		if s.isStringExpression(e.Value) {
+			return fmt.Errorf("native backend does not support float(string); use strconv.atof")
+		}
+
 		if err := s.emitExpression(e.Value); err != nil {
 			return err
+		}
+		if !s.isFloatExpression(e.Value) {
+			emitCvtsi2sd(&s.Code, XMM0, RAX)
+			emitMovqRegXmm(&s.Code, RAX, XMM0)
 		}
 		return nil
 	case "bool":

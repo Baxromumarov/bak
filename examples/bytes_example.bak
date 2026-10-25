@@ -1,65 +1,59 @@
-// NOTE: This example needs updating for the current bak API and may not compile.
 package main
 
 import bytes "std/bytes"
+import byteTypes "std/bytes/types"
 
 func main() -> (void) {
-    // create bytes from string
-    var b: bytes.Bytes = bytes.from_string("hello world")
-
-    println(
-        "len=",
-        b.len(),
+    mut var buffer: byteTypes.Bytes = bytes.fromString("hello world")
+    // Mutate before taking shared borrows; Bak v0.1 borrows are lexical.
+    var setResult: Result<void, string> = bytes.set(
+        &mut buffer,
+        6,
+        int('B'),
     )
 
-    // immutable view
-    var vRes = bytes.view(
-        &b,
-        0,
-        5,
-    )
-
-    switch vRes {
-        case Ok(v) {
-            println(
-                "view len=",
-                bytes.view_len(&v),
-            )
-        }
-        case Err(e) {
-            println(
-                "view error:",
-                e,
-            )
-        }
+    if setResult.isErr() {
+        println(
+            "set error:",
+            setResult.unwrapErr(),
+        )
     }
 
-    // mutable view
-    var mvRes = bytes.view_mut(
-        &mut b,
-        6,
-        5,
+    println(
+        "len:",
+        bytes.length(&buffer),
     )
 
-    switch mvRes {
-        case Ok(mut mv) {
-            bytes.view_mut_set(
-                &mut mv,
-                0,
-                int('B'),
+    switch bytes.view(
+        &buffer,
+        0,
+        5,
+    ) {
+        case Ok(view) {
+            println(
+                "view len:",
+                bytes.viewLength(&view),
+            )
+            println(
+                "first byte:",
+                bytes.viewGet(
+                    &view,
+                    0,
+                ).unwrap(
+                ),
             )
         }
-        case Err(e) {
+        case Err(message) {
             println(
-                "view_mut error:",
-                e,
+                "view error:",
+                message,
             )
         }
     }
 
     println(
         "as string:",
-        bytes.to_string(&b),
+        bytes.toString(&buffer),
     )
 
     return void

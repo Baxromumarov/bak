@@ -29,7 +29,7 @@ Bak is operating under a frozen `v0.1` language line.
 
 - Comments: `//` single-line, `/* ... */` block.
 - Identifiers: ASCII letters, digits, `_`, not starting with a digit.
-- Keywords: `package`, `import`, `pub`, `func`, `mut`, `var`, `const`, `struct`, `enum`, `impl`, `return`, `switch`, `case`, `break`, `continue`, `if`, `else`, `Result`, `Ok`, `Err`, `panic`, `defer`.
+- Keywords include declarations (`package`, `import`, `pub`, `func`, `trace`, `var`, `const`, `struct`, `enum`, `impl`, `type`, `alias`), control flow (`if`, `else`, `while`, `for`, `in`, `switch`, `case`, `default`, `break`, `continue`, `return`, `try`, `defer`, `panic`, `unsafe`), and `Result` constructors (`Ok`, `Err`).
 - Literals: integers (`123`), floats (`1.5`), char `'a'`, string `"hello"`, bool `true`/`false`.
 
 ## File Structure & Packages
@@ -58,10 +58,10 @@ func main() -> (void) {
 
 ## Types
 
-- Primitive: `int`, `int32`, `int64`, `float32`, `float64`, `bool`, `char`, `string`.
+- Primitive: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`, `byte`, `float32`, `float64`, `bool`, `char`, `string`, `any`, and `void`.
 - Structs and enums are the primary composite types.
 - `Result<T, E>` is used for optional and fallible results.
-- Type aliases: `type Name = string`.
+- Named types use `type Name = string`; transparent aliases use `alias Name = string`.
 
 ## Variables & Mutability
 
@@ -205,7 +205,7 @@ Selected std packages and examples:
 - `path` / `filepath`: path utilities. Example: `examples/path_example.bak`.
 - `crypto`: FNV-1a hash + RNG. Example: `examples/crypto_example.bak`.
 - `encoding/json`: JSON build/parse + pretty printing. Example: `examples/json_example.bak`.
-- `http`: client + server helpers. Examples: `examples/http_client_example.bak`, `examples/http_server_example.bak`.
+- `http`: request/response parsing and server helpers. Examples: `examples/http_client_example.bak`, `examples/http_server_example.bak`.
 - `log`: colorful, configurable logging. Example: `examples/log_example.bak`.
 
 ## Collections

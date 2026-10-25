@@ -3,6 +3,11 @@
     "lineComment": "//",
     "blockComment": ["/*", "*/"]
   },
+  "wordPattern": "(-?\\d*\\.\\d\\w*)|([^`~!@#%^&*()\\-=+\\[{\\]}\\\\|;:'\",.<>/?\\s]+)",
+  "indentationRules": {
+    "increaseIndentPattern": "^.*\\{\\s*$",
+    "decreaseIndentPattern": "^\\s*\\}"
+  },
   "brackets": [
     ["{", "}"],
     ["[", "]"],

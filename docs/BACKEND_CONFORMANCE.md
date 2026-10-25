@@ -17,6 +17,7 @@ The following areas must behave the same across VM and native where native suppo
 - `Result<T, E>` construction and switching,
 - `Vec<T, _>` operations covered by parity tests,
 - string accessors and formatting behavior covered by parity tests,
+- `strconv` integer parsing and formatting, including signed 64-bit bounds,
 - runtime permission rejection for dangerous builtins.
 
 Backend divergence on these areas is a bug.
@@ -40,6 +41,9 @@ Native may reject or return an explicit `Err(...)` for APIs that are not yet imp
 - socket/network builtins,
 - interactive input helpers,
 - threading or synchronization features not covered by parity tests.
+- the convenience `string.parseInt()` and `string.parseFloat()` methods, plus
+  `int(string)` and `float(string)` conversion shortcuts. Native builds reject
+  these explicitly; import `std/strconv` and use `atoi` or `atof`.
 
 When native rejects a program, the error should be direct and mention the unsupported builtin or required permission.
 

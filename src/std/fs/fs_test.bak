@@ -1,0 +1,63 @@
+package fs
+
+import fs "std/fs"
+import test "std/test"
+
+func test_path_helpers_delegate_to_canonical_path_rules() -> (void) {
+    mut var t: test.T = test.new("test_path_helpers_delegate_to_canonical_path_rules")
+
+    t.eqString(
+        fs.join(
+            "a/./b",
+            "../c",
+        ),
+        "a/c",
+    )
+    t.eqString(
+        fs.join(
+            "a",
+            "/b",
+        ),
+        "/b",
+    )
+    t.eqString(
+        fs.base("/a/b/"),
+        "b",
+    )
+    t.eqString(
+        fs.dir("/a/b/"),
+        "/a",
+    )
+    t.eqString(
+        fs.ext("/a.with-dot/file.txt"),
+        ".txt",
+    )
+    t.eqString(
+        fs.ext("/a.with-dot/file"),
+        "",
+    )
+    t.eqString(
+        fs.ext(".bashrc"),
+        "",
+    )
+    t.finish()
+}
+
+func test_join_parts() -> (void) {
+    mut var t: test.T = test.new("test_join_parts")
+    var parts: Vec<string, _> = Vec.from(
+        [
+            "a",
+            ".",
+            "b",
+            "..",
+            "c",
+        ],
+    )
+
+    t.eqString(
+        fs.joinParts(parts),
+        "a/c",
+    )
+    t.finish()
+}

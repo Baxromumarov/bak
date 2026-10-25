@@ -80,22 +80,22 @@ pub func prompt(message: string) -> (Result<string, string>) {
 }
 
 // promptDefault prompts with a default value shown
-pub func promptDefault(message: string, default_val: string) -> (string) {
+pub func promptDefault(message: string, defaultVal: string) -> (string) {
     __builtin_print(message)
     __builtin_print(" [")
-    __builtin_print(default_val)
+    __builtin_print(defaultVal)
     __builtin_print("]: ")
 
     switch __builtin_read_line() {
         case Ok(line) {
             if line.len() == 0 {
-                return default_val
+                return defaultVal
             }
 
             return line
         }
         case Err(_) {
-            return default_val
+            return defaultVal
         }
     }
 }
@@ -121,7 +121,7 @@ pub func newReader(data: string) -> (Reader) {
 impl Reader as r {
     // read reads up to count characters and returns them
     pub mut func read(count: int) -> (string) {
-        if r.pos >= r.len {
+        if count <= 0 || r.pos >= r.len {
             return ""
         }
 
@@ -165,10 +165,16 @@ impl Reader as r {
             end = end + 1
         }
 
+        mut var lineEnd: int = end
+
+        if lineEnd > r.pos && r.data[lineEnd - 1] == '\r' {
+            lineEnd = lineEnd - 1
+        }
+
         var line: string = substring(
             &r.data,
             r.pos,
-            end,
+            lineEnd,
         )
 
         r.pos = end
@@ -205,6 +211,10 @@ impl Reader as r {
     }
     // skip advances the position by count characters
     pub mut func skip(count: int) -> (int) {
+        if count <= 0 || r.pos >= r.len {
+            return 0
+        }
+
         mut var skipped: int = count
 
         if r.pos + count > r.len {

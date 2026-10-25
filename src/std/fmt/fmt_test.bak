@@ -1,0 +1,97 @@
+package fmt
+
+import fmt "std/fmt"
+import test "std/test"
+
+func test_format_helpers() -> (void) {
+    mut var t: test.T = test.new("test_format_helpers")
+
+    t.eqString(
+        fmt.format1(
+            "hello {}",
+            "Bak",
+        ),
+        "hello Bak",
+    )
+    t.eqString(
+        fmt.format2(
+            "{} + {}",
+            "a",
+            "b",
+        ),
+        "a + b",
+    )
+    t.eqString(
+        fmt.format4(
+            "{}{}{}{}",
+            "B",
+            "a",
+            "k",
+            "!",
+        ),
+        "Bak!",
+    )
+    t.eqString(
+        fmt.sprintf2int(
+            "{}:{}",
+            4,
+            2,
+        ),
+        "4:2",
+    )
+    t.eqString(
+        fmt.format1(
+            "{} {}",
+            "one",
+        ),
+        "one {{}}",
+    )
+    t.finish()
+}
+
+func test_builder_and_padding() -> (void) {
+    mut var t: test.T = test.new("test_builder_and_padding")
+    mut var builder: fmt.StringBuilder = fmt.newBuilder()
+
+    builder.write("Bak")
+    builder.writeChar(' ')
+    builder.writeInt(1)
+    builder.writeBool(true)
+    t.eqString(
+        builder.build(),
+        "Bak 1true",
+    )
+    t.eq(
+        builder.len(),
+        9,
+    )
+    builder.clear()
+    t.eq(
+        builder.len(),
+        0,
+    )
+    t.eqString(
+        fmt.repeat(
+            "ab",
+            3,
+        ),
+        "ababab",
+    )
+    t.eqString(
+        fmt.padLeft(
+            "7",
+            3,
+            "0",
+        ),
+        "007",
+    )
+    t.eqString(
+        fmt.padRight(
+            "7",
+            3,
+            "0",
+        ),
+        "700",
+    )
+    t.finish()
+}

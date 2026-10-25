@@ -22,7 +22,6 @@ func clone_ref_string(path: &string) -> (string) {
 // readFile reads the entire contents of a file.
 // Returns the content as a string, or an error message
 pub func readFile(path: string) -> (Result<string, string>) {
-    // Note: This is a stub that will be backed by builtins at runtime
     return __builtin_read_file(path)
 }
 
@@ -117,21 +116,10 @@ pub struct DirEntry {
 
 // join joins path components
 pub func join(base: string, elem: string) -> (string) {
-    mut var result: string = ""
-
-    if base.len() == 0 {
-        result = elem
-    } else {
-        var lastChar: char = base[base.len() - 1]
-
-        if lastChar == char('/') {
-            result = base + elem
-        } else {
-            result = base + "/" + elem
-        }
-    }
-
-    return result
+    return path.join(
+        base,
+        elem,
+    )
 }
 
 // joinParts joins path components and normalizes the final path.
@@ -140,70 +128,18 @@ pub func joinParts(parts: Vec<string, _>) -> (string) {
 }
 
 // ext returns the file extension (including the dot)
-pub func ext(path: string) -> (string) {
-    mut var dotIndex: int = -1
-
-    for i in 0..path.len() {
-        if path[i] == char('.') {
-            dotIndex = i
-        }
-    }
-
-    if dotIndex == -1 {
-        return ""
-    }
-
-    return substring(
-        &path,
-        dotIndex,
-        path.len(),
-    )
+pub func ext(p: string) -> (string) {
+    return path.ext(&p)
 }
 
 // base returns the last element of the path
-pub func base(path: string) -> (string) {
-    mut var lastSlash: int = -1
-
-    for i in 0..path.len() {
-        if path[i] == char('/') {
-            lastSlash = i
-        }
-    }
-
-    mut var result: string = path
-
-    if lastSlash != -1 {
-        result = substring(
-            &path,
-            lastSlash + 1,
-            path.len(),
-        )
-    }
-
-    return result
+pub func base(p: string) -> (string) {
+    return path.base(&p)
 }
 
 // dir returns all but the last element of the path
-pub func dir(path: string) -> (string) {
-    mut var lastSlash: int = -1
-
-    for i in 0..path.len() {
-        if path[i] == char('/') {
-            lastSlash = i
-        }
-    }
-
-    mut var result: string = "."
-
-    if lastSlash != -1 {
-        result = substring(
-            &path,
-            0,
-            lastSlash,
-        )
-    }
-
-    return result
+pub func dir(p: string) -> (string) {
+    return path.dir(&p)
 }
 
 // ensureDir creates a directory if it does not exist.
@@ -277,15 +213,4 @@ pub func writeIfChanged(
             return Err(err)
         }
     }
-}
-
-// substring returns a substring from start to end (exclusive)
-func substring(s: &string, start: int, end: int) -> (string) {
-    mut var result: string = ""
-
-    for i in start..end {
-        result = result + string(char(s[i]))
-    }
-
-    return result
 }

@@ -262,9 +262,10 @@ func canonicalStdImportPath(path string) (string, bool) {
 	default:
 		return "", false
 	}
+	hasFileSuffix := strings.HasSuffix(rel, ".bak")
 	rel = strings.TrimSuffix(rel, ".bak")
 	parts := strings.Split(rel, "/")
-	if len(parts) >= 3 && parts[len(parts)-1] == parts[len(parts)-2] {
+	if hasFileSuffix && len(parts) >= 3 && parts[len(parts)-1] == parts[len(parts)-2] {
 		parts = parts[:len(parts)-1]
 	}
 	return strings.Join(parts, "/"), true
@@ -295,6 +296,7 @@ func (r *PublicAPIStyleRule) checkStatement(stmt ast.Statement) []Finding {
 	case *ast.FunctionDecl:
 		if s.Visibility == ast.Public {
 			findings = append(findings, publicAPIFinding("function", s.Name, isCamelCase, "camelCase")...)
+			findings = append(findings, publicParameterFindings(s.Parameters)...)
 		}
 	case *ast.StructDecl:
 		if s.Visibility == ast.Public {
@@ -334,8 +336,33 @@ func (r *PublicAPIStyleRule) checkStatement(stmt ast.Statement) []Finding {
 		for _, method := range s.Methods {
 			if method.Visibility == ast.Public {
 				findings = append(findings, publicAPIFinding("method", method.Name, isCamelCase, "camelCase")...)
+				findings = append(findings, publicParameterFindings(method.Parameters)...)
 			}
 		}
+	}
+	return findings
+}
+
+func publicParameterFindings(parameters []*ast.Parameter) []Finding {
+	var findings []Finding
+	for _, parameter := range parameters {
+		if parameter == nil || parameter.Name == nil || parameter.Name.Value == "_" {
+			continue
+		}
+		name := strings.TrimPrefix(parameter.Name.Value, "_")
+		if isCamelCase(name) {
+			continue
+		}
+		findings = append(findings, Finding{
+			Rule:  "public-api-style",
+			Level: "warning",
+			Message: strfmt.Named(
+				"public parameter '{name}' should be camelCase",
+				"name", parameter.Name.Value,
+			),
+			Line:   parameter.Name.Token.Line,
+			Column: parameter.Name.Token.Column,
+		})
 	}
 	return findings
 }

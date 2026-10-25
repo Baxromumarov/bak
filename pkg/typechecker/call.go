@@ -58,7 +58,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 	}
 
 	mc := &ast.MethodCallExpression{
-		NodeBase:  ast.NodeBase{Token: ce.Token},
+		Token:     ce.Token,
 		Object:    fa2.Object,
 		Method:    fa2.Field,
 		Arguments: ce.Arguments,
@@ -310,99 +310,99 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 	} else if fa, ok := ce.Function.(*ast.FieldAccessExpression); ok {
 		// Handle module function calls (module.funcName())
 		if modIdent, ok := fa.Object.(*ast.Identifier); ok {
-			if _, ok := tc.importedPkgPaths[modIdent.Value]; ok {
+			if tc.isUnshadowedImportAlias(modIdent.Value) {
 				tc.markImportUsed(modIdent.Value)
-			}
-			if modIdent.Value == "thread" && fa.Field.Value == "spawn" {
-				if len(ce.Arguments) < 1 {
-					tc.addError(ce.Token.Line, ce.Token.Column, "spawn requires at least a function argument")
+				if modIdent.Value == "thread" && fa.Field.Value == "spawn" {
+					if len(ce.Arguments) < 1 {
+						tc.addError(ce.Token.Line, ce.Token.Column, "spawn requires at least a function argument")
+						return &ast.SimpleType{Name: "thread.Thread"}
+					}
+					// Check function argument
+					fnType := tc.inferType(ce.Arguments[0])
+					if ft, ok := fnType.(*ast.FunctionType); ok {
+						if len(ce.Arguments)-1 != len(ft.Params) {
+							tc.addError(ce.Token.Line, ce.Token.Column, "spawn argument count mismatch")
+						} else {
+							for i, paramType := range ft.Params {
+								arg := ce.Arguments[i+1]
+								argType := tc.inferType(arg)
+								if !tc.callArgumentFitsInType(paramType, argType, arg) {
+									tc.addError(
+										ce.Token.Line,
+										ce.Token.Column,
+										strfmt.Named(
+											"type mismatch in spawn argument {argIndex}: expected {expected}, got {got}",
+											"argIndex", i+1,
+											"expected", typeToString(paramType),
+											"got", typeToString(argType),
+										))
+								}
+								// Enforce move semantics for spawn arguments
+								if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
+									tc.trackMoveFromExpression(arg, ce.Pos(), MovedByCall, "thread.spawn")
+								}
+							}
+						}
+					} else {
+						tc.addError(ce.Token.Line, ce.Token.Column, "spawn expects a function as first argument")
+					}
+					// Mark the function as used
+					if ident, ok := ce.Arguments[0].(*ast.Identifier); ok {
+						tc.env.MarkUsed(ident.Value)
+					}
+					// Clear temporary mutable borrows created by &mut arguments
+					tc.clearBorrows(ce.Arguments)
 					return &ast.SimpleType{Name: "thread.Thread"}
 				}
-				// Check function argument
-				fnType := tc.inferType(ce.Arguments[0])
-				if ft, ok := fnType.(*ast.FunctionType); ok {
-					if len(ce.Arguments)-1 != len(ft.Params) {
-						tc.addError(ce.Token.Line, ce.Token.Column, "spawn argument count mismatch")
-					} else {
-						for i, paramType := range ft.Params {
-							arg := ce.Arguments[i+1]
-							argType := tc.inferType(arg)
-							if !tc.callArgumentFitsInType(paramType, argType, arg) {
-								tc.addError(
-									ce.Token.Line,
-									ce.Token.Column,
-									strfmt.Named(
-										"type mismatch in spawn argument {argIndex}: expected {expected}, got {got}",
-										"argIndex", i+1,
-										"expected", typeToString(paramType),
-										"got", typeToString(argType),
-									))
-							}
-							// Enforce move semantics for spawn arguments
-							if _, isBorrow := paramType.(*ast.BorrowType); !isBorrow {
-								tc.trackMoveFromExpression(arg, ce.Pos(), MovedByCall, "thread.spawn")
-							}
+				if symbols, exists := tc.importedSymbols[modIdent.Value]; exists {
+					methodName := fa.Field.Value
+					canonicalMethod := methodName
+					if canonicalMethod != methodName {
+						if _, ok := symbols[canonicalMethod]; ok {
+							methodName = canonicalMethod
 						}
 					}
-				} else {
-					tc.addError(ce.Token.Line, ce.Token.Column, "spawn expects a function as first argument")
-				}
-				// Mark the function as used
-				if ident, ok := ce.Arguments[0].(*ast.Identifier); ok {
-					tc.env.MarkUsed(ident.Value)
-				}
-				// Clear temporary mutable borrows created by &mut arguments
-				tc.clearBorrows(ce.Arguments)
-				return &ast.SimpleType{Name: "thread.Thread"}
-			}
-			if symbols, exists := tc.importedSymbols[modIdent.Value]; exists {
-				methodName := fa.Field.Value
-				canonicalMethod := methodName
-				if canonicalMethod != methodName {
-					if _, ok := symbols[canonicalMethod]; ok {
-						methodName = canonicalMethod
-					}
-				}
-				if sym, found := symbols[methodName]; found {
+					if sym, found := symbols[methodName]; found {
 
-					switch sym.Kind {
-					case packages.SymbolFunc:
-						// Extract function signature from the FunctionDecl node
-						if funcDecl, ok := sym.Node.(*ast.FunctionDecl); ok {
-							params := make([]ast.TypeExpression, len(funcDecl.Parameters))
-							for i, p := range funcDecl.Parameters {
-								params[i] = qualifyImportedType(p.Type, modIdent.Value, symbols)
+						switch sym.Kind {
+						case packages.SymbolFunc:
+							// Extract function signature from the FunctionDecl node
+							if funcDecl, ok := sym.Node.(*ast.FunctionDecl); ok {
+								params := make([]ast.TypeExpression, len(funcDecl.Parameters))
+								for i, p := range funcDecl.Parameters {
+									params[i] = qualifyImportedType(p.Type, modIdent.Value, symbols)
+								}
+								typeParams := make([]string, len(funcDecl.TypeParams))
+								for i, tp := range funcDecl.TypeParams {
+									typeParams[i] = tp.Name.Value
+								}
+								sig = &FunctionSig{
+									TypeParams:      typeParams,
+									Parameters:      params,
+									ParamMutability: parameterMutability(funcDecl.Parameters),
+									ReturnType:      qualifyImportedType(funcDecl.ReturnType, modIdent.Value, symbols),
+								}
+								funcName = modIdent.Value + "." + methodName
+								// Mark this imported function as used by the current package
+								tc.markImportedSymbolUsed(modIdent.Value, methodName)
 							}
-							typeParams := make([]string, len(funcDecl.TypeParams))
-							for i, tp := range funcDecl.TypeParams {
-								typeParams[i] = tp.Name.Value
-							}
-							sig = &FunctionSig{
-								TypeParams:      typeParams,
-								Parameters:      params,
-								ParamMutability: parameterMutability(funcDecl.Parameters),
-								ReturnType:      qualifyImportedType(funcDecl.ReturnType, modIdent.Value, symbols),
-							}
-							funcName = modIdent.Value + "." + methodName
-							// Mark this imported function as used by the current package
+						case packages.SymbolEnum:
+							// Handle imported Enum constructor (e.g. diag.UnusedVariable(...))
 							tc.markImportedSymbolUsed(modIdent.Value, methodName)
+							// Clear temporary mutable borrows created by &mut arguments
+							tc.clearBorrows(ce.Arguments)
+							// Return the enum type
+							return &ast.SimpleType{Name: modIdent.Value + "." + methodName}
 						}
-					case packages.SymbolEnum:
-						// Handle imported Enum constructor (e.g. diag.UnusedVariable(...))
-						tc.markImportedSymbolUsed(modIdent.Value, methodName)
-						// Clear temporary mutable borrows created by &mut arguments
-						tc.clearBorrows(ce.Arguments)
-						// Return the enum type
-						return &ast.SimpleType{Name: modIdent.Value + "." + methodName}
 					}
 				}
-			}
-			if tc.emitPrivateImportedSymbolAt(modIdent.Value, fa.Field.Value, fa.Field.Pos()) {
-				for _, arg := range ce.Arguments {
-					tc.inferType(arg)
+				if tc.emitPrivateImportedSymbolAt(modIdent.Value, fa.Field.Value, fa.Field.Pos()) {
+					for _, arg := range ce.Arguments {
+						tc.inferType(arg)
+					}
+					tc.clearBorrows(ce.Arguments)
+					return &ast.ErrorType{Message: "private imported symbol"}
 				}
-				tc.clearBorrows(ce.Arguments)
-				return &ast.ErrorType{Message: "private imported symbol"}
 			}
 		}
 

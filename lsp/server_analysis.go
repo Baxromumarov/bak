@@ -135,8 +135,8 @@ func (s *Server) analyzeAndPublish(ctx context.Context, uri string, text string)
 
 func (s *Server) publishDiagnostics(uri string, diagnostics []Diagnostic) {
 	notification := Notification{
-		BaseMessage: BaseMessage{JSONRPC: "2.0"},
-		Method:      "textDocument/publishDiagnostics",
+		JSONRPC: "2.0",
+		Method:  "textDocument/publishDiagnostics",
 	}
 
 	params := PublishDiagnosticsParams{

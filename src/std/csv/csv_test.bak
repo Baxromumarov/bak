@@ -1,0 +1,106 @@
+package csv
+
+import csv "std/csv"
+import test "std/test"
+
+func test_parse_quotes_crlf_and_multiline_fields() -> (void) {
+    mut var t: test.T = test.new("test_parse_quotes_crlf_and_multiline_fields")
+    var input: string = "name,note\r\nBak,\"hello, \"\"world\"\"\"\r\nmultiline,\"one\ntwo\""
+    var records: Vec<csv.Record, _> = csv.parse(&input)
+
+    t.eq(
+        records.len(),
+        3,
+    )
+    t.eq(
+        csv.fieldCount(&records[0]),
+        2,
+    )
+    t.eqString(
+        csv.get(
+            &records[0],
+            0,
+        ).unwrap(
+        ),
+        "name",
+    )
+    t.eqString(
+        csv.get(
+            &records[1],
+            1,
+        ).unwrap(
+        ),
+        "hello, \"world\"",
+    )
+    t.eqString(
+        csv.get(
+            &records[2],
+            1,
+        ).unwrap(
+        ),
+        "one\ntwo",
+    )
+    t.finish()
+}
+
+func test_write_round_trip_and_bounds() -> (void) {
+    mut var t: test.T = test.new("test_write_round_trip_and_bounds")
+    var firstFields: Vec<string, _> = Vec.from(["a", "b,c", "quote \" here"])
+    var secondFields: Vec<string, _> = Vec.from(["", "tail"])
+    var records: Vec<csv.Record, _> = Vec.from(
+        [
+            csv.record(firstFields),
+            csv.record(secondFields),
+        ],
+    )
+    var encoded: string = csv.write(&records)
+    var decoded: Vec<csv.Record, _> = csv.parse(&encoded)
+
+    t.eqString(
+        encoded,
+        "a,\"b,c\",\"quote \"\" here\"\n,tail",
+    )
+    t.eq(
+        decoded.len(),
+        2,
+    )
+    t.eqString(
+        csv.get(
+            &decoded[0],
+            2,
+        ).unwrap(
+        ),
+        "quote \" here",
+    )
+    t.eqString(
+        csv.get(
+            &decoded[1],
+            0,
+        ).unwrap(
+        ),
+        "",
+    )
+    t.isErr(
+        csv.get(
+            &decoded[1],
+            2,
+        ),
+    )
+    t.finish()
+}
+
+func test_empty_input_and_trailing_newline() -> (void) {
+    mut var t: test.T = test.new("test_empty_input_and_trailing_newline")
+    var empty: string = ""
+    var trailing: string = "a,b\n"
+
+    t.eq(
+        csv.parse(&empty).len(),
+        0,
+    )
+    t.eq(
+        csv.parse(&trailing).len(),
+        1,
+    )
+    t.finish()
+}

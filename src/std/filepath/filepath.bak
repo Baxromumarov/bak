@@ -57,10 +57,10 @@ pub func withoutExt(p: string) -> (string) {
     return path.withoutExt(&p)
 }
 
-pub func withExt(p: string, new_ext: string) -> (string) {
+pub func withExt(p: string, newExt: string) -> (string) {
     return path.withExt(
         &p,
-        &new_ext,
+        &newExt,
     )
 }
 

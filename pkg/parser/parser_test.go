@@ -196,6 +196,32 @@ func TestStructLiteralFieldRequiresValue(t *testing.T) {
 	}
 }
 
+func TestParseQualifiedStructLiteralWithShortAlias(t *testing.T) {
+	t.Parallel()
+	program := parseValidSource(t, source(`
+		package main
+		import h "std/http"
+
+		func makeRequest() -> (h.Request) {
+			var req: h.Request = h.Request{
+				method: "GET",
+				path: "/",
+			}
+			return req
+		}
+	`))
+
+	fn := program.Statements[2].(*ast.FunctionDecl)
+	decl := fn.Body.Statements[0].(*ast.VarStatement)
+	lit, ok := decl.Value.(*ast.StructLiteral)
+	if !ok {
+		t.Fatalf("expected qualified struct literal, got %T", decl.Value)
+	}
+	if lit.Name.Value != "h.Request" {
+		t.Fatalf("unexpected qualified struct name: %q", lit.Name.Value)
+	}
+}
+
 // --- New parser tests ---
 
 func TestParseStructDecl(t *testing.T) {

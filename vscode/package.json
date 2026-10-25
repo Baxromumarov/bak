@@ -16,8 +16,8 @@
   ],
   "activationEvents": [
     "onLanguage:bak",
-    "onStartupFinished",
-    "onCommand:bak.showOutput"
+    "onCommand:bak.showOutput",
+    "onCommand:bak.restartLanguageServer"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -38,6 +38,10 @@
       {
         "command": "bak.showOutput",
         "title": "Bak: Show Language Server Output"
+      },
+      {
+        "command": "bak.restartLanguageServer",
+        "title": "Bak: Restart Language Server"
       }
     ],
     "grammars": [
@@ -52,6 +56,11 @@
         "label": "Bak Go Dark",
         "uiTheme": "vs-dark",
         "path": "./themes/bak-go-dark.json"
+      },
+      {
+        "label": "Bak Go Light",
+        "uiTheme": "vs",
+        "path": "./themes/bak-go-light.json"
       }
     ],
     "configuration": {
@@ -61,6 +70,7 @@
         "bak.lspPath": {
           "type": "string",
           "default": "",
+          "scope": "resource",
           "description": "Optional path to the bak language server executable. Leave empty to use the bundled server, workspace bin/bak-lsp, or PATH."
         }
       }

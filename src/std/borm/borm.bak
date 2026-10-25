@@ -15,8 +15,8 @@ pub func emptyQueryResult() -> (postgres.QueryResult) {
     return postgres.emptyQueryResult()
 }
 
-pub func connect(conn_str: string) -> (Result<postgres.Connection, string>) {
-    return postgres.connect(conn_str)
+pub func connect(connStr: string) -> (Result<postgres.Connection, string>) {
+    return postgres.connect(connStr)
 }
 
 pub func close(conn: postgres.Connection) -> (Result<void, string>) {
@@ -37,15 +37,15 @@ pub func rowGetIndex(row: &Row, idx: int) -> (Result<string, string>) {
     )
 }
 
-var defaultPgQuery: func(&postgres.Connection, string) -> (Result<postgres.QueryResult, string>) = postgres.query
-var defaultPgQueryParams: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>) = postgres.queryParams
+var defaultQuery: func(&Connection, string) -> (Result<QueryResult, string>) = postgres.query
+var defaultParams: func(&Connection, string, Vec<string, _>) -> (Result<QueryResult, string>) = postgres.queryParams
 
 pub func defaultRunStatement(
     conn: &postgres.Connection,
     sql: string,
     params: Vec<string, _>,
 ) -> (Result<bool, string>) {
-    switch defaultPgQueryParams(
+    switch defaultParams(
         conn,
         sql,
         params,
@@ -59,37 +59,37 @@ pub func defaultRunStatement(
     }
 }
 
-mut var pgQuery: func(&postgres.Connection, string) -> (Result<postgres.QueryResult, string>) = defaultPgQuery
-mut var pgQueryParams: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>) = defaultPgQueryParams
-mut var execStatement: func(&postgres.Connection, string, Vec<string, _>) -> (Result<bool, string>) = defaultRunStatement
+mut var query: func(&Connection, string) -> (Result<QueryResult, string>) = defaultQuery
+mut var queryParams: func(&Connection, string, Vec<string, _>) -> (Result<QueryResult, string>) = defaultParams
+mut var runStatement: func(&Connection, string, Vec<string, _>) -> (Result<bool, string>) = defaultRunStatement
 
 pub func setQueryHooks(
     queryFn: func(&postgres.Connection, string) -> (Result<postgres.QueryResult, string>),
     queryParamsFn: func(&postgres.Connection, string, Vec<string, _>) -> (Result<postgres.QueryResult, string>),
 ) -> (void) {
-    pgQuery = queryFn
-    pgQueryParams = queryParamsFn
+    query = queryFn
+    queryParams = queryParamsFn
 }
 
 pub func resetQueryHooks() -> (void) {
-    pgQuery = defaultPgQuery
-    pgQueryParams = defaultPgQueryParams
+    query = defaultQuery
+    queryParams = defaultParams
 }
 
 pub func setExecHook(
     execFn: func(&postgres.Connection, string, Vec<string, _>) -> (Result<bool, string>),
 ) -> (void) {
-    execStatement = execFn
+    runStatement = execFn
 }
 
 pub func resetExecHook() -> (void) {
-    execStatement = defaultRunStatement
+    runStatement = defaultRunStatement
 }
 
 pub func transaction(
     conn: &postgres.Connection,
 ) -> (Result<postgres.Connection, string>) {
-    switch execStatement(
+    switch runStatement(
         conn,
         "BEGIN",
         Vec.new(),
@@ -104,7 +104,7 @@ pub func transaction(
 }
 
 pub func commit(tx: &postgres.Connection) -> (Result<bool, string>) {
-    return execStatement(
+    return runStatement(
         tx,
         "COMMIT",
         Vec.new(),
@@ -112,7 +112,7 @@ pub func commit(tx: &postgres.Connection) -> (Result<bool, string>) {
 }
 
 pub func rollback(tx: &postgres.Connection) -> (Result<bool, string>) {
-    return execStatement(
+    return runStatement(
         tx,
         "ROLLBACK",
         Vec.new(),
@@ -633,7 +633,7 @@ func load_query(
         if expr_out.sql.len() > 0 {
             sql = sql + " WHERE " + expr_out.sql
 
-            return pgQueryParams(
+            return queryParams(
                 conn,
                 sql,
                 expr_out.params,
@@ -641,7 +641,7 @@ func load_query(
         }
     }
 
-    return pgQuery(
+    return query(
         conn,
         sql,
     )
@@ -752,7 +752,7 @@ impl InsertBuilder as b {
                     "",
                 )
 
-                return execStatement(
+                return runStatement(
                     conn,
                     sql,
                     parts.params,
@@ -777,7 +777,7 @@ impl InsertReturningInt as b {
                     &parts.rows,
                     b.column,
                 )
-                var result = pgQueryParams(
+                var result = queryParams(
                     conn,
                     sql,
                     parts.params,
@@ -993,7 +993,7 @@ impl UpdateBuilder as b {
             }
         }
 
-        return execStatement(
+        return runStatement(
             conn,
             sql,
             params,
@@ -1070,7 +1070,7 @@ impl DeleteBuilder as b {
             }
         }
 
-        return execStatement(
+        return runStatement(
             conn,
             sql,
             params,

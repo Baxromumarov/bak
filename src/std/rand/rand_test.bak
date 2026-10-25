@@ -1,0 +1,115 @@
+package rand
+
+import random "std/rand"
+import test "std/test"
+
+func test_seed_is_deterministic() -> (void) {
+    mut var t: test.T = test.new("test_seed_is_deterministic")
+
+    random.seed(12345)
+
+    var first: int = random.nextInt()
+    var second: int = random.nextInt()
+
+    random.seed(12345)
+    t.eq(
+        random.nextInt(),
+        first,
+    )
+    t.eq(
+        random.nextInt(),
+        second,
+    )
+    t.finish()
+}
+
+func test_numeric_ranges() -> (void) {
+    mut var t: test.T = test.new("test_numeric_ranges")
+    mut var sawUpperHalf: bool = false
+    mut var i: int = 0
+
+    random.seed(7)
+
+    var fullPositive: int = random.intRange(
+        0,
+        9223372036854775807,
+    )
+
+    t.isTrue(fullPositive >= 0)
+
+    while i < 1000 {
+        var bounded: int = random.intN(17)
+        var ranged: int = random.intRange(
+            -4,
+            9,
+        )
+        var fraction: float64 = random.nextFloat()
+
+        t.isTrue(bounded >= 0 && bounded < 17)
+        t.isTrue(ranged >= -4 && ranged <= 9)
+        t.isTrue(fraction >= 0.0 && fraction < 1.0)
+
+        if fraction >= 0.5 {
+            sawUpperHalf = true
+        }
+
+        i = i + 1
+    }
+
+    t.isTrue(sawUpperHalf)
+    t.finish()
+}
+
+func test_collection_and_string_helpers() -> (void) {
+    mut var t: test.T = test.new("test_collection_and_string_helpers")
+    var values: Vec<int, _> = Vec.from(
+        [
+            1,
+            2,
+            3,
+            4,
+        ],
+    )
+
+    random.seed(99)
+
+    var picked: Result<int, string> = random.choice(&values)
+    var sampled: Vec<int, _> = random.sample(
+        &values,
+        10,
+    )
+    var charset: string = "ab"
+    var generated: string = random.randomString(
+        32,
+        &charset,
+    )
+
+    t.isOk(picked)
+    t.eq(
+        sampled.len(),
+        values.len(),
+    )
+    t.eq(
+        generated.len(),
+        32,
+    )
+
+    for ch in generated {
+        t.isTrue(ch == 'a' || ch == 'b')
+    }
+
+    mut var empty: Vec<int, _> = Vec.new()
+    var hexValue: string = random.hex(4)
+
+    t.isErr(random.choice(&empty))
+    t.eq(
+        hexValue.len(),
+        8,
+    )
+
+    for ch in hexValue {
+        t.isTrue(ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f')
+    }
+
+    t.finish()
+}

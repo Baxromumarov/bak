@@ -1,0 +1,84 @@
+package base64
+
+import b64 "std/encoding/base64"
+import test "std/test"
+
+func test_rfc4648_vectors() -> (void) {
+    mut var t: test.T = test.new("test_rfc4648_vectors")
+    var empty: string = ""
+    var f: string = "f"
+    var fo: string = "fo"
+    var foo: string = "foo"
+    var foobar: string = "foobar"
+
+    t.eqString(
+        b64.encode(&empty),
+        "",
+    )
+    t.eqString(
+        b64.encode(&f),
+        "Zg==",
+    )
+    t.eqString(
+        b64.encode(&fo),
+        "Zm8=",
+    )
+    t.eqString(
+        b64.encode(&foo),
+        "Zm9v",
+    )
+    t.eqString(
+        b64.encode(&foobar),
+        "Zm9vYmFy",
+    )
+
+    var encoded: string = "Zm9vYmFy"
+    var decoded: Result<string, string> = b64.decode(&encoded)
+
+    t.isOk(decoded)
+
+    if decoded.isOk() {
+        t.eqString(
+            decoded.unwrap(),
+            "foobar",
+        )
+    }
+
+    t.eq(
+        b64.encodedLen(0),
+        0,
+    )
+    t.eq(
+        b64.encodedLen(1),
+        4,
+    )
+    t.eq(
+        b64.encodedLen(4),
+        8,
+    )
+    t.finish()
+}
+
+func test_rejects_invalid_padding_and_characters() -> (void) {
+    mut var t: test.T = test.new("test_rejects_invalid_padding_and_characters")
+    var badLength: string = "abc"
+    var badCharacter: string = "Zm$v"
+    var badOrder: string = "AA=A"
+    var earlyPadding: string = "AAA=AAAA"
+    var badTwoPadBits: string = "AB=="
+    var badOnePadBits: string = "AAB="
+
+    t.isErr(b64.decode(&badLength))
+    t.isErr(b64.decode(&badCharacter))
+    t.isErr(b64.decode(&badOrder))
+    t.isErr(b64.decode(&earlyPadding))
+    t.isErr(b64.decode(&badTwoPadBits))
+    t.isErr(b64.decode(&badOnePadBits))
+    t.isFalse(b64.isValidBase64(&badOrder))
+    t.isFalse(b64.isValidBase64(&earlyPadding))
+
+    var valid: string = "AA=="
+
+    t.isTrue(b64.isValidBase64(&valid))
+    t.finish()
+}

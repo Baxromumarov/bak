@@ -247,66 +247,18 @@ pub func parseRequest(raw: string) -> (Result<Request, string>) {
         secondSpace + 1,
         rest.len(),
     )
-    mut var headers: Vec<Header, _> = Vec.from([])
-    mut var current: string = headersPart
 
-    while current.len() > 0 {
-        var lineEnd = indexOf(
-            &current,
-            &lf,
-        )
-        mut var line: string = ""
-
-        if lineEnd == -1 {
-            line = current
-            current = ""
-        } else {
-            mut var trimEnd: int = lineEnd
-
-            if lineEnd > 0 && current[lineEnd - 1] == '\r' {
-                trimEnd = lineEnd - 1
-            }
-
-            line = current.substring(
-                0,
-                trimEnd,
-            )
-            current = current.substring(
-                lineEnd + 1,
-                current.len(),
-            )
-        }
-
-        if line.len() == 0 {
-            break
-        }
-
-        var colonIndex = indexOf(
-            &line,
-            &":",
-        )
-
-        if colonIndex != -1 {
-            var name = line.substring(
-                0,
-                colonIndex,
-            )
-            mut var value = line.substring(
-                colonIndex + 1,
-                line.len(),
-            )
-
-            if value.startsWith(" ") {
-                value = value.substring(
-                    1,
-                    value.len(),
-                )
-            }
-
-            headers.push(Header{name: name, value: value})
-        }
+    if method.len() == 0 || pathStr.len() == 0 || version.len() == 0 {
+        return Err("invalid request line: empty component")
     }
 
+    var headersResult: Result<Vec<Header, _>, string> = parseHeaders(headersPart)
+
+    if headersResult.isErr() {
+        return Err(headersResult.unwrapErr())
+    }
+
+    var headers: Vec<Header, _> = headersResult.unwrap()
     var body: Vec<int, _> = bodyPart.bytes()
 
     return Ok(

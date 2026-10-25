@@ -1,0 +1,60 @@
+{
+  "name": "Bak Go Light",
+  "type": "light",
+  "semanticHighlighting": true,
+  "semanticTokenColors": {
+    "namespace": "#267F99",
+    "type": "#267F99",
+    "struct": "#267F99",
+    "enum": "#267F99",
+    "enumMember": "#795E26",
+    "function": "#795E26",
+    "method": "#795E26",
+    "property": "#001080",
+    "variable": "#001080",
+    "parameter": "#001080",
+    "keyword": "#AF00DB",
+    "modifier": "#0000FF",
+    "string": "#A31515",
+    "number": "#098658",
+    "operator": "#000000"
+  },
+  "colors": {
+    "editor.background": "#FFFFFF",
+    "editor.foreground": "#000000"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "punctuation.definition.comment"],
+      "settings": {"foreground": "#008000"}
+    },
+    {
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": {"foreground": "#AF00DB"}
+    },
+    {
+      "scope": ["entity.name.namespace", "entity.name.type", "support.type", "support.class"],
+      "settings": {"foreground": "#267F99"}
+    },
+    {
+      "scope": ["entity.name.function", "support.function"],
+      "settings": {"foreground": "#795E26"}
+    },
+    {
+      "scope": ["variable", "variable.parameter", "variable.other", "variable.other.property"],
+      "settings": {"foreground": "#001080"}
+    },
+    {
+      "scope": ["string", "constant.character.escape"],
+      "settings": {"foreground": "#A31515"}
+    },
+    {
+      "scope": ["constant.numeric", "constant.language"],
+      "settings": {"foreground": "#098658"}
+    },
+    {
+      "scope": ["keyword.operator", "punctuation"],
+      "settings": {"foreground": "#000000"}
+    }
+  ]
+}

@@ -22,7 +22,7 @@ Companion usage guide for recently expanded helpers:
   - predicates return `bool`
 - Limits:
   - destructive operations may be rejected by permission policy
-  - `readFileBytes` is still a stub and should not be treated as production-ready
+  - filesystem reads and writes are subject to the runtime permission policy
 
 ## `std/os`
 - Supported now:
@@ -30,7 +30,7 @@ Companion usage guide for recently expanded helpers:
   - current working directory helpers
   - executable and hostname lookups
   - `exec` with structured `ExecResult`
-  - `chmod`, `temp_dir`, `user_home_dir`
+  - `chmod`, `tempDir`, `userHomeDir`
 - Error model:
   - lookups that may be missing use `Result` (`getenv`)
   - operations that can fail use `Result`
@@ -53,7 +53,7 @@ Companion usage guide for recently expanded helpers:
 ## `std/encoding/json`
 - Supported now:
   - `Json` enum construction
-  - `marshal`, `marshal_pretty`, `unmarshal`
+  - `marshal`, `marshalPretty`, `unmarshal`
   - typed getters and builder helpers
 - Error model:
   - parsing and required-field helpers return `Result`
@@ -85,24 +85,24 @@ Companion usage guide for recently expanded helpers:
 
 ## `std/collections/vec`
 - Supported now:
-  - functional helpers: `map_by`, `filter_by`, `reduce_by`, `any_by`, `all_by`, `find_by`
-  - ordering and lookup helpers: `index_of`, `max_by`, `min_by`
+  - functional helpers: `mapBy`, `filterBy`, `reduceBy`, `anyBy`, `allBy`, `findBy`
+  - ordering and lookup helpers: `indexOf`, `maxBy`, `minBy`
 - Error model:
-  - `find_by`, `max_by`, and `min_by` return `Result`
+  - `findBy`, `maxBy`, and `minBy` return `Result`
   - pure predicates and reducers return plain values
 
 ## `std/strings`
 - Supported now:
   - text transforms and checks including `reverse`
-  - multi-candidate checks with `has_prefix_any` and `has_suffix_any`
+  - multi-candidate checks with `hasPrefixAny` and `hasSuffixAny`
   - line splitting with `lines`
 - Error model:
   - pure value-returning helpers only
 
 ## `std/path`
 - Supported now:
-  - path shape helpers like `is_abs`, `is_rel`, `clean`, `split`
-  - extension helpers: `ext`, `has_ext`, `stem`, `without_ext`, `with_ext`
+  - path shape helpers like `isAbs`, `isRel`, `clean`, `split`
+  - extension helpers: `ext`, `hasExt`, `stem`, `withoutExt`, `withExt`
 - Error model:
   - pure value-returning helpers and predicates only
 

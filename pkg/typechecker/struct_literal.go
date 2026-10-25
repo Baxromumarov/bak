@@ -24,8 +24,8 @@ func (tc *TypeChecker) inferStructLiteralWithName(sl *ast.StructLiteral, structN
 	// Ensure the name is set so later passes can compile it.
 	if sl.Name == nil {
 		sl.Name = &ast.Identifier{
-			NodeBase: ast.NodeBase{Token: sl.Token},
-			Value:    structName,
+			Token: sl.Token,
+			Value: structName,
 		}
 	} else {
 		sl.Name.Value = structName

@@ -72,6 +72,26 @@ pub func new(name: string) -> (T) {
     }
 }
 
+func isSignedIntegerType(typeName: &string) -> (bool) {
+    if *typeName == "INTEGER" || *typeName == "int" {
+        return true
+    }
+
+    if *typeName == "int8" || *typeName == "int16" || *typeName == "int32" || *typeName == "int64" {
+        return true
+    }
+
+    return false
+}
+
+func isUnsignedIntegerType(typeName: &string) -> (bool) {
+    if *typeName == "uint" || *typeName == "uint8" || *typeName == "uint16" {
+        return true
+    }
+
+    return *typeName == "uint32" || *typeName == "uint64"
+}
+
 func formatValue<T>(val: T) -> (string) {
     var typeName: string = typeof(val)
 
@@ -83,7 +103,7 @@ func formatValue<T>(val: T) -> (string) {
         return string(char(val))
     }
 
-    if typeName == "INTEGER" || typeName == "int" || typeName == "int8" || typeName == "int16" || typeName == "int32" || typeName == "int64" || typeName == "uint" || typeName == "uint8" || typeName == "uint16" || typeName == "uint32" || typeName == "uint64" {
+    if isSignedIntegerType(&typeName) || isUnsignedIntegerType(&typeName) {
         return strconv.intToString(int(val))
     }
 
@@ -534,7 +554,13 @@ func printFailureDetails(r: TestResult) -> (void) {
     var testName: string = displayTestName(r.name)
 
     println("")
-    println(bold() + red() + "FAIL" + reset() + "  " + cyan() + location + reset() + "  " + yellow() + "->" + reset() + "  " + cyan() + testName + reset())
+
+    mut var failureHeader: string = bold() + red() + "FAIL" + reset()
+
+    failureHeader = failureHeader + "  " + cyan() + location + reset()
+    failureHeader = failureHeader + "  " + yellow() + "->" + reset()
+    failureHeader = failureHeader + "  " + cyan() + testName + reset()
+    println(failureHeader)
     println("  " + yellow() + "result" + reset() + "    " + red() + "failed" + reset())
     println("  " + yellow() + "details" + reset())
 

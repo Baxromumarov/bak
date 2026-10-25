@@ -1,0 +1,64 @@
+package log
+
+import log "std/log"
+import test "std/test"
+
+func test_logger_defaults_and_modules() -> (void) {
+    mut var t: test.T = test.new("test_logger_defaults_and_modules")
+    var base: log.Logger = log.new()
+    var module: log.Logger = log.module(
+        "api",
+        log.levelDebug,
+    )
+
+    t.eq(
+        base.minLevel,
+        log.levelInfo,
+    )
+    t.isTrue(base.useColor)
+    t.isTrue(base.showTime)
+    t.isTrue(base.appendFile)
+    t.eqString(
+        base.prefix,
+        "",
+    )
+    t.eqString(
+        module.prefix,
+        "[api]",
+    )
+    t.eq(
+        module.minLevel,
+        log.levelDebug,
+    )
+    t.finish()
+}
+
+func test_field_conversions() -> (void) {
+    mut var t: test.T = test.new("test_field_conversions")
+    var integer: log.Field = log.kvInt(
+        "count",
+        -42,
+    )
+    var boolean: log.Field = log.kvBool(
+        "ready",
+        true,
+    )
+    var decimal: log.Field = log.kvFloat(
+        "ratio",
+        1.25,
+    )
+
+    t.eqString(
+        integer.value,
+        "-42",
+    )
+    t.eqString(
+        boolean.value,
+        "true",
+    )
+    t.eqString(
+        decimal.value,
+        "1.250000",
+    )
+    t.finish()
+}

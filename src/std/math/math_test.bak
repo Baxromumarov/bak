@@ -114,7 +114,15 @@ func test_integer_helpers() -> (void) {
     )
 
     for c in binary {
-        t.setCase(c.label + "(a=" + strconv.intToString(c.a) + ", b=" + strconv.intToString(c.b) + ") expected=" + strconv.intToString(c.expected))
+        t.setCase(
+            c.label + "(a=" + strconv.intToString(
+                c.a,
+            ) + ", b=" + strconv.intToString(
+                c.b,
+            ) + ") expected=" + strconv.intToString(
+                c.expected,
+            ),
+        )
 
         var fn: func(int, int) -> (int) = c.f
 
@@ -149,7 +157,17 @@ func test_integer_helpers() -> (void) {
     )
 
     for c in clampCases {
-        t.setCase(c.label + "(value=" + strconv.intToString(c.value) + ", min=" + strconv.intToString(c.minVal) + ", max=" + strconv.intToString(c.maxVal) + ") expected=" + strconv.intToString(c.expected))
+        t.setCase(
+            c.label + "(value=" + strconv.intToString(
+                c.value,
+            ) + ", min=" + strconv.intToString(
+                c.minVal,
+            ) + ", max=" + strconv.intToString(
+                c.maxVal,
+            ) + ") expected=" + strconv.intToString(
+                c.expected,
+            ),
+        )
 
         var fn: func(int, int, int) -> (int) = c.f
 

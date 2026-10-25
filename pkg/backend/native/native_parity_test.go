@@ -44,6 +44,13 @@ func TestVMNativeParityMatrix(t *testing.T) {
 			permissions: runtimecap.Permissions{},
 		},
 		{
+			name:           "strconv_basic",
+			sourcePath:     filepath.Join(root, "tests", "native_strconv_basic.bak"),
+			permissions:    runtimecap.Permissions{},
+			expectedResult: 18,
+			assertExpected: true,
+		},
+		{
 			name:        "string_basic",
 			sourcePath:  filepath.Join(root, "tests", "native_string_basic.bak"),
 			permissions: runtimecap.Permissions{},

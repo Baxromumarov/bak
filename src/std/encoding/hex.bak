@@ -77,17 +77,17 @@ func hex_digit_value(ch: char) -> (int) {
 
 // decode decodes a hexadecimal string back to the original data
 // Returns an error if the input has odd length or invalid characters
-pub func decode(hex_str: &string) -> (Result<string, string>) {
-    if hex_str.len() % 2 != 0 {
+pub func decode(hexStr: &string) -> (Result<string, string>) {
+    if hexStr.len() % 2 != 0 {
         return Err("hex string has odd length")
     }
 
     mut var result: string = ""
     mut var i: int = 0
 
-    while i < hex_str.len() {
-        var high: int = hex_digit_value(hex_str[i])
-        var low: int = hex_digit_value(hex_str[i + 1])
+    while i < hexStr.len() {
+        var high: int = hex_digit_value(hexStr[i])
+        var low: int = hex_digit_value(hexStr[i + 1])
 
         if high < 0 || low < 0 {
             return Err("invalid hex character")

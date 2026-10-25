@@ -1,0 +1,57 @@
+package hash
+
+import h "std/hash"
+import test "std/test"
+
+func test_known_hash_vectors() -> (void) {
+    mut var t: test.T = test.new("test_known_hash_vectors")
+    var hello: string = "hello"
+    var empty: string = ""
+
+    t.eq(
+        h.fnv1a(&hello),
+        1335831723,
+    )
+    t.eq(
+        h.fnv1a(&empty),
+        2166136261,
+    )
+    t.eq(
+        h.javaHash(&hello),
+        99162322,
+    )
+    t.eq(
+        h.djb2(&hello),
+        210714636441,
+    )
+    t.eq(
+        h.djb2a(&hello),
+        210631454183,
+    )
+    t.finish()
+}
+
+func test_hash_composition_is_deterministic() -> (void) {
+    mut var t: test.T = test.new("test_hash_composition_is_deterministic")
+    var first: int = h.combineHashes(
+        h.hashInt(7),
+        h.hashInt(11),
+    )
+    var second: int = h.combineHashes(
+        h.hashInt(7),
+        h.hashInt(11),
+    )
+
+    t.eq(
+        first,
+        second,
+    )
+    t.ne(
+        first,
+        h.combineHashes(
+            h.hashInt(11),
+            h.hashInt(7),
+        ),
+    )
+    t.finish()
+}

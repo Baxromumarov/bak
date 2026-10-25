@@ -1,0 +1,172 @@
+package http
+
+import http "std/http"
+import test "std/test"
+
+func userHandler(req: http.Request) -> (http.Response) {
+    switch req.param("id") {
+        case Ok(id) {
+            return http.text(
+                200,
+                id,
+            )
+        }
+        case Err(_) {
+            return http.error("missing id")
+        }
+    }
+}
+
+func request(method: string, path: string) -> (http.Request) {
+    mut var req: http.Request = http.Request{
+        body:    Vec.new(),
+        headers: Vec.new(),
+        method:  method,
+        params:  Vec.new(),
+        path:    path,
+        version: http.http11,
+    }
+
+    return req
+}
+
+func test_parse_request_headers_query_and_body() -> (void) {
+    mut var t: test.T = test.new("test_parse_request_headers_query_and_body")
+    var raw: string = "POST /users/42?active=true&empty HTTP/1.1\r\nHost: example.test\r\nX-Test: yes\r\n\r\nhello"
+    var parsed: Result<http.Request, string> = http.parseRequest(raw)
+
+    t.isOk(parsed)
+
+    if parsed.isOk() {
+        var req: http.Request = parsed.unwrap()
+
+        t.eqString(
+            req.method,
+            "POST",
+        )
+        t.eqString(
+            req.path,
+            "/users/42?active=true&empty",
+        )
+        t.eqString(
+            req.version,
+            http.http11,
+        )
+        t.eqString(
+            req.header("host").unwrap(),
+            "example.test",
+        )
+        t.eqString(
+            req.query("active").unwrap(),
+            "true",
+        )
+        t.eqString(
+            req.query("empty").unwrap(),
+            "",
+        )
+        t.eqString(
+            req.bodyString(),
+            "hello",
+        )
+    }
+
+    t.isErr(http.parseRequest("GET / HTTP/1.1\r\nHost: example.test"))
+    t.isErr(http.parseRequest("invalid\r\n\r\n"))
+    t.isErr(http.parseRequest("GET  HTTP/1.1\r\n\r\n"))
+    t.isErr(http.parseRequest("GET / HTTP/1.1\r\nmalformed\r\n\r\n"))
+    t.finish()
+}
+
+func test_response_builders_and_parser() -> (void) {
+    mut var t: test.T = test.new("test_response_builders_and_parser")
+    mut var response: http.Response = http.text(
+        201,
+        "created",
+    )
+
+    http.setHeader(
+        &mut response,
+        "content-type",
+        "text/custom",
+    )
+    http.setHeader(
+        &mut response,
+        "X-Request-Id",
+        "abc",
+    )
+    t.eqString(
+        http.getResponseHeader(
+            &response,
+            "Content-Type",
+        ).unwrap(
+        ),
+        "text/custom",
+    )
+    t.eqString(
+        response.bodyString(),
+        "created",
+    )
+
+    var parsed = http.parseResponse("HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\n\r\nmissing")
+
+    t.isOk(parsed)
+
+    if parsed.isOk() {
+        var got: http.Response = parsed.unwrap()
+
+        t.eq(
+            got.status,
+            404,
+        )
+        t.eqString(
+            got.reason,
+            "Not Found",
+        )
+        t.eqString(
+            got.bodyString(),
+            "missing",
+        )
+    }
+
+    t.isErr(http.parseResponse("HTTP/1.1 nope\r\n\r\n"))
+    t.isErr(http.parseResponse("HTTP/1.1 99 Invalid\r\n\r\n"))
+    t.isErr(http.parseResponse("HTTP/1.1 200 OK\r\nmalformed\r\n\r\n"))
+    t.finish()
+}
+
+func test_router_dispatches_params_and_fallback() -> (void) {
+    mut var t: test.T = test.new("test_router_dispatches_params_and_fallback")
+    mut var router: http.Router = http.newRouter()
+
+    router.get(
+        "/users/:id",
+        userHandler,
+    )
+
+    var matched: http.Response = router.dispatch(
+        request(
+            "GET",
+            "/users/42?verbose=true",
+        ),
+    )
+    var missing: http.Response = router.dispatch(
+        request(
+            "POST",
+            "/users/42",
+        ),
+    )
+
+    t.eq(
+        matched.status,
+        200,
+    )
+    t.eqString(
+        matched.bodyString(),
+        "42",
+    )
+    t.eq(
+        missing.status,
+        404,
+    )
+    t.finish()
+}

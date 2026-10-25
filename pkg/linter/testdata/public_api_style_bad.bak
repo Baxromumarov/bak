@@ -1,6 +1,6 @@
 package fixture
 
-pub func BadFunction() -> (void) {
+pub func BadFunction(bad_parameter: int) -> (void) {
     return void
 }
 

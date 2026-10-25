@@ -1,5 +1,11 @@
 # Bak VSCode Extension
 
+The extension provides syntax and semantic highlighting, dark and light Bak
+themes, formatting, diagnostics, completion, hover, navigation, rename, code
+actions, inlay hints, and signature help through the bundled language server.
+Use `Bak: Restart Language Server` after replacing a development server binary;
+changes to `bak.lspPath` restart it automatically.
+
 ## Build
 
 ```sh

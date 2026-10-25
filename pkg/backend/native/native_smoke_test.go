@@ -25,6 +25,7 @@ func TestNativeSmokeMatrix(t *testing.T) {
 		{name: "enum_none", sourcePath: filepath.Join(root, "tests", "native_enum_none.bak"), expectedExit: 99},
 		{name: "enum_result", sourcePath: filepath.Join(root, "tests", "native_enum_result.bak"), expectedExit: 10},
 		{name: "string_basic", sourcePath: filepath.Join(root, "tests", "native_string_basic.bak"), expectedExit: 12},
+		{name: "strconv_basic", sourcePath: filepath.Join(root, "tests", "native_strconv_basic.bak"), expectedExit: 18},
 		{name: "vec_e2e", sourcePath: filepath.Join(root, "tests", "native_vec_e2e.bak"), expectedExit: 8},
 		{name: "vec_result_methods", sourcePath: filepath.Join(root, "tests", "native_vec_result_methods.bak"), expectedExit: 12},
 		{name: "result_migration_guardrail", sourcePath: filepath.Join(root, "tests", "native_result_migration_guardrail.bak"), expectedExit: 13},

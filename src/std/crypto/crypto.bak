@@ -71,7 +71,13 @@ impl RNG as r {
         r.state = x
 
         if x < 0 {
-            return -x
+            x = -x
+
+            // Negating the minimum signed integer wraps. Map that single
+            // value to zero so callers never receive a negative result.
+            if x < 0 {
+                return 0
+            }
         }
 
         return x
@@ -90,7 +96,18 @@ impl RNG as r {
             return min
         }
 
-        return min + r.nextU32() % (max - min + 1)
+        const maxPositive: int = 9223372036854775807
+        var span: int = max - min
+
+        if span < 0 {
+            panic "crypto.RNG.range: range is too wide"
+        }
+
+        if span == maxPositive {
+            return min + r.nextU32()
+        }
+
+        return min + r.nextU32() % (span + 1)
     }
 
     pub mut func bytes(count: int) -> (Vec<int, _>) {

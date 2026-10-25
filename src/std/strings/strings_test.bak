@@ -1,0 +1,230 @@
+package strings
+
+import s "std/strings"
+import test "std/test"
+
+func test_search_split_replace_and_bounds() -> (void) {
+    mut var t: test.T = test.new("test_search_split_replace_and_bounds")
+    var text: string = "one,two,,three"
+    var comma: string = ","
+    var parts: Vec<string, _> = s.split(
+        &text,
+        &comma,
+    )
+
+    t.eq(
+        parts.len(),
+        4,
+    )
+    t.eqString(
+        parts[0],
+        "one",
+    )
+    t.eqString(
+        parts[2],
+        "",
+    )
+    t.eqString(
+        parts[3],
+        "three",
+    )
+
+    var old: string = "two"
+    var replacement: string = "2"
+
+    t.eqString(
+        s.replace(
+            &text,
+            &old,
+            &replacement,
+        ),
+        "one,2,,three",
+    )
+
+    var banana: string = "banana"
+    var ana: string = "ana"
+
+    t.eq(
+        s.indexOf(
+            &banana,
+            &ana,
+        ),
+        1,
+    )
+    t.eq(
+        s.lastIndexOf(
+            &banana,
+            &ana,
+        ),
+        3,
+    )
+    t.eq(
+        s.count(
+            &banana,
+            &ana,
+        ),
+        1,
+    )
+    t.eqString(
+        s.substring(
+            &banana,
+            -5,
+            100,
+        ),
+        "banana",
+    )
+    t.isErr(
+        s.charAt(
+            &banana,
+            -1,
+        ),
+    )
+    t.isErr(
+        s.charAt(
+            &banana,
+            banana.len(),
+        ),
+    )
+    t.finish()
+}
+
+func test_case_whitespace_and_layout_helpers() -> (void) {
+    mut var t: test.T = test.new("test_case_whitespace_and_layout_helpers")
+    var padded: string = " \tHello WORLD\r\n"
+    var helloWorld: string = "helloWorld"
+    var delimited: string = "hello_world-test"
+    var suffix: string = ".."
+    var alphabet: string = "abcdef"
+
+    t.eqString(
+        s.trim(&padded),
+        "Hello WORLD",
+    )
+    t.eqString(
+        s.toLower(&padded),
+        " \thello world\r\n",
+    )
+    t.eqString(
+        s.titleCase(&padded),
+        " \tHello World\r\n",
+    )
+    t.eqString(
+        s.snakeCase(&helloWorld),
+        "hello_world",
+    )
+    t.eqString(
+        s.kebabCase(&helloWorld),
+        "hello-world",
+    )
+    t.eqString(
+        s.camelCase(&delimited),
+        "helloWorldTest",
+    )
+    t.eqString(
+        s.truncate(
+            &alphabet,
+            5,
+            &suffix,
+        ),
+        "abc..",
+    )
+    t.eqString(
+        s.truncate(
+            &alphabet,
+            1,
+            &suffix,
+        ),
+        ".",
+    )
+    t.eqString(
+        s.center(
+            &helloWorld,
+            14,
+            '-',
+        ),
+        "--helloWorld--",
+    )
+    t.finish()
+}
+
+func test_lines_partition_rotation_and_prefixes() -> (void) {
+    mut var t: test.T = test.new("test_lines_partition_rotation_and_prefixes")
+    var text: string = "a\r\nb\n"
+    var lines: Vec<string, _> = s.lines(&text)
+    var pair: string = "key=value=tail"
+    var equal: string = "="
+    var left: s.PartitionResult = s.partition(
+        &pair,
+        &equal,
+    )
+    var right: s.PartitionResult = s.rpartition(
+        &pair,
+        &equal,
+    )
+    var rotateMe: string = "abcdef"
+    var squeezeMe: string = "baaaak"
+
+    t.eq(
+        lines.len(),
+        3,
+    )
+    t.eqString(
+        lines[0],
+        "a",
+    )
+    t.eqString(
+        lines[2],
+        "",
+    )
+    t.eqString(
+        left.before,
+        "key",
+    )
+    t.eqString(
+        left.after,
+        "value=tail",
+    )
+    t.eqString(
+        right.before,
+        "key=value",
+    )
+    t.eqString(
+        right.after,
+        "tail",
+    )
+    t.eqString(
+        s.rotate(
+            &rotateMe,
+            -2,
+        ),
+        "efabcd",
+    )
+    t.eqString(
+        s.squeeze(
+            &squeezeMe,
+            'a',
+        ),
+        "bak",
+    )
+
+    var first: string = "interspecies"
+    var second: string = "interstellar"
+    var suffixA: string = "transportation"
+    var suffixB: string = "station"
+
+    t.eqString(
+        s.commonPrefix(
+            &first,
+            &second,
+        ),
+        "inters",
+    )
+    t.eqString(
+        s.commonSuffix(
+            &suffixA,
+            &suffixB,
+        ),
+        "tation",
+    )
+    t.finish()
+}

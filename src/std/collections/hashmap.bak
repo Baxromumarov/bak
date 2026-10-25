@@ -49,13 +49,7 @@ func hash_next_pow2(n: int) -> (int) {
     return p
 }
 
-// Hash function helper - placeholder until generic hashing support is finalized
-// This uses the address of the pointer/value for now or specific specialized overrides
-func hash_key<K>(_k: &K) -> (int) {
-    return hash_dispatch(_k)
-}
-
-// Specialized hash for string - temporary hardcoded dispatch/builtin
+// Hashes strings with FNV-1a so equal strings always use the same probe path.
 func hash_string(s: &string) -> (int) {
     // Simple FNV-1a hash
     mut var hash: int = 2166136261
@@ -75,8 +69,9 @@ func hash_int(i: int) -> (int) {
     return i * 2654435761
 }
 
-// Knuth's multiplicative hash
-// Dispatcher for hashing - uses typeof for runtime type detection
+// Knuth's multiplicative hash.
+// The dispatcher uses runtime type information for the scalar fast paths and
+// the language's stable value-to-string representation for other key types.
 func hash_dispatch<K>(_k: &K) -> (int) {
     var typeName: string = typeof(*_k)
 
@@ -103,8 +98,7 @@ func hash_dispatch<K>(_k: &K) -> (int) {
         return int(char(*_k))
     }
 
-    // Fallback: use a simple hash based on memory representation
-    // This handles other types with a basic hash
+    // The fallback handles all other comparable key types.
     var s: string = string(*_k)
 
     return hash_string(&s)
@@ -145,8 +139,8 @@ pub func newHashMap<K, V>() -> (HashMap<K, V>) {
 }
 
 // Create a new HashMap with specified initial capacity
-pub func withCapHashMap<K, V>(requested_cap: int) -> (HashMap<K, V>) {
-    mut var cap: int = hash_next_pow2(requested_cap)
+pub func withCapHashMap<K, V>(requestedCap: int) -> (HashMap<K, V>) {
+    mut var cap: int = hash_next_pow2(requestedCap)
 
     if cap < HASH_INITIAL_CAP {
         cap = HASH_INITIAL_CAP

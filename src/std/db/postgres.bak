@@ -17,8 +17,8 @@ pub func emptyQueryResult() -> (QueryResult) {
 // Native PostgreSQL driver using built-in database connection.
 // Connection string format: "host=localhost port=5432 user=postgres password=secret dbname=test sslmode=disable"
 // connect opens a PostgreSQL connection and returns a Connection handle.
-pub func connect(conn_str: string) -> (Result<Connection, string>) {
-    var result = __builtin_pg_connect(conn_str)
+pub func connect(connStr: string) -> (Result<Connection, string>) {
+    var result = __builtin_pg_connect(connStr)
 
     if result.isOk() {
         return Ok(db.Connection{handle: result.unwrap()})

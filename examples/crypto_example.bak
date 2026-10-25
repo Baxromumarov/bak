@@ -10,11 +10,11 @@ func main() -> (void) {
         h,
     )
 
-    mut var rng: crypto.RNG = crypto.new_rng(123)
+    mut var rng: crypto.RNG = crypto.newRng(123)
 
     println(
         "random [0..9]:",
-        rng.next_int(10),
+        rng.nextInt(10),
     )
     println(
         "random range [5..15]:",

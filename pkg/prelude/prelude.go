@@ -1,5 +1,7 @@
 package prelude
 
+//go:generate go run ../../scripts/generate_prelude
+
 import (
 	"os"
 	"path/filepath"

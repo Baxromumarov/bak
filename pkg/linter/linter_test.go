@@ -80,7 +80,7 @@ func TestLintSourceWarnsForInvalidPublicAPIStyle(t *testing.T) {
 		"    return void",
 		"}",
 		"",
-		"pub func BadFunction() -> (void) {",
+		"pub func BadFunction(bad_param: int) -> (void) {",
 		"    return void",
 		"}",
 		"",
@@ -97,7 +97,7 @@ func TestLintSourceWarnsForInvalidPublicAPIStyle(t *testing.T) {
 	}, "\n")
 
 	findings := LintSource("api.bak", source, nil)
-	want := []string{"read_file", "BadFunction", "MAX_USERS", "badEnum", "bad_variant"}
+	want := []string{"read_file", "BadFunction", "bad_param", "MAX_USERS", "badEnum", "bad_variant"}
 	for _, f := range findings {
 		if f.Rule == "public-api-style" && strings.Contains(f.Message, "private_helper") {
 			t.Fatalf("did not expect private helper warning, got %#v", findings)
@@ -126,6 +126,7 @@ func TestPublicAPIStyleFixtureCoversAllPublicShapes(t *testing.T) {
 	findings := LintSource("testdata/public_api_style_bad.bak", string(data), nil)
 	want := []string{
 		"BadFunction",
+		"bad_parameter",
 		"badStruct",
 		"BadField",
 		"MAX_USERS",
@@ -167,6 +168,25 @@ func TestLintSourceWarnsForLegacyStdImportPath(t *testing.T) {
 		}
 	}
 	t.Fatalf("expected import-style finding, got %#v", findings)
+}
+
+func TestLintSourceAllowsExplicitStdPackageFile(t *testing.T) {
+	source := strings.Join([]string{
+		"package main",
+		`import db "std/db/db"`,
+		"",
+		"func main() -> (void) {",
+		"    return void",
+		"}",
+		"",
+	}, "\n")
+
+	findings := LintSource("demo.bak", source, nil)
+	for _, f := range findings {
+		if f.Rule == "import-style" {
+			t.Fatalf("did not expect import-style finding, got %#v", findings)
+		}
+	}
 }
 
 func TestApplyDisabledRulesCSV(t *testing.T) {

@@ -263,9 +263,9 @@ func (tc *TypeChecker) matchKnownEnumCase(caseValue ast.Expression, enumDef *Enu
 
 	case *ast.MethodCallExpression:
 		fa := &ast.FieldAccessExpression{
-			NodeBase: ast.NodeBase{Token: v.Token},
-			Object:   v.Object,
-			Field:    v.Method,
+			Token:  v.Token,
+			Object: v.Object,
+			Field:  v.Method,
 		}
 		return tc.matchKnownEnumFieldAccessCall(fa, v.Arguments, enumDef)
 
@@ -374,9 +374,9 @@ func (tc *TypeChecker) matchFallbackEnumCase(caseValue ast.Expression) bool {
 		return tc.matchFallbackEnumCallExpr(v)
 	case *ast.MethodCallExpression:
 		fa := &ast.FieldAccessExpression{
-			NodeBase: ast.NodeBase{Token: v.Token},
-			Object:   v.Object,
-			Field:    v.Method,
+			Token:  v.Token,
+			Object: v.Object,
+			Field:  v.Method,
 		}
 		return tc.matchFallbackEnumFieldAccessCall(fa, v.Arguments)
 	case *ast.FieldAccessExpression:

@@ -5,8 +5,8 @@ import db "std/db/db"
 // Native MySQL driver using built-in database connection.
 // Connection string format: "user:password@tcp(host:port)/database"
 // connect opens a MySQL connection and returns a Connection handle.
-pub func connect(conn_str: string) -> (Result<db.Connection, string>) {
-    var result = __builtin_mysql_connect(conn_str)
+pub func connect(connStr: string) -> (Result<db.Connection, string>) {
+    var result = __builtin_mysql_connect(connStr)
 
     if result.isOk() {
         return Ok(db.Connection{handle: result.unwrap()})

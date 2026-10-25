@@ -218,29 +218,18 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		return true, s.emitSleepMs(e.Arguments[0])
 	}
 
-	// Threading / sync stubs
+	// Concurrency is not implemented by the native runtime. Reject these calls
+	// instead of emitting successful no-ops that silently diverge from the VM.
 	switch funcName {
 	case "__builtin_spawn", "__builtin_thread_id", "__builtin_mutex_new",
 		"__builtin_mutex_lock", "__builtin_mutex_unlock":
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return true, err
-			}
-		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return true, nil
+		return true, fmt.Errorf("native backend does not support %s", funcName)
 	}
 
-	// Cancel token stubs
+	// Cancellation relies on the VM's shared concurrency runtime.
 	switch funcName {
 	case "__builtin_cancel_new", "__builtin_cancel", "__builtin_is_cancelled":
-		for _, arg := range e.Arguments {
-			if err := s.emitExpression(arg); err != nil {
-				return true, err
-			}
-		}
-		emitXorRegReg(&s.Code, RAX, RAX)
-		return true, nil
+		return true, fmt.Errorf("native backend does not support %s", funcName)
 	}
 
 	// Database builtins (not supported in native backend)
@@ -652,60 +641,6 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			}
 		}
 
-		// Handle strconv.* functions
-		if id.Value == "strconv" {
-			switch e.Method.Value {
-			case "intToString", "itoa":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: strconv.intToString expects 1 argument")
-				}
-				if err := s.emitExpression(e.Arguments[0]); err != nil {
-					return err
-				}
-				emitMovRegReg(&s.Code, RDI, RAX)
-				callSite := emitCallRel32(&s.Code, 0)
-				s.CallPatches = append(s.CallPatches, CallPatch{
-					ImmOffset: callSite,
-					Target:    "__rt_itoa",
-				})
-				return nil
-			case "parseInt", "atoi":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: strconv.parseInt expects 1 argument")
-				}
-				if err := s.emitExpression(e.Arguments[0]); err != nil {
-					return err
-				}
-				// If argument is a reference (&string), dereference first
-				if s.isRefExpression(e.Arguments[0]) {
-					s.emitSafeRefDeref()
-				}
-				emitMovRegReg(&s.Code, RDI, RAX)
-				callSite := emitCallRel32(&s.Code, 0)
-				s.CallPatches = append(s.CallPatches, CallPatch{
-					ImmOffset: callSite,
-					Target:    "__rt_atoi",
-				})
-				return nil
-			case "formatInt", "formatHex", "formatOctal", "formatBinary":
-				// For now, redirect these to itoa (base 10 only)
-				if len(e.Arguments) >= 1 {
-					if err := s.emitExpression(e.Arguments[0]); err != nil {
-						return err
-					}
-					emitMovRegReg(&s.Code, RDI, RAX)
-					callSite := emitCallRel32(&s.Code, 0)
-					s.CallPatches = append(s.CallPatches, CallPatch{
-						ImmOffset: callSite,
-						Target:    "__rt_itoa",
-					})
-
-					return nil
-				}
-				return fmt.Errorf("native: strconv.%s expects at least 1 argument", e.Method.Value)
-			}
-		}
-
 		// Handle fs.* functions
 		if id.Value == "fs" {
 			switch e.Method.Value {
@@ -915,33 +850,9 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 	case "hash":
 		return s.emitStringHash(obj)
 	case "parseFloat":
-		if err := s.emitExpression(obj); err != nil {
-			return err
-		}
-		emitPushReg(&s.Code, RAX)
-		emitMovRegReg(&s.Code, RDI, RSP)
-		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{
-			ImmOffset: callSite,
-			Target:    "strconv.atof",
-		})
-
-		emitAddRspImm8(&s.Code, 8)
-		return nil
+		return fmt.Errorf("native backend does not support string.parseFloat; use strconv.atof")
 	case "parseInt":
-		if err := s.emitExpression(obj); err != nil {
-			return err
-		}
-		if s.isRefExpression(obj) {
-			s.emitSafeRefDeref()
-		}
-		emitMovRegReg(&s.Code, RDI, RAX)
-		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{
-			ImmOffset: callSite,
-			Target:    "__rt_atoi",
-		})
-		return nil
+		return fmt.Errorf("native backend does not support string.parseInt; use strconv.atoi")
 	case "toString":
 		return s.emitToString(obj)
 	}

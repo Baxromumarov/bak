@@ -24,6 +24,21 @@ Highlights:
 - `if`, `while`, `for`, `switch`, `defer`, and `panic`,
 - VM/native parity for the guarded frozen surface.
 
+## Correctness and Tooling Hardening
+
+- Import aliases now obey lexical shadowing, including in the injected prelude,
+  and one-character aliases work for qualified struct literals.
+- Native builds reject unsupported concurrency and cancellation builtins instead
+  of silently compiling them as zero-valued no-ops.
+- Standard-library edge cases are covered for Base64, hex, CSV, buffered I/O,
+  filesystem paths, HTTP parsing, hashes, random values, strings, formatting,
+  and dynamic `any` values.
+- `baklint` enforces the public lowerCamelCase parameter contract, and the
+  release gate lints all maintained Bak sources and checks every example.
+- LSP completions describe only the stable v0.1 surface. The VS Code extension
+  includes configurable server discovery, restart support, indentation rules,
+  semantic highlighting, and coordinated dark and light themes.
+
 ## Explicitly Not Included
 
 - package fetching,

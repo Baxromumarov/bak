@@ -54,10 +54,9 @@ func vmResultErr(msg string) compiler.Value {
 func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip int, discardReturn bool) error {
 	receiver := vm.derefAll(vm.peek(argc - 1))
 
-	// REMOVED: Option/Result method interception - now handled by bak impl blocks
-	// Methods like isSome(), unwrap(), isOk(), etc. are now implemented in
-	// src/std/option.bak and src/std/result.bak and dispatched through the
-	// standard method lookup mechanism below.
+	// Result methods are provided by the injected std/result implementation and
+	// dispatched through the standard method lookup mechanism below. Option is
+	// retained only in the VM's legacy-bytecode compatibility paths.
 
 	// Special-case: if the receiver is a function value and the method
 	// being called is `dispatch`, treat this as invoking the function

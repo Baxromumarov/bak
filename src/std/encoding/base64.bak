@@ -104,9 +104,18 @@ pub func decode(encoded: &string) -> (Result<string, string>) {
         var c3: char = encoded[i + 3]
         var v0: int = index_of_char(c0)
         var v1: int = index_of_char(c1)
+        var finalQuartet: bool = i + 4 == encoded.len()
 
         if v0 < 0 || v1 < 0 {
             return Err("invalid base64 character")
+        }
+
+        if c2 == PAD_CHAR {
+            if c3 != PAD_CHAR || !finalQuartet || v1 % 16 != 0 {
+                return Err("invalid base64 padding")
+            }
+        } else if c3 == PAD_CHAR && !finalQuartet {
+            return Err("invalid base64 padding")
         }
 
         // First byte
@@ -137,6 +146,8 @@ pub func decode(encoded: &string) -> (Result<string, string>) {
                 var b2: int = v2 % 4 * 64 + v3
 
                 result = result + string(char(b2))
+            } else if v2 % 4 != 0 {
+                return Err("invalid base64 padding")
             }
         }
 
@@ -197,34 +208,22 @@ pub func decodeUrl(encoded: &string) -> (Result<string, string>) {
 // -----------------------------------------------------------------------------
 // isValidBase64 checks if a string is valid Base64
 pub func isValidBase64(s: &string) -> (bool) {
-    if s.len() % 4 != 0 {
-        return false
-    }
-
-    mut var i: int = 0
-
-    while i < s.len() {
-        var ch: char = s[i]
-
-        if ch == PAD_CHAR {
-            // Padding only allowed at end
-            if i < s.len() - 2 {
-                return false
-            }
-        } else if index_of_char(ch) < 0 {
+    switch decode(s) {
+        case Ok(_) {
+            return true
+        }
+        case Err(_) {
             return false
         }
-
-        i = i + 1
     }
 
-    return true
+    return false
 }
 
 // encodedLen returns the length of the Base64 encoding of a string of given length
-pub func encodedLen(input_len: int) -> (int) {
+pub func encodedLen(inputLen: int) -> (int) {
     // Each 3 bytes becomes 4 characters, rounded up
-    return (input_len + 2) / 3 * 4
+    return (inputLen + 2) / 3 * 4
 }
 
 // decodedLen returns the approximate decoded length (before padding)

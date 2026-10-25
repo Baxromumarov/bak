@@ -1,7 +1,6 @@
 package csv
 
 import strings "std/strings"
-import io "std/io"
 
 // =============================================================================
 // CSV Parser and Writer
@@ -14,28 +13,52 @@ pub struct Record {
 // parse parses a CSV string into a Vec of Records.
 pub func parse(data: &string) -> (Vec<Record, _>) {
     mut var result: Vec<Record, _> = Vec.new()
-    mut var reader: io.Reader = io.newReader(*data)
-    mut var line: int = 0
 
-    while true {
-        var rowRes: Result<string, string> = reader.readLine()
+    if data.len() == 0 {
+        return result
+    }
 
-        switch rowRes {
-            case Err(_) {
-                return result
+    mut var fields: Vec<string, _> = Vec.new()
+    mut var current: string = ""
+    mut var inQuotes: bool = false
+    mut var i: int = 0
+
+    while i < data.len() {
+        var ch: char = data[i]
+
+        if ch == '"' {
+            if inQuotes && i + 1 < data.len() && data[i + 1] == '"' {
+                current = current + "\""
+                i = i + 1
+            } else {
+                inQuotes = !inQuotes
             }
-            case Ok(rowStr) {
-                if line == 0 && rowStr.len() == 0 {
-                } else {
-                    // Skip empty leading line
-                    var rec: Record = parseLine(&rowStr)
+        } else if ch == ',' && !inQuotes {
+            fields.push(current)
+            current = ""
+        } else if (ch == '\n' || ch == '\r') && !inQuotes {
+            fields.push(current)
+            result.push(Record{fields: fields})
+            fields = Vec.new()
+            current = ""
 
-                    result.push(rec)
-                }
-
-                line = line + 1
+            if ch == '\r' && i + 1 < data.len() && data[i + 1] == '\n' {
+                i = i + 1
             }
+        } else {
+            current = current + string(ch)
         }
+
+        i = i + 1
+    }
+
+    // A terminal line ending terminates the final record. Otherwise flush the
+    // remaining field, including an empty field after a trailing comma.
+    var last: char = data[data.len() - 1]
+
+    if last != '\n' && last != '\r' {
+        fields.push(current)
+        result.push(Record{fields: fields})
     }
 
     return result

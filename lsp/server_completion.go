@@ -467,6 +467,7 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"enum",
 		"impl",
 		"func",
+		"trace",
 		"pub",
 		"var",
 		"mut",
@@ -490,7 +491,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		"alias",
 		"true",
 		"false",
-		"nil",
 		"void",
 	}
 
@@ -521,18 +521,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 			insertText = "Result<${1:T}, ${2:E}>"
 			insertFormat = 2
 			detail = "Result<T, E> - success or error value"
-		case "Map":
-			insertText = "Map<${1:K}, ${2:V}>"
-			insertFormat = 2
-			detail = "Map<K, V> - ordered map"
-		case "Array":
-			insertText = "Array<${1:T}, ${2:N}>"
-			insertFormat = 2
-			detail = "Array<T, N> - fixed-size array"
-		case "Slice":
-			insertText = "Slice<${1:T}>"
-			insertFormat = 2
-			detail = "Slice<T> - view into array elements"
 		}
 
 		items = append(items, CompletionItem{
@@ -565,9 +553,9 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		detail string
 	}{
 		// Function definitions
-		{"func", "func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Function definition"},
-		{"pubfunc", "pub func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Public function"},
-		{"mutfunc", "mut func ${1:name}(${2:params}) -> ${3:void} {\n\t$0\n}", "Mutable function"},
+		{"func", "func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}", "Function definition"},
+		{"pubfunc", "pub func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}", "Public function"},
+		{"tracefunc", "trace func ${1:name}(${2:params}) -> (${3:void}) {\n\t$0\n}", "Traced function"},
 
 		// Control flow
 		{"if", "if ${1:condition} {\n\t$0\n}", "If statement"},
@@ -575,12 +563,12 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 		{"for", "for ${1:item} in ${2:iter} {\n\t$0\n}", "For loop"},
 		{"while", "while ${1:condition} {\n\t$0\n}", "While loop"},
 		{"switch", "switch ${1:expr} {\ncase ${2:pattern} {\n\t$0\n}\n}", "Switch statement"},
-		{"match", "match ${1:value} {\n\t${2:pattern} => $0\n}", "Match expression"},
-
 		// Data structures
-		{"struct", "struct ${1:Name} {\n\t${2:field}: ${3:Type},\n}", "Struct definition"},
-		{"enum", "enum ${1:Name} {\n\t${2:Case},\n}", "Enum definition"},
-		{"impl", "impl ${1:Name} {\n\tpub func ${2:name}(mut self) {\n\t\t$0\n\t}\n}", "Implementation block"},
+		{"struct", "struct ${1:Name} {\n\t${2:field}: ${3:Type}\n}", "Struct definition"},
+		{"enum", "enum ${1:Name} {\n\t${2:Case}\n}", "Enum definition"},
+		{"type", "type ${1:Name} = ${2:Type}", "Distinct type definition"},
+		{"alias", "alias ${1:Name} = ${2:Type}", "Type alias definition"},
+		{"impl", "impl ${1:Name} as ${2:self} {\n\tpub func ${3:name}() -> (${4:void}) {\n\t\t$0\n\t}\n}", "Implementation block"},
 
 		// Variable declarations
 		{"var", "var ${1:name}: ${2:Type} = ${3:value}", "Variable declaration"},
@@ -589,7 +577,6 @@ func (s *Server) handleCompletion(req Request) CompletionList {
 
 		// Modifiers
 		{"pub", "pub ", "Public visibility"},
-		{"priv", "priv ", "Private visibility"},
 
 		// Common patterns
 		{"println", "println(${1:values})", "Print line"},
@@ -670,6 +657,7 @@ func completeSwitchCaseVariants(text string, pos Position) []CompletionItem {
 
 var primitiveTypeNames = []string{
 	"any",
+	"byte",
 	"bool",
 	"int",
 	"int8",
@@ -691,14 +679,8 @@ var primitiveTypeNames = []string{
 var builtinGenericTypeNames = []string{
 	"Vec",
 	"HashMap",
-	"Map",
-	"Array",
-	"Slice",
 	"Range",
 	"Result",
-	"Option",
-	"Error",
-	"null",
 }
 
 var completionTypeNames = append(
@@ -1800,12 +1782,10 @@ func builtinGenericParamNames(base string) []string {
 	switch base {
 	case "Vec":
 		return []string{"T", "N"}
-	case "HashMap", "Map":
+	case "HashMap":
 		return []string{"K", "V"}
 	case "Result":
 		return []string{"T", "E"}
-	case "Option":
-		return []string{"T"}
 	default:
 		return nil
 	}

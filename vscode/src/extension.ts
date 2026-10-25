@@ -60,6 +60,10 @@ function workspaceRoots(): string[] {
   return [process.cwd()];
 }
 
+function workspaceCwd(): string {
+  return workspaceRoots()[0] || process.cwd();
+}
+
 function bundledServerPath(context: vscode.ExtensionContext): string | undefined {
   const target = `${process.platform}-${process.arch}`;
   const executable = lspExecutableName();
@@ -73,7 +77,8 @@ function bundledServerPath(context: vscode.ExtensionContext): string | undefined
 }
 
 function resolveServerPath(context: vscode.ExtensionContext): string | undefined {
-  const config = vscode.workspace.getConfiguration("bak");
+  const resource = vscode.window.activeTextEditor?.document.uri || vscode.workspace.workspaceFolders?.[0]?.uri;
+  const config = vscode.workspace.getConfiguration("bak", resource);
   const configured = config.get<string>("lspPath")?.trim();
   const executable = lspExecutableName();
 
@@ -118,29 +123,27 @@ function resolveServerPath(context: vscode.ExtensionContext): string | undefined
   return resolveFromPath(executable);
 }
 
-export function activate(context: vscode.ExtensionContext) {
-  outputChannel = vscode.window.createOutputChannel("Bak Language Server");
-  outputChannel.show(true);
-  context.subscriptions.push(
-    vscode.commands.registerCommand("bak.showOutput", () => {
-      if (outputChannel) {
-        outputChannel.show(true);
-      }
-    })
-  );
+async function stopClient(): Promise<void> {
+  const runningClient = client;
+  client = null;
+  if (runningClient) {
+    await runningClient.stop();
+  }
+}
+
+async function startClient(context: vscode.ExtensionContext): Promise<void> {
   const serverCommand = resolveServerPath(context);
   if (!serverCommand) {
     const message = "Bak LSP binary not found. Build it with `go build -o bin/bak-lsp ./lsp` or set `bak.lspPath` to the full path.";
-    outputChannel.appendLine(message);
+    outputChannel?.appendLine(message);
     vscode.window.showErrorMessage(message);
-    context.subscriptions.push(outputChannel);
     return;
   }
 
   const serverOptions: ServerOptions = {
     command: serverCommand,
     args: [],
-    options: { cwd: vscode.workspace.rootPath || process.cwd() },
+    options: { cwd: workspaceCwd() },
   };
 
   const clientOptions: LanguageClientOptions = {
@@ -148,7 +151,7 @@ export function activate(context: vscode.ExtensionContext) {
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher("**/*.bak"),
     },
-    outputChannel,
+    outputChannel: outputChannel || undefined,
   };
 
   client = new LanguageClient(
@@ -158,15 +161,34 @@ export function activate(context: vscode.ExtensionContext) {
     clientOptions
   );
 
-  outputChannel.appendLine(`Starting Bak LSP: ${serverCommand}`);
-  client.start();
-  context.subscriptions.push(client);
+  outputChannel?.appendLine(`Starting Bak LSP: ${serverCommand}`);
+  await client.start();
+}
+
+async function restartClient(context: vscode.ExtensionContext): Promise<void> {
+  outputChannel?.appendLine("Restarting Bak language server...");
+  await stopClient();
+  await startClient(context);
+}
+
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  outputChannel = vscode.window.createOutputChannel("Bak Language Server", { log: true });
+  context.subscriptions.push(
+    vscode.commands.registerCommand("bak.showOutput", () => {
+      outputChannel?.show(true);
+    }),
+    vscode.commands.registerCommand("bak.restartLanguageServer", () => restartClient(context)),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("bak.lspPath")) {
+        void restartClient(context);
+      }
+    })
+  );
+
+  await startClient(context);
   context.subscriptions.push(outputChannel);
 }
 
-export function deactivate(): Thenable<void> | undefined {
-  if (!client) {
-    return undefined;
-  }
-  return client.stop();
+export function deactivate(): Thenable<void> {
+  return stopClient();
 }

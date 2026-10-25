@@ -26,6 +26,22 @@ pub func newBufferedReader(r: io.Reader) -> (BufferedReader) {
 impl BufferedReader as br {
     // fill reads more data into the buffer.
     mut func fill() -> (void) {
+        // Discard bytes that have already been consumed. Besides bounding
+        // memory, this makes progress explicit when a line spans fills.
+        if br.pos > 0 {
+            if br.pos < br.size {
+                br.buf = br.buf.substring(
+                    br.pos,
+                    br.size,
+                )
+            } else {
+                br.buf = ""
+            }
+
+            br.pos = 0
+            br.size = br.buf.len()
+        }
+
         var chunk: string = br.reader.read(4096)
 
         if chunk.len() > 0 {
@@ -73,6 +89,7 @@ impl BufferedReader as br {
                     br.pos,
                     br.size,
                 )
+                br.pos = br.size
             }
 
             br.fill()
@@ -153,9 +170,15 @@ pub func newBufferedWriter(w: io.Writer) -> (BufferedWriter) {
 
 // newBufferedWriterSized creates a buffered writer with custom buffer size.
 pub func newBufferedWriterSized(w: io.Writer, size: int) -> (BufferedWriter) {
+    mut var capacity: int = size
+
+    if capacity < 1 {
+        capacity = 1
+    }
+
     return BufferedWriter{
         buf:    "",
-        cap:    size,
+        cap:    capacity,
         writer: w,
     }
 }

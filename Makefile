@@ -32,8 +32,9 @@ COMPREHENSIVE_SCRIPT := tests/run_comprehensive_tests.sh
 
 FORMAT_CHECK_ROOTS := src/std examples tests
 API_STYLE_ROOTS := src/std test_project tests
+LINT_ROOTS := src/std examples test_project
 
-.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check api-style-check test-projects test-runtime stability-fast test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
+.PHONY: help all build rebuild build-tools build-bak build-root-bak build-bakfmt build-baklint build-bakcheck build-dump-bc build-lsp build-bak-fmt test test-unit test-scripts test-negative test-imports test-stdlib examples-check format-check lint-check api-style-check test-projects test-runtime stability-fast test-comprehensive test-parity test-lsp-verify test-lanes language-stability test-all test-all-go release-check clean clean-binaries clean-cache distclean
 
 define run_script_list
 	@for script in $(1); do \
@@ -65,6 +66,7 @@ help:
 	@echo "  make test-stdlib      Run Bak stdlib tests"
 	@echo "  make examples-check   Check stable v0.1 examples"
 	@echo "  make format-check     Verify bakfmt output for stable language files"
+	@echo "  make lint-check       Run all baklint rules on maintained Bak source"
 	@echo "  make api-style-check  Verify public Bak APIs follow the style contract"
 	@echo "  make test-projects    Check real-world test_project programs"
 	@echo "  make test-runtime     Run runtime integration projects"
@@ -143,6 +145,9 @@ examples-check: build-root-bak
 format-check: build-bakfmt
 	@BAKFMT_BIN=$(BAKFMT_BIN) bash scripts/check_bakfmt.sh $(FORMAT_CHECK_ROOTS)
 
+lint-check: build-baklint
+	@$(BAKLINT_BIN) $(LINT_ROOTS)
+
 api-style-check: build-baklint
 	@$(BAKLINT_BIN) --disable naming-convention,style,complexity,empty-block,import-style $(API_STYLE_ROOTS)
 
@@ -167,7 +172,7 @@ test-lsp-verify: build-lsp
 
 test-lanes: test-unit test-scripts test-imports test-stdlib examples-check test-parity
 
-language-stability: test-comprehensive test-lsp-verify format-check api-style-check test-projects
+language-stability: test-comprehensive test-lsp-verify format-check lint-check api-style-check test-projects
 
 test-all: test-lanes
 

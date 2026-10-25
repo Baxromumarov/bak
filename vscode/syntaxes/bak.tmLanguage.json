@@ -101,7 +101,7 @@
         },
         {
           "name": "meta.declaration.function",
-          "match": "\\b(pub\\s+)?(mut\\s+)?(func)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "match": "\\b((?:pub\\s+)?(?:trace\\s+)?|(?:trace\\s+pub\\s+)|(?:pub\\s+)?mut\\s+)(func)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.control"
@@ -110,9 +110,6 @@
               "name": "keyword.control"
             },
             "3": {
-              "name": "keyword.control"
-            },
-            "4": {
               "name": "entity.name.function"
             }
           }
@@ -197,7 +194,7 @@
       "patterns": [
         {
           "name": "keyword.control",
-          "match": "\\b(return|if|else|while|for|in|switch|case|default|break|continue|defer|import|as|var|mut|const|unsafe|pub|struct|enum|impl|func|type|alias|package|panic)\\b"
+          "match": "\\b(return|if|else|while|for|in|switch|case|default|break|continue|defer|import|as|var|mut|const|unsafe|pub|trace|try|struct|enum|impl|func|type|alias|package|panic)\\b"
         }
       ]
     },
@@ -205,11 +202,11 @@
       "patterns": [
         {
           "name": "support.type",
-          "match": "\\b(int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|bool|string|char|void)\\b"
+          "match": "\\b(any|byte|int|int8|int16|int32|int64|uint|uint8|uint16|uint32|uint64|float32|float64|bool|string|char|void)\\b"
         },
         {
           "name": "support.class",
-          "match": "\\b(Vec|Result|Option)\\b"
+          "match": "\\b(Vec|Result|HashMap|Range)\\b"
         },
         {
           "name": "entity.name.type",
@@ -221,11 +218,11 @@
       "patterns": [
         {
           "name": "constant.language",
-          "match": "\\b(true|false|nil|none|None)\\b"
+          "match": "\\b(true|false)\\b"
         },
         {
           "name": "entity.name.function",
-          "match": "\\b(Ok|Err|Some)\\b(?=\\s*\\()"
+          "match": "\\b(Ok|Err)\\b(?=\\s*\\()"
         }
       ]
     },

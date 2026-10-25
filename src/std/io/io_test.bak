@@ -1,0 +1,147 @@
+package io
+
+import io "std/io"
+import test "std/test"
+
+func test_reader_boundaries_and_lines() -> (void) {
+    mut var t: test.T = test.new("test_reader_boundaries_and_lines")
+    mut var reader: io.Reader = io.newReader("first\r\nsecond\nlast")
+
+    t.eqString(
+        reader.read(0),
+        "",
+    )
+    t.eqString(
+        reader.read(-2),
+        "",
+    )
+    t.eq(
+        reader.position(),
+        0,
+    )
+    t.eq(
+        reader.skip(-1),
+        0,
+    )
+    t.eq(
+        reader.position(),
+        0,
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "first",
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "second",
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "last",
+    )
+    t.isErr(reader.readLine())
+    t.isTrue(reader.isEof())
+    reader.reset()
+    t.eqChar(
+        reader.peek().unwrap(),
+        'f',
+    )
+    t.eq(
+        reader.skip(999),
+        18,
+    )
+    t.eq(
+        reader.remaining(),
+        0,
+    )
+    t.isFalse(reader.seek(-1))
+    t.isFalse(reader.seek(20))
+    t.isTrue(reader.seek(5))
+    t.eq(
+        reader.position(),
+        5,
+    )
+    t.finish()
+}
+
+func test_writer_buffer_and_copy() -> (void) {
+    mut var t: test.T = test.new("test_writer_buffer_and_copy")
+    mut var writer: io.Writer = io.newWriterWith("start:")
+
+    t.eq(
+        writer.write("Bak"),
+        3,
+    )
+    writer.writeByte(' ')
+    writer.writeInt(1)
+    writer.writeRepeated(
+        "!",
+        2,
+    )
+    t.eqString(
+        writer.toString(),
+        "start:Bak 1!!",
+    )
+    t.eq(
+        writer.len(),
+        13,
+    )
+    writer.clear()
+    t.isTrue(writer.isEmpty())
+
+    mut var source: io.Reader = io.newReader("copied")
+
+    t.eq(
+        io.copy(
+            &mut source,
+            &mut writer,
+        ),
+        6,
+    )
+    t.eqString(
+        writer.toString(),
+        "copied",
+    )
+    t.finish()
+}
+
+func test_buffered_writer_and_lines_iterator() -> (void) {
+    mut var t: test.T = test.new("test_buffered_writer_and_lines_iterator")
+    mut var buffered: io.BufferedWriter = io.newBufferedWriter()
+
+    buffered.write("a")
+    buffered.writeLine("b")
+    t.eq(
+        buffered.len(),
+        3,
+    )
+    t.eq(
+        buffered.count(),
+        3,
+    )
+    t.eqString(
+        buffered.flush(),
+        "ab\n",
+    )
+    t.eq(
+        buffered.len(),
+        0,
+    )
+
+    mut var iterator: io.Lines = io.lines("one\ntwo\nthree")
+    var all: Vec<string, _> = iterator.collect()
+
+    t.eq(
+        all.len(),
+        3,
+    )
+    t.eqString(
+        all[0],
+        "one",
+    )
+    t.eqString(
+        all[2],
+        "three",
+    )
+    t.finish()
+}

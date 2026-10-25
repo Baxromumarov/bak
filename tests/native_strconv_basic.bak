@@ -91,5 +91,59 @@ func main() -> (int) {
         score = score + 1
     }
 
+    var minText: string = "-9223372036854775808"
+    var minValue: Result<int, string> = strconv.parseInt(
+        &minText,
+        10,
+    )
+
+    if minValue.isOk() && strconv.formatInt(
+        minValue.unwrap(),
+        10,
+    ) == minText {
+        score = score + 1
+    }
+
+    if minValue.isOk() && strconv.intToString(minValue.unwrap()) == minText {
+        score = score + 1
+    }
+
+    if minValue.isOk() && string(minValue.unwrap()) == minText {
+        score = score + 1
+    }
+
+    var maxText: string = "9223372036854775807"
+    var maxValue: Result<int, string> = strconv.parseInt(
+        &maxText,
+        10,
+    )
+
+    if maxValue.isOk() && strconv.formatInt(
+        maxValue.unwrap(),
+        10,
+    ) == maxText {
+        score = score + 1
+    }
+
+    var aboveMax: string = "9223372036854775808"
+    var aboveMaxValue: Result<int, string> = strconv.parseInt(
+        &aboveMax,
+        10,
+    )
+
+    if aboveMaxValue.isErr() {
+        score = score + 1
+    }
+
+    var belowMin: string = "-9223372036854775809"
+    var belowMinValue: Result<int, string> = strconv.parseInt(
+        &belowMin,
+        10,
+    )
+
+    if belowMinValue.isErr() {
+        score = score + 1
+    }
+
     return score
 }

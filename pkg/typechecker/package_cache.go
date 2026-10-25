@@ -62,6 +62,18 @@ func (tc *TypeChecker) markImportUsed(alias string) {
 	}
 	tc.usedImports[alias] = true
 }
+
+func (tc *TypeChecker) isUnshadowedImportAlias(name string) bool {
+	if name == "" {
+		return false
+	}
+	if _, ok := tc.importedPkgPaths[name]; !ok {
+		return false
+	}
+	_, shadowed := tc.lookupSymbolWithoutMark(name)
+	return !shadowed
+}
+
 func (tc *TypeChecker) finalizeImportedModules() {
 	// Finalize unused checks for any imported modules we've loaded.
 	// This runs their unused-element checks now that importers have had

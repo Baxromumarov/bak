@@ -30,13 +30,13 @@ func main() -> (void) {
     var popped = dynamicVec.pop()
 
     switch popped {
-        case Some(v) {
+        case Ok(v) {
             println(
                 "Popped:",
                 v,
             )
         }
-        case None {
+        case Err(_) {
             println("Vec was empty")
         }
     }
@@ -58,20 +58,20 @@ func main() -> (void) {
     // Vec methods
     println(
         "Is dynamic vec empty?",
-        dynamicVec.is_empty(),
+        dynamicVec.isEmpty(),
     )
 
     // Getting elements safely
     var elem = dynamicVec.get(1)
 
     switch elem {
-        case Some(v) {
+        case Ok(v) {
             println(
                 "Element at index 1:",
                 v,
             )
         }
-        case None {
+        case Err(_) {
             println("Index out of bounds")
         }
     }
@@ -80,13 +80,13 @@ func main() -> (void) {
     var outOfBounds = dynamicVec.get(100)
 
     switch outOfBounds {
-        case Some(v) {
+        case Ok(v) {
             println(
                 "Element:",
                 v,
             )
         }
-        case None {
+        case Err(_) {
             println("Index 100 is out of bounds!")
         }
     }

@@ -24,8 +24,10 @@ pub const chFLower: int = 102
 pub const chAUpper: int = 65
 // 'A'
 pub const chFUpper: int = 70
-
 // 'F'
+const maxIntValue: int = 9223372036854775807
+const minIntValue: int = -9223372036854775807 - 1
+
 // -----------------------------------------------------------------------------
 // Integer to String
 // -----------------------------------------------------------------------------
@@ -49,17 +51,19 @@ pub func formatInt(n: int, base: int) -> (string) {
     }
 
     mut var value: int = n
-    mut var negative: bool = false
-
-    if value < 0 {
-        negative = true
-        value = -value
-    }
-
+    var negative: bool = value < 0
     mut var out: string = ""
 
-    while value > 0 {
-        var digit: int = value % base
+    // Keep negative values negative while extracting digits. Negating the
+    // minimum signed integer overflows, but division and remainder stay in
+    // range and each remainder can safely be made positive on its own.
+    while value != 0 {
+        mut var digit: int = value % base
+
+        if digit < 0 {
+            digit = -digit
+        }
+
         mut var ch: int = ch0 + digit
 
         if digit >= 10 {
@@ -149,6 +153,16 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
         return Err("invalid syntax")
     }
 
+    // Accumulate the magnitude as a negative number. The negative range has
+    // one extra value, which lets us accept the minimum signed integer without
+    // overflowing an intermediate positive value.
+    mut var limit: int = -maxIntValue
+
+    if negative {
+        limit = minIntValue
+    }
+
+    var multMin: int = limit / base
     mut var result: int = 0
 
     while idx < s.len() {
@@ -168,15 +182,25 @@ pub func parseInt(s: &string, base: int) -> (Result<int, string>) {
             return Err("invalid character")
         }
 
-        result = result * base + digit
+        if result < multMin {
+            return Err("integer out of range")
+        }
+
+        result = result * base
+
+        if result < limit + digit {
+            return Err("integer out of range")
+        }
+
+        result = result - digit
         idx = idx + 1
     }
 
     if negative {
-        result = -result
+        return Ok(result)
     }
 
-    return Ok(result)
+    return Ok(-result)
 }
 
 // parseBinary parses a binary string

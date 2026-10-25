@@ -77,22 +77,27 @@ Stable declaration forms:
 - `enum`
 - `impl`
 - `type Name = ExistingType`
+- `alias Name = ExistingType`
 
 Functions require explicit return types. `-> (void)` is the stable spelling for a function that returns no value.
+`type` introduces a distinct type; `alias` introduces an interchangeable name for an existing type.
 
 ### Stable types
 
 Primitive types:
 
-- `int`
-- `int32`
-- `int64`
+- signed integers: `int`, `int8`, `int16`, `int32`, `int64`
+- unsigned integers: `uint`, `uint8`, `uint16`, `uint32`, `uint64`
 - `float32`
 - `float64`
 - `bool`
 - `char`
 - `string`
 - `void`
+
+`byte` is an alias for `uint8`. `any` is the explicit dynamic-value escape
+hatch used by reflection-style built-ins; normal application APIs should prefer
+concrete or generic types.
 
 Stable composite/value forms:
 
@@ -101,6 +106,8 @@ Stable composite/value forms:
 - tuples for multi-value returns and destructuring
 - `Result<T, E>`
 - `Vec<T, _>` as a standard-library collection type
+- `HashMap<K, V>` as the prelude hash-map collection type
+- `Range` values produced by range expressions
 - borrows: `&T` and `&mut T`
 
 Note: `Result<T, E>`, `Vec<T, _>`, and user-defined generic structs/functions/methods are part of the frozen user-facing language surface.

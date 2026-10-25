@@ -266,22 +266,22 @@ pub func repeat(s: string, n: int) -> (string) {
 }
 
 // padLeft pads a string to the given width with the given char.
-pub func padLeft(s: string, width: int, pad_char: string) -> (string) {
+pub func padLeft(s: string, width: int, padChar: string) -> (string) {
     mut var result: string = s
 
     while result.len() < width {
-        result = pad_char + result
+        result = padChar + result
     }
 
     return result
 }
 
 // padRight pads a string to the given width with the given char.
-pub func padRight(s: string, width: int, pad_char: string) -> (string) {
+pub func padRight(s: string, width: int, padChar: string) -> (string) {
     mut var result: string = s
 
     while result.len() < width {
-        result = result + pad_char
+        result = result + padChar
     }
 
     return result

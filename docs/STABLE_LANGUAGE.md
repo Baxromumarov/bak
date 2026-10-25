@@ -63,20 +63,26 @@ impl Point as p {
 }
 
 type UserID = int
+alias UserName = string
 ```
 
 Functions always spell their return type explicitly. Use `-> (void)` for no meaningful return value.
+`type` creates a distinct type, while `alias` creates an interchangeable name.
 
 ## Types
 
 Stable primitive types:
 
-- `int`, `int32`, `int64`
+- `int`, `int8`, `int16`, `int32`, `int64`
+- `uint`, `uint8`, `uint16`, `uint32`, `uint64`
 - `float32`, `float64`
 - `bool`
 - `char`
 - `string`
 - `void`
+
+`byte` aliases `uint8`. `any` is available for explicit dynamic-value and
+reflection-style code, but concrete or generic types are preferred.
 
 Stable composite types:
 
@@ -84,6 +90,8 @@ Stable composite types:
 - tuples for multiple return values and destructuring,
 - `Result<T, E>`,
 - `Vec<T, _>`,
+- `HashMap<K, V>`,
+- range expressions and their `Range` values,
 - user-defined generic structs, functions, and methods,
 - borrows with `&T` and `&mut T`.
 

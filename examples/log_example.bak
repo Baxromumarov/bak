@@ -3,16 +3,16 @@ package main
 import log "std/log"
 
 func main() -> (void) {
-    log.set_prefix("[demo]")
-    log.set_level(log.LEVEL_DEBUG)
+    log.setPrefix("[demo]")
+    log.setLevel(log.levelDebug)
     log.debug("debug message")
     log.info("info message")
     log.test("test message")
     log.warn("warn message")
     log.error("error message")
-    log.disable_color()
+    log.disableColor()
     log.info("color disabled")
-    log.info_kv(
+    log.infoKv(
         "user logged in",
         Vec.from(
             [
@@ -30,15 +30,15 @@ func main() -> (void) {
 
     mut var api: log.Logger = log.module(
         "api",
-        log.LEVEL_DEBUG,
+        log.levelDebug,
     )
 
     api.log(
-        log.LEVEL_INFO,
+        log.levelInfo,
         "module logger info",
     )
-    api.log_kv(
-        log.LEVEL_DEBUG,
+    api.logKv(
+        log.levelDebug,
         "module debug",
         Vec.from(
             [

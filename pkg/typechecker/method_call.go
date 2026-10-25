@@ -15,6 +15,7 @@ func (tc *TypeChecker) tryInferThreadSpawnMethodCall(mc *ast.MethodCallExpressio
 	ident, ok := mc.Object.(*ast.Identifier)
 	if !ok ||
 		ident.Value != "thread" ||
+		!tc.isUnshadowedImportAlias(ident.Value) ||
 		mc.Method.Value != "spawn" {
 
 		return nil, false
@@ -71,7 +72,7 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 	if !ok {
 		return nil, false
 	}
-	if _, exists := tc.importedPkgPaths[ident.Value]; !exists {
+	if !tc.isUnshadowedImportAlias(ident.Value) {
 		return nil, false
 	}
 
@@ -172,9 +173,9 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 
 func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpression) (ast.TypeExpression, bool) {
 	enumName, _, variant, pkgAlias, ok := tc.resolveEnumVariantFromFieldAccess(&ast.FieldAccessExpression{
-		NodeBase: ast.NodeBase{Token: mc.Token},
-		Object:   mc.Object,
-		Field:    mc.Method,
+		Token:  mc.Token,
+		Object: mc.Object,
+		Field:  mc.Method,
 	})
 	if !ok {
 		return nil, false
@@ -296,7 +297,7 @@ func (tc *TypeChecker) tryInferStaticCollectionMethodCall(mc *ast.MethodCallExpr
 
 func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExpression {
 	if ident, ok := mc.Object.(*ast.Identifier); ok {
-		if _, ok := tc.importedPkgPaths[ident.Value]; ok {
+		if tc.isUnshadowedImportAlias(ident.Value) {
 			tc.markImportUsed(ident.Value)
 		}
 	}

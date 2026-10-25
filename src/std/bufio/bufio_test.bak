@@ -1,0 +1,91 @@
+package bufio
+
+import bufio "std/bufio"
+import io "std/io"
+import strings "std/strings"
+import test "std/test"
+
+func test_reader_lines_peek_and_eof() -> (void) {
+    mut var t: test.T = test.new("test_reader_lines_peek_and_eof")
+    mut var reader: bufio.BufferedReader = bufio.newBufferedReader(
+        io.newReader("alpha\r\nbeta\nlast"),
+    )
+
+    t.eqChar(
+        reader.peek().unwrap(),
+        'a',
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "alpha",
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "beta",
+    )
+    t.eqString(
+        reader.readLine().unwrap(),
+        "last",
+    )
+    t.isTrue(reader.isEof())
+    t.isErr(reader.readLine())
+    t.finish()
+}
+
+func test_reader_handles_lines_larger_than_buffer() -> (void) {
+    mut var t: test.T = test.new("test_reader_handles_lines_larger_than_buffer")
+    var unit: string = "x"
+    var longLine: string = strings.repeat(
+        &unit,
+        5000,
+    )
+    mut var reader: bufio.BufferedReader = bufio.newBufferedReader(
+        io.newReader(longLine + "\ntail"),
+    )
+    var got: string = reader.readLine().unwrap()
+
+    t.eq(
+        got.len(),
+        5000,
+    )
+    t.eqString(
+        got,
+        longLine,
+    )
+    t.eqString(
+        reader.readAll(),
+        "tail",
+    )
+    t.finish()
+}
+
+func test_writer_flush_thresholds() -> (void) {
+    mut var t: test.T = test.new("test_writer_flush_thresholds")
+    mut var writer: bufio.BufferedWriter = bufio.newBufferedWriterSized(
+        io.newWriter(),
+        3,
+    )
+
+    writer.write("ab")
+    t.eqString(
+        writer.toString(),
+        "ab",
+    )
+    writer.write("c")
+    t.eqString(
+        writer.toString(),
+        "",
+    )
+
+    mut var zeroSized: bufio.BufferedWriter = bufio.newBufferedWriterSized(
+        io.newWriter(),
+        0,
+    )
+
+    zeroSized.write("x")
+    t.eqString(
+        zeroSized.toString(),
+        "",
+    )
+    t.finish()
+}
