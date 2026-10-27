@@ -79,3 +79,49 @@ func TestLookupBuiltinNameForModuleMethod(t *testing.T) {
 		t.Fatalf("unexpected builtin alias for fs.writeFile: %q", builtinName)
 	}
 }
+
+func TestBuiltinCatalogIsInternallyConsistent(t *testing.T) {
+	names := make(map[string]struct{})
+	ids := make(map[BuiltinID]string)
+	modules := make(map[string]struct{})
+
+	for _, spec := range builtinCatalog {
+		if len(spec.names) == 0 || spec.names[0] == "" {
+			t.Fatal("builtin catalog entry has no canonical name")
+		}
+		if spec.contract.Name != spec.names[0] {
+			t.Fatalf("builtin %q contract name is %q", spec.names[0], spec.contract.Name)
+		}
+		if spec.contract.MinArgs < 0 || (spec.contract.MaxArgs >= 0 && spec.contract.MaxArgs < spec.contract.MinArgs) {
+			t.Fatalf("builtin %q has invalid arity range", spec.names[0])
+		}
+		for _, name := range spec.names {
+			if _, duplicate := names[name]; duplicate {
+				t.Fatalf("duplicate builtin name %q", name)
+			}
+			names[name] = struct{}{}
+		}
+		for _, module := range spec.moduleMethods {
+			if _, duplicate := modules[module]; duplicate {
+				t.Fatalf("duplicate builtin module method %q", module)
+			}
+			modules[module] = struct{}{}
+		}
+		if !spec.bytecode {
+			continue
+		}
+		if previous, duplicate := ids[spec.id]; duplicate {
+			t.Fatalf("builtin id %d is shared by %q and %q", spec.id, previous, spec.names[0])
+		}
+		ids[spec.id] = spec.names[0]
+	}
+}
+
+func TestBuiltinNamesReturnsDefensiveCopy(t *testing.T) {
+	names := BuiltinNames()
+	delete(names, "print")
+
+	if id, ok := LookupBuiltinID("print"); !ok || id != BUILTIN_PRINT {
+		t.Fatalf("caller mutated builtin registry: id=%d ok=%v", id, ok)
+	}
+}

@@ -215,6 +215,29 @@ func nativePermissionMask(flag string) int {
 	}
 }
 
+func (s *EmitState) enforceBuiltinPermission(name string) error {
+	contract, ok := compiler.BuiltinContractByName(name)
+	if !ok || contract.PermissionFlag == "" {
+		return nil
+	}
+
+	action := contract.PermissionOp
+	if action == "" {
+		action = name
+	}
+	if err := s.requirePermission(
+		nativePermissionAllowed(s.Permissions, contract.PermissionFlag),
+		action,
+		contract.PermissionFlag,
+	); err != nil {
+		return err
+	}
+	if mask := nativePermissionMask(contract.PermissionFlag); mask != 0 {
+		s.emitRuntimePermissionCheck(mask)
+	}
+	return nil
+}
+
 func (s *EmitState) enforceModuleMethodBuiltinContract(
 	moduleName string,
 	methodName string,
@@ -240,28 +263,7 @@ func (s *EmitState) enforceModuleMethodBuiltinContract(
 		)
 	}
 
-	if contract.PermissionFlag == "" {
-		return nil
-	}
-
-	action := contract.PermissionOp
-	if action == "" {
-		action = moduleName + "." + methodName
-	}
-
-	if err := s.requirePermission(
-		nativePermissionAllowed(s.Permissions, contract.PermissionFlag),
-		action,
-		contract.PermissionFlag,
-	); err != nil {
-		return err
-	}
-
-	if mask := nativePermissionMask(contract.PermissionFlag); mask != 0 {
-		s.emitRuntimePermissionCheck(mask)
-	}
-
-	return nil
+	return s.enforceBuiltinPermission(builtinName)
 }
 
 // emitRuntimePermissionCheck emits a runtime call to __rt_check_perm with the

@@ -105,6 +105,7 @@ func Walk(node Node, fn func(Node)) {
 		walkEnumVariantList(n.Variants, fn)
 	case *ImplDecl:
 		Walk(n.TypeName, fn)
+		walkNodeList(n.TypeParams, fn)
 		Walk(n.Receiver, fn)
 		walkMethodDeclList(n.Methods, fn)
 
@@ -235,7 +236,7 @@ func walkMethodDeclList(list []*MethodDecl, fn func(Node)) {
 		}
 		Walk(m.Name, fn)
 		walkNodeList(m.TypeParams, fn)
-		walkNodeList(m.Parameters, fn)
+		walkParamList(m.Parameters, fn)
 		Walk(m.ReturnType, fn)
 		Walk(m.Body, fn)
 	}

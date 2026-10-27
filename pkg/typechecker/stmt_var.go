@@ -14,7 +14,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 	if vs.Type == nil {
 		varPos := vs.Pos()
 		if vs.Value == nil {
-			tc.errorMissingTypeAt(
+			tc.emitMissingTypeErrorAt(
 				varPos,
 				strfmt.Named("variable '{Value}' requires a type annotation or an initial value", "Value", vs.Name.Value),
 				"add an explicit type or initialize the variable from a function or method call",
@@ -30,7 +30,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		}
 
 		if !canInfer {
-			tc.errorMissingTypeAt(
+			tc.emitMissingTypeErrorAt(
 				varPos,
 				strfmt.Named("missing type annotation for variable '{Value}'", "Value", vs.Name.Value),
 				"every variable type must be written explicitly unless getting value from function",

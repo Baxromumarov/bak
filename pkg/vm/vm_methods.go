@@ -31,26 +31,6 @@ func vmUndefinedMethodError(typ, method string) error {
 	return fmt.Errorf("undefined method: %s.%s", typ, method)
 }
 
-func vmResultOk(v compiler.Value) compiler.Value {
-	return compiler.Value{
-		Type: compiler.VAL_RESULT,
-		AsObject: &compiler.ResultInstance{
-			IsErr: false,
-			Value: v,
-		},
-	}
-}
-
-func vmResultErr(msg string) compiler.Value {
-	return compiler.Value{
-		Type: compiler.VAL_RESULT,
-		AsObject: &compiler.ResultInstance{
-			IsErr: true,
-			Value: compiler.NewString(msg),
-		},
-	}
-}
-
 func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip int, discardReturn bool) error {
 	receiver := vm.derefAll(vm.peek(argc - 1))
 

@@ -215,62 +215,12 @@ func builtinReflectionMethodNames(typeName string) []string {
 
 // callBuiltin handles builtin function calls
 func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compiler.Value, error) {
-	// Debug: print builtin id and known constants to detect mismatches
-	// fmt.Fprintf(os.Stderr, "DEBUG callBuiltin: id=%d, BUILTIN_IS_OK=%d, BUILTIN_IS_ERR=%d\n", id, compiler.BUILTIN_IS_OK, compiler.BUILTIN_IS_ERR)
-	// If this is a socket-related builtin, dump arg types/values for inspection
-	// if int(id) >= int(compiler.BUILTIN_SOCKET_CONNECT) && int(id) <= int(compiler.BUILTIN_SOCKET_ACCEPT) {
-	// 	for i, a := range args {
-	// 		switch a.Type {
-	// 		case compiler.VAL_STRING:
-	// 			// fmt.Fprintf(os.Stderr, "  arg[%d]=STRING('%s')\n", i, a.AsString)
-	// 		case compiler.VAL_INT:
-	// 			// fmt.Fprintf(os.Stderr, "  arg[%d]=INT(%d)\n", i, a.AsInt)
-	// 		default:
-	// 			// fmt.Fprintf(os.Stderr, "  arg[%d]=%s %#v\n", i, a.Type.String(), a)
-	// 		}
-	// 	}
-	// }
-	makeResult := func(isOk bool, val compiler.Value) compiler.Value {
-		result := &compiler.ResultInstance{
-			IsErr: !isOk,
-			Value: val,
-		}
-		if !isOk {
-			// Ensure error values are strings for consistency
-			if val.Type != compiler.VAL_STRING {
-				result.Value = compiler.NewString(strfmt.Named("{val}", "Val", val))
-			}
-		}
-		return compiler.Value{Type: compiler.VAL_RESULT, AsObject: result}
-	}
-
-	makeStruct := func(typeName string, fieldValues map[string]compiler.Value) (compiler.Value, error) {
-		def := vm.module.StructDefs[typeName]
-		if def == nil {
-			return compiler.NewNil(), fmt.Errorf("unknown struct: %s", typeName)
-		}
-		fields := make([]compiler.Value, len(def.Fields))
-		for i, field := range def.Fields {
-			if val, ok := fieldValues[field.Name]; ok {
-				fields[i] = val
-			} else {
-				fields[i] = compiler.NewNil()
-			}
-		}
-		inst := &compiler.StructInstance{
-			TypeName: def.Name,
-			TypeID:   def.TypeID,
-			Fields:   fields,
-		}
-		return compiler.Value{Type: compiler.VAL_STRUCT, AsObject: inst}, nil
-	}
-
 	if contract, ok := compiler.BuiltinContractByID(id); ok {
 		if !contract.AcceptsArity(len(args)) {
 			return compiler.NewNil(), fmt.Errorf("%s expects %s argument(s), got %d", contract.Name, contract.ArityDescription(), len(args))
 		}
 		if contract.PermissionFlag != "" && !vmPermissionAllowed(vm.permissions, contract.PermissionFlag) {
-			return makeResult(false, compiler.NewString(contract.PermissionDeniedError())), nil
+			return vmResultFromOK(false, compiler.NewString(contract.PermissionDeniedError())), nil
 		}
 	}
 
@@ -671,18 +621,18 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		val, ok := os.LookupEnv(args[0].AsString)
 		if !ok {
-			return makeResult(false, compiler.NewString("environment variable '"+args[0].AsString+"' is not set")), nil
+			return vmResultFromOK(false, compiler.NewString("environment variable '"+args[0].AsString+"' is not set")), nil
 		}
-		return makeResult(true, compiler.NewString(val)), nil
+		return vmResultFromOK(true, compiler.NewString(val)), nil
 
 	case compiler.BUILTIN_SETENV:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_setenv() requires key and value strings")
 		}
 		if err := os.Setenv(args[0].AsString, args[1].AsString); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_CWD:
 		if len(args) != 0 {
@@ -690,18 +640,18 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		dir, err := os.Getwd()
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(dir)), nil
+		return vmResultFromOK(true, compiler.NewString(dir)), nil
 
 	case compiler.BUILTIN_CHDIR:
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_chdir() requires a string path")
 		}
 		if err := os.Chdir(args[0].AsString); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_READ_FILE:
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
@@ -709,34 +659,34 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		data, err := os.ReadFile(args[0].AsString)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(string(data))), nil
+		return vmResultFromOK(true, compiler.NewString(string(data))), nil
 
 	case compiler.BUILTIN_WRITE_FILE:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_write_file() requires path and content strings")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.writeFile", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("fs.writeFile", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "fs.writeFile"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		if err := os.WriteFile(args[0].AsString, []byte(args[1].AsString), 0644); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_WRITE_FILE_BYTES:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_ARRAY {
 			return compiler.NewNil(), fmt.Errorf("__builtin_write_file_bytes() requires path (string) and data (Vec<int, _>)")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.writeFileBytes", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("fs.writeFileBytes", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "fs.writeFileBytes"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		data := args[1].AsObject.(*compiler.ArrayInstance)
 		bytes := make([]byte, len(data.Elements))
@@ -747,33 +697,33 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			bytes[i] = byte(elem.AsInt)
 		}
 		if err := os.WriteFile(args[0].AsString, bytes, 0644); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_APPEND_FILE:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_append_file() requires path and content strings")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.appendFile", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("fs.appendFile", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "fs.appendFile"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		f, err := os.OpenFile(args[0].AsString, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		_, writeErr := f.WriteString(args[1].AsString)
 		closeErr := f.Close()
 		if writeErr != nil {
-			return makeResult(false, compiler.NewString(writeErr.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(writeErr.Error())), nil
 		}
 		if closeErr != nil {
-			return makeResult(false, compiler.NewString(closeErr.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(closeErr.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_FILE_EXISTS:
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
@@ -813,45 +763,45 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("__builtin_remove() requires a string path")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("fs.remove", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "fs.remove"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		if err := os.Remove(args[0].AsString); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_MKDIR:
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_mkdir() requires a string path")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("fs.mkdir", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("fs.mkdir", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "fs.mkdir"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		if err := os.Mkdir(args[0].AsString, 0755); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_CHMOD:
 		if len(args) != 2 || args[0].Type != compiler.VAL_STRING || args[1].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_chmod() requires path (string) and mode (int)")
 		}
 		if !vm.permissions.AllowFSMutate {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("os.chmod", runtimecap.FlagAllowFSMutate))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("os.chmod", runtimecap.FlagAllowFSMutate))), nil
 		}
 		if err := validateVMDestructivePath(args[0].AsString, "os.chmod"); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		if err := os.Chmod(args[0].AsString, os.FileMode(args[1].AsInt)); err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_READ_DIR:
 		if len(args) != 1 || args[0].Type != compiler.VAL_STRING {
@@ -859,28 +809,28 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		entries, err := os.ReadDir(args[0].AsString)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 		values := make([]compiler.Value, len(entries))
 		for i, entry := range entries {
-			structVal, err := makeStruct("fs.DirEntry", map[string]compiler.Value{
+			structVal, err := vm.structValue("fs.DirEntry", map[string]compiler.Value{
 				"name":  compiler.NewString(entry.Name()),
 				"isDir": compiler.NewBool(entry.IsDir()),
 			})
 			if err != nil {
-				return makeResult(false, compiler.NewString(err.Error())), nil
+				return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 			}
 			values[i] = structVal
 		}
 		vec := &compiler.ArrayInstance{Elements: values}
-		return makeResult(true, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}), nil
+		return vmResultFromOK(true, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}), nil
 
 	case compiler.BUILTIN_EXEC:
 		if len(args) < 1 || args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_exec() requires a command string")
 		}
 		if !vm.permissions.AllowExec {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("os.exec", runtimecap.FlagAllowExec))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("os.exec", runtimecap.FlagAllowExec))), nil
 		}
 		cmdArgs := []string{}
 		if len(args) > 1 {
@@ -898,10 +848,10 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 		execResult, err := runtimecap.ExecuteCommand(args[0].AsString, cmdArgs, vm.permissions)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
-		structVal, sErr := makeStruct("os.ExecResult", map[string]compiler.Value{
+		structVal, sErr := vm.structValue("os.ExecResult", map[string]compiler.Value{
 			"output":    compiler.NewString(execResult.Output),
 			"stdout":    compiler.NewString(execResult.Stdout),
 			"stderr":    compiler.NewString(execResult.Stderr),
@@ -910,9 +860,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			"truncated": compiler.NewBool(execResult.Truncated),
 		})
 		if sErr != nil {
-			return makeResult(false, compiler.NewString(sErr.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(sErr.Error())), nil
 		}
-		return makeResult(true, structVal), nil
+		return vmResultFromOK(true, structVal), nil
 
 	case compiler.BUILTIN_EXECUTABLE:
 		if len(args) != 0 {
@@ -920,9 +870,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		path, err := os.Executable()
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(path)), nil
+		return vmResultFromOK(true, compiler.NewString(path)), nil
 
 	case compiler.BUILTIN_HOSTNAME:
 		if len(args) != 0 {
@@ -930,9 +880,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		name, err := os.Hostname()
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(name)), nil
+		return vmResultFromOK(true, compiler.NewString(name)), nil
 
 	case compiler.BUILTIN_TEMP_DIR:
 		if len(args) != 0 {
@@ -946,9 +896,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(home)), nil
+		return vmResultFromOK(true, compiler.NewString(home)), nil
 
 	case compiler.BUILTIN_EPRINT:
 		for i, arg := range args {
@@ -1059,9 +1009,9 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		reader := bufio.NewReader(os.Stdin)
 		line, err := reader.ReadString('\n')
 		if err != nil && err != io.EOF {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(strings.TrimRight(line, "\n"))), nil
+		return vmResultFromOK(true, compiler.NewString(strings.TrimRight(line, "\n"))), nil
 
 	case compiler.BUILTIN_READ_ALL:
 		if len(args) != 0 {
@@ -1069,16 +1019,16 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 		data, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
-		return makeResult(true, compiler.NewString(string(data))), nil
+		return vmResultFromOK(true, compiler.NewString(string(data))), nil
 
 	case compiler.BUILTIN_SOCKET_CONNECT:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect() requires host and port")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.connect", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect() requires string host and int port")
@@ -1100,7 +1050,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 		conn, err := net.DialTimeout("tcp", strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal), 10*time.Second)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
 		vm.connMu.Lock()
@@ -1109,14 +1059,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.conns[id] = conn
 		vm.connMu.Unlock()
 
-		return makeResult(true, compiler.NewInt(int64(id))), nil
+		return vmResultFromOK(true, compiler.NewInt(int64(id))), nil
 
 	case compiler.BUILTIN_SOCKET_READ:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_read() requires fd and count")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.read", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_read() requires int fd and int count")
@@ -1128,16 +1078,16 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.connMu.Unlock()
 
 		if !ok {
-			return makeResult(false, compiler.NewString("invalid socket fd")), nil
+			return vmResultFromOK(false, compiler.NewString("invalid socket fd")), nil
 		}
 
 		if args[1].AsInt < 0 {
-			return makeResult(false, compiler.NewString("socket read count must be non-negative")), nil
+			return vmResultFromOK(false, compiler.NewString("socket read count must be non-negative")), nil
 		}
 		buf := make([]byte, int(args[1].AsInt))
 		n, err := conn.Read(buf)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
 		elements := make([]compiler.Value, n)
@@ -1145,14 +1095,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			elements[i] = compiler.NewInt(int64(buf[i]))
 		}
 		vec := &compiler.ArrayInstance{Elements: elements}
-		return makeResult(true, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}), nil
+		return vmResultFromOK(true, compiler.Value{Type: compiler.VAL_ARRAY, AsObject: vec}), nil
 
 	case compiler.BUILTIN_SOCKET_WRITE:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_write() requires fd and data")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.write", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_ARRAY {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_write() requires int fd and Vec<byte, _> data")
@@ -1166,30 +1116,30 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.connMu.Unlock()
 
 		if !ok {
-			return makeResult(false, compiler.NewString("invalid socket fd")), nil
+			return vmResultFromOK(false, compiler.NewString("invalid socket fd")), nil
 		}
 
 		bytes := make([]byte, len(vec.Elements))
 		for i, el := range vec.Elements {
 			if el.Type != compiler.VAL_INT {
-				return makeResult(false, compiler.NewString("invalid data type in buffer")), nil
+				return vmResultFromOK(false, compiler.NewString("invalid data type in buffer")), nil
 			}
 			bytes[i] = byte(el.AsInt)
 		}
 
 		_, err := conn.Write(bytes)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_SOCKET_CLOSE:
 		if len(args) != 1 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_close() requires fd")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.close", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.close", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_close() requires int fd")
@@ -1213,29 +1163,29 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.connMu.Unlock()
 
 		if !connOK && !listenerOK {
-			return makeResult(false, compiler.NewString("invalid socket fd")), nil
+			return vmResultFromOK(false, compiler.NewString("invalid socket fd")), nil
 		}
 
 		if connOK {
 			if err := conn.Close(); err != nil {
-				return makeResult(false, compiler.NewString(err.Error())), nil
+				return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 			}
 		}
 
 		if listenerOK {
 			if err := listener.Close(); err != nil {
-				return makeResult(false, compiler.NewString(err.Error())), nil
+				return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 			}
 		}
 
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_SOCKET_CONNECT_TLS:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires host and port")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.connectTls", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.connectTls", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_connect_tls() requires string host and int port")
@@ -1256,7 +1206,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 
 		conn, err := tls.Dial("tcp", strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal), nil)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
 		vm.connMu.Lock()
@@ -1265,14 +1215,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.conns[id] = conn
 		vm.connMu.Unlock()
 
-		return makeResult(true, compiler.NewInt(int64(id))), nil
+		return vmResultFromOK(true, compiler.NewInt(int64(id))), nil
 
 	case compiler.BUILTIN_SOCKET_SET_TIMEOUT:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_set_timeout() requires fd and ms")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.setTimeout", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.setTimeout", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT || args[1].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_set_timeout() requires int fd and int ms")
@@ -1284,7 +1234,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.connMu.Unlock()
 
 		if !ok {
-			return makeResult(false, compiler.NewString("invalid socket fd")), nil
+			return vmResultFromOK(false, compiler.NewString("invalid socket fd")), nil
 		}
 
 		ms := args[1].AsInt
@@ -1296,17 +1246,17 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		}
 
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_SOCKET_BIND:
 		if len(args) != 2 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_bind() requires host and port")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.bind", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.bind", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_STRING {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_bind() requires string host and int port")
@@ -1328,7 +1278,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		addr := strfmt.Named("{AsString}:{portVal}", "AsString", args[0].AsString, "PortVal", portVal)
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
 		vm.connMu.Lock()
@@ -1337,14 +1287,14 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.listeners[id] = listener
 		vm.connMu.Unlock()
 
-		return makeResult(true, compiler.NewInt(int64(id))), nil
+		return vmResultFromOK(true, compiler.NewInt(int64(id))), nil
 
 	case compiler.BUILTIN_SOCKET_ACCEPT:
 		if len(args) != 1 {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_accept() requires listener fd")
 		}
 		if !vm.permissions.AllowNet {
-			return makeResult(false, compiler.NewString(runtimecap.PermissionError("socket.accept", runtimecap.FlagAllowNet))), nil
+			return vmResultFromOK(false, compiler.NewString(runtimecap.PermissionError("socket.accept", runtimecap.FlagAllowNet))), nil
 		}
 		if args[0].Type != compiler.VAL_INT {
 			return compiler.NewNil(), fmt.Errorf("__builtin_socket_accept() requires int listener fd")
@@ -1356,12 +1306,12 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.connMu.Unlock()
 
 		if !ok {
-			return makeResult(false, compiler.NewString("invalid listener fd")), nil
+			return vmResultFromOK(false, compiler.NewString("invalid listener fd")), nil
 		}
 
 		conn, err := listener.Accept()
 		if err != nil {
-			return makeResult(false, compiler.NewString(err.Error())), nil
+			return vmResultFromOK(false, compiler.NewString(err.Error())), nil
 		}
 
 		vm.connMu.Lock()
@@ -1370,7 +1320,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 		vm.conns[connID] = conn
 		vm.connMu.Unlock()
 
-		return makeResult(true, compiler.NewInt(int64(connID))), nil
+		return vmResultFromOK(true, compiler.NewInt(int64(connID))), nil
 
 	case compiler.BUILTIN_SPAWN:
 		if len(args) < 1 {
@@ -1449,7 +1399,7 @@ func (vm *VM) callBuiltin(id compiler.BuiltinID, args []compiler.Value) (compile
 			return compiler.NewNil(), fmt.Errorf("sleep() requires an integer (ms)")
 		}
 		time.Sleep(time.Duration(args[0].AsInt) * time.Millisecond)
-		return makeResult(true, compiler.NewNil()), nil
+		return vmResultFromOK(true, compiler.NewNil()), nil
 
 	case compiler.BUILTIN_THREAD_ID:
 		return compiler.NewInt(int64(vm.threadID)), nil

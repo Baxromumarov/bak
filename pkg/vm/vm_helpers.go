@@ -4,7 +4,41 @@ import (
 	"fmt"
 
 	"github.com/baxromumarov/bak/pkg/compiler"
+	"github.com/baxromumarov/bak/pkg/strfmt"
 )
+
+func vmResult(isErr bool, value compiler.Value) compiler.Value {
+	if isErr && value.Type != compiler.VAL_STRING {
+		value = compiler.NewString(strfmt.Named("{value}", "Value", value))
+	}
+	return compiler.Value{
+		Type: compiler.VAL_RESULT,
+		AsObject: &compiler.ResultInstance{
+			IsErr: isErr,
+			Value: value,
+		},
+	}
+}
+
+func vmResultFromOK(ok bool, value compiler.Value) compiler.Value {
+	return vmResult(!ok, value)
+}
+
+func vmResultOk(value compiler.Value) compiler.Value { return vmResult(false, value) }
+func vmResultErr(message string) compiler.Value      { return vmResult(true, compiler.NewString(message)) }
+
+func (vm *VM) structValue(typeName string, values map[string]compiler.Value) (compiler.Value, error) {
+	def := vm.module.StructDefs[typeName]
+	if def == nil {
+		return compiler.NewNil(), fmt.Errorf("unknown struct: %s", typeName)
+	}
+	fields := make([]compiler.Value, len(def.Fields))
+	for i, field := range def.Fields {
+		fields[i] = values[field.Name]
+	}
+	instance := &compiler.StructInstance{TypeName: def.Name, TypeID: def.TypeID, Fields: fields}
+	return compiler.Value{Type: compiler.VAL_STRUCT, AsObject: instance}, nil
+}
 
 // Arithmetic operations
 

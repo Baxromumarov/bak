@@ -246,6 +246,29 @@ func (s *Server) getOrIndexFileIncludingPrivate(path string) *FileIndex {
 	return privateIndexFromText(string(data), uri)
 }
 
+func (s *Server) resolveImportedModule(
+	result *AnalysisResult,
+	originURI,
+	alias string,
+	includePrivate bool,
+) *FileIndex {
+	if result == nil || result.Imports == nil {
+		return nil
+	}
+	importPath, ok := result.Imports[alias]
+	if !ok {
+		return nil
+	}
+	path := s.resolveImportPath(uriToPath(originURI), importPath)
+	if path == "" {
+		return nil
+	}
+	if includePrivate {
+		return s.getOrIndexFileIncludingPrivate(path)
+	}
+	return s.getOrIndexFile(path)
+}
+
 func (s *Server) getOrIndexDirIncludingPrivate(dirPath string) *FileIndex {
 	merged := &FileIndex{
 		Symbols: make(map[string]SymbolInfo),

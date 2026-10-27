@@ -31,3 +31,29 @@ func TestWalkSkipsTypedNilNodes(t *testing.T) {
 		t.Fatalf("second visited node = %T, want *IfStatement", visited[1])
 	}
 }
+
+func TestWalkVisitsImplTypeParamsAndMethodParameters(t *testing.T) {
+	implTypeParamName := &Identifier{Value: "T"}
+	methodTypeParamName := &Identifier{Value: "U"}
+	parameterName := &Identifier{Value: "value"}
+	parameterType := &SimpleType{Name: "U"}
+	program := &Program{Statements: []Statement{&ImplDecl{
+		TypeName:   &Identifier{Value: "Box"},
+		TypeParams: []*TypeParameter{{Name: implTypeParamName}},
+		Methods: []*MethodDecl{{
+			Name:       &Identifier{Value: "set"},
+			TypeParams: []*TypeParameter{{Name: methodTypeParamName}},
+			Parameters: []*Parameter{{Name: parameterName, Type: parameterType}},
+			ReturnType: &VoidType{},
+			Body:       &BlockStatement{},
+		}},
+	}}}
+
+	seen := make(map[Node]bool)
+	Walk(program, func(node Node) { seen[node] = true })
+	for _, node := range []Node{implTypeParamName, methodTypeParamName, parameterName, parameterType} {
+		if !seen[node] {
+			t.Fatalf("Walk did not visit %T", node)
+		}
+	}
+}

@@ -129,6 +129,30 @@ func main() -> (void) {
 	}
 }
 
+func TestPrintBuiltinsShareVariadicSemantics(t *testing.T) {
+	packages.GlobalRegistry.Reset()
+	t.Cleanup(packages.GlobalRegistry.Reset)
+
+	source := `package main
+
+func main() -> (void) {
+	print()
+	print("a", 1)
+	println("b", 2)
+	return void
+}
+`
+
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 0 {
+		t.Fatalf("unexpected exit code: got %d\noutput:\n%s", exitCode, output)
+	}
+	if output != "a 1b 2\n" {
+		t.Fatalf("unexpected variadic print output: %q", output)
+	}
+}
+
 func TestBuildExecutableBuildsIRProgramSet(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

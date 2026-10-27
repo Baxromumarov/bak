@@ -133,16 +133,9 @@ func buildSignatureHelp(uri string, text string, pos Position, result *AnalysisR
 
 	var sig SignatureInfo
 	if qualifier != "" {
-		if result.Imports != nil {
-			if importPath, ok := result.Imports[qualifier]; ok {
-				path := s.resolveImportPath(uriToPath(uri), importPath)
-				if path != "" {
-					if idx := s.getOrIndexFile(path); idx != nil {
-						if found, ok := idx.Sigs[name]; ok {
-							sig = found
-						}
-					}
-				}
+		if idx := s.resolveImportedModule(result, uri, qualifier, false); idx != nil {
+			if found, ok := idx.Sigs[name]; ok {
+				sig = found
 			}
 		}
 		if sig.Label == "" && result.Index != nil {

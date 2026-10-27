@@ -843,6 +843,9 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		if !contract.AcceptsArity(len(e.Arguments)) {
 			return fmt.Errorf("native: %s expects %s argument(s), got %d", funcName, contract.ArityDescription(), len(e.Arguments))
 		}
+		if err := s.enforceBuiltinPermission(funcName); err != nil {
+			return err
+		}
 	}
 
 	// Built-in dispatch

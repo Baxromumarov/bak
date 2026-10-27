@@ -118,18 +118,11 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 	if code == "" {
 		code = diagnostics.ErrGeneric
 	}
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    code,
-		Level:   diagnostics.LevelError,
-		Message: err.Message,
-		Line:    err.Line,
-		Column:  err.Column,
-		File:    tc.currentPkgPath,
-		Help:    err.Help,
-		Notes:   tc.buildNotes(err.Note, err.NoteLoc),
-		Fixes:   err.Fixes,
-	})
-	tc.hasFatalError = true
+	diag := tc.baseDiagnostic(code, ast.Position{Line: err.Line, Column: err.Column}, err.Message)
+	diag.Help = err.Help
+	diag.Notes = tc.buildNotes(err.Note, err.NoteLoc)
+	diag.Fixes = err.Fixes
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
@@ -149,59 +142,24 @@ func (tc *TypeChecker) emitError(d diagnostics.Diagnostic) {
 //	tc.emit(diagnostics.ErrMissingReturn, pos, map[string]any{
 //	    "expectedName": typeToString(expected),
 //	})
-func (tc *TypeChecker) emit(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any) {
+func (tc *TypeChecker) renderedDiagnostic(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any) diagnostics.Diagnostic {
 	level, msg, help := diagnostics.Render(code, data)
-	d := diagnostics.Diagnostic{
-		Code:    code,
-		Level:   level,
-		Message: msg,
-		Help:    help,
-		Line:    pos.Line,
-		Column:  pos.Column,
-		File:    tc.currentPkgPath,
-	}
-	tc.emitter.Emit(d)
-	if level == diagnostics.LevelError {
-		tc.hasFatalError = true
-	}
+	diag := tc.baseDiagnostic(code, pos, msg)
+	diag.Level = level
+	diag.Help = help
+	return diag
+}
+
+func (tc *TypeChecker) emit(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any) {
+	tc.emitError(tc.renderedDiagnostic(code, pos, data))
 }
 
 // emitWithHelp is like emit but overrides the catalog help text.
 func (tc *TypeChecker) emitWithHelp(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, help string) {
-	level, msg, _ := diagnostics.Render(code, data)
-	d := diagnostics.Diagnostic{
-		Code:    code,
-		Level:   level,
-		Message: msg,
-		Help:    help,
-		Line:    pos.Line,
-		Column:  pos.Column,
-		File:    tc.currentPkgPath,
-	}
-	tc.emitter.Emit(d)
-	if level == diagnostics.LevelError {
-		tc.hasFatalError = true
-	}
+	diag := tc.renderedDiagnostic(code, pos, data)
+	diag.Help = help
+	tc.emitError(diag)
 }
-
-// // emitWithNotes is like emit but attaches additional notes.
-// func (tc *TypeChecker) emitWithNotes(code diagnostics.DiagnosticCode, pos ast.Position, data map[string]any, notes []diagnostics.Note) {
-// 	level, msg, help := diagnostics.Render(code, data)
-// 	d := diagnostics.Diagnostic{
-// 		Code:    code,
-// 		Level:   level,
-// 		Message: msg,
-// 		Help:    help,
-// 		Line:    pos.Line,
-// 		Column:  pos.Column,
-// 		File:    tc.currentPkgPath,
-// 		Notes:   notes,
-// 	}
-// 	tc.emitter.Emit(d)
-// 	if level == diagnostics.LevelError {
-// 		tc.hasFatalError = true
-// 	}
-// }
 
 func (tc *TypeChecker) emitWarning(
 	code diagnostics.DiagnosticCode,
@@ -210,15 +168,10 @@ func (tc *TypeChecker) emitWarning(
 	message,
 	help string,
 ) {
-	tc.emitter.Emit(diagnostics.Diagnostic{
-		Code:    code,
-		Level:   diagnostics.LevelWarning,
-		Message: message,
-		Line:    line,
-		Column:  col,
-		File:    tc.currentPkgPath,
-		Help:    help,
-	})
+	diag := tc.baseDiagnostic(code, ast.Position{Line: line, Column: col}, message)
+	diag.Level = diagnostics.LevelWarning
+	diag.Help = help
+	tc.emitError(diag)
 }
 
 func (tc *TypeChecker) emitWarningAt(
@@ -231,35 +184,6 @@ func (tc *TypeChecker) emitWarningAt(
 		code,
 		pos.Line,
 		pos.Column,
-		message,
-		help,
-	)
-}
-
-func (tc *TypeChecker) addFatalErrorAt(
-	code diagnostics.DiagnosticCode,
-	pos ast.Position,
-	message,
-	help string,
-) {
-	tc.addFatalError(TypeError{
-		Code:    code,
-		Tier:    TierFatal,
-		Line:    pos.Line,
-		Column:  pos.Column,
-		Message: message,
-		Help:    help,
-	})
-}
-
-func (tc *TypeChecker) errorMissingTypeAt(
-	pos ast.Position,
-	message,
-	help string,
-) {
-	tc.addFatalErrorAt(
-		diagnostics.ErrMissingType,
-		pos,
 		message,
 		help,
 	)

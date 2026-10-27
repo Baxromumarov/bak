@@ -55,28 +55,13 @@ func (s *Server) documentText(uri string) string {
 	return string(data)
 }
 
-func (s *Server) importedModuleIndex(result *AnalysisResult, originURI, alias string) *FileIndex {
-	if result == nil || result.Imports == nil {
-		return nil
-	}
-	importPath, ok := result.Imports[alias]
-	if !ok {
-		return nil
-	}
-	path := s.resolveImportPath(uriToPath(originURI), importPath)
-	if path == "" {
-		return nil
-	}
-	return s.getOrIndexFileIncludingPrivate(path)
-}
-
 func (s *Server) lookupImportedSymbol(
 	result *AnalysisResult,
 	originURI,
 	alias,
 	symbolName string,
 ) (Location, bool) {
-	modIndex := s.importedModuleIndex(result, originURI, alias)
+	modIndex := s.resolveImportedModule(result, originURI, alias, true)
 	if modIndex == nil {
 		return Location{}, false
 	}
@@ -96,12 +81,8 @@ func (s *Server) lookupSymbolInImports(
 	if result == nil || result.Imports == nil {
 		return Location{}, false
 	}
-	for _, importPath := range result.Imports {
-		path := s.resolveImportPath(uriToPath(originURI), importPath)
-		if path == "" {
-			continue
-		}
-		modIndex := s.getOrIndexFile(path)
+	for alias := range result.Imports {
+		modIndex := s.resolveImportedModule(result, originURI, alias, false)
 		if modIndex == nil {
 			continue
 		}

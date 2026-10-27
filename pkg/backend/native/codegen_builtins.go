@@ -3,7 +3,6 @@ package native
 import (
 	"fmt"
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"os"
 	"slices"
@@ -26,19 +25,10 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 	case "__builtin_args":
 		return true, s.emitOsArgs()
 	case "__builtin_exit":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_exit expects 1 argument")
-		}
 		return true, s.emitOsExit(e.Arguments[0])
 	case "__builtin_getenv":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_getenv expects 1 argument")
-		}
 		return true, s.emitOsGetenv(e.Arguments[0])
 	case "__builtin_setenv":
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_setenv expects 2 arguments")
-		}
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return true, err
@@ -48,32 +38,12 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 	case "__builtin_cwd":
 		return true, s.emitOsCwd()
 	case "__builtin_chdir":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_chdir expects 1 argument")
-		}
 		return true, s.emitOsChdir(e.Arguments[0])
 	case "__builtin_chmod":
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_chmod expects 2 arguments")
-		}
 		return true, s.emitOsChmod(e.Arguments[0], e.Arguments[1])
 	case "__builtin_mkdir":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_mkdir expects 1 argument")
-		}
-		if err := s.requirePermission(
-			s.Permissions.AllowFSMutate,
-			"__builtin_mkdir",
-			runtimecap.FlagAllowFSMutate,
-		); err != nil {
-			return true, err
-		}
-		s.emitRuntimePermissionCheck(0x04)
 		return true, s.emitOsMkdir(e.Arguments[0])
 	case "__builtin_string_ptr":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_string_ptr expects 1 argument")
-		}
 		if err := s.emitExpression(e.Arguments[0]); err != nil {
 			return true, err
 		}
@@ -86,67 +56,19 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 
 	// FS builtins
 	switch funcName {
-	case "__builtin_read_file", "__builtin_read_all":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_read_file expects 1 argument")
-		}
+	case "__builtin_read_file":
 		return true, s.emitBuiltinReadFile(e.Arguments[0])
+	case "__builtin_read_all":
+		return true, s.emitResultErrStr("readAll is not supported in native backend")
 	case "__builtin_write_file":
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_write_file expects 2 arguments")
-		}
-		if err := s.requirePermission(
-			s.Permissions.AllowFSMutate,
-			"__builtin_write_file",
-			runtimecap.FlagAllowFSMutate,
-		); err != nil {
-			return true, err
-		}
-		s.emitRuntimePermissionCheck(0x04)
 		return true, s.emitFsWriteFile(e.Arguments[0], e.Arguments[1])
 	case "__builtin_write_file_bytes":
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_write_file_bytes expects 2 arguments")
-		}
-		if err := s.requirePermission(
-			s.Permissions.AllowFSMutate,
-			"__builtin_write_file_bytes",
-			runtimecap.FlagAllowFSMutate,
-		); err != nil {
-			return true, err
-		}
-		s.emitRuntimePermissionCheck(0x04)
 		return true, s.emitFsWriteFileBytes(e.Arguments[0], e.Arguments[1])
 	case "__builtin_append_file":
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_append_file expects 2 arguments")
-		}
-		if err := s.requirePermission(
-			s.Permissions.AllowFSMutate,
-			"__builtin_append_file",
-			runtimecap.FlagAllowFSMutate,
-		); err != nil {
-			return true, err
-		}
-		s.emitRuntimePermissionCheck(0x04)
 		return true, s.emitFsAppendFile(e.Arguments[0], e.Arguments[1])
 	case "__builtin_remove":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_remove expects 1 argument")
-		}
-		if err := s.requirePermission(
-			s.Permissions.AllowFSMutate,
-			"__builtin_remove",
-			runtimecap.FlagAllowFSMutate,
-		); err != nil {
-			return true, err
-		}
-		s.emitRuntimePermissionCheck(0x04)
 		return true, s.emitFsRemove(e.Arguments[0])
 	case "__builtin_read_dir":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_read_dir expects 1 argument")
-		}
 		for _, arg := range e.Arguments {
 			if err := s.emitExpression(arg); err != nil {
 				return true, err
@@ -154,19 +76,10 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		}
 		return true, s.emitResultErrStr("readDir is not supported in native backend")
 	case "__builtin_file_exists":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_file_exists expects 1 argument")
-		}
 		return true, s.emitFsExists(e.Arguments[0])
 	case "__builtin_is_file":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_is_file expects 1 argument")
-		}
 		return true, s.emitFsIsFile(e.Arguments[0])
 	case "__builtin_is_dir":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_is_dir expects 1 argument")
-		}
 		return true, s.emitFsIsDir(e.Arguments[0])
 	case "__builtin_temp_dir":
 		tmpIdx := s.addStringLiteral("/tmp")
@@ -212,9 +125,6 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 		emitXorRegReg(&s.Code, RAX, RAX)
 		return true, nil
 	case "__builtin_sleep":
-		if len(e.Arguments) != 1 {
-			return true, fmt.Errorf("native: __builtin_sleep expects 1 argument")
-		}
 		return true, s.emitSleepMs(e.Arguments[0])
 	}
 
@@ -259,19 +169,6 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 
 	// Exec builtin
 	if funcName == "__builtin_exec" {
-		if len(e.Arguments) != 2 {
-			return true, fmt.Errorf("native: __builtin_exec expects 2 arguments")
-		}
-
-		if err := s.requirePermission(
-			s.Permissions.AllowExec,
-			"__builtin_exec",
-			runtimecap.FlagAllowExec,
-		); err != nil {
-			return true, err
-		}
-
-		s.emitRuntimePermissionCheck(0x01)
 		return true, s.emitOsExec(e.Arguments[0], e.Arguments[1])
 	}
 
@@ -279,182 +176,60 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 }
 
 func (s *EmitState) emitBuiltinPrintln(e *ast.CallExpression) error {
-	if len(e.Arguments) == 0 {
-		// println() with no args: just print newline
-		// Store '\n' on stack and write it
-		emitMovRegImm32(&s.Code, RAX, 0x0A)
-		emitPushReg(&s.Code, RAX)
-		emitMovRegReg(&s.Code, RSI, RSP) // buf
-		emitMovRegImm32(&s.Code, RDX, 1) // len
-		emitMovRegImm32(&s.Code, RDI, 1) // stdout
-		emitMovRegImm32(&s.Code, RAX, 1) // sys_write
-		emitSyscall(&s.Code)
-		emitPopReg(&s.Code, RAX) // cleanup
-		return nil
-	}
-
-	if len(e.Arguments) == 1 {
-		arg := e.Arguments[0]
-		s.emitPrintDebugPrefix(arg)
-		// Check if it's an integer type
-		// println(expr): evaluate expr
-		if err := s.emitExpression(arg); err != nil {
-			return err
-		}
-		// If argument is a reference (&string, etc.), dereference first
-		if s.isRefExpression(arg) {
-			s.emitSafeRefDeref()
-		}
-		emitMovRegReg(&s.Code, RDI, RAX)
-
-		var printTarget string
-		if s.isStringExpression(arg) {
-			printTarget = "__rt_print_str"
-		} else if s.isFloatExpression(arg) {
-			printTarget = "__rt_print_float"
-		} else if s.isIntExpression(arg) {
-			printTarget = "__rt_print_int"
-		} else {
-			// Fallback (e.g. for unknown types or pointers) - treat as int/pointer
-			printTarget = "__rt_print_int"
-		}
-		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{
-			ImmOffset: callSite,
-			Target:    printTarget,
-		})
-
-		// Now print newline
-		emitMovRegImm32(&s.Code, RAX, 0x0A)
-		emitPushReg(&s.Code, RAX)
-		emitMovRegReg(&s.Code, RSI, RSP)
-		emitMovRegImm32(&s.Code, RDX, 1)
-		emitMovRegImm32(&s.Code, RDI, 1)
-		emitMovRegImm32(&s.Code, RAX, 1)
-		emitSyscall(&s.Code)
-		emitPopReg(&s.Code, RAX)
-		return nil
-	}
-
-	// Multiple args: print each with space separator, then newline
-	for i, arg := range e.Arguments {
-		if i > 0 {
-			// Print space
-			emitMovRegImm32(&s.Code, RAX, 0x20) // ' '
-			emitPushReg(&s.Code, RAX)
-			emitMovRegReg(&s.Code, RSI, RSP)
-			emitMovRegImm32(&s.Code, RDX, 1)
-			emitMovRegImm32(&s.Code, RDI, 1)
-			emitMovRegImm32(&s.Code, RAX, 1)
-			emitSyscall(&s.Code)
-			emitPopReg(&s.Code, RAX)
-		}
-		s.emitPrintDebugPrefix(arg)
-		if err := s.emitExpression(arg); err != nil {
-			return err
-		}
-		// If argument is a reference, dereference first
-		if s.isRefExpression(arg) {
-			s.emitSafeRefDeref()
-		}
-		emitMovRegReg(&s.Code, RDI, RAX)
-		var target string
-		if s.isStringExpression(arg) {
-			target = "__rt_print_str"
-		} else if s.isFloatExpression(arg) {
-			target = "__rt_print_float"
-		} else if s.isIntExpression(arg) {
-			target = "__rt_print_int"
-		} else {
-			// Fallback for unknown types: print as int/pointer
-			target = "__rt_print_int"
-		}
-		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{
-			ImmOffset: callSite,
-			Target:    target,
-		})
-	}
-	// Final newline
-	emitMovRegImm32(&s.Code, RAX, 0x0A)
-	emitPushReg(&s.Code, RAX)
-	emitMovRegReg(&s.Code, RSI, RSP)
-	emitMovRegImm32(&s.Code, RDX, 1)
-	emitMovRegImm32(&s.Code, RDI, 1)
-	emitMovRegImm32(&s.Code, RAX, 1)
-	emitSyscall(&s.Code)
-	emitPopReg(&s.Code, RAX)
-	return nil
+	return s.emitPrintArguments(e.Arguments, true)
 }
 
 func (s *EmitState) emitBuiltinPrint(e *ast.CallExpression) error {
-	if len(e.Arguments) != 1 {
-		return fmt.Errorf("native: print expects 1 argument")
-	}
-	arg := e.Arguments[0]
-	s.emitPrintDebugPrefix(arg)
-
-	if err := s.emitExpression(arg); err != nil {
-		return err
-	}
-	// If argument is a reference, dereference first
-	if s.isRefExpression(arg) {
-		s.emitSafeRefDeref()
-	}
-	emitMovRegReg(&s.Code, RDI, RAX)
-
-	var target string
-	if s.isStringExpression(arg) {
-		target = "__rt_print_str"
-	} else if s.isFloatExpression(arg) {
-		target = "__rt_print_float"
-	} else if s.isIntExpression(arg) {
-		target = "__rt_print_int"
-	} else {
-		target = "__rt_print_int"
-	}
-	callSite := emitCallRel32(&s.Code, 0)
-	s.CallPatches = append(s.CallPatches, CallPatch{
-		ImmOffset: callSite,
-		Target:    target,
-	})
-	return nil
+	return s.emitPrintArguments(e.Arguments, false)
 }
 
 func (s *EmitState) emitBuiltinDebug(e *ast.CallExpression) error {
-	if len(e.Arguments) == 0 {
-		return fmt.Errorf("native: dbg expects at least 1 argument")
-	}
-
 	for i, arg := range e.Arguments {
 		if i > 0 {
 			s.emitPrintNewline()
 		}
 		s.emitPrintStringLiteral("dbg: ")
-		s.emitPrintDebugPrefix(arg)
-		if err := s.emitExpression(arg); err != nil {
+		if err := s.emitPrintValue(arg); err != nil {
 			return err
 		}
-		if s.isRefExpression(arg) {
-			s.emitSafeRefDeref()
-		}
-		emitMovRegReg(&s.Code, RDI, RAX)
-
-		target := "__rt_print_int"
-		if s.isStringExpression(arg) {
-			target = "__rt_print_str"
-		} else if s.isFloatExpression(arg) {
-			target = "__rt_print_float"
-		} else if s.isIntExpression(arg) {
-			target = "__rt_print_int"
-		}
-		callSite := emitCallRel32(&s.Code, 0)
-		s.CallPatches = append(s.CallPatches, CallPatch{
-			ImmOffset: callSite,
-			Target:    target,
-		})
 	}
 	s.emitPrintNewline()
+	return nil
+}
+
+func (s *EmitState) emitPrintArguments(args []ast.Expression, newline bool) error {
+	for i, arg := range args {
+		if i > 0 {
+			s.emitPrintByte(' ')
+		}
+		if err := s.emitPrintValue(arg); err != nil {
+			return err
+		}
+	}
+	if newline {
+		s.emitPrintNewline()
+	}
+	return nil
+}
+
+func (s *EmitState) emitPrintValue(arg ast.Expression) error {
+	s.emitPrintDebugPrefix(arg)
+	if err := s.emitExpression(arg); err != nil {
+		return err
+	}
+	if s.isRefExpression(arg) {
+		s.emitSafeRefDeref()
+	}
+	emitMovRegReg(&s.Code, RDI, RAX)
+
+	target := "__rt_print_int"
+	if s.isStringExpression(arg) {
+		target = "__rt_print_str"
+	} else if s.isFloatExpression(arg) {
+		target = "__rt_print_float"
+	}
+	callSite := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: target})
 	return nil
 }
 
@@ -470,7 +245,11 @@ func (s *EmitState) emitPrintStringLiteral(text string) {
 }
 
 func (s *EmitState) emitPrintNewline() {
-	emitMovRegImm32(&s.Code, RAX, 0x0A)
+	s.emitPrintByte('\n')
+}
+
+func (s *EmitState) emitPrintByte(value byte) {
+	emitMovRegImm32(&s.Code, RAX, int32(value))
 	emitPushReg(&s.Code, RAX)
 	emitMovRegReg(&s.Code, RSI, RSP)
 	emitMovRegImm32(&s.Code, RDX, 1)
@@ -542,9 +321,6 @@ func (s *EmitState) genericExpressionType(expr ast.Expression) string {
 }
 
 func (s *EmitState) emitBuiltinLen(e *ast.CallExpression) error {
-	if len(e.Arguments) != 1 {
-		return fmt.Errorf("native: len expects 1 argument")
-	}
 	if err := s.emitExpression(e.Arguments[0]); err != nil {
 		return err
 	}
@@ -564,10 +340,6 @@ func (s *EmitState) emitBuiltinLen(e *ast.CallExpression) error {
 // The vec is Vec<int, _> where each int is a byte value
 // Returns string header pointer in RAX
 func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
-	if len(e.Arguments) != 3 {
-		return fmt.Errorf("native: __builtin_string_from_bytes expects 3 arguments (vec, start, end)")
-	}
-
 	// Evaluate arguments: vec, start, end
 	// Push them right-to-left
 	if err := s.emitExpression(e.Arguments[2]); err != nil { // end
@@ -619,24 +391,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			case "args":
 				return s.emitOsArgs()
 			case "exit":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: os.exit expects 1 argument")
-				}
 				return s.emitOsExit(e.Arguments[0])
 			case "cwd":
-				if len(e.Arguments) != 0 {
-					return fmt.Errorf("native: os.cwd expects 0 arguments")
-				}
 				return s.emitOsCwd()
 			case "getenv":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: os.getenv expects 1 argument")
-				}
 				return s.emitOsGetenv(e.Arguments[0])
 			case "exec":
-				if len(e.Arguments) != 2 {
-					return fmt.Errorf("native: os.exec expects 2 arguments (cmd, args)")
-				}
 				return s.emitOsExec(e.Arguments[0], e.Arguments[1])
 			}
 		}
@@ -645,29 +405,14 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		if id.Value == "fs" {
 			switch e.Method.Value {
 			case "exists":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: fs.exists expects 1 argument")
-				}
 				return s.emitFsExists(e.Arguments[0])
 			case "isFile":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: fs.isFile expects 1 argument")
-				}
 				return s.emitFsIsFile(e.Arguments[0])
 			case "isDir":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: fs.isDir expects 1 argument")
-				}
 				return s.emitFsIsDir(e.Arguments[0])
 			case "readFile":
-				if len(e.Arguments) != 1 {
-					return fmt.Errorf("native: fs.readFile expects 1 argument")
-				}
 				return s.emitFsReadFile(e.Arguments[0])
 			case "writeFile":
-				if len(e.Arguments) != 2 {
-					return fmt.Errorf("native: fs.writeFile expects 2 arguments")
-				}
 				return s.emitFsWriteFile(e.Arguments[0], e.Arguments[1])
 			}
 		}

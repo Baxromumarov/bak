@@ -789,17 +789,10 @@ func (s *Server) completeImportedModuleMembers(
 	if result == nil || result.Imports == nil {
 		return nil, false
 	}
-	importPath, ok := result.Imports[qualifier]
-	if !ok {
+	if _, ok := result.Imports[qualifier]; !ok {
 		return nil, false
 	}
-
-	path := s.resolveImportPath(uriToPath(uri), importPath)
-	if path == "" {
-		return nil, true
-	}
-
-	modIndex := s.getOrIndexFileIncludingPrivate(path)
+	modIndex := s.resolveImportedModule(result, uri, qualifier, true)
 	items := make([]CompletionItem, 0)
 	for _, sym := range sortedSymbols(modIndex) {
 		if strings.Contains(sym.Name, ".") {
@@ -926,15 +919,7 @@ func (s *Server) enumInfoForQualifier(
 	if !ok || alias == "" || enumName == "" || result == nil || result.Imports == nil {
 		return "", EnumInfo{}, false
 	}
-	importPath, ok := result.Imports[alias]
-	if !ok {
-		return "", EnumInfo{}, false
-	}
-	path := s.resolveImportPath(uriToPath(uri), importPath)
-	if path == "" {
-		return "", EnumInfo{}, false
-	}
-	modIndex := s.getOrIndexFile(path)
+	modIndex := s.resolveImportedModule(result, uri, alias, false)
 	if modIndex == nil || modIndex.Enums == nil {
 		return "", EnumInfo{}, false
 	}

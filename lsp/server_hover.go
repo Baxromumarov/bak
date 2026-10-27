@@ -2,12 +2,10 @@ package main
 
 import (
 	"maps"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
-	"github.com/baxromumarov/bak/pkg/prelude"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -219,7 +217,7 @@ func (s *Server) hoverInfoForIdentifier(
 
 func (s *Server) hoverInfoForFieldAccess(n *ast.FieldAccessExpression, result *AnalysisResult, uri string) hoverInfo {
 	if ident, ok := n.Object.(*ast.Identifier); ok {
-		if modIndex := s.resolveModule(result, uri, ident.Value); modIndex != nil {
+		if modIndex := s.resolveImportedModule(result, uri, ident.Value, false); modIndex != nil {
 			if h := lookupSymbol(modIndex, n.Field.Value); !h.empty() {
 				return h
 			}
@@ -234,7 +232,7 @@ func (s *Server) hoverInfoForFieldAccess(n *ast.FieldAccessExpression, result *A
 
 func (s *Server) hoverInfoForMethodCall(n *ast.MethodCallExpression, result *AnalysisResult, uri string) hoverInfo {
 	if ident, ok := n.Object.(*ast.Identifier); ok {
-		if modIndex := s.resolveModule(result, uri, ident.Value); modIndex != nil {
+		if modIndex := s.resolveImportedModule(result, uri, ident.Value, false); modIndex != nil {
 			if h := lookupSymbol(modIndex, n.Method.Value); !h.empty() {
 				return h
 			}
@@ -315,7 +313,7 @@ func (s *Server) hoverInfoForCallExpression(n *ast.CallExpression, result *Analy
 	if !ok {
 		return hoverInfo{}
 	}
-	modIndex := s.resolveModule(result, uri, ident.Value)
+	modIndex := s.resolveImportedModule(result, uri, ident.Value, false)
 	if modIndex == nil || modIndex.Sigs == nil {
 		return hoverInfo{}
 	}
@@ -394,38 +392,19 @@ func (s *Server) qualifiedIdentifierHoverInfo(
 			}
 		}
 	}
-	modIndex := s.resolveModule(result, uri, qualifier)
+	modIndex := s.resolveImportedModule(result, uri, qualifier, false)
 	if modIndex == nil {
 		return hoverInfo{}
 	}
 	return lookupSymbol(modIndex, word)
 }
 
-func (s *Server) resolveModule(result *AnalysisResult, uri, alias string) *FileIndex {
-	if result == nil || result.Imports == nil {
-		return nil
-	}
-	importPath, ok := result.Imports[alias]
-	if !ok {
-		return nil
-	}
-	path := s.resolveImportPath(uriToPath(uri), importPath)
-	if path == "" {
-		return nil
-	}
-	return s.getOrIndexFile(path)
-}
-
 func (s *Server) lookupInImportedModules(result *AnalysisResult, uri, key, method string) hoverInfo {
 	if result == nil || result.Imports == nil {
 		return hoverInfo{}
 	}
-	for _, importPath := range result.Imports {
-		path := s.resolveImportPath(uriToPath(uri), importPath)
-		if path == "" {
-			continue
-		}
-		modIndex := s.getOrIndexFile(path)
+	for alias := range result.Imports {
+		modIndex := s.resolveImportedModule(result, uri, alias, false)
 		if modIndex == nil {
 			continue
 		}
@@ -440,13 +419,7 @@ func (s *Server) lookupInImportedModules(result *AnalysisResult, uri, key, metho
 }
 
 func (s *Server) lookupInPrelude(key, method string) hoverInfo {
-	stdLibPath := prelude.GetStdLibPath()
-	preludeFiles := []string{
-		filepath.Join(stdLibPath, "collections", "vec.bak"),
-		filepath.Join(stdLibPath, "collections", "hashmap.bak"),
-		filepath.Join(stdLibPath, "result.bak"),
-	}
-	for _, path := range preludeFiles {
+	for _, path := range s.preludePaths(false) {
 		modIndex := s.getOrIndexFile(path)
 		if modIndex == nil {
 			continue
