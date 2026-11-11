@@ -1,0 +1,44 @@
+package compiler
+
+// OperandWidth reports how many operand bytes follow an opcode.
+// The boolean is false for opcodes the VM does not execute.
+func OperandWidth(op Opcode) (int, bool) {
+	switch op {
+	case OP_POP, OP_DUP, OP_SWAP,
+		OP_ADD, OP_SUB, OP_MUL, OP_DIV, OP_MOD, OP_NEG,
+		OP_EQ, OP_NEQ, OP_LT, OP_LTE, OP_GT, OP_GTE,
+		OP_NOT,
+		OP_RETURN, OP_RETURN_VOID,
+		OP_PANIC,
+		OP_NEW_STRUCT, OP_NEW_ENUM, OP_IS_VARIANT, OP_GET_PAYLOAD,
+		OP_NEW_OPTION_SOME, OP_NEW_OPTION_NONE, OP_NEW_RESULT_OK, OP_NEW_RESULT_ERR,
+		OP_NEW_VEC_FIXED, OP_NEW_VEC_DYNAMIC, OP_ALLOC_ARRAY,
+		OP_VEC_LEN, OP_VEC_GET, OP_VEC_SET, OP_VEC_PUSH, OP_VEC_POP,
+		OP_NEW_RANGE,
+		OP_PRINT, OP_PRINTLN, OP_CONCAT,
+		OP_NIL, OP_TRUE, OP_FALSE,
+		OP_BITAND, OP_BITOR, OP_BITXOR, OP_SHL, OP_SHR,
+		OP_DEREF, OP_STORE_DEREF,
+		OP_UNWRAP:
+		return 0, true
+	case OP_GET_LOCAL, OP_SET_LOCAL,
+		OP_CALL, OP_DEFER,
+		OP_NEW_TUPLE, OP_UNPACK_N,
+		OP_BORROW_STACK, OP_FSTRING:
+		return 1, true
+	case OP_CONST,
+		OP_GET_GLOBAL, OP_SET_GLOBAL,
+		OP_GET_FIELD, OP_SET_FIELD,
+		OP_GET_FUNC,
+		OP_JMP, OP_JMP_IF_FALSE, OP_JMP_IF_TRUE,
+		OP_BUILTIN, OP_DEFER_BUILTIN,
+		OP_BORROW_LOCAL:
+		return 2, true
+	case OP_CALL_METHOD, OP_DEFER_METHOD, OP_BORROW_GLOBAL:
+		return 3, true
+	case OP_IMPORT:
+		return 4, true
+	default:
+		return 0, false
+	}
+}

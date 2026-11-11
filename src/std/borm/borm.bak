@@ -19,7 +19,7 @@ pub func connect(connStr: string) -> (Result<postgres.Connection, string>) {
     return postgres.connect(connStr)
 }
 
-pub func close(conn: postgres.Connection) -> (Result<void, string>) {
+pub func close(conn: &mut postgres.Connection) -> (Result<void, string>) {
     return postgres.close(conn)
 }
 

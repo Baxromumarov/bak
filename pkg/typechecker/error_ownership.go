@@ -40,12 +40,36 @@ func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, mov
 		Message: strfmt.Named("use of moved value '{varName}'", "VarName", varName),
 		Help:    help,
 	}
+	if moveInfo != nil && moveInfo.Reason == MovedByCall && moveInfo.Detail != "" && tc.env != nil {
+		if sig, ok := tc.env.LookupFunction(moveInfo.Detail); ok && len(sig.Parameters) > 0 {
+			help += strfmt.Named("; expected parameter type {Type}", "Type", typeToString(sig.Parameters[0]))
+		}
+	}
+	help += strfmt.Named("; pass `&{varName}` if the callee only needs to read it", "varName", varName)
+	err.Help = help
 	if moveInfo != nil {
 		err.Note = strfmt.Named("where moved: value was {Reason}", "Reason", moveInfo.Reason)
 		if moveInfo.Detail != "" {
 			err.Note += strfmt.Named(" by '{Detail}'", "Detail", moveInfo.Detail)
 		}
 		err.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", moveInfo.Line, "Column", moveInfo.Column)
+		if moveInfo.Reason == MovedByCall && moveInfo.Line > 0 {
+			origin := ast.Position{Line: moveInfo.Line, Column: moveInfo.Column}
+			err.Fixes = []diagnostics.Fix{
+				makeReplacementFix("pass `&"+varName+"`", varName, "&"+varName, origin),
+				makeReplacementFix("pass `&mut "+varName+"`", varName, "&mut "+varName, origin),
+			}
+		}
+	}
+	if tc.env != nil {
+		if info, ok := tc.env.LookupSymbol(varName); ok && info != nil && info.Line > 0 {
+			err.Notes = append(err.Notes, diagnostics.Note{
+				Message: strfmt.Named("declared here: `{varName}`", "varName", varName),
+				Line:    info.Line,
+				Column:  info.Column,
+				File:    tc.currentPkgPath,
+			})
+		}
 	}
 	tc.addFatalError(err)
 }
@@ -72,6 +96,9 @@ func (tc *TypeChecker) errorCannotMoveAt(varName string, pos ast.Position, reaso
 		diag.Note = strfmt.Named("where borrowed: '{varName}' became {state} here", "VarName", varName, "State", state)
 		diag.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", borrowInfo.Line, "Column", borrowInfo.Column)
 	}
+	diag.Notes = append(diag.Notes, diagnostics.Note{
+		Message: strfmt.Named("borrow of '{varName}' ends at the end of its scope", "varName", varName),
+	})
 	tc.addFatalError(diag)
 }
 
@@ -112,6 +139,9 @@ func (tc *TypeChecker) errorBorrowConflictAt(
 		diag.Note = strfmt.Named("where borrowed: active {state} of '{varName}' starts here", "State", state, "VarName", varName)
 		diag.NoteLoc = strfmt.Named("line {Line}:{Column}", "Line", borrowInfo.Line, "Column", borrowInfo.Column)
 	}
+	diag.Notes = append(diag.Notes, diagnostics.Note{
+		Message: strfmt.Named("borrow of '{varName}' ends at the end of its scope", "varName", varName),
+	})
 	tc.addFatalError(diag)
 }
 

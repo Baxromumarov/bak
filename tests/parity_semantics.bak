@@ -1,0 +1,133 @@
+package main
+
+struct Bag {
+    label: string
+    items: Vec<int, _>
+}
+
+struct Handle {
+    id:   int
+    open: int
+}
+
+impl Handle as h {
+    mut func close() -> (void) {
+        h.open = 0
+
+        return void
+    }
+}
+
+enum Inner {
+    Num(int)
+}
+
+enum Outer {
+    Item(Inner)
+}
+
+func inc(x: &mut int) -> (void) {
+    *x = *x + 1
+
+    return void
+}
+
+func makeBag() -> (Bag) {
+    mut var items: Vec<int, _> = Vec.new()
+    items.push(1)
+    items.push(2)
+    items.push(3)
+    println(
+        "bag-len",
+        items.len(),
+    )
+
+    return Bag{
+        label: "bag",
+        items: items,
+    }
+}
+
+func main() -> (int) {
+    mut var n: int = 41
+    inc(&mut n)
+    var shared: &int = &n
+    println(
+        "borrow",
+        *shared,
+    )
+
+    var bag: Bag = makeBag()
+    println(
+        "bag",
+        bag.label,
+        bag.items[0],
+    )
+
+    var inner: Inner = Num(4)
+    var outer: Outer = Item(inner)
+    mut var nested: int = 0
+
+    switch (outer) {
+        case Item(v) {
+            switch (v) {
+                case Num(x) {
+                    nested = x
+                }
+            }
+        }
+    }
+
+    println(
+        "nested",
+        nested,
+    )
+
+    defer {
+        println("defer-ran")
+    }
+
+    mut var grown: Vec<int, _> = Vec.new()
+    mut var i: int = 0
+
+    while i < 8 {
+        grown.push(i)
+        i = i + 1
+    }
+
+    println(
+        "grown",
+        grown.len(),
+        grown[7],
+    )
+
+    var returned: Bag = makeBag()
+    println(
+        "returned",
+        returned.items[2],
+    )
+
+    mut var handle: Handle = Handle{
+        id:   7,
+        open: 1,
+    }
+    handle.close()
+    println(
+        "handle",
+        handle.id,
+        handle.open,
+    )
+
+    var big: int = 9223372036854775807
+    var one: int = 1
+    println(
+        "wrap",
+        big + one,
+    )
+    println(
+        "conv",
+        string(65),
+    )
+
+    return 0
+}

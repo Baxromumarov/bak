@@ -59,8 +59,8 @@ func (s *EmitState) emitExpression(expr ast.Expression) error {
 		if err := s.emitExpression(e.Value); err != nil {
 			return err
 		}
-		// RAX = pointer, load [RAX] into RAX when it looks like a valid reference.
-		s.emitSafeRefDeref()
+		// RAX holds a borrow. DerefBorrow is unconditional: the type says this word is a reference.
+		s.emitDerefBorrow()
 		return nil
 	case *ast.TupleExpression:
 		return s.emitTuple(e)
@@ -205,6 +205,8 @@ func (s *EmitState) emitIdentifier(e *ast.Identifier) error {
 	// Try local variable first
 	offset, found := s.resolveLocal(e.Value)
 	if found {
+		kind := s.classifyPlace(e)
+		s.noteMem(kind, e.Value, offset)
 		emitMovRegMemRbp(&s.Code, RAX, offset)
 		return nil
 	}
@@ -292,7 +294,7 @@ func (s *EmitState) emitInfix(e *ast.InfixExpression) error {
 	}
 	// If left operand is a reference (&string, &Vec, etc.), dereference first
 	if s.isRefExpression(e.Left) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitPushReg(&s.Code, RAX)
 	if err := s.emitExpression(e.Right); err != nil {
@@ -300,7 +302,7 @@ func (s *EmitState) emitInfix(e *ast.InfixExpression) error {
 	}
 	// If right operand is a reference, dereference first
 	if s.isRefExpression(e.Right) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitPopReg(&s.Code, RCX) // RCX = left, RAX = right
 
@@ -604,9 +606,9 @@ func (s *EmitState) getExpressionStructType(expr ast.Expression) string {
 		// Dereference preserves the struct type of the inner expression
 		return s.getExpressionStructType(e.Value)
 	case *ast.IndexExpression:
-		// For vec[idx], return the element struct type if known.
-		// Handle direct vars, field-based vecs, and dereferenced vec refs.
-		if elemType := s.getVecElementType(e.Left); elemType != "" {
+		// For vec[idx], return the element type only when that element is a struct.
+		// Scalar elements such as int stay scalar so printing does not invent a struct prefix.
+		if elemType := s.getVecElementType(e.Left); elemType != "" && s.findStructDecl(elemType) != nil {
 			return elemType
 		}
 	case *ast.FieldAccessExpression:
@@ -712,9 +714,9 @@ func (s *EmitState) resolveIterableElemStruct(expr ast.Expression) string {
 func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 	switch e := expr.(type) {
 	case *ast.Identifier:
-		// Address of a variable: return pointer to the stack slot
+		// Address of a variable: the result is a borrow of that slot.
 		if offset, ok := s.resolveLocal(e.Value); ok {
-			// LEA rax, [rbp + offset]
+			s.noteMem(IRLoadBorrow, e.Value, offset)
 			emitLeaRegMemRbp(&s.Code, RAX, offset)
 			return nil
 		}
@@ -725,6 +727,7 @@ func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 		// Without this, `&mut x` on mutable bindings incorrectly falls through to
 		// value evaluation and loses one level of indirection.
 		if offset, ok := s.resolveLocal(e.Value); ok {
+			s.noteMem(IRLoadBorrow, e.Value, offset)
 			emitLeaRegMemRbp(&s.Code, RAX, offset)
 			return nil
 		}
@@ -742,7 +745,7 @@ func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 		// If object is a reference (&Struct), dereference once to get the struct pointer.
 		// Without this, &obj.field computes an address relative to the address-of-pointer.
 		if s.isRefExpression(e.Object) {
-			s.emitSafeRefDeref()
+			s.emitDerefBorrow()
 		}
 		// RAX = struct pointer
 
@@ -790,7 +793,7 @@ func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 		}
 		// If left is a reference (&Vec or &string), dereference first
 		if s.isRefExpression(e.Left) {
-			s.emitSafeRefDeref()
+			s.emitDerefBorrow()
 		}
 		// rax = container ptr (Vec header)
 		// Load data ptr from container[0]

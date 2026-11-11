@@ -382,7 +382,7 @@ func (s *EmitState) emitRuntimePanic() {
 	emitMovRegImm32(&s.Code, RAX, 0x69_6E_61_70) // "pani" little-endian
 	emitMovMemRbpReg(&s.Code, -16, RAX)
 	emitMovRegImm32(&s.Code, RAX, 0x00_20_3A_63) // "c: \0" little-endian
-	emitMovMemRbpReg(&s.Code, -8, RAX)
+	emitMovMemRbpReg(&s.Code, -12, RAX)
 
 	// Save the string header ptr
 	emitMovMemRbpReg(&s.Code, -24, RDI)

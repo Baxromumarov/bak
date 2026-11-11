@@ -808,6 +808,9 @@ func (vm *VM) executeMethodCall(methodName string, argc int, fnName string, ip i
 		}
 	}
 
+	if vm.sp >= StackMax {
+		return vm.stackOverflowError()
+	}
 	for i := range argc {
 		vm.stack[vm.sp-i] = vm.stack[vm.sp-i-1]
 	}

@@ -19,12 +19,35 @@ const (
 	EscapeCapturedByClosure EscapeReason = "captured_by_closure"
 	EscapePassedToCall      EscapeReason = "passed_to_call"
 	EscapeStoredInAggregate EscapeReason = "stored_in_aggregate"
+	EscapeBorrowedForCall   EscapeReason = "borrow_of_frame"
 )
+
+// AllocDecision is the allocation chosen for a binding. It is a compiler
+// detail: the language still has the same ownership rules.
+type AllocDecision string
+
+const (
+	AllocFrameSlot       AllocDecision = "frame_slot"
+	AllocFrameBorrow     AllocDecision = "frame_borrow"
+	AllocClosureStorage  AllocDecision = "closure_storage"
+	AllocCallerReturn    AllocDecision = "caller_return"
+	AllocHeapCell        AllocDecision = "heap_cell"
+	AllocTemporary       AllocDecision = "temporary"
+)
+
+// TempAlloc records where a temporary aggregate is placed.
+type TempAlloc struct {
+	Kind   string
+	Region string
+}
 
 // LocalEscape records escape reasons for a single local binding.
 type LocalEscape struct {
-	Name    string
-	Reasons map[EscapeReason]struct{}
+	Name          string
+	Reasons       map[EscapeReason]struct{}
+	Borrow        bool
+	Param         bool
+	MutableBorrow bool
 }
 
 func (le *LocalEscape) add(reason EscapeReason) {
@@ -59,6 +82,7 @@ func (le *LocalEscape) SortedReasons() []EscapeReason {
 type FunctionEscapeSummary struct {
 	FunctionName string
 	Locals       map[string]*LocalEscape
+	Temps        []TempAlloc
 }
 
 func (s *FunctionEscapeSummary) ensureLocal(name string) *LocalEscape {
@@ -101,13 +125,62 @@ func (s *FunctionEscapeSummary) ReasonsFor(name string) []EscapeReason {
 	return le.SortedReasons()
 }
 
-// Escapes reports whether a local binding has any escape reason.
-func (s *FunctionEscapeSummary) Escapes(name string) bool {
+// Decision reports the allocation chosen for a local.
+// Heap cells are reserved for references that outlive the frame and for
+// values moved into closure storage. Owned moves stay in frame or caller storage.
+func (s *FunctionEscapeSummary) Decision(name string) (AllocDecision, string) {
 	if s == nil || s.Locals == nil {
-		return false
+		return AllocFrameSlot, ""
 	}
 	le := s.Locals[name]
-	return le != nil && le.Has()
+	if le == nil {
+		return AllocFrameSlot, ""
+	}
+	has := func(reason EscapeReason) bool {
+		_, ok := le.Reasons[reason]
+		return ok
+	}
+	if has(EscapeReturnedReference) {
+		return AllocHeapCell, string(EscapeReturnedReference)
+	}
+	if has(EscapeCapturedByClosure) && !le.Borrow {
+		return AllocClosureStorage, string(EscapeCapturedByClosure)
+	}
+	switch {
+	case has(EscapeStoredExternally):
+		return AllocHeapCell, string(EscapeStoredExternally)
+	case has(EscapeAssignedToGlobal):
+		return AllocHeapCell, string(EscapeAssignedToGlobal)
+	case has(EscapeStoredInAggregate):
+		return AllocHeapCell, string(EscapeStoredInAggregate)
+	}
+	if has(EscapeReturnedValue) {
+		return AllocCallerReturn, string(EscapeReturnedValue)
+	}
+	if le.Borrow {
+		switch {
+		case le.Param && le.MutableBorrow:
+			return AllocFrameBorrow, "mutable_borrow_param"
+		case le.Param && !le.MutableBorrow:
+			return AllocFrameBorrow, "readonly_borrow_param"
+		default:
+			return AllocFrameBorrow, "borrow_of_frame"
+		}
+	}
+	if has(EscapeBorrowedForCall) {
+		return AllocFrameSlot, string(EscapeBorrowedForCall)
+	}
+	if has(EscapePassedToCall) {
+		return AllocFrameSlot, string(EscapePassedToCall)
+	}
+	return AllocFrameSlot, ""
+}
+
+// Escapes reports whether codegen must keep the binding alive past the frame.
+// Borrow parameters and owned values that are only moved do not escape.
+func (s *FunctionEscapeSummary) Escapes(name string) bool {
+	decision, _ := s.Decision(name)
+	return decision == AllocHeapCell || decision == AllocClosureStorage
 }
 
 type escapeScope struct {
@@ -149,8 +222,10 @@ func (s *escapeScope) visibleLocals() map[string]struct{} {
 }
 
 type escapeAnalyzer struct {
-	summary *FunctionEscapeSummary
-	scope   *escapeScope
+	summary        *FunctionEscapeSummary
+	scope          *escapeScope
+	borrowBindings map[string]bool
+	region         string
 }
 
 func newEscapeAnalyzer(functionName string) *escapeAnalyzer {
@@ -159,7 +234,9 @@ func newEscapeAnalyzer(functionName string) *escapeAnalyzer {
 			FunctionName: functionName,
 			Locals:       make(map[string]*LocalEscape),
 		},
-		scope: newEscapeScope(nil),
+		scope:          newEscapeScope(nil),
+		borrowBindings: make(map[string]bool),
+		region:         string(AllocTemporary),
 	}
 }
 
@@ -174,8 +251,7 @@ func AnalyzeFunctionDeclEscapes(fd *ast.FunctionDecl) *FunctionEscapeSummary {
 	an := newEscapeAnalyzer(fd.Name.Value)
 	for _, p := range fd.Parameters {
 		if p != nil && p.Name != nil {
-			an.scope.define(p.Name.Value)
-			an.summary.ensureLocal(p.Name.Value)
+			an.noteLocal(p.Name.Value, true, p.Type, nil)
 		}
 	}
 	an.walkBlock(fd.Body)
@@ -198,12 +274,17 @@ func AnalyzeMethodDeclEscapes(
 	fnName := typeName + "." + md.Name.Value
 	an := newEscapeAnalyzer(fnName)
 	if receiverName != "" {
-		defineEnsureLocal(an, receiverName)
+		an.noteLocal(receiverName, true, nil, nil)
+		if le := an.summary.ensureLocal(receiverName); le != nil {
+			le.Borrow = true
+			le.MutableBorrow = md.Mutable
+			an.borrowBindings[receiverName] = true
+		}
 	}
 
 	for _, p := range md.Parameters {
 		if p != nil && p.Name != nil {
-			defineEnsureLocal(an, p.Name.Value)
+			an.noteLocal(p.Name.Value, true, p.Type, nil)
 		}
 	}
 	an.walkBlock(md.Body)
@@ -211,8 +292,59 @@ func AnalyzeMethodDeclEscapes(
 }
 
 func defineEnsureLocal(an *escapeAnalyzer, name string) {
+	an.noteLocal(name, false, nil, nil)
+}
+
+func (an *escapeAnalyzer) noteLocal(name string, param bool, typ ast.TypeExpression, value ast.Expression) {
+	if an == nil || name == "" {
+		return
+	}
 	an.scope.define(name)
-	an.summary.ensureLocal(name)
+	le := an.summary.ensureLocal(name)
+	if le == nil {
+		return
+	}
+	if param {
+		le.Param = true
+	}
+	borrow, mutable := borrowFlags(typ)
+	if !borrow {
+		if be, ok := value.(*ast.BorrowExpression); ok {
+			borrow = true
+			mutable = be.Mutable
+		}
+	}
+	if borrow {
+		an.borrowBindings[name] = true
+		le.Borrow = true
+		le.MutableBorrow = mutable
+	}
+}
+
+func borrowFlags(t ast.TypeExpression) (bool, bool) {
+	switch tt := t.(type) {
+	case *ast.BorrowType:
+		return true, tt.Mutable
+	case *ast.NamedType:
+		return borrowFlags(tt.Type)
+	default:
+		return false, false
+	}
+}
+
+func (an *escapeAnalyzer) withRegion(region string, run func()) {
+	old := an.region
+	an.region = region
+	defer func() { an.region = old }()
+	run()
+}
+
+func (an *escapeAnalyzer) noteTemp(kind string) {
+	region := an.region
+	if region == "" {
+		region = string(AllocTemporary)
+	}
+	an.summary.Temps = append(an.summary.Temps, TempAlloc{Kind: kind, Region: region})
 }
 
 func AnalyzeFunctionLiteralEscapes(
@@ -227,7 +359,7 @@ func AnalyzeFunctionLiteralEscapes(
 
 	for _, p := range fl.Parameters {
 		if p != nil && p.Name != nil {
-			defineEnsureLocal(an, p.Name.Value)
+			an.noteLocal(p.Name.Value, true, p.Type, nil)
 		}
 	}
 
@@ -258,29 +390,31 @@ func (an *escapeAnalyzer) walkStmt(stmt ast.Statement) {
 	case *ast.BlockStatement:
 		an.walkBlock(s)
 	case *ast.VarStatement:
-		an.walkExpr(s.Value)
+		an.withRegion(string(AllocFrameSlot), func() {
+			an.walkExpr(s.Value)
+		})
 		if s.Name != nil {
-			an.scope.define(s.Name.Value)
-			an.summary.ensureLocal(s.Name.Value)
+			an.noteLocal(s.Name.Value, false, s.Type, s.Value)
 		}
 	case *ast.MultiVarStatement:
-		an.walkExpr(s.Value)
-		for _, n := range s.Names {
+		an.withRegion(string(AllocFrameSlot), func() {
+			an.walkExpr(s.Value)
+		})
+		for i, n := range s.Names {
 			if n == nil {
 				continue
 			}
-			an.scope.define(n.Value)
-			an.summary.ensureLocal(n.Value)
+			var typ ast.TypeExpression
+			if i < len(s.Types) {
+				typ = s.Types[i]
+			}
+			an.noteLocal(n.Value, false, typ, nil)
 		}
 	case *ast.ReturnStatement:
-		an.markLocalsInExpr(s.ReturnValue, EscapeReturnedValue)
-
-		if be, ok := s.ReturnValue.(*ast.BorrowExpression); ok {
-			if id, ok := be.Value.(*ast.Identifier); ok && an.scope.isLocal(id.Value) {
-				an.summary.mark(id.Value, EscapeReturnedReference)
-			}
-		}
-		an.walkExpr(s.ReturnValue)
+		an.withRegion(string(AllocCallerReturn), func() {
+			an.noteReturnedValue(s.ReturnValue)
+			an.walkExpr(s.ReturnValue)
+		})
 	case *ast.ExpressionStatement:
 		an.walkExpr(s.Expression)
 	case *ast.AssignmentStatement:
@@ -327,15 +461,15 @@ func (an *escapeAnalyzer) handleAssignmentEscape(as *ast.AssignmentStatement) {
 	if as == nil {
 		return
 	}
-	switch left := as.Left.(type) {
+	switch as.Left.(type) {
 	case *ast.Identifier:
-		if !an.scope.isLocal(left.Value) {
-			an.markLocalsInExpr(as.Value, EscapeAssignedToGlobal)
+		if id, ok := as.Left.(*ast.Identifier); ok && !an.scope.isLocal(id.Value) {
+			an.noteStoredBorrow(as.Value, EscapeAssignedToGlobal)
 		}
 	case *ast.FieldAccessExpression,
 		*ast.IndexExpression,
 		*ast.DerefExpression:
-		an.markLocalsInExpr(as.Value, EscapeStoredExternally)
+		an.noteStoredBorrow(as.Value, EscapeStoredExternally)
 	}
 }
 
@@ -348,42 +482,51 @@ func (an *escapeAnalyzer) walkExpr(expr ast.Expression) {
 		an.walkExpr(e.Right)
 	case *ast.CallExpression:
 		an.walkExpr(e.Function)
-		for _, arg := range e.Arguments {
-			an.markLocalsInExpr(arg, EscapePassedToCall)
-			an.walkExpr(arg)
-		}
+		an.withRegion("call_arg", func() {
+			for _, arg := range e.Arguments {
+				an.noteCallArg(arg)
+				an.walkExpr(arg)
+			}
+		})
 	case *ast.MethodCallExpression:
 		an.walkExpr(e.Object)
-		for _, arg := range e.Arguments {
-			an.markLocalsInExpr(arg, EscapePassedToCall)
-			an.walkExpr(arg)
-		}
+		an.withRegion("call_arg", func() {
+			an.noteCallArg(e.Object)
+			for _, arg := range e.Arguments {
+				an.noteCallArg(arg)
+				an.walkExpr(arg)
+			}
+		})
 	case *ast.FieldAccessExpression:
 		an.walkExpr(e.Object)
 	case *ast.IndexExpression:
 		an.walkExpr(e.Left)
 		an.walkExpr(e.Index)
 	case *ast.StructLiteral:
+		an.noteTemp("struct")
 		for _, value := range e.Fields {
-			an.markLocalsInExpr(value, EscapeStoredInAggregate)
+			an.noteStoredBorrow(value, EscapeStoredInAggregate)
 			an.walkExpr(value)
 		}
 	case *ast.VecLiteral:
+		an.noteTemp("vec")
 		for _, el := range e.Elements {
-			an.markLocalsInExpr(el, EscapeStoredInAggregate)
+			an.noteStoredBorrow(el, EscapeStoredInAggregate)
 			an.walkExpr(el)
 		}
 	case *ast.TupleExpression:
+		an.noteTemp("tuple")
 		for _, el := range e.Elements {
-			an.markLocalsInExpr(el, EscapeStoredInAggregate)
+			an.noteStoredBorrow(el, EscapeStoredInAggregate)
 			an.walkExpr(el)
 		}
 	case *ast.RangeExpression:
 		an.walkExpr(e.Start)
 		an.walkExpr(e.End)
 	case *ast.EnumVariantExpression:
+		an.noteTemp("enum")
 		for _, v := range e.Values {
-			an.markLocalsInExpr(v, EscapeStoredInAggregate)
+			an.noteStoredBorrow(v, EscapeStoredInAggregate)
 			an.walkExpr(v)
 		}
 	case *ast.BorrowExpression:
@@ -402,11 +545,70 @@ func (an *escapeAnalyzer) walkExpr(expr ast.Expression) {
 		used := make(map[string]struct{})
 		collectIdentifiersFromBlock(e.Body, used)
 		for name := range used {
-			if _, ok := visible[name]; ok {
+			if _, ok := visible[name]; ok && !an.borrowBindings[name] {
 				an.summary.mark(name, EscapeCapturedByClosure)
 			}
 		}
 	}
+}
+
+func (an *escapeAnalyzer) noteCallArg(arg ast.Expression) {
+	if _, ok := arg.(*ast.BorrowExpression); ok {
+		an.noteStoredBorrow(arg, EscapeBorrowedForCall)
+		return
+	}
+	an.markLocalsInExpr(arg, EscapePassedToCall)
+}
+
+func (an *escapeAnalyzer) noteReturnedValue(expr ast.Expression) {
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		if an.scope.isLocal(e.Value) {
+			an.summary.mark(e.Value, EscapeReturnedValue)
+		}
+	case *ast.MutableIdentifier:
+		if an.scope.isLocal(e.Value) {
+			an.summary.mark(e.Value, EscapeReturnedValue)
+		}
+	case *ast.BorrowExpression:
+		an.noteReturnedValue(e.Value)
+		an.noteReturnedReference(expr)
+	}
+}
+
+func (an *escapeAnalyzer) noteReturnedReference(expr ast.Expression) {
+	be, ok := expr.(*ast.BorrowExpression)
+	if !ok {
+		return
+	}
+	switch id := be.Value.(type) {
+	case *ast.Identifier:
+		if an.scope.isLocal(id.Value) {
+			an.summary.mark(id.Value, EscapeReturnedReference)
+		}
+	case *ast.MutableIdentifier:
+		if an.scope.isLocal(id.Value) {
+			an.summary.mark(id.Value, EscapeReturnedReference)
+		}
+	}
+}
+
+func (an *escapeAnalyzer) noteStoredBorrow(expr ast.Expression, reason EscapeReason) {
+	be, ok := expr.(*ast.BorrowExpression)
+	if !ok {
+		return
+	}
+	var name string
+	switch id := be.Value.(type) {
+	case *ast.Identifier:
+		name = id.Value
+	case *ast.MutableIdentifier:
+		name = id.Value
+	}
+	if name == "" || !an.scope.isLocal(name) || an.borrowBindings[name] {
+		return
+	}
+	an.summary.mark(name, reason)
 }
 
 func (an *escapeAnalyzer) markLocalsInExpr(expr ast.Expression, reason EscapeReason) {
@@ -568,24 +770,23 @@ func FormatEscapeReports(reports map[string]*FunctionEscapeSummary) string {
 		sort.Strings(localNames)
 
 		for _, localName := range localNames {
-			reasons := summary.ReasonsFor(localName)
-			if len(reasons) == 0 {
-				b.WriteString("    ")
-				b.WriteString(localName)
-				b.WriteString(": stack\n")
-				continue
-			}
+			decision, because := summary.Decision(localName)
 			b.WriteString("    ")
 			b.WriteString(localName)
-			b.WriteString(": heap")
-			b.WriteString(" [")
-			for i, reason := range reasons {
-				if i > 0 {
-					b.WriteString(", ")
-				}
-				b.WriteString(string(reason))
+			b.WriteString(": ")
+			b.WriteString(string(decision))
+			if because != "" {
+				b.WriteString(" because ")
+				b.WriteString(because)
 			}
-			b.WriteString("]\n")
+			b.WriteByte('\n')
+		}
+		for _, temp := range summary.Temps {
+			b.WriteString("    temporary ")
+			b.WriteString(temp.Kind)
+			b.WriteString(": ")
+			b.WriteString(temp.Region)
+			b.WriteByte('\n')
 		}
 	}
 	return strings.TrimRight(b.String(), "\n")

@@ -17,6 +17,20 @@ func test_bind_and_close_listener() -> (void) {
         if close_res.isErr() {
             t.fail("closeListener failed: " + close_res.unwrapErr())
         }
+
+        var close_again: Result<void, string> = net.closeListener(&mut listener)
+
+        if close_again.isErr() {
+            t.fail("repeated closeListener failed: " + close_again.unwrapErr())
+        }
+
+        var accept_res: Result<net.TcpStream, string> = net.accept(&mut listener)
+
+        if accept_res.isOk() {
+            t.fail("accept after close should fail")
+        } else if !accept_res.unwrapErr().contains("resource closed") {
+            t.fail("accept after close: " + accept_res.unwrapErr())
+        }
     } else {
         var err: string = res.unwrapErr()
 

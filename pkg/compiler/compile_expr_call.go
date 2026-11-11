@@ -35,6 +35,16 @@ func (c *Compiler) compileSpecialCallExpression(ce *ast.CallExpression) (bool, e
 			}
 			return true, nil
 		}
+		// Circle(5) and Item(inner) parse as calls. A bare payloaded variant
+		// name is only a switch marker; the call itself must build the enum.
+		if c.identifierIsEnumVariant(ident.Value) {
+			ev := &ast.EnumVariantExpression{
+				Token:   ce.Token,
+				Variant: ident,
+				Values:  ce.Arguments,
+			}
+			return true, c.compileEnumVariantExpression(ev)
+		}
 	}
 
 	if fa, ok := c.enumVariantConstructorField(ce.Function); ok {
@@ -115,6 +125,32 @@ func (c *Compiler) compileCallArguments(args []ast.Expression) error {
 		}
 	}
 	return nil
+}
+
+// identifierIsEnumVariant reports whether name is an enum variant that is
+// not hidden by a local, function, global, import, or struct of the same name.
+func (c *Compiler) identifierIsEnumVariant(name string) bool {
+	if _, _, ok := c.resolveLocalMeta(name); ok {
+		return false
+	}
+	if _, ok := c.module.FunctionIndices[name]; ok {
+		return false
+	}
+	if _, ok := c.module.LookupGlobal(name); ok {
+		return false
+	}
+	if _, ok := c.importAliases[name]; ok {
+		return false
+	}
+	if _, ok := c.module.StructDefs[name]; ok {
+		return false
+	}
+	for _, enumDef := range c.module.EnumDefs {
+		if _, ok := enumDef.VariantIndex[name]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Compiler) enumVariantConstructorField(fn ast.Expression) (*ast.FieldAccessExpression, bool) {

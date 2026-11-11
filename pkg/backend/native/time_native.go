@@ -42,5 +42,6 @@ func (s *EmitState) emitSleepMs(expr ast.Expression) error {
 	emitAddRegReg(&s.Code, RAX, RCX)
 	emitMovMemReg(&s.Code, RSI, RAX)
 
-	return nil
+	// __builtin_sleep returns Result<void, string>. The VM returns Ok(void).
+	return s.emitResultOkVoid()
 }

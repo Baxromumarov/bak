@@ -126,6 +126,28 @@ const (
 	LintPublicAPIStyle  DiagnosticCode = "public-api-style"
 )
 
+// diagnosticAliases are stable names for numeric codes. Format and explain
+// still print the numeric code.
+var diagnosticAliases = map[DiagnosticCode]DiagnosticCode{
+	"E_MOVE_USE":          ErrUseAfterMove,
+	"E_BORROW_AFTER_MOVE": ErrBorrowAfterMove,
+	"E_MOVE_BORROWED":     ErrMoveWhileBorrowed,
+	"E_DOUBLE_MUT_BORROW": ErrDoubleMutableBorrow,
+	"E_BORROW_CONFLICT":   ErrBorrowConflict,
+	"E_MUT_REQUIRED":      ErrMutabilityRequired,
+}
+
+// ResolveCode maps an alias or a catalog code to its canonical code.
+func ResolveCode(code DiagnosticCode) (DiagnosticCode, bool) {
+	if alias, ok := diagnosticAliases[code]; ok {
+		return alias, true
+	}
+	if _, ok := Lookup(code); ok {
+		return code, true
+	}
+	return "", false
+}
+
 // Note provides additional context for a diagnostic
 type Note struct {
 	Message string

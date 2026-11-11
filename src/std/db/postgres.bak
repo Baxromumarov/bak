@@ -32,6 +32,10 @@ pub func query(
     conn: &Connection,
     sql: string,
 ) -> (Result<QueryResult, string>) {
+    if conn.handle < 0 {
+        return Err("resource closed")
+    }
+
     return __builtin_pg_query(
         conn.handle,
         sql,
@@ -45,6 +49,10 @@ pub func queryParams(
     sql: string,
     params: Vec<string, _>,
 ) -> (Result<QueryResult, string>) {
+    if conn.handle < 0 {
+        return Err("resource closed")
+    }
+
     return __builtin_pg_query(
         conn.handle,
         sql,
@@ -53,8 +61,16 @@ pub func queryParams(
 }
 
 // close closes the database connection.
-pub func close(conn: Connection) -> (Result<void, string>) {
-    return __builtin_pg_close(conn.handle)
+// A second close is a no-op. Later queries return Err("resource closed").
+pub func close(conn: &mut Connection) -> (Result<void, string>) {
+    if conn.handle < 0 {
+        return Ok(void)
+    }
+
+    var handle: int = conn.handle
+    conn.handle = -1
+
+    return __builtin_pg_close(handle)
 }
 
 pub func rows(qr: &QueryResult) -> (Vec<Row, _>) {

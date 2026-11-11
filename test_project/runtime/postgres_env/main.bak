@@ -16,21 +16,21 @@ func main() -> (void) {
         return void
     }
 
-    var conn: postgres.Connection = connResult.unwrap()
-    var queryResult: Result<postgres.QueryResult, string> = postgres.query(&conn, "select 1 as value")
-    if queryResult.isErr() {
-        println("postgres env: query failed: " + queryResult.unwrapErr())
-        postgres.close(conn)
-        return void
+    mut var conn: postgres.Connection = connResult.unwrap()
+    {
+        var queryResult: Result<postgres.QueryResult, string> = postgres.query(&conn, "select 1 as value")
+        if queryResult.isErr() {
+            println("postgres env: query failed: " + queryResult.unwrapErr())
+        } else {
+            var rows = postgres.rows(&queryResult.unwrap())
+            if rows.len() == 1 {
+                println("postgres env: ok")
+            } else {
+                println("postgres env: bad row count")
+            }
+        }
     }
 
-    var rows = postgres.rows(&queryResult.unwrap())
-    if rows.len() == 1 {
-        println("postgres env: ok")
-    } else {
-        println("postgres env: bad row count")
-    }
-
-    postgres.close(conn)
+    postgres.close(&mut conn)
     return void
 }

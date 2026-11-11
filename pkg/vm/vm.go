@@ -271,6 +271,9 @@ func (vm *VM) PrintTopSites(limit int) {
 
 // Run executes the program starting from main.
 func (vm *VM) Run() (compiler.Value, error) {
+	if err := verifyModule(vm.module); err != nil {
+		return compiler.NewNil(), err
+	}
 	if vm.module.EntryPoint < 0 {
 		return compiler.NewNil(), fmt.Errorf("no main function found")
 	}
@@ -307,10 +310,15 @@ func (vm *VM) initializeGlobalFunctions() {
 
 func (vm *VM) run() (result compiler.Value, err error) {
 	defer func() {
-		if err != nil {
-			vm.failActiveTraceScopes(err)
+		if rec := recover(); rec != nil {
+			lim, ok := rec.(runtimeLimit)
+			if !ok {
+				panic(rec)
+			}
+			err = lim.err
 		}
 		if err != nil {
+			vm.failActiveTraceScopes(err)
 			err = vm.wrapRuntimeError(err)
 		}
 	}()
@@ -379,28 +387,29 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			vm.push(b)
 
 		case compiler.OP_NIL:
-			vm.stack[vm.sp] = compiler.ValueNil
-			vm.sp++
+			vm.push(compiler.ValueNil)
 
 		case compiler.OP_TRUE:
-			vm.stack[vm.sp] = compiler.ValueTrue
-			vm.sp++
+			vm.push(compiler.ValueTrue)
 
 		case compiler.OP_FALSE:
-			vm.stack[vm.sp] = compiler.ValueFalse
-			vm.sp++
+			vm.push(compiler.ValueFalse)
 
 		case compiler.OP_GET_LOCAL:
 			slot := int(vm.readByte(frame, fn))
-			// Inline push for performance
-			vm.stack[vm.sp] = vm.stack[frame.base+slot]
-			vm.sp++
+			idx, err := vm.localSlot(frame, slot)
+			if err != nil {
+				return compiler.NewNil(), err
+			}
+			vm.push(vm.stack[idx])
 
 		case compiler.OP_SET_LOCAL:
 			slot := int(vm.readByte(frame, fn))
-			// Inline pop for performance
-			vm.sp--
-			vm.stack[frame.base+slot] = vm.stack[vm.sp]
+			idx, err := vm.localSlot(frame, slot)
+			if err != nil {
+				return compiler.NewNil(), err
+			}
+			vm.stack[idx] = vm.pop()
 
 		case compiler.OP_GET_GLOBAL:
 			idx := vm.readShort(frame, fn)
@@ -1165,10 +1174,14 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_BORROW_LOCAL:
 			slot := int(vm.readByte(frame, fn))
 			mutable := vm.readByte(frame, fn) == 1
+			idx, err := vm.localSlot(frame, slot)
+			if err != nil {
+				return compiler.NewNil(), err
+			}
 			vm.push(compiler.Value{
 				Type: compiler.VAL_BORROW,
 				AsObject: &compiler.BorrowInstance{
-					Location: &vm.stack[frame.base+slot],
+					Location: &vm.stack[idx],
 					Mutable:  mutable,
 				},
 			})
@@ -1311,7 +1324,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_FSTRING:
 			count := int(vm.readByte(frame, fn))
 			var result strings.Builder
-
+			if vm.sp < count {
+				panic(runtimeLimit{err: fmt.Errorf("runtime error: stack underflow")})
+			}
 			vm.sp -= count
 			elements := vm.stack[vm.sp : vm.sp+count]
 			for i := range count {
@@ -1323,8 +1338,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				}
 			}
 
-			vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_STRING, AsString: result.String()}
-			vm.sp++
+			vm.push(compiler.Value{Type: compiler.VAL_STRING, AsString: result.String()})
 
 		case compiler.OP_IMPORT:
 			// Read path and alias from constants
@@ -1415,16 +1429,14 @@ func (vm *VM) run() (result compiler.Value, err error) {
 // Stack operations
 
 func (vm *VM) push(v compiler.Value) {
-	if vm.sp >= StackMax {
-		panic(strfmt.Named("stack overflow: exceeded maximum stack depth of {StackMax}", "StackMax", StackMax))
+	if err := vm.pushValue(v); err != nil {
+		panic(runtimeLimit{err: err})
 	}
-	vm.stack[vm.sp] = v
-	vm.sp++
 }
 
 func (vm *VM) pop() compiler.Value {
 	if vm.sp <= 0 {
-		panic("stack underflow")
+		panic(runtimeLimit{err: fmt.Errorf("runtime error: stack underflow")})
 	}
 	vm.sp--
 	return vm.stack[vm.sp]
@@ -1581,8 +1593,8 @@ func (vm *VM) derefAll(v compiler.Value) compiler.Value {
 
 func (vm *VM) peek(distance int) compiler.Value {
 	idx := vm.sp - 1 - distance
-	if idx < 0 {
-		panic(strfmt.Named("stack underflow on peek({distance})", "Distance", distance))
+	if idx < 0 || idx >= StackMax {
+		panic(runtimeLimit{err: fmt.Errorf("runtime error: stack underflow")})
 	}
 	return vm.stack[idx]
 }
@@ -1692,7 +1704,7 @@ func (vm *VM) callWithFlags(fn *compiler.FunctionObj, argc int, discardReturn bo
 	}
 
 	if vm.fp >= FramesMax {
-		return fmt.Errorf("stack overflow")
+		return vm.frameOverflowError()
 	}
 
 	// The stack is: [callee, arg0, arg1, ..., argN-1]

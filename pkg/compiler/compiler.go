@@ -841,7 +841,14 @@ func remapFunctionBytecode(fn *FunctionObj, globalMap map[int]int, funcMap map[i
 				}
 			}
 		default:
-			// no operands
+			width, ok := OperandWidth(op)
+			if !ok {
+				return fmt.Errorf("cannot remap unknown opcode %s in %s", op, fn.Name)
+			}
+			if ip+width > len(code) {
+				return fmt.Errorf("truncated opcode %s in %s", op, fn.Name)
+			}
+			ip += width
 		}
 	}
 	return nil
@@ -1717,8 +1724,8 @@ func (c *Compiler) compileIdentifier(id *ast.Identifier) error {
 				c.emit(OP_NEW_ENUM)
 				return nil
 			}
-			// Payloaded variant - emit marker for pattern matching in switch statements
-			// This will be used when the variant is called like Object(entries)
+			// A bare payloaded name is a marker. Calls such as Item(inner) are
+			// lowered in compileSpecialCallExpression, not by calling this string.
 			c.emitConstant(NewString("__variant__:" + enumName + "." + id.Value))
 			return nil
 		}
@@ -2158,7 +2165,7 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 	escapes := false
 	if c.currentEscape != nil {
 		escapeReasons = c.currentEscape.ReasonsFor(name)
-		escapes = len(escapeReasons) > 0
+		escapes = c.currentEscape.Escapes(name)
 	}
 
 	c.locals = append(c.locals, Local{

@@ -550,7 +550,7 @@ func (s *EmitState) emitResultIsOk(obj ast.Expression) error {
 		return err
 	}
 	// Load tag from offset 0 (safe on invalid/non-pointer values)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	// Compare with 0 (Ok)
 	emitMovRegImm32(&s.Code, RCX, 0)
 	emitCmpRegReg(&s.Code, RAX, RCX)
@@ -568,7 +568,7 @@ func (s *EmitState) emitResultIsErr(obj ast.Expression) error {
 		return err
 	}
 	// Load tag from offset 0 (safe on invalid/non-pointer values)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	// Compare with 1 (Err)
 	emitMovRegImm32(&s.Code, RCX, 1)
 	emitCmpRegReg(&s.Code, RAX, RCX)
@@ -1081,7 +1081,7 @@ func (s *EmitState) emitResultUnwrap(obj ast.Expression) error {
 	loadPos := len(s.Code)
 	patchRel32(&s.Code, jnzLoad+2, loadPos)
 	// Load value from offset 8
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	donePos := len(s.Code)
 	patchRel32(&s.Code, jmpDone+1, donePos)
 	return nil
@@ -1103,7 +1103,7 @@ func (s *EmitState) emitResultUnwrapErr(obj ast.Expression) error {
 	loadPos := len(s.Code)
 	patchRel32(&s.Code, jnzLoad+2, loadPos)
 	// Load error from offset 8 (same as Ok value position)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	donePos := len(s.Code)
 	patchRel32(&s.Code, jmpDone+1, donePos)
 	return nil
@@ -1275,7 +1275,7 @@ func (s *EmitState) emitOsExec(cmdExpr, argsExpr ast.Expression) error {
 	emitMovRegReg(&s.Code, RAX, R8)
 	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RAX), 0x03) // shl rax, 3
 	emitAddRegReg(&s.Code, RAX, R9)
-	s.emitSafeLoadRaxFromRaxDisp(0) // string header pointer
+	s.emitLoadValueAt(0) // string header pointer
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callHelper("__rt_cstr")
 	emitMovRegMemBaseDisp(&s.Code, R15, RBP, execArgvOff)

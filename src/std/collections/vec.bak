@@ -47,6 +47,7 @@ impl Vec {
         }
     }
 
+    // from copies every element. Time O(n), allocation O(n).
     pub func from<N>(arr: Vec<T, N>) -> (Vec<T, _>) {
         // arr is fixed array.
         var len: int = arr.len()
@@ -70,6 +71,7 @@ impl Vec {
 }
 
 impl Vec as self {
+    // push is amortized O(1). Growth doubles capacity, starting at 4.
     pub mut func push(value: T) -> (void) {
         // --- MUTATING METHODS ---
         if self.length == self.capacity {
@@ -86,6 +88,7 @@ impl Vec as self {
         return
     }
 
+    // pop is O(1) and does not shrink the allocation.
     pub mut func pop() -> (Result<T, string>) {
         if self.length == 0 {
             return Err("vec is empty")
@@ -128,6 +131,7 @@ impl Vec as self {
         return
     }
 
+    // remove shifts the tail and is O(n).
     pub mut func remove(index: int) -> (Result<T, string>) {
         if index < 0 || index >= self.length {
             return Err("index out of bounds")
@@ -231,6 +235,7 @@ impl Vec as self {
         return Ok(val)
     }
 
+    // get is O(1).
     pub func get(index: int) -> (Result<T, string>) {
         if index < 0 || index >= self.length {
             return Err("index out of bounds")
