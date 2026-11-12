@@ -1,0 +1,89 @@
+{
+  "$schema": "https://zed.dev/schema/themes/v0.2.0.json",
+  "name": "Bak Go",
+  "author": "Bak contributors",
+  "themes": [
+    {
+      "name": "Bak Go Dark",
+      "appearance": "dark",
+      "style": {
+        "background": "#1E1E1E",
+        "border": "#3C3C3C",
+        "editor.background": "#1E1E1E",
+        "editor.foreground": "#D4D4D4",
+        "editor.gutter.background": "#1E1E1E",
+        "editor.line_number": "#858585",
+        "editor.active_line.background": "#252526",
+        "editor.indent_guide": "#404040",
+        "editor.indent_guide_active": "#707070",
+        "panel.background": "#181818",
+        "surface.background": "#252526",
+        "text": "#D4D4D4",
+        "text.muted": "#858585",
+        "syntax": {
+          "attribute": { "color": "#9CDCFE" },
+          "boolean": { "color": "#569CD6" },
+          "comment": { "color": "#6A9955" },
+          "constructor": { "color": "#4EC9B0" },
+          "function": { "color": "#DCDCAA" },
+          "keyword": { "color": "#C586C0" },
+          "keyword.control": { "color": "#C586C0" },
+          "number": { "color": "#B5CEA8" },
+          "operator": { "color": "#D4D4D4" },
+          "property": { "color": "#9CDCFE" },
+          "punctuation": { "color": "#D4D4D4" },
+          "punctuation.bracket": { "color": "#D4D4D4" },
+          "punctuation.delimiter": { "color": "#D4D4D4" },
+          "string": { "color": "#CE9178" },
+          "string.special": { "color": "#D7BA7D" },
+          "type": { "color": "#4EC9B0" },
+          "type.builtin": { "color": "#569CD6" },
+          "variable": { "color": "#9CDCFE" },
+          "variable.parameter": { "color": "#9CDCFE" },
+          "variant": { "color": "#B8D7A3" }
+        }
+      }
+    },
+    {
+      "name": "Bak Go Light",
+      "appearance": "light",
+      "style": {
+        "background": "#FFFFFF",
+        "border": "#D4D4D4",
+        "editor.background": "#FFFFFF",
+        "editor.foreground": "#000000",
+        "editor.gutter.background": "#FFFFFF",
+        "editor.line_number": "#237893",
+        "editor.active_line.background": "#F5F5F5",
+        "editor.indent_guide": "#D3D3D3",
+        "editor.indent_guide_active": "#A0A0A0",
+        "panel.background": "#F3F3F3",
+        "surface.background": "#FFFFFF",
+        "text": "#000000",
+        "text.muted": "#6E6E6E",
+        "syntax": {
+          "attribute": { "color": "#001080" },
+          "boolean": { "color": "#0000FF" },
+          "comment": { "color": "#008000" },
+          "constructor": { "color": "#267F99" },
+          "function": { "color": "#795E26" },
+          "keyword": { "color": "#AF00DB" },
+          "keyword.control": { "color": "#AF00DB" },
+          "number": { "color": "#098658" },
+          "operator": { "color": "#000000" },
+          "property": { "color": "#001080" },
+          "punctuation": { "color": "#000000" },
+          "punctuation.bracket": { "color": "#000000" },
+          "punctuation.delimiter": { "color": "#000000" },
+          "string": { "color": "#A31515" },
+          "string.special": { "color": "#811F3F" },
+          "type": { "color": "#267F99" },
+          "type.builtin": { "color": "#0000FF" },
+          "variable": { "color": "#001080" },
+          "variable.parameter": { "color": "#001080" },
+          "variant": { "color": "#795E26" }
+        }
+      }
+    }
+  ]
+}

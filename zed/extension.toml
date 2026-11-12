@@ -1,0 +1,31 @@
+id = "bak"
+name = "Bak"
+version = "0.1.0"
+schema_version = 1
+description = "Language support for Bak: syntax, themes, snippets, formatting, and LSP tooling."
+repository = "https://github.com/baxromumarov/bak"
+authors = ["Bak contributors"]
+themes = ["themes/bak-go.json"]
+icon_themes = []
+languages = ["languages/bak"]
+capabilities = []
+
+[lib]
+kind = "Rust"
+version = "0.7.0"
+
+[grammars.bak]
+repository = "https://github.com/baxromumarov/bak"
+# This is updated by the release workflow after the grammar has been committed.
+rev = "b8c8e1138b1c690cecc18d74279aa3743d1fe30b"
+path = "zed/tree-sitter-bak"
+
+[language_servers.bak-lsp]
+name = "bak-lsp"
+language = "Bak"
+
+[context_servers]
+
+[agent_servers]
+
+[slash_commands]

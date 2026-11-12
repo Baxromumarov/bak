@@ -1,0 +1,13 @@
+name = "Bak"
+grammar = "bak"
+path_suffixes = ["bak"]
+line_comments = ["// "]
+block_comment = ["/* ", " */"]
+autoclose_before = ";,.}])"
+brackets = [
+    { start = "{", end = "}", close = true, newline = true },
+    { start = "[", end = "]", close = true, newline = false },
+    { start = "(", end = ")", close = true, newline = false },
+    { start = "\"", end = "\"", close = true, newline = false, not_in = ["string_literal", "raw_string_literal"] },
+    { start = "'", end = "'", close = true, newline = false, not_in = ["char_literal"] },
+]

@@ -1,0 +1,17 @@
+[
+  { "token_type": "namespace", "style": ["type"] },
+  { "token_type": "type", "style": ["type"] },
+  { "token_type": "struct", "style": ["type"] },
+  { "token_type": "enum", "style": ["type"] },
+  { "token_type": "enumMember", "style": ["variant"] },
+  { "token_type": "function", "style": ["function"] },
+  { "token_type": "method", "style": ["function"] },
+  { "token_type": "property", "style": ["property"] },
+  { "token_type": "variable", "style": ["variable"] },
+  { "token_type": "parameter", "style": ["variable.parameter"] },
+  { "token_type": "keyword", "style": ["keyword"] },
+  { "token_type": "modifier", "style": ["keyword"] },
+  { "token_type": "string", "style": ["string"] },
+  { "token_type": "number", "style": ["number"] },
+  { "token_type": "operator", "style": ["operator"] }
+]

@@ -1,0 +1,74 @@
+{
+  "Function": {
+    "prefix": "func",
+    "body": [
+      "func ${1:name}(${2:arg}: ${3:int}) -> (${4:void}) {",
+      "    ${0}",
+      "}"
+    ],
+    "description": "Bak function declaration"
+  },
+  "Main function": {
+    "prefix": "main",
+    "body": [
+      "package main",
+      "",
+      "func main() -> (void) {",
+      "    ${0}",
+      "}"
+    ],
+    "description": "Bak program entry point"
+  },
+  "Mutable variable": {
+    "prefix": "mut",
+    "body": "mut var ${1:name}: ${2:int} = ${0}",
+    "description": "Bak mutable variable"
+  },
+  "Struct": {
+    "prefix": "struct",
+    "body": [
+      "struct ${1:Name} {",
+      "    ${2:field}: ${3:string}",
+      "}"
+    ],
+    "description": "Bak struct declaration"
+  },
+  "Enum": {
+    "prefix": "enum",
+    "body": [
+      "enum ${1:Name} {",
+      "    ${2:Variant}",
+      "}"
+    ],
+    "description": "Bak enum declaration"
+  },
+  "If statement": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition} {",
+      "    ${0}",
+      "}"
+    ],
+    "description": "Bak if statement"
+  },
+  "For loop": {
+    "prefix": "for",
+    "body": [
+      "for ${1:item} in ${2:items} {",
+      "    ${0}",
+      "}"
+    ],
+    "description": "Bak for-in loop"
+  },
+  "Switch statement": {
+    "prefix": "switch",
+    "body": [
+      "switch ${1:value} {",
+      "    case ${2:pattern} {",
+      "        ${0}",
+      "    }",
+      "}"
+    ],
+    "description": "Bak switch statement"
+  }
+}

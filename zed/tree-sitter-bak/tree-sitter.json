@@ -1,0 +1,27 @@
+{
+  "grammars": [
+    {
+      "name": "bak",
+      "camelcase": "Bak",
+      "scope": "source.bak",
+      "path": ".",
+      "file-types": ["bak"],
+      "injection-regex": "^bak$",
+      "class-name": "TreeSitterBak"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "Tree-sitter grammar for the Bak language"
+  },
+  "bindings": {
+    "c": true,
+    "go": false,
+    "node": false,
+    "python": false,
+    "rust": false,
+    "swift": false,
+    "zig": false
+  }
+}
