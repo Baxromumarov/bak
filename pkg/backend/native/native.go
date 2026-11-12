@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	sharedir "github.com/baxromumarov/bak/pkg/ir"
 	"github.com/baxromumarov/bak/pkg/packages"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
+	"github.com/baxromumarov/bak/pkg/semantics"
 )
 
 type BuildOptions struct {
@@ -16,6 +18,7 @@ type BuildOptions struct {
 	TraceEnabled bool
 	MainPath     string
 	OnIR         func(*IRProgramSet)
+	TypedIR      *sharedir.Program
 	Registry     *packages.Registry // optional; defaults to packages.GlobalRegistry
 }
 
@@ -47,6 +50,9 @@ func BuildExecutableWithOptions(
 	[]byte,
 	error,
 ) {
+	if violations := semantics.ValidateStable(program); len(violations) > 0 {
+		return nil, fmt.Errorf("stable language violation: %s", violations[0].Error())
+	}
 
 	mainPath := options.MainPath
 	if mainPath == "" {
@@ -80,6 +86,9 @@ func BuildExecutableWithOptions(
 	})
 	for _, pkg := range allPkgs {
 		if pkg.Program != nil {
+			if violations := semantics.ValidateStable(pkg.Program); len(violations) > 0 {
+				return nil, fmt.Errorf("stable language violation in %s: %s", pkg.Path, violations[0].Error())
+			}
 			// Extract path-derived name from package path
 			pathName := extractPathName(pkg.Path)
 			allPrograms = append(allPrograms, ProgramWithPath{
@@ -91,6 +100,16 @@ func BuildExecutableWithOptions(
 	}
 
 	ir := BuildIRProgramSet(allPrograms)
+	if options.TypedIR != nil {
+		for _, supplied := range options.TypedIR.Modules {
+			for i := range ir.Modules {
+				if ir.Modules[i].Name == supplied.Name {
+					ir.Modules[i] = supplied
+				}
+			}
+		}
+	}
+	options.TypedIR = ir
 	if options.OnIR != nil {
 		options.OnIR(ir)
 	}

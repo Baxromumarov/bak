@@ -1,6 +1,6 @@
 # Bak Architecture
 
-Last updated: 2026-05-09
+Last updated: 2026-11-11
 
 This document describes the codebase boundaries that should stay boring and
 predictable as Bak grows.
@@ -75,8 +75,15 @@ The core source pipeline is:
 2. `pkg/parser`
 3. `pkg/prelude` injection when requested
 4. `pkg/typechecker`
-5. `pkg/compiler`
-6. `pkg/vm` or `pkg/backend/native`
+5. `pkg/ir` typed lowering
+6. `pkg/compiler` bytecode lowering or `pkg/backend/native` machine-code lowering
+7. `pkg/vm` execution for bytecode
+
+`pkg/ir` is the backend-neutral ownership boundary. It represents typed values,
+local/global places, field and index projections, moves, shared and mutable
+borrows, calls, CFG blocks, source locations, scope exits, and drop operations.
+Ownership and destruction decisions must be represented there before backend
+selection; backends must not independently reinterpret borrowing rules.
 
 `internal/pipeline` composes those stages for user commands. Individual package
 tests may exercise stages directly, but product behavior should prefer the

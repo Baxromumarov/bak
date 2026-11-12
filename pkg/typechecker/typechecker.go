@@ -8,6 +8,7 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/diagnostics"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/semantics"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/token"
 )
@@ -89,11 +90,12 @@ type TypeEnv struct {
 	functions     map[string]*FunctionSig
 	structs       map[string]*StructDef
 	enums         map[string]*EnumDef
-	aliases       map[string]*AliasDef // alias Name -> underlying type
-	typedefs      map[string]*TypeDef  // type Name -> underlying type
-	moved         map[string]bool      // tracks which variables have been moved
-	moveInfo      map[string]*MoveInfo // tracks where/why variables were moved
-	borrowedMut   map[string]bool      // tracks which variables are mutably borrowed
+	aliases       map[string]*AliasDef            // alias Name -> underlying type
+	typedefs      map[string]*TypeDef             // type Name -> underlying type
+	moved         map[string]bool                 // tracks which variables have been moved
+	moveInfo      map[string]*MoveInfo            // tracks where/why variables were moved
+	movedParts    map[string]map[string]*MoveInfo // root -> field/index path -> move
+	borrowedMut   map[string]bool                 // tracks which variables are mutably borrowed
 	borrowedMutAt map[string]*BorrowInfo
 	borrowedIm    map[string]int // counts active immutable borrows per variable
 	borrowedImAt  map[string]*BorrowInfo
@@ -135,6 +137,8 @@ type TypeChecker struct {
 	packageCheckers   map[string]*TypeChecker                // imported module checkers scoped to this checker run
 	ctx               context.Context                        // optional cancellation context for editor analysis
 	contextErr        error                                  // first observed cancellation error
+	borrowExprSeen    map[*ast.BorrowExpression]bool         // prevents duplicate inference from creating phantom borrows
+	moveExpressions   map[ast.Expression]bool                // checker-owned decisions consumed by typed IR
 }
 
 func (tc *TypeChecker) rejectOptionUsage(pos ast.Position) {
@@ -190,6 +194,8 @@ func New() *TypeChecker {
 		registry:         packages.NewRegistry(),
 		packageCheckers:  make(map[string]*TypeChecker),
 		ctx:              context.Background(),
+		borrowExprSeen:   make(map[*ast.BorrowExpression]bool),
+		moveExpressions:  make(map[ast.Expression]bool),
 	}
 
 	// Register __Array as a builtin primitive struct (fixed size)
@@ -345,6 +351,11 @@ func (tc *TypeChecker) GetNodeType(node ast.Node) string {
 	return ""
 }
 
+// IsMoveExpression exposes ownership decisions to typed IR lowering.
+func (tc *TypeChecker) IsMoveExpression(expr ast.Expression) bool {
+	return tc.moveExpressions[expr]
+}
+
 // GetStruct returns the struct definition for a given name (LSP support)
 func (tc *TypeChecker) GetStruct(name string) (*StructDef, bool) {
 	return tc.lookupQualifiedStruct(name)
@@ -370,6 +381,17 @@ func (tc *TypeChecker) Check(program *ast.Program) []string {
 	}
 
 	if !tc.ensurePackageDeclaration(program) || !tc.checkPackagePlacement(program) {
+		return tc.Errors()
+	}
+	if violations := semantics.ValidateStable(program); len(violations) > 0 {
+		violation := violations[0]
+		diag := tc.baseDiagnostic(
+			diagnostics.ErrBorrowEscape,
+			violation.Position,
+			violation.Message,
+		)
+		diag.Help = "return an owned value; borrowed values must remain inside the function that created them"
+		tc.emitError(diag)
 		return tc.Errors()
 	}
 

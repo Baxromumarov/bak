@@ -125,6 +125,7 @@ func (s *EmitState) resetFunctionState() {
 	s.VecStringElements = make(map[string]bool)
 	s.StructVariables = make(map[string]string)
 	s.RefVariables = make(map[string]bool)
+	s.InOutVariables = make(map[string]bool)
 	s.VecElementTypes = make(map[string]string)
 	s.GenericVariables = make(map[string]string)
 	s.OptionPayloadTypes = make(map[string]ast.TypeExpression)

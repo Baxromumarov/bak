@@ -13,7 +13,6 @@ type EscapeReason string
 
 const (
 	EscapeReturnedValue     EscapeReason = "returned_value"
-	EscapeReturnedReference EscapeReason = "returned_reference"
 	EscapeAssignedToGlobal  EscapeReason = "assigned_to_global"
 	EscapeStoredExternally  EscapeReason = "stored_externally"
 	EscapeCapturedByClosure EscapeReason = "captured_by_closure"
@@ -274,12 +273,6 @@ func (an *escapeAnalyzer) walkStmt(stmt ast.Statement) {
 		}
 	case *ast.ReturnStatement:
 		an.markLocalsInExpr(s.ReturnValue, EscapeReturnedValue)
-
-		if be, ok := s.ReturnValue.(*ast.BorrowExpression); ok {
-			if id, ok := be.Value.(*ast.Identifier); ok && an.scope.isLocal(id.Value) {
-				an.summary.mark(id.Value, EscapeReturnedReference)
-			}
-		}
 		an.walkExpr(s.ReturnValue)
 	case *ast.ExpressionStatement:
 		an.walkExpr(s.Expression)

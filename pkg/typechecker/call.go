@@ -203,6 +203,7 @@ func (tc *TypeChecker) tryInferCallFieldAccessAsMethod(ce *ast.CallExpression) (
 }
 
 func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpression {
+	defer tc.clearBorrows(ce.Arguments)
 	funcName := ""
 	var sig *FunctionSig
 	sigFromCallableExpr := false
@@ -254,6 +255,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 									arg,
 								)
 							}
+							tc.checkCallArgMove(arg, variant.Fields[i], false, funcName, ce.Pos())
 						}
 					}
 				} else if len(ce.Arguments) > 0 {
@@ -292,6 +294,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 							ce.Arguments[0],
 						)
 					}
+					tc.checkCallArgMove(ce.Arguments[0], underlyingType, false, funcName, ce.Pos())
 				}
 
 				tc.clearBorrows(ce.Arguments)
@@ -450,6 +453,7 @@ func (tc *TypeChecker) inferCallExpression(ce *ast.CallExpression) ast.TypeExpre
 								arg,
 							)
 						}
+						tc.checkCallArgMove(arg, fieldTypes[i], false, fa.Field.Value, ce.Pos())
 					}
 				}
 			} else if len(ce.Arguments) > 0 {
@@ -769,11 +773,24 @@ func (tc *TypeChecker) checkCallArgMove(
 			}
 			return
 		}
+		tc.addErrorAt(
+			a.Pos(),
+			strfmt.Named("'mut {Name}' can only be passed to a 'mut' parameter", "Name", name),
+		)
+		return
 	default:
+		tc.trackMoveFromExpression(arg, pos, MovedByCall, funcName)
 		return
 	}
 
-	if info, found := tc.env.LookupSymbol(name); found && tc.isCopyType(info.Type) {
+	if info, found := tc.env.LookupSymbol(name); found {
+		if info.Constant || tc.isCopyType(info.Type) {
+			return
+		}
+	}
+	if tc.env.HasMovedPart(name) && !tc.env.IsPoisoned(name) {
+		tc.errorUseAfterMoveAt(name, pos, nil)
+		tc.env.MarkPoisoned(name)
 		return
 	}
 
@@ -798,6 +815,7 @@ func (tc *TypeChecker) checkCallArgMove(
 		Reason: MovedByCall,
 		Detail: funcName,
 	})
+	tc.moveExpressions[arg] = true
 }
 
 func (tc *TypeChecker) canPassMutableIdentifierArgument(arg *ast.MutableIdentifier) bool {

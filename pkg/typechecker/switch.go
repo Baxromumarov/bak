@@ -145,9 +145,10 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 	enumDef := tc.resolveSwitchEnumDef(switchType)
 	tc.switchExhaustive[ss] = tc.switchIsExhaustive(ss, enumDef)
 
+	oldEnv := tc.env
+	var reaching []ownershipBranch
 	for _, caseStmt := range ss.Cases {
-		caseEnv := NewIsolatedTypeEnv(tc.env)
-		oldEnv := tc.env
+		caseEnv := NewIsolatedTypeEnv(oldEnv)
 		tc.env = caseEnv
 
 		for _, caseValue := range caseStmt.Values {
@@ -158,8 +159,12 @@ func (tc *TypeChecker) checkSwitchStatement(ss *ast.SwitchStatement) {
 		}
 
 		tc.checkBlockStatement(caseStmt.Body)
+		if !tc.blockTerminates(caseStmt.Body) {
+			reaching = append(reaching, captureOwnershipBranch(caseEnv, oldEnv))
+		}
 		tc.env = oldEnv
 	}
+	mergeOwnershipBranches(oldEnv, reaching...)
 }
 
 // enum payload error helpers

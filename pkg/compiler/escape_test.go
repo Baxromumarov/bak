@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"bytes"
 	"slices"
 	"strings"
 	"testing"
@@ -48,38 +47,6 @@ func findFunctionObj(t *testing.T, module *BytecodeModule, name string) *Functio
 	return nil
 }
 
-func TestAnalyzeFunctionDeclEscapes_ReturnBorrowMarksLocal(t *testing.T) {
-	source := `package main
-
-func leak() -> (&int) {
-    var x: int = 1
-    return &x
-}
-`
-	program := mustParseProgram(t, source)
-	fd := findFunctionDecl(t, program, "leak")
-	summary := AnalyzeFunctionDeclEscapes(fd)
-
-	if !summary.Escapes("x") {
-		t.Fatalf("expected local x to escape, report=%#v", summary)
-	}
-
-	reasons := summary.ReasonsFor("x")
-	hasReturnedValue := false
-	hasReturnedRef := false
-	for _, r := range reasons {
-		if r == EscapeReturnedValue {
-			hasReturnedValue = true
-		}
-		if r == EscapeReturnedReference {
-			hasReturnedRef = true
-		}
-	}
-	if !hasReturnedValue || !hasReturnedRef {
-		t.Fatalf("expected x escape reasons to include returned value+reference, got %v", reasons)
-	}
-}
-
 func TestAnalyzeFunctionDeclEscapes_ClosureCaptureMarksLocal(t *testing.T) {
 	source := `package main
 
@@ -100,40 +67,6 @@ func demo() -> (void) {
 	found := slices.Contains(reasons, EscapeCapturedByClosure)
 	if !found {
 		t.Fatalf("expected closure capture reason for x, got %v", reasons)
-	}
-}
-
-func TestCompileReturnBorrowOfLocalUsesHeapBackedBorrow(t *testing.T) {
-	module := compileSourceToModule(t, `package main
-
-func leak() -> (&int) {
-    var x: int = 1
-    return &x
-}
-`)
-
-	leak := findFunctionObj(t, module, "leak")
-	if !bytes.Contains(leak.Code, []byte{byte(OP_BORROW_STACK)}) {
-		t.Fatalf("expected leak() to use OP_BORROW_STACK for returned local borrow, code=%v", leak.Code)
-	}
-	if bytes.Contains(leak.Code, []byte{byte(OP_BORROW_LOCAL)}) {
-		t.Fatalf("expected leak() to avoid OP_BORROW_LOCAL for returned local borrow, code=%v", leak.Code)
-	}
-}
-
-func TestCompileEscapingLocalAssignmentStoresThroughHeapCell(t *testing.T) {
-	module := compileSourceToModule(t, `package main
-
-func leak() -> (&int) {
-    var x: int = 1
-    x = 2
-    return &x
-}
-`)
-
-	leak := findFunctionObj(t, module, "leak")
-	if !bytes.Contains(leak.Code, []byte{byte(OP_STORE_DEREF)}) {
-		t.Fatalf("expected assignment to escaping local to use OP_STORE_DEREF, code=%v", leak.Code)
 	}
 }
 

@@ -1,5 +1,7 @@
 package http
 
+import strings "std/strings"
+
 pub struct Route {
     pub method:  string
     pub path:    string
@@ -130,7 +132,7 @@ impl Router as r {
     }
 
     pub func dispatch(mut req: Request) -> (Response) {
-        mut var path: string = req.path
+		mut var path: string = strings.clone(&req.path)
         var queryIdx = path.indexOf("?")
 
         if queryIdx.isOk() {
@@ -145,7 +147,7 @@ impl Router as r {
         mut var i: int = 0
 
         while i < r.routes.len() {
-            var route: Route = r.routes[i]
+			var route: &Route = &r.routes[i]
 
             if route.method == req.method {
                 var routeSegments: Vec<string, _> = split_path(route.path)

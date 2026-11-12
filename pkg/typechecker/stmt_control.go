@@ -14,9 +14,10 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 
 	guardVar, guardState, hasGuard := tc.detectResultGuardCondition(is.Condition)
 
-	// Check if branches terminate (contain unconditional return).
-	// If a branch terminates, its moves shouldn't propagate to subsequent code.
-	conseqTerminates := tc.blockTerminates(is.Consequence)
+	// Every arm starts from the same incoming ownership state. Facts from arms
+	// that can reach the join are merged as "may move" facts.
+	parentEnv := tc.env
+	var reaching []ownershipBranch
 	checkWithGuard := func(name string, state resultGuardState, branch func()) {
 		if !hasGuard {
 			branch()
@@ -25,38 +26,28 @@ func (tc *TypeChecker) checkIfStatement(is *ast.IfStatement) {
 		tc.withResultGuardFact(name, state, branch)
 	}
 
-	if conseqTerminates {
-		// Create a scoped environment for the consequence branch
-		// so its moves don't leak to subsequent code
-		conseqEnv := NewIsolatedTypeEnv(tc.env)
-		oldEnv := tc.env
-		tc.env = conseqEnv
-		checkWithGuard(guardVar, guardState, func() {
-			tc.checkBlockStatement(is.Consequence)
-		})
-		tc.env = oldEnv
-	} else {
-		checkWithGuard(guardVar, guardState, func() {
-			tc.checkBlockStatement(is.Consequence)
-		})
+	conseqEnv := NewIsolatedTypeEnv(parentEnv)
+	tc.env = conseqEnv
+	checkWithGuard(guardVar, guardState, func() {
+		tc.checkBlockStatement(is.Consequence)
+	})
+	if !tc.blockTerminates(is.Consequence) {
+		reaching = append(reaching, captureOwnershipBranch(conseqEnv, parentEnv))
 	}
+	tc.env = parentEnv
 
 	if is.Alternative != nil {
-		altTerminates := tc.blockTerminates(is.Alternative)
-		if altTerminates {
-			altEnv := NewIsolatedTypeEnv(tc.env)
-			oldEnv := tc.env
-			tc.env = altEnv
-			checkWithGuard(guardVar, invertResultGuardState(guardState), func() {
-				tc.checkBlockStatement(is.Alternative)
-			})
-			tc.env = oldEnv
-		} else {
-			checkWithGuard(guardVar, invertResultGuardState(guardState), func() {
-				tc.checkBlockStatement(is.Alternative)
-			})
+		altEnv := NewIsolatedTypeEnv(parentEnv)
+		tc.env = altEnv
+		checkWithGuard(guardVar, invertResultGuardState(guardState), func() {
+			tc.checkBlockStatement(is.Alternative)
+		})
+		if !tc.blockTerminates(is.Alternative) {
+			reaching = append(reaching, captureOwnershipBranch(altEnv, parentEnv))
 		}
+		tc.env = parentEnv
 	}
+	mergeOwnershipBranches(parentEnv, reaching...)
 }
 
 func (tc *TypeChecker) checkWhileStatement(ws *ast.WhileStatement) {
@@ -65,15 +56,14 @@ func (tc *TypeChecker) checkWhileStatement(ws *ast.WhileStatement) {
 		tc.addError(ws.Token.Line, ws.Token.Column, strfmt.Named("while condition must be bool, got {typeToString}", "TypeToString", typeToString(condType)))
 	}
 
-	// Use an isolated environment for the while body.
-	// Loop bodies may have returns, and moves inside the loop shouldn't
-	// leak to code after the loop (since the loop may not execute at all
-	// or may execute multiple times).
-	loopEnv := NewIsolatedTypeEnv(tc.env)
 	oldEnv := tc.env
+	loopEnv := NewIsolatedTypeEnv(oldEnv)
 	tc.env = loopEnv
 	tc.checkBlockStatement(ws.Body)
 	tc.env = oldEnv
+	if !tc.blockTerminates(ws.Body) {
+		mergeOwnershipBranches(oldEnv, captureOwnershipBranch(loopEnv, oldEnv))
+	}
 }
 
 func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
@@ -95,8 +85,8 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 		tc.addError(fs.Token.Line, fs.Token.Column, "for loop requires a vector, string, or range iterable")
 	}
 
-	loopEnv := NewEnclosedTypeEnv(tc.env)
 	oldEnv := tc.env
+	loopEnv := NewIsolatedTypeEnv(oldEnv)
 	tc.env = loopEnv
 	tc.env.DefineSymbolAt(fs.Variable.Value, elemType, false, ast.Private, fs.Variable.Pos())
 	if fs.Variable != nil {
@@ -105,6 +95,9 @@ func (tc *TypeChecker) checkForStatement(fs *ast.ForStatement) {
 
 	tc.checkBlockStatement(fs.Body)
 	tc.env = oldEnv
+	if !tc.blockTerminates(fs.Body) {
+		mergeOwnershipBranches(oldEnv, captureOwnershipBranch(loopEnv, oldEnv))
+	}
 }
 
 func (tc *TypeChecker) checkUnsafeBlock(ub *ast.UnsafeBlock) {

@@ -61,8 +61,9 @@ type EmitState struct {
 	// Data index for storing initial RSP (to access argc/argv)
 	InitRspDataIndex int
 	// Data indices for bump allocator heap state
-	HeapPosDataIndex int
-	HeapEndDataIndex int
+	HeapPosDataIndex  int
+	HeapEndDataIndex  int
+	FreeListDataIndex int
 	// Data index for a deterministic monotonic time counter
 	TimeCounterDataIndex int
 	// Data index for runtime permission flags (defense-in-depth beyond compile-time gating)
@@ -98,6 +99,8 @@ type EmitState struct {
 
 	// Track variables that are references (need extra dereference for method calls)
 	RefVariables map[string]bool
+	// InOutVariables are `mut` parameters whose slots hold caller addresses.
+	InOutVariables map[string]bool
 
 	// Permissions controls which dangerous builtins native codegen may emit.
 	Permissions  runtimecap.Permissions
@@ -111,6 +114,8 @@ type EmitState struct {
 
 	// Track function return types for ABI (large struct support)
 	FunctionReturnTypes      map[string]ast.TypeExpression
+	FunctionParameters       map[string][]*ast.Parameter
+	TypedIR                  *IRProgramSet
 	CurrentFunctionTraced    bool
 	CurrentFunctionTraceName string
 
@@ -136,6 +141,7 @@ func newEmitState(options BuildOptions) *EmitState {
 		InitRspDataIndex:     -1,
 		HeapPosDataIndex:     -1,
 		HeapEndDataIndex:     -1,
+		FreeListDataIndex:    -1,
 		TimeCounterDataIndex: -1,
 		PermissionsDataIndex: -1,
 		TraceDepthDataIndex:  -1,
@@ -152,11 +158,14 @@ func newEmitState(options BuildOptions) *EmitState {
 		ResultOkTypes:        make(map[string]ast.TypeExpression),
 		ResultErrTypes:       make(map[string]ast.TypeExpression),
 		RefVariables:         make(map[string]bool),
+		InOutVariables:       make(map[string]bool),
 		IntFunctions:         make(map[string]bool),
 		StringFunctions:      make(map[string]bool),
 		Permissions:          options.Permissions,
 		TraceEnabled:         options.TraceEnabled,
 		FunctionReturnTypes:  make(map[string]ast.TypeExpression),
+		FunctionParameters:   make(map[string][]*ast.Parameter),
+		TypedIR:              options.TypedIR,
 		ImportAliases:        make(map[string]string),
 	}
 }
@@ -700,6 +709,7 @@ func CompilePrograms(programs []ProgramWithPath, mainProgram *ast.Program, optio
 		s.addFunctionSymbol(name, len(fp.fn.Parameters))
 		// Also register return type under the qualified name
 		s.FunctionReturnTypes[name] = fp.fn.ReturnType
+		s.FunctionParameters[name] = fp.fn.Parameters
 	}
 
 	// Initialize runtime permission data slot for defense-in-depth checks
@@ -1209,7 +1219,35 @@ func (s *EmitState) bindParameters(params []*ast.Parameter, skipRegs int) {
 
 		// Register type
 		s.applyBindingType(p.Name.Value, p.Type)
+		mutable := p.Mutable
+		if irParam, ok := s.irParameter(s.CurrentFunc, i); ok {
+			mutable = irParam.Mutable
+		}
+		if mutable {
+			s.InOutVariables[p.Name.Value] = true
+		}
 	}
+}
+
+func (s *EmitState) irParameter(function string, index int) (Parameter, bool) {
+	if s.TypedIR == nil {
+		return Parameter{}, false
+	}
+	for _, module := range s.TypedIR.Modules {
+		for _, fn := range module.Functions {
+			qualified := fn.Name
+			if module.Name != "" && module.Name != "main" {
+				qualified = module.Name + "." + fn.Name
+			}
+			if fn.Name != function && qualified != function {
+				continue
+			}
+			if index >= 0 && index < len(fn.Parameters) {
+				return fn.Parameters[index], true
+			}
+		}
+	}
+	return Parameter{}, false
 }
 
 // emitBlock emits all statements in a block.
@@ -1931,7 +1969,12 @@ func (s *EmitState) emitAssignment(st *ast.AssignmentStatement) error {
 		if !found {
 			return fmt.Errorf("native: undefined variable %s", lhs.Value)
 		}
-		emitMovMemRbpReg(&s.Code, offset, RAX)
+		if s.InOutVariables[lhs.Value] {
+			emitMovRegMemRbp(&s.Code, R11, offset)
+			emitMovMemReg(&s.Code, R11, RAX)
+		} else {
+			emitMovMemRbpReg(&s.Code, offset, RAX)
+		}
 		return nil
 	case *ast.MutableIdentifier:
 		// Evaluate RHS first
@@ -1942,7 +1985,12 @@ func (s *EmitState) emitAssignment(st *ast.AssignmentStatement) error {
 		if !found {
 			return fmt.Errorf("native: undefined variable %s", lhs.Value)
 		}
-		emitMovMemRbpReg(&s.Code, offset, RAX)
+		if s.InOutVariables[lhs.Value] {
+			emitMovRegMemRbp(&s.Code, R11, offset)
+			emitMovMemReg(&s.Code, R11, RAX)
+		} else {
+			emitMovMemRbpReg(&s.Code, offset, RAX)
+		}
 		return nil
 	case *ast.FieldAccessExpression:
 		return s.emitFieldAssignment(lhs, st.Value)

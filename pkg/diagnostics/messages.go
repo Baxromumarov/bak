@@ -26,6 +26,7 @@ var catalog = map[DiagnosticCode]MessageTemplate{
 	ErrMoveWhileBorrowed:   {LevelError, "cannot move '{varName}' because it is {reason}", ""},
 	ErrDoubleMutableBorrow: {LevelError, "cannot borrow '{varName}' as mutable more than once at a time", ""},
 	ErrBorrowConflict:      {LevelError, "cannot borrow '{varName}' as {attemptedBorrow} because it is already {existingState}", ""},
+	ErrBorrowEscape:        {LevelError, "functions cannot return borrowed values in Bak v0.1", "return an owned value instead"},
 
 	// Mutability errors (E02xx)
 	ErrMutabilityRequired: {LevelError, "cannot {operation} on immutable variable '{varName}'", "declare the variable as 'mut var'"},
@@ -102,6 +103,7 @@ var catalogTitles = map[DiagnosticCode]string{
 	ErrMoveWhileBorrowed:   "move while borrowed",
 	ErrDoubleMutableBorrow: "double mutable borrow",
 	ErrBorrowConflict:      "borrow conflict",
+	ErrBorrowEscape:        "borrow escapes function",
 	ErrMutabilityRequired:  "mutability required",
 	ErrAssignToImmutable:   "assignment to immutable value",
 	ErrMutBorrowImmutable:  "mutable borrow of immutable value",

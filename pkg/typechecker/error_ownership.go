@@ -29,7 +29,7 @@ func (tc *TypeChecker) errorUseAfterMoveAt(varName string, pos ast.Position, mov
 				"varName", varName,
 			)
 		case MovedByReturn:
-			help = strfmt.Named("how to fix: return a borrow if the signature allows it, or clone '{varName}' before returning", "VarName", varName)
+			help = strfmt.Named("how to fix: clone '{varName}' before returning if the original value is still needed", "VarName", varName)
 		}
 	}
 	err := TypeError{

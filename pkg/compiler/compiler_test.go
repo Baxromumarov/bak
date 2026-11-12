@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/baxromumarov/bak/pkg/lexer"
@@ -40,6 +41,23 @@ func compileSourceToModule(t *testing.T, source string) *BytecodeModule {
 		t.Fatalf("compile failed: %v", err)
 	}
 	return module
+}
+
+func TestCompileRejectsBorrowedReturnWithoutTypechecker(t *testing.T) {
+	l := lexer.New(`package main
+func leak() -> (&int) {
+    var x: int = 1
+    return &x
+}`)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+	_, err := New().Compile(program)
+	if err == nil || !strings.Contains(err.Error(), "cannot return borrowed") {
+		t.Fatalf("expected borrowed-return rejection, got %v", err)
+	}
 }
 
 // =============================================================================
@@ -551,4 +569,21 @@ func main() -> (void) {
 	println(a, b, c)
 }
 `)
+}
+
+func TestCompileEmitsInternalDropOperations(t *testing.T) {
+	module := compileSourceToModule(t, `package main
+func main() -> (void) {
+    mut var text: string = "first"
+    { var nested: string = "nested"; println(nested) }
+    text = "second"
+    return void
+}`)
+	mainFn := findFunctionObj(t, module, "main")
+	if !bytes.Contains(mainFn.Code, []byte{byte(OP_DROP_LOCAL)}) {
+		t.Fatalf("expected overwrite to emit OP_DROP_LOCAL, code=%v", mainFn.Code)
+	}
+	if !bytes.Contains(mainFn.Code, []byte{byte(OP_DROP)}) {
+		t.Fatalf("expected scope exit to emit OP_DROP, code=%v", mainFn.Code)
+	}
 }

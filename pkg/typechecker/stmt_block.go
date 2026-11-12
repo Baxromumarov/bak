@@ -87,22 +87,15 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 	} else {
 		// Other expression types, just check the value
 		tc.inferType(as.Value)
+		tc.trackMoveFromExpression(as.Value, as.Pos(), MovedByAssignment, "assignment")
+		if root, path, ok := ownershipPath(as.Left); ok && path != "" {
+			tc.env.ClearMovedPart(root, path)
+		}
 		return
 	}
 
 	varInfo, ok := tc.env.LookupSymbol(varName)
 	if !ok {
-		return
-	}
-
-	// Check if variable was moved
-	if tc.env.IsMoved(varName) &&
-		!tc.env.IsPoisoned(varName) {
-
-		moveInfo := tc.env.GetMoveInfo(varName)
-		tc.errorUseAfterMoveAt(varName, as.Pos(), moveInfo)
-		tc.env.MarkPoisoned(varName)
-
 		return
 	}
 
@@ -123,4 +116,6 @@ func (tc *TypeChecker) checkAssignmentStatement(as *ast.AssignmentStatement) {
 			as.Value,
 		)
 	}
+	tc.trackMoveFromExpression(as.Value, as.Pos(), MovedByAssignment, varName)
+	tc.env.ClearMoved(varName)
 }

@@ -65,11 +65,19 @@ Bak's ownership model is intentionally small: moves are explicit through by-valu
    }
    ```
 
+5. Mutable parameters are in/out only when the call uses `mut place`.
+   `update(mut value)` writes back to `value`; `update(value)` gives `update`
+   private mutable storage and follows the normal copy/move rule.
+
+6. Control-flow joins use a may-move rule. If one non-terminating branch moves
+   a value, the value cannot be used after the join. Moves in branches that
+   return or panic do not reach the join.
+
 ## What v1 rejects
 - Returning borrowed values
 - Storing borrows inside structs or enums
 - Reborrowing through another borrow
-- Field-level independent borrow tracking
+- Field-level independent borrow tracking (field moves are independent)
 - Lifetime inference or non-lexical borrows
 
 These are compile-time errors by design in v1.
@@ -77,6 +85,8 @@ These are compile-time errors by design in v1.
 ## What the checker tracks
 - Owned values that are still usable
 - Values moved by assignment, return, or call
+- Moves through branches, loops, switches, tuples, enum/result payloads,
+  struct fields, and indexed elements
 - Active immutable borrows
 - Active mutable borrows
 

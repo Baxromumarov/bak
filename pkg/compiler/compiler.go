@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/baxromumarov/bak/pkg/ast"
+	sharedir "github.com/baxromumarov/bak/pkg/ir"
 	"github.com/baxromumarov/bak/pkg/packages"
+	"github.com/baxromumarov/bak/pkg/semantics"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 )
 
@@ -47,6 +49,7 @@ type Compiler struct {
 
 	escapeByFunction map[string]*FunctionEscapeSummary
 	currentEscape    *FunctionEscapeSummary
+	typedIR          *sharedir.Module
 }
 
 // Local represents a local variable in the current scope.
@@ -57,6 +60,7 @@ type Local struct {
 	Escapes       bool
 	BorrowLike    bool
 	HeapCell      bool
+	MutableParam  bool
 	EscapeReasons []EscapeReason
 }
 
@@ -85,6 +89,16 @@ func (c *Compiler) EscapeReports() map[string]*FunctionEscapeSummary {
 
 // Compile compiles a program AST to a BytecodeModule.
 func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
+	return c.CompileWithIR(program, sharedir.LowerModule("main", program, nil))
+}
+
+// CompileWithIR emits bytecode using the shared typed IR produced before
+// backend selection.
+func (c *Compiler) CompileWithIR(program *ast.Program, module sharedir.Module) (*BytecodeModule, error) {
+	if violations := semantics.ValidateStable(program); len(violations) > 0 {
+		return nil, fmt.Errorf("stable language violation: %s", violations[0].Error())
+	}
+	c.typedIR = &module
 	c.sourcePath = program.SourcePath
 	c.module.SourcePath = program.SourcePath
 	if err := c.registerTopLevelDeclarations(program); err != nil {
@@ -124,7 +138,7 @@ func (c *Compiler) Compile(program *ast.Program) (*BytecodeModule, error) {
 			c.emitByte(byte(initIndex))
 			c.emit(OP_CALL)
 			c.emitByte(0)
-			c.emit(OP_POP)
+			c.emit(OP_DROP)
 			c.emit(OP_GET_FUNC)
 			c.emitByte(byte(mainIndex >> 8))
 			c.emitByte(byte(mainIndex))
@@ -363,7 +377,7 @@ func (c *Compiler) compileFunction(fd *ast.FunctionDecl) error {
 
 	// Add parameters as locals
 	for _, param := range fd.Parameters {
-		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+		c.addParameterLocal(param)
 	}
 	for i := 0; i < len(fd.Parameters); i++ {
 		c.materializeEscapingLocalSlot(i)
@@ -422,7 +436,7 @@ func (c *Compiler) compileFunctionLiteral(fl *ast.FunctionLiteral) error {
 
 	// Add parameters as locals
 	for _, param := range fl.Parameters {
-		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+		c.addParameterLocal(param)
 	}
 	for i := 0; i < len(fl.Parameters); i++ {
 		c.materializeEscapingLocalSlot(i)
@@ -513,7 +527,7 @@ func (c *Compiler) compileImplMethod(typeName, receiverName string, method *ast.
 
 	// Add parameters as locals
 	for _, param := range method.Parameters {
-		c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+		c.addParameterLocal(param)
 	}
 	paramCount := len(method.Parameters)
 	if receiverName != "" {
@@ -588,7 +602,7 @@ func (c *Compiler) compileStatement(stmt ast.Statement) (err error) {
 		if err := c.compileExpression(s.Expression); err != nil {
 			return err
 		}
-		c.emit(OP_POP) // Discard result
+		c.emit(OP_DROP) // Discard and destroy result
 		return nil
 	case *ast.ReturnStatement:
 		return c.compileReturnStatement(s)
@@ -740,7 +754,7 @@ func (c *Compiler) compileImportStatement(is *ast.ImportStatement) error {
 		c.emitByte(byte(initIdx))
 		c.emit(OP_CALL)
 		c.emitByte(0)
-		c.emit(OP_POP)
+		c.emit(OP_DROP)
 	}
 
 	return nil
@@ -784,20 +798,31 @@ func remapFunctionBytecode(fn *FunctionObj, globalMap map[int]int, funcMap map[i
 			ip += 2
 		case OP_GET_LOCAL,
 			OP_SET_LOCAL,
+			OP_SET_LOCAL_MUT,
+			OP_TAKE_LOCAL,
+			OP_DROP_LOCAL,
 			OP_CALL,
 			OP_NEW_TUPLE,
 			OP_UNPACK_N:
 			ip++
-		case OP_CALL_METHOD:
+		case OP_DEFER,
+			OP_BORROW_STACK,
+			OP_FSTRING:
+			ip++
+		case OP_CALL_METHOD,
+			OP_DEFER_METHOD:
 			ip += 3
-		case OP_BUILTIN:
+		case OP_BUILTIN,
+			OP_DEFER_BUILTIN:
 			ip += 2
 		case OP_BORROW_LOCAL:
 			ip += 2
 		case OP_IMPORT:
 			ip += 4
 		case OP_GET_GLOBAL,
-			OP_SET_GLOBAL:
+			OP_SET_GLOBAL,
+			OP_TAKE_GLOBAL,
+			OP_DROP_GLOBAL:
 			oldIdx := int(code[ip])<<8 | int(code[ip+1])
 			newIdx, ok := globalMap[oldIdx]
 			if !ok {
@@ -998,27 +1023,6 @@ func (c *Compiler) compileReturnStatement(rs *ast.ReturnStatement) error {
 		if _, ok := rs.ReturnValue.(*ast.VoidLiteral); ok {
 			c.emit(OP_RETURN_VOID)
 			return nil
-		}
-		// Returning a borrow of a local would otherwise point to a stack slot
-		// that dies at function return. Re-lower it to a heap-backed borrow.
-		if be, ok := rs.ReturnValue.(*ast.BorrowExpression); ok {
-			if id, ok := be.Value.(*ast.Identifier); ok {
-				if slot, local, ok := c.resolveLocalMeta(id.Value); ok {
-					if local.HeapCell {
-						c.emitGetLocalRaw(slot)
-					} else {
-						c.emitGetLocalRaw(slot)
-						c.emit(OP_BORROW_STACK)
-						if be.Mutable {
-							c.emitByte(1)
-						} else {
-							c.emitByte(0)
-						}
-					}
-					c.emit(OP_RETURN)
-					return nil
-				}
-			}
 		}
 		if err := c.compileExpression(rs.ReturnValue); err != nil {
 			return err
@@ -1477,8 +1481,16 @@ func (c *Compiler) compileAssignment(as *ast.AssignmentStatement) error {
 	case *ast.Identifier:
 		// Check if it's a local
 		if slot, _, ok := c.resolveLocalMeta(target.Value); ok {
+			local := c.localBySlot(slot)
+			if !c.localHasHeapCell(slot) && (local == nil || !local.MutableParam) {
+				c.emit(OP_DROP_LOCAL)
+				c.emitByte(byte(slot))
+			}
 			c.emitSetLocalValue(slot)
 		} else if idx, ok := c.module.LookupGlobal(target.Value); ok {
+			c.emit(OP_DROP_GLOBAL)
+			c.emitByte(byte(idx >> 8))
+			c.emitByte(byte(idx))
 			c.emit(OP_SET_GLOBAL)
 			c.emitByte(byte(idx >> 8))
 			c.emitByte(byte(idx))
@@ -1591,8 +1603,28 @@ func (c *Compiler) emitLoopCleanup() {
 		if v.Depth <= depth {
 			break
 		}
-		c.emit(OP_POP)
+		c.emit(OP_DROP)
 	}
+}
+
+func (c *Compiler) irMoves(node ast.Node, name string) bool {
+	if c.typedIR == nil || node == nil {
+		return false
+	}
+	pos := node.Pos()
+	for _, fn := range c.typedIR.Functions {
+		if c.currentFn != nil && fn.Name != c.currentFn.Name {
+			continue
+		}
+		for _, block := range fn.Blocks {
+			for _, inst := range block.Instructions {
+				if inst.Op == sharedir.OpMove && inst.Place != nil && inst.Place.Name == name && inst.Type != "unknown" && inst.Location.Line == pos.Line && inst.Location.Column == pos.Column {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (c *Compiler) compileExpression(expr ast.Expression) (err error) {
@@ -1669,6 +1701,11 @@ func (c *Compiler) compileExpression(expr ast.Expression) (err error) {
 func (c *Compiler) compileIdentifier(id *ast.Identifier) error {
 	// Check for local
 	if slot, _, ok := c.resolveLocalMeta(id.Value); ok {
+		if c.irMoves(id, id.Value) && !c.localHasHeapCell(slot) {
+			c.emit(OP_TAKE_LOCAL)
+			c.emitByte(byte(slot))
+			return nil
+		}
 		c.emitGetLocalValue(slot)
 		return nil
 	}
@@ -1684,6 +1721,12 @@ func (c *Compiler) compileIdentifier(id *ast.Identifier) error {
 
 	// Check for global
 	if idx, ok := c.module.LookupGlobal(id.Value); ok {
+		if c.irMoves(id, id.Value) {
+			c.emit(OP_TAKE_GLOBAL)
+			c.emitByte(byte(idx >> 8))
+			c.emitByte(byte(idx))
+			return nil
+		}
 		c.emit(OP_GET_GLOBAL)
 		c.emitByte(byte(idx >> 8))
 		c.emitByte(byte(idx))
@@ -2144,7 +2187,7 @@ func (c *Compiler) endScope() {
 	c.scopeDepth--
 	// Pop locals that are going out of scope
 	for len(c.locals) > 0 && c.locals[len(c.locals)-1].Depth > c.scopeDepth {
-		c.emit(OP_POP)
+		c.emit(OP_DROP)
 		c.locals = c.locals[:len(c.locals)-1]
 	}
 }
@@ -2174,6 +2217,11 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 	if len(c.locals) > c.currentFn.NumLocals {
 		c.currentFn.NumLocals = len(c.locals)
 	}
+}
+
+func (c *Compiler) addParameterLocal(param *ast.Parameter) {
+	c.addLocalWithBorrowLike(param.Name.Value, isBorrowLikeType(param.Type))
+	c.locals[len(c.locals)-1].MutableParam = param.Mutable
 }
 
 func (c *Compiler) resolveLocal(name string) int {
@@ -2218,6 +2266,12 @@ func (c *Compiler) emitGetLocalValue(slot int) {
 	if c.localHasHeapCell(slot) {
 		c.emit(OP_DEREF)
 	}
+	if local := c.localBySlot(slot); local != nil && local.MutableParam {
+		// A mutable parameter contains either a normal moved/copied value or a
+		// BorrowInstance supplied by `mut argument`. OP_DEREF deliberately acts
+		// as an identity operation for the former.
+		c.emit(OP_DEREF)
+	}
 }
 
 // emitGetLocalRaw loads the raw local slot content without auto-deref.
@@ -2232,6 +2286,11 @@ func (c *Compiler) emitSetLocalValue(slot int) {
 	if c.localHasHeapCell(slot) {
 		c.emitGetLocalRaw(slot)
 		c.emit(OP_STORE_DEREF)
+		return
+	}
+	if local := c.localBySlot(slot); local != nil && local.MutableParam {
+		c.emit(OP_SET_LOCAL_MUT)
+		c.emitByte(byte(slot))
 		return
 	}
 	c.emit(OP_SET_LOCAL)

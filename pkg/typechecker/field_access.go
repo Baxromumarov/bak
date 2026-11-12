@@ -12,6 +12,12 @@ import (
 )
 
 func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeExpression {
+	if root, path, ok := ownershipPath(fa); ok {
+		if info := tc.env.PartMoveInfo(root, path); info != nil && !tc.env.IsPoisoned(root) {
+			tc.errorUseAfterMoveAt(formatOwnershipPlace(root, path), fa.Pos(), info)
+			tc.env.MarkPoisoned(root)
+		}
+	}
 	// Check if the object is an identifier that refers to an imported module
 	if ident, ok := fa.Object.(*ast.Identifier); ok {
 		if tc.isUnshadowedImportAlias(ident.Value) {
@@ -75,7 +81,12 @@ func (tc *TypeChecker) inferFieldAccess(fa *ast.FieldAccessExpression) ast.TypeE
 		return &ast.SimpleType{Name: enumName}
 	}
 
-	objType := tc.inferType(fa.Object)
+	var objType ast.TypeExpression
+	if indexed, ok := fa.Object.(*ast.IndexExpression); ok {
+		objType = tc.inferIndexTypeUnchecked(indexed)
+	} else {
+		objType = tc.inferType(fa.Object)
+	}
 	if objType == nil {
 		return nil
 	}

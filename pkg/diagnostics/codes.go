@@ -65,6 +65,7 @@ const (
 	ErrMoveWhileBorrowed   DiagnosticCode = "E0102"
 	ErrDoubleMutableBorrow DiagnosticCode = "E0103"
 	ErrBorrowConflict      DiagnosticCode = "E0104"
+	ErrBorrowEscape        DiagnosticCode = "E0105"
 
 	// Mutability errors (E02xx)
 	ErrMutabilityRequired DiagnosticCode = "E0200"

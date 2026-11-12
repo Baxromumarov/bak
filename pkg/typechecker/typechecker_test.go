@@ -1217,6 +1217,17 @@ func main() -> (void) {
 `, "declare the variable as 'mut var'")
 }
 
+func TestCheck_MutableIdentifierArgumentRequiresMutableParameter(t *testing.T) {
+	expectError(t, `
+package main
+func consume(text: string) -> (void) { return void }
+func main() -> (void) {
+	mut var text: string = "hello"
+	consume(mut text)
+}
+`, "can only be passed to a 'mut' parameter")
+}
+
 func TestCheck_CannotMoveWhileMutablyBorrowedIncludesWhereBorrowedNote(t *testing.T) {
 	expectError(t, `
 package main

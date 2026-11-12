@@ -110,11 +110,23 @@ func (c *Compiler) emitStringVec(values []string) {
 
 func (c *Compiler) compileCallArguments(args []ast.Expression) error {
 	for _, arg := range args {
-		if err := c.compileExpression(arg); err != nil {
+		if err := c.compileCallArgument(arg); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (c *Compiler) compileCallArgument(arg ast.Expression) error {
+	mut, ok := arg.(*ast.MutableIdentifier)
+	if !ok {
+		return c.compileExpression(arg)
+	}
+	return c.compileBorrowExpression(&ast.BorrowExpression{
+		Token:   mut.Token,
+		Value:   &ast.Identifier{Token: mut.Token, Value: mut.Value},
+		Mutable: true,
+	})
 }
 
 func (c *Compiler) enumVariantConstructorField(fn ast.Expression) (*ast.FieldAccessExpression, bool) {

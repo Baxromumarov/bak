@@ -13,6 +13,7 @@ func (s *EmitState) emitRuntimeStubs() {
 	s.emitRuntimePanic()
 	s.emitRuntimeBrk()
 	s.emitRuntimeAlloc()
+	s.emitRuntimeFree()
 	s.emitRuntimeRealloc()
 	s.emitRuntimeStrEq()
 	s.emitRuntimeStartsWith()
@@ -440,7 +441,8 @@ func (s *EmitState) emitRuntimeBrk() {
 }
 
 // emitRuntimeAlloc: __rt_alloc(size: rdi) -> rax (pointer)
-// Bump allocator with cached heap_pos/heap_end to minimize brk syscalls.
+// Reclaimable free-list allocator backed by brk chunks. Every allocation has
+// a private 16-byte header containing payload size and next-free pointer.
 func (s *EmitState) emitRuntimeAlloc() {
 	s.addRuntimeFunc("__rt_alloc", 1)
 
@@ -451,12 +453,17 @@ func (s *EmitState) emitRuntimeAlloc() {
 	if s.HeapEndDataIndex < 0 {
 		s.HeapEndDataIndex = s.addDataItem(make([]byte, 8), 8)
 	}
+	if s.FreeListDataIndex < 0 {
+		s.FreeListDataIndex = s.addDataItem(make([]byte, 8), 8)
+	}
 
 	emitPushReg(&s.Code, RBP)
 	emitMovRegReg(&s.Code, RBP, RSP)
 	emitPushReg(&s.Code, RBX)
 	emitPushReg(&s.Code, R12)
 	emitPushReg(&s.Code, R13)
+	emitPushReg(&s.Code, R14)
+	emitPushReg(&s.Code, R15)
 
 	// Align size to 8: rdi = (rdi + 7) & ~7
 	emitAddRegImm32(&s.Code, RDI, 7)
@@ -466,6 +473,45 @@ func (s *EmitState) emitRuntimeAlloc() {
 	s.Code = append(s.Code, modRM(3, 4, RDI)) // /4 = AND r/m64, imm8
 	s.Code = append(s.Code, 0xF8)             // -8 as sign-extended imm8
 	emitMovRegReg(&s.Code, RBX, RDI)          // RBX = aligned_size
+
+	// First-fit search through reclaimed blocks.
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R14)))
+	s.Code = append(s.Code, 0xB8+byte(R14&7))
+	freeListAddrOff := len(s.Code)
+	appendU64LE(&s.Code, 0)
+	s.addCodePatch(freeListAddrOff, s.FreeListDataIndex)
+	emitXorRegReg(&s.Code, R15, R15)
+	emitMovRegMem(&s.Code, RCX, R14)
+	searchLoop := len(s.Code)
+	emitTestRegReg(&s.Code, RCX, RCX)
+	jzBump := emitJzRel32(&s.Code, 0)
+	emitMovRegMem(&s.Code, RDX, RCX)
+	emitCmpRegReg(&s.Code, RDX, RBX)
+	jbNext := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0)
+	emitMovRegMemBaseDisp(&s.Code, RDX, RCX, 8)
+	emitTestRegReg(&s.Code, R15, R15)
+	jzRemoveHead := emitJzRel32(&s.Code, 0)
+	emitMovMemBaseDispReg(&s.Code, R15, 8, RDX)
+	jmpFound := emitJmpRel32(&s.Code, 0)
+	removeHead := len(s.Code)
+	patchU32(s.Code, jzRemoveHead, uint32(removeHead-(jzRemoveHead+4)))
+	emitMovMemReg(&s.Code, R14, RDX)
+	found := len(s.Code)
+	patchU32(s.Code, jmpFound, uint32(found-(jmpFound+4)))
+	emitMovRegReg(&s.Code, RAX, RCX)
+	emitXorRegReg(&s.Code, RDX, RDX)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, RDX)
+	emitAddRegImm32(&s.Code, RAX, 16)
+	jmpReturnReused := emitJmpRel32(&s.Code, 0)
+	next := len(s.Code)
+	patchRel32(&s.Code, jbNext+2, next)
+	emitMovRegReg(&s.Code, R15, RCX)
+	emitMovRegMemBaseDisp(&s.Code, RCX, RCX, 8)
+	jmpSearch := emitJmpRel32(&s.Code, 0)
+	patchU32(s.Code, jmpSearch, uint32(searchLoop-(jmpSearch+4)))
+	bumpStart := len(s.Code)
+	patchU32(s.Code, jzBump, uint32(bumpStart-(jzBump+4)))
 
 	// Load address of heap_pos slot into R12 (movabs r12, imm64)
 	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R12)))
@@ -520,6 +566,7 @@ func (s *EmitState) emitRuntimeAlloc() {
 	// rdx = new_pos = heap_pos + aligned_size
 	emitMovRegReg(&s.Code, RDX, RCX)
 	emitAddRegReg(&s.Code, RDX, RBX)
+	emitAddRegImm32(&s.Code, RDX, 16)
 
 	// Check if new_pos <= heap_end
 	emitMovRegMem(&s.Code, RDI, R13) // rdi = heap_end
@@ -571,17 +618,50 @@ func (s *EmitState) emitRuntimeAlloc() {
 	patchRel32(&s.Code, jgeOk+2, okPos)
 	emitMovMemReg(&s.Code, R13, RDI)
 
-	// .fits: update heap_pos = new_pos, return old heap_pos
+	// .fits: initialize header, update heap_pos, and return payload.
 	fitsPos := len(s.Code)
 	patchRel32(&s.Code, jbeFit+2, fitsPos)
 	emitMovMemReg(&s.Code, R12, RDX)
 	emitMovRegReg(&s.Code, RAX, RCX)
+	emitMovMemReg(&s.Code, RAX, RBX)
+	emitXorRegReg(&s.Code, RDX, RDX)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, RDX)
+	emitAddRegImm32(&s.Code, RAX, 16)
 
+	returnPos := len(s.Code)
+	patchU32(s.Code, jmpReturnReused, uint32(returnPos-(jmpReturnReused+4)))
+
+	emitPopReg(&s.Code, R15)
+	emitPopReg(&s.Code, R14)
 	emitPopReg(&s.Code, R13)
 	emitPopReg(&s.Code, R12)
 	emitPopReg(&s.Code, RBX)
 	emitMovRegReg(&s.Code, RSP, RBP)
 	emitPopReg(&s.Code, RBP)
+	emitRet(&s.Code)
+}
+
+// emitRuntimeFree links a block back into the allocator free list. Nil is a
+// no-op. Coalescing is intentionally deferred; first-fit reuse already removes
+// the previous permanent-allocation behavior.
+func (s *EmitState) emitRuntimeFree() {
+	s.addRuntimeFunc("__rt_free", 1)
+	if s.FreeListDataIndex < 0 {
+		s.FreeListDataIndex = s.addDataItem(make([]byte, 8), 8)
+	}
+	emitTestRegReg(&s.Code, RDI, RDI)
+	jzReturn := emitJzRel32(&s.Code, 0)
+	emitSubRegImm32(&s.Code, RDI, 16)
+	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R11)))
+	s.Code = append(s.Code, 0xB8+byte(R11&7))
+	freeListAddrOff := len(s.Code)
+	appendU64LE(&s.Code, 0)
+	s.addCodePatch(freeListAddrOff, s.FreeListDataIndex)
+	emitMovRegMem(&s.Code, RCX, R11)
+	emitMovMemBaseDispReg(&s.Code, RDI, 8, RCX)
+	emitMovMemReg(&s.Code, R11, RDI)
+	returnPos := len(s.Code)
+	patchU32(s.Code, jzReturn, uint32(returnPos-(jzReturn+4)))
 	emitRet(&s.Code)
 }
 
@@ -617,7 +697,19 @@ func (s *EmitState) emitRuntimeRealloc() {
 	emitMovRegReg(&s.Code, RDI, RAX)    // dest = new_ptr
 	emitMovRegMemRbp(&s.Code, RSI, -8)  // src = old_ptr
 	emitMovRegMemRbp(&s.Code, RCX, -16) // count = old_size
+	emitMovRegMemRbp(&s.Code, R10, -24) // new_size
+	emitCmpRegReg(&s.Code, RCX, R10)
+	jbeCopy := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x86, 0, 0, 0, 0) // jbe copy
+	emitMovRegReg(&s.Code, RCX, R10)                // shrink: copy only new_size bytes
+	copyPos := len(s.Code)
+	patchRel32(&s.Code, jbeCopy+2, copyPos)
 	emitRepMovsb(&s.Code)
+
+	// The old allocation is no longer reachable after the copy.
+	emitMovRegMemRbp(&s.Code, RDI, -8)
+	freeCall := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: freeCall, Target: "__rt_free"})
 
 	// Return new_ptr
 	emitMovRegMemRbp(&s.Code, RAX, -32)

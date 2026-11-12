@@ -224,6 +224,7 @@ func (tc *TypeChecker) tryInferMethodEnumVariantCall(mc *ast.MethodCallExpressio
 						arg,
 					)
 				}
+				tc.checkCallArgMove(arg, fieldTypes[i], false, mc.Method.Value, mc.Pos())
 			}
 		}
 	} else if len(mc.Arguments) > 0 {
@@ -296,6 +297,7 @@ func (tc *TypeChecker) tryInferStaticCollectionMethodCall(mc *ast.MethodCallExpr
 }
 
 func (tc *TypeChecker) inferMethodCall(mc *ast.MethodCallExpression) ast.TypeExpression {
+	defer tc.clearBorrows(mc.Arguments)
 	if ident, ok := mc.Object.(*ast.Identifier); ok {
 		if tc.isUnshadowedImportAlias(ident.Value) {
 			tc.markImportUsed(ident.Value)

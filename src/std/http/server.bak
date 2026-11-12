@@ -157,11 +157,13 @@ impl Server as self {
         }
 
         var req = reqRes.unwrap()
+		var requestMethod = strings.clone(&req.method)
+		var requestPath = strings.clone(&req.path)
         // Dispatch to router
         var resp = self.router.dispatch(req)
 
         // Log
-        log.info(req.method + " " + req.path + " -> " + string(resp.status) + " " + resp.reason)
+		log.info(requestMethod + " " + requestPath + " -> " + string(resp.status) + " " + resp.reason)
         // Send response
         sendResponse(
             conn,

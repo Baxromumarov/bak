@@ -54,6 +54,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		}
 
 		vs.Type = inferredType // Update AST with inferred type
+		tc.trackMoveFromExpression(vs.Value, vs.Pos(), MovedByAssignment, vs.Name.Value)
 		tc.env.DefineSymbolAt(
 			vs.Name.Value,
 			inferredType,
@@ -73,6 +74,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 			vs.Name.Pos(),
 		)
 		tc.checkVecDeclaration(vs, gt)
+		tc.trackMoveFromExpression(vs.Value, vs.Pos(), MovedByAssignment, vs.Name.Value)
 		tc.env.DefineSymbolAt(
 			vs.Name.Value,
 			vs.Type,
@@ -102,6 +104,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 		vs.Type,
 		vs.Name.Pos(),
 	)
+	tc.trackMoveFromExpression(vs.Value, vs.Pos(), MovedByAssignment, vs.Name.Value)
 
 	tc.env.DefineSymbolAt(
 		vs.Name.Value,
@@ -118,6 +121,7 @@ func (tc *TypeChecker) checkVarStatement(vs *ast.VarStatement) {
 func (tc *TypeChecker) checkMultiVarStatement(mvs *ast.MultiVarStatement) {
 	// Type check the value expression (this will trigger function call validation)
 	valueType := tc.inferType(mvs.Value)
+	tc.trackMoveFromExpression(mvs.Value, mvs.Pos(), MovedByAssignment, "tuple destructuring")
 
 	// If the value is a tuple type, validate that the number of names matches
 	if tt, ok := valueType.(*ast.TupleType); ok {

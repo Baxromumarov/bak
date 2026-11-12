@@ -14,7 +14,6 @@
 ## 3) Escape Conditions (Compiler Rules)
 Escape analysis marks locals as escaping when any of the following is detected:
 - Returned from function (`return x`)
-- Returned by reference (`return &x`)
 - Assigned to longer-lived destination (`global = x`)
 - Captured by closure (`func() { use x }`)
 - Stored into external/aggregate state (field/index/deref/call aggregate flows)
@@ -28,7 +27,6 @@ Escape analysis marks locals as escaping when any of the following is detected:
 - Added compiler escape-analysis pass: `pkg/compiler/escape.go`.
 - Added per-function escape summaries and reasons:
   - `returned_value`
-  - `returned_reference`
   - `assigned_to_global`
   - `stored_externally`
   - `captured_by_closure`
@@ -37,17 +35,15 @@ Escape analysis marks locals as escaping when any of the following is detected:
 - Compiler stores reports for compiled functions via `Compiler.EscapeReports()`.
 - Local metadata now records escape status/reasons in compiler local slots.
 
-### Return-by-Reference Safety Lowering
-- `return &local` is lowered to heap-backed borrow construction:
-  - load local value
-  - create borrow from stack-top copy (`OP_BORROW_STACK`)
-  - return borrow
-- This prevents returning a borrow pointing at a dead stack slot.
+### Borrow Return Boundary
+- Bak v0.1 functions cannot return borrowed values.
+- The typechecker and both code-generation entry points reject borrowed return
+  types before lowering, including `return &local` patterns.
 
 ## 6) IR / Codegen Notes
 - No `Box` token/type/expression in AST/typechecker/compiler IR surface.
 - Runtime still uses internal pointer-bearing runtime values for composite types.
-- Borrow opcodes remain (`OP_BORROW_LOCAL`, `OP_BORROW_GLOBAL`, `OP_BORROW_STACK`), with escape-safe lowering on returned local borrows.
+- Borrow opcodes remain (`OP_BORROW_LOCAL`, `OP_BORROW_GLOBAL`, `OP_BORROW_STACK`) for non-escaping lexical borrows.
 
 ## 7) Example Transformations
 Before (explicit heap wrapper):
@@ -69,8 +65,8 @@ func leak() -> (&int) {
 }
 ```
 
-Lowering behavior now:
-- `return &x` is compiled with heap-backed borrow construction (`OP_BORROW_STACK`) before return.
+Compiler behavior now:
+- `return &x` is rejected because borrowed values cannot cross a function return boundary in Bak v0.1.
 
 ## 8) Performance Intent
 - Stack-first behavior remains the default path.

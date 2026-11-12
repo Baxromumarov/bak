@@ -46,6 +46,7 @@ func (tc *TypeChecker) checkStatement(stmt ast.Statement) {
 		tc.checkBlockStatement(s)
 	case *ast.ExpressionStatement:
 		tc.checkExpression(s.Expression)
+		tc.trackMoveFromExpression(s.Expression, s.Pos(), MovedByAssignment, "discarded expression")
 	case *ast.AssignmentStatement:
 		tc.checkAssignmentStatement(s)
 	case *ast.SwitchStatement:

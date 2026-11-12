@@ -86,6 +86,10 @@ func (s builtinSpec) permission(op, flag string) builtinSpec {
 func simpleType(name string) ast.TypeExpression { return ast.NewSimpleType(name) }
 func voidType() ast.TypeExpression              { return &ast.VoidType{} }
 
+func borrowedType(inner ast.TypeExpression) ast.TypeExpression {
+	return &ast.BorrowType{Inner: inner}
+}
+
 func genericType(name string, params ...ast.TypeExpression) ast.TypeExpression {
 	return &ast.GenericType{Name: name, TypeParams: params}
 }
@@ -200,10 +204,10 @@ var builtinCatalog = []builtinSpec{
 	fixedBuiltin(BUILTIN_ALLOC_ARRAY, "__alloc_array", 2, signature(simpleType("any"), simpleType("int"), simpleType("any"))),
 	fixedBuiltin(BUILTIN_ALLOC_ARRAY_ZEROED, "__alloc_array_zeroed", 2, signature(simpleType("any"), simpleType("int"), simpleType("any"))),
 	fixedBuiltin(BUILTIN_VEC_ALLOC, "__vec_alloc", 2, signature(genericType("__Array", simpleType("any")), simpleType("int"), simpleType("any"))),
-	fixedBuiltin(BUILTIN_VEC_LEN, "__vec_len", 1, signature(simpleType("int"), genericType("__Array", simpleType("any")))),
-	fixedBuiltin(BUILTIN_VEC_CAP, "__vec_cap", 1, signature(simpleType("int"), genericType("__Array", simpleType("any")))),
-	fixedBuiltin(BUILTIN_VEC_GET, "__vec_get", 2, signature(simpleType("any"), genericType("__Array", simpleType("any")), simpleType("int"))),
-	fixedBuiltin(BUILTIN_VEC_SET, "__vec_set", 3, signature(simpleType("void"), genericType("__Array", simpleType("any")), simpleType("int"), simpleType("any"))),
+	fixedBuiltin(BUILTIN_VEC_LEN, "__vec_len", 1, signature(simpleType("int"), borrowedType(genericType("__Array", simpleType("any"))))),
+	fixedBuiltin(BUILTIN_VEC_CAP, "__vec_cap", 1, signature(simpleType("int"), borrowedType(genericType("__Array", simpleType("any"))))),
+	fixedBuiltin(BUILTIN_VEC_GET, "__vec_get", 2, signature(simpleType("any"), borrowedType(genericType("__Array", simpleType("any"))), simpleType("int"))),
+	fixedBuiltin(BUILTIN_VEC_SET, "__vec_set", 3, signature(simpleType("void"), borrowedType(genericType("__Array", simpleType("any"))), simpleType("int"), simpleType("any"))),
 	fixedBuiltin(BUILTIN_VEC_GROW, "__vec_grow", 2, signature(genericType("__Array", simpleType("any")), genericType("__Array", simpleType("any")), simpleType("int"))),
 }
 

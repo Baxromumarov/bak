@@ -157,12 +157,24 @@ Bak freezes the current ownership model as a deliberately small v1 system:
 - borrows are lexical,
 - mutable borrows conflict with any other active borrow,
 - multiple immutable borrows are allowed when no mutable borrow is active.
+- ownership states from control-flow paths merge conservatively: a value moved
+  on any path that can reach a join is unavailable after that join,
+- non-copy struct fields are tracked as independent move places; dynamic index
+  moves conservatively cover all elements because indexes may alias.
+
+Mutable parameters have two stable call modes:
+
+- `update(mut value)` passes the caller's mutable place in/out; assignments to
+  the parameter update the caller for primitives, strings, structs, and vectors,
+- `update(value)` copies a copy type or moves a non-copy value into private
+  mutable parameter storage; assignments do not update the caller.
 
 Frozen v1 restrictions:
 
 - functions cannot return borrowed values,
 - structs and enums cannot store borrowed references as fields,
-- field-level independent borrow tracking is not guaranteed,
+- field-level independent *borrow* tracking is not guaranteed (field moves are
+  tracked independently),
 - non-lexical lifetimes are not part of the contract,
 - reborrowing/lifetime inference beyond the current checker model is not part of the contract.
 

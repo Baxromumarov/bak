@@ -3,8 +3,48 @@
 package typechecker
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/baxromumarov/bak/pkg/ast"
 )
+
+func ownershipPath(expr ast.Expression) (string, string, bool) {
+	switch e := expr.(type) {
+	case *ast.Identifier:
+		return e.Value, "", true
+	case *ast.MutableIdentifier:
+		return e.Value, "", true
+	case *ast.FieldAccessExpression:
+		root, path, ok := ownershipPath(e.Object)
+		if !ok {
+			return "", "", false
+		}
+		if path != "" {
+			path += "."
+		}
+		return root, path + e.Field.Value, true
+	case *ast.IndexExpression:
+		root, path, ok := ownershipPath(e.Left)
+		if !ok {
+			return "", "", false
+		}
+		index := "[]"
+		if literal, ok := e.Index.(*ast.IntegerLiteral); ok {
+			index = "[" + strconv.FormatInt(literal.Value, 10) + "]"
+		}
+		return root, strings.TrimPrefix(path+"."+index, "."), true
+	default:
+		return "", "", false
+	}
+}
+
+func formatOwnershipPlace(root, path string) string {
+	if path == "" {
+		return root
+	}
+	return strings.ReplaceAll(root+"."+path, ".[", "[")
+}
 
 type MoveReason int
 
@@ -89,8 +129,14 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 	switch e := expr.(type) {
 	case *ast.Identifier:
 		// Check if the variable's type is a Copy type
-		if info, ok := tc.env.LookupSymbol(e.Value); ok && tc.isCopyType(info.Type) {
-			// Copy types are not moved
+		if info, ok := tc.env.LookupSymbol(e.Value); ok {
+			if info.Constant || tc.isCopyType(info.Type) {
+				return
+			}
+		}
+		if tc.env.HasMovedPart(e.Value) && !tc.env.IsPoisoned(e.Value) {
+			tc.errorUseAfterMoveAt(e.Value, pos, nil)
+			tc.env.MarkPoisoned(e.Value)
 			return
 		}
 		// Check if already moved
@@ -119,11 +165,18 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 			Reason: reason,
 			Detail: detail,
 		})
+		tc.moveExpressions[expr] = true
 
 	case *ast.MutableIdentifier:
 		// Check if the variable's type is a Copy type
-		if info, ok := tc.env.LookupSymbol(e.Value); ok && tc.isCopyType(info.Type) {
-			// Copy types are not moved
+		if info, ok := tc.env.LookupSymbol(e.Value); ok {
+			if info.Constant || tc.isCopyType(info.Type) {
+				return
+			}
+		}
+		if tc.env.HasMovedPart(e.Value) && !tc.env.IsPoisoned(e.Value) {
+			tc.errorUseAfterMoveAt(e.Value, pos, nil)
+			tc.env.MarkPoisoned(e.Value)
 			return
 		}
 		// Same logic for MutableIdentifier
@@ -152,6 +205,7 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 			Reason: reason,
 			Detail: detail,
 		})
+		tc.moveExpressions[expr] = true
 
 	case *ast.BorrowExpression:
 		// Borrows don't move - they're explicit borrows
@@ -162,6 +216,61 @@ func (tc *TypeChecker) trackMoveFromExpression(expr ast.Expression, pos ast.Posi
 		// For tuples, check each element
 		for _, elem := range e.Elements {
 			tc.trackMoveFromExpression(elem, pos, reason, detail)
+		}
+	case *ast.StructLiteral:
+		for _, field := range e.FieldOrder {
+			tc.trackMoveFromExpression(e.Fields[field], pos, reason, detail)
+		}
+		if len(e.FieldOrder) == 0 {
+			for _, value := range e.Fields {
+				tc.trackMoveFromExpression(value, pos, reason, detail)
+			}
+		}
+	case *ast.VecLiteral:
+		for _, elem := range e.Elements {
+			tc.trackMoveFromExpression(elem, pos, reason, detail)
+		}
+	case *ast.EnumVariantExpression:
+		for _, value := range e.Values {
+			tc.trackMoveFromExpression(value, pos, reason, detail)
+		}
+	case *ast.TypeConversion:
+		tc.trackMoveFromExpression(e.Value, pos, reason, detail)
+	case *ast.UnwrapExpression:
+		tc.trackMoveFromExpression(e.Value, pos, reason, detail)
+	case *ast.FieldAccessExpression:
+		// Fields are tracked as projected places so independently owned sibling
+		// fields remain usable after one field moves.
+		if _, borrowed := tc.inferType(e.Object).(*ast.BorrowType); borrowed {
+			return
+		}
+		if fieldType := tc.inferType(e); !tc.isCopyType(fieldType) {
+			root, path, ok := ownershipPath(e)
+			if ok {
+				if info := tc.env.PartMoveInfoForConsume(root, path); info != nil {
+					tc.errorUseAfterMoveAt(formatOwnershipPlace(root, path), pos, info)
+					return
+				}
+				tc.env.MarkPartMoved(root, path, &MoveInfo{Line: pos.Line, Column: pos.Column, Reason: reason, Detail: detail})
+				tc.moveExpressions[expr] = true
+			}
+		}
+	case *ast.IndexExpression:
+		// Constant indexes are independent projected places. Dynamic indexes may
+		// alias any index at the same projection level.
+		if _, borrowed := tc.inferType(e.Left).(*ast.BorrowType); borrowed {
+			return
+		}
+		if elemType := tc.inferType(e); !tc.isCopyType(elemType) {
+			root, path, ok := ownershipPath(e)
+			if ok {
+				if info := tc.env.PartMoveInfoForConsume(root, path); info != nil {
+					tc.errorUseAfterMoveAt(formatOwnershipPlace(root, path), pos, info)
+					return
+				}
+				tc.env.MarkPartMoved(root, path, &MoveInfo{Line: pos.Line, Column: pos.Column, Reason: reason, Detail: detail})
+				tc.moveExpressions[expr] = true
+			}
 		}
 	}
 }
@@ -186,12 +295,20 @@ func (tc *TypeChecker) markMethodReceiverUsed(expr ast.Expression) {
 
 func (tc *TypeChecker) clearBorrows(args []ast.Expression) {
 	for _, arg := range args {
-		if be, ok := arg.(*ast.BorrowExpression); ok && be.Mutable {
+		if be, ok := arg.(*ast.BorrowExpression); ok {
 			switch v := be.Value.(type) {
 			case *ast.Identifier:
-				tc.env.ClearBorrowedMut(v.Value)
+				if be.Mutable {
+					tc.env.ClearBorrowedMut(v.Value)
+				} else {
+					tc.env.ClearBorrowedIm(v.Value)
+				}
 			case *ast.MutableIdentifier:
-				tc.env.ClearBorrowedMut(v.Value)
+				if be.Mutable {
+					tc.env.ClearBorrowedMut(v.Value)
+				} else {
+					tc.env.ClearBorrowedIm(v.Value)
+				}
 			}
 		}
 	}

@@ -443,37 +443,37 @@ func fileLabel() -> (string) {
     return split.base
 }
 
-func displayTestName(full: string) -> (string) {
+func displayTestName(full: &string) -> (string) {
     var sep: string = ":"
     var idx: int = strings.lastIndexOf(
-        &full,
+        full,
         &sep,
     )
 
     if idx < 0 || idx + 1 >= full.len() {
-        return full
+        return strings.clone(full)
     }
 
     return strings.substring(
-        &full,
+        full,
         idx + 1,
         full.len(),
     )
 }
 
-func displayLocation(full: string) -> (string) {
+func displayLocation(full: &string) -> (string) {
     var sep: string = ":"
     var idx: int = strings.lastIndexOf(
-        &full,
+        full,
         &sep,
     )
 
     if idx <= 0 {
-        return full
+        return strings.clone(full)
     }
 
     return strings.substring(
-        &full,
+        full,
         0,
         idx,
     )

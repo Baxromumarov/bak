@@ -54,6 +54,9 @@ func (tc *TypeChecker) checkConstStatement(cs *ast.ConstStatement) {
 		cs.Visibility,
 		cs.Name.Pos(),
 	)
+	if info, ok := tc.env.symbols[cs.Name.Value]; ok {
+		info.Constant = true
+	}
 }
 
 func (tc *TypeChecker) checkConstBlock(cb *ast.ConstBlock) {

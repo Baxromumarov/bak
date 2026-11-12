@@ -11,12 +11,14 @@ import (
 	"github.com/baxromumarov/bak/pkg/ast"
 	"github.com/baxromumarov/bak/pkg/backend/native"
 	"github.com/baxromumarov/bak/pkg/compiler"
+	sharedir "github.com/baxromumarov/bak/pkg/ir"
 	"github.com/baxromumarov/bak/pkg/lexer"
 	"github.com/baxromumarov/bak/pkg/parser"
 	"github.com/baxromumarov/bak/pkg/prelude"
 	"github.com/baxromumarov/bak/pkg/runtimecap"
 	"github.com/baxromumarov/bak/pkg/strfmt"
 	"github.com/baxromumarov/bak/pkg/trace"
+	"github.com/baxromumarov/bak/pkg/typechecker"
 	"github.com/baxromumarov/bak/pkg/vm"
 )
 
@@ -27,9 +29,13 @@ type Pipeline struct {
 	Filename string
 	Source   string
 
-	AST      *ast.Program
-	Module   *compiler.BytecodeModule
-	Warnings []string
+	AST          *ast.Program
+	Module       *compiler.BytecodeModule
+	Warnings     []string
+	TypedIR      *sharedir.Module
+	checker      *typechecker.TypeChecker
+	typechecked  bool
+	typecheckErr error
 
 	DebugEscapes bool
 }
@@ -75,6 +81,9 @@ func (p *Pipeline) Parse(ctx context.Context) error {
 
 // Typecheck validates the AST using the existing typechecker.
 func (p *Pipeline) Typecheck(ctx context.Context) error {
+	if p.typechecked {
+		return p.typecheckErr
+	}
 	if err := p.Parse(ctx); err != nil {
 		return err
 	}
@@ -84,6 +93,9 @@ func (p *Pipeline) Typecheck(ctx context.Context) error {
 		return err
 	}
 	typeErrors := result.TypeMessages
+	p.checker = result.TypeChecker
+	module := sharedir.LowerModule("main", p.AST, result.TypeChecker)
+	p.TypedIR = &module
 	p.Warnings = append(p.Warnings[:0], typeErrors...)
 	if len(typeErrors) > 0 {
 		fmt.Fprintln(os.Stderr, strfmt.Named("Type errors ({count}):", "Count", len(typeErrors)))
@@ -96,12 +108,14 @@ func (p *Pipeline) Typecheck(ctx context.Context) error {
 		}
 	}
 	if len(typeErrors) == 0 {
+		p.typechecked = true
 		return nil
 	}
 	if result.Fatal {
-		return ErrTypecheckFailed
+		p.typecheckErr = ErrTypecheckFailed
 	}
-	return nil
+	p.typechecked = true
+	return p.typecheckErr
 }
 
 func contextErr(ctx context.Context) error {
@@ -123,7 +137,7 @@ func (p *Pipeline) Compile(ctx context.Context) error {
 	}
 
 	compilerBackend := compiler.New()
-	module, err := compilerBackend.Compile(p.AST)
+	module, err := compilerBackend.CompileWithIR(p.AST, *p.TypedIR)
 	if err != nil {
 		return fmt.Errorf("compilation error: %w", err)
 	}
@@ -194,6 +208,7 @@ func (p *Pipeline) BuildNative(
 		Permissions:  permissions,
 		TraceEnabled: traceEnabled,
 		MainPath:     p.Filename,
+		TypedIR:      &sharedir.Program{Modules: []sharedir.Module{*p.TypedIR}},
 	})
 	if err != nil {
 		return "", fmt.Errorf("native build error: %w", err)

@@ -369,6 +369,9 @@ func (vm *VM) run() (result compiler.Value, err error) {
 		case compiler.OP_POP:
 			vm.pop()
 
+		case compiler.OP_DROP:
+			vm.dropValue(vm.pop())
+
 		case compiler.OP_DUP:
 			vm.push(vm.peek(0))
 
@@ -398,9 +401,34 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_SET_LOCAL:
 			slot := int(vm.readByte(frame, fn))
-			// Inline pop for performance
-			vm.sp--
-			vm.stack[frame.base+slot] = vm.stack[vm.sp]
+			vm.stack[frame.base+slot] = vm.pop()
+
+		case compiler.OP_SET_LOCAL_MUT:
+			slot := int(vm.readByte(frame, fn))
+			val := vm.pop()
+			current := vm.stack[frame.base+slot]
+			if current.Type == compiler.VAL_BORROW {
+				borrow := current.AsObject.(*compiler.BorrowInstance)
+				if !borrow.Mutable {
+					return compiler.NewNil(), vm.opErr(fn.Name, frame.ip, "cannot assign through immutable mutable-parameter binding")
+				}
+				*borrow.Location = val
+			} else {
+				vm.stack[frame.base+slot] = val
+			}
+
+		case compiler.OP_TAKE_LOCAL:
+			slot := int(vm.readByte(frame, fn))
+			idx := frame.base + slot
+			value := vm.stack[idx]
+			vm.stack[idx] = compiler.ValueNil
+			vm.push(value)
+
+		case compiler.OP_DROP_LOCAL:
+			slot := int(vm.readByte(frame, fn))
+			idx := frame.base + slot
+			vm.dropValue(vm.stack[idx])
+			vm.stack[idx] = compiler.ValueNil
 
 		case compiler.OP_GET_GLOBAL:
 			idx := vm.readShort(frame, fn)
@@ -411,42 +439,43 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			val := vm.pop()
 			vm.globals[idx] = val
 
+		case compiler.OP_TAKE_GLOBAL:
+			idx := vm.readShort(frame, fn)
+			value := vm.globals[idx]
+			vm.globals[idx] = compiler.ValueNil
+			vm.push(value)
+
+		case compiler.OP_DROP_GLOBAL:
+			idx := vm.readShort(frame, fn)
+			vm.dropValue(vm.globals[idx])
+			vm.globals[idx] = compiler.ValueNil
+
 		case compiler.OP_ADD:
-			// Inline pop x2 + add for integer fast path
-			vm.sp--
-			b := vm.stack[vm.sp]
-			vm.sp--
-			a := vm.stack[vm.sp]
+			b := vm.pop()
+			a := vm.pop()
 			// Fast path for integer addition
 			if a.Type == compiler.VAL_INT && b.Type == compiler.VAL_INT {
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_INT, AsInt: a.AsInt + b.AsInt}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_INT, AsInt: a.AsInt + b.AsInt})
 			} else {
 				result, err := vm.add(a, b)
 				if err != nil {
 					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
-				vm.stack[vm.sp] = result
-				vm.sp++
+				vm.push(result)
 			}
 
 		case compiler.OP_SUB:
-			// Inline pop x2 + sub for integer fast path
-			vm.sp--
-			b := vm.stack[vm.sp]
-			vm.sp--
-			a := vm.stack[vm.sp]
+			b := vm.pop()
+			a := vm.pop()
 			// Fast path for integer subtraction
 			if a.Type == compiler.VAL_INT && b.Type == compiler.VAL_INT {
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_INT, AsInt: a.AsInt - b.AsInt}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_INT, AsInt: a.AsInt - b.AsInt})
 			} else {
 				result, err := vm.sub(a, b)
 				if err != nil {
 					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
-				vm.stack[vm.sp] = result
-				vm.sp++
+				vm.push(result)
 			}
 
 		case compiler.OP_MUL:
@@ -511,39 +540,29 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			vm.push(compiler.NewBool(!vm.valuesEqual(a, b)))
 
 		case compiler.OP_LT:
-			// Inline pop and fast path for integers
-			vm.sp--
-			b := vm.stack[vm.sp]
-			vm.sp--
-			a := vm.stack[vm.sp]
+			b := vm.pop()
+			a := vm.pop()
 			if a.Type == compiler.VAL_INT && b.Type == compiler.VAL_INT {
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: a.AsInt < b.AsInt}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_BOOL, AsBool: a.AsInt < b.AsInt})
 			} else {
 				result, err := vm.compare(a, b)
 				if err != nil {
 					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: result < 0}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_BOOL, AsBool: result < 0})
 			}
 
 		case compiler.OP_LTE:
-			// Inline pop and fast path for integers
-			vm.sp--
-			b := vm.stack[vm.sp]
-			vm.sp--
-			a := vm.stack[vm.sp]
+			b := vm.pop()
+			a := vm.pop()
 			if a.Type == compiler.VAL_INT && b.Type == compiler.VAL_INT {
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: a.AsInt <= b.AsInt}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_BOOL, AsBool: a.AsInt <= b.AsInt})
 			} else {
 				result, err := vm.compare(a, b)
 				if err != nil {
 					return compiler.NewNil(), vm.opWrapErr(fn.Name, frame.ip, err)
 				}
-				vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_BOOL, AsBool: result <= 0}
-				vm.sp++
+				vm.push(compiler.Value{Type: compiler.VAL_BOOL, AsBool: result <= 0})
 			}
 
 		case compiler.OP_GT:
@@ -616,9 +635,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 		case compiler.OP_JMP_IF_FALSE:
 			offset := vm.readShort(frame, fn)
-			// Inline pop and IsTruthy check
-			vm.sp--
-			cond := vm.stack[vm.sp]
+			cond := vm.pop()
 			truthy := false
 			switch cond.Type {
 			case compiler.VAL_BOOL:
@@ -734,19 +751,19 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			// Inline pop
 			vm.sp--
 			result := vm.stack[vm.sp]
+			vm.stack[vm.sp] = compiler.ValueNil
 
 			// Fast path: no defers and not panicking
 			if len(frame.defers) == 0 && !vm.panicking {
 				vm.finishFrameTrace(frame, "ok", nil)
+				vm.clearFrameStorage(frame)
 				vm.fp--
 				if vm.fp == 0 {
 					return result, nil
 				}
 				// Restore stack and push result
-				vm.sp = frame.base - 1
 				if !frame.discardReturn {
-					vm.stack[vm.sp] = result
-					vm.sp++
+					vm.push(result)
 				}
 				continue
 			}
@@ -1226,9 +1243,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			*b.Location = val
 
 		case compiler.OP_UNWRAP:
-			// Inline pop
-			vm.sp--
-			val := vm.stack[vm.sp]
+			val := vm.pop()
 
 			isErr := false
 			var inner compiler.Value
@@ -1281,15 +1296,14 @@ func (vm *VM) run() (result compiler.Value, err error) {
 
 				// Fast path: no defers and not panicking
 				if len(frame.defers) == 0 && !vm.panicking {
+					vm.clearFrameStorage(frame)
 					vm.fp--
 					if vm.fp == 0 {
 						return result, nil
 					}
 					// Restore stack and push result
-					vm.sp = frame.base - 1
 					if !frame.discardReturn {
-						vm.stack[vm.sp] = result
-						vm.sp++
+						vm.push(result)
 					}
 					continue
 				}
@@ -1312,8 +1326,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 			count := int(vm.readByte(frame, fn))
 			var result strings.Builder
 
-			vm.sp -= count
-			elements := vm.stack[vm.sp : vm.sp+count]
+			elements := vm.popN(count)
 			for i := range count {
 				val := elements[i]
 				if val.Type == compiler.VAL_STRING {
@@ -1323,8 +1336,7 @@ func (vm *VM) run() (result compiler.Value, err error) {
 				}
 			}
 
-			vm.stack[vm.sp] = compiler.Value{Type: compiler.VAL_STRING, AsString: result.String()}
-			vm.sp++
+			vm.push(compiler.Value{Type: compiler.VAL_STRING, AsString: result.String()})
 
 		case compiler.OP_IMPORT:
 			// Read path and alias from constants
@@ -1427,7 +1439,27 @@ func (vm *VM) pop() compiler.Value {
 		panic("stack underflow")
 	}
 	vm.sp--
-	return vm.stack[vm.sp]
+	value := vm.stack[vm.sp]
+	vm.stack[vm.sp] = compiler.ValueNil
+	return value
+}
+
+// dropValue is the VM destruction hook. Go continues to own backing memory;
+// clearing the owning slot makes unreachable values collectible immediately.
+func (vm *VM) dropValue(value compiler.Value) {
+	_ = value
+}
+
+func (vm *VM) clearFrameStorage(frame *CallFrame) {
+	start := frame.base - 1
+	if start < 0 {
+		start = 0
+	}
+	for i := start; i < vm.sp; i++ {
+		vm.dropValue(vm.stack[i])
+		vm.stack[i] = compiler.ValueNil
+	}
+	vm.sp = start
 }
 
 func (vm *VM) popN(count int) []compiler.Value {
@@ -1499,7 +1531,7 @@ func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
 				fmt.Fprintf(os.Stderr, "%s%4d: %s (truncated)\n", marker, pc, op.String())
 			}
 			pc += 3
-		case compiler.OP_GET_LOCAL, compiler.OP_SET_LOCAL, compiler.OP_NEG, compiler.OP_POP, compiler.OP_DUP, compiler.OP_SWAP, compiler.OP_PRINT, compiler.OP_PRINTLN, compiler.OP_TRUE, compiler.OP_FALSE, compiler.OP_NIL:
+		case compiler.OP_GET_LOCAL, compiler.OP_SET_LOCAL, compiler.OP_SET_LOCAL_MUT, compiler.OP_TAKE_LOCAL, compiler.OP_DROP_LOCAL, compiler.OP_NEG, compiler.OP_POP, compiler.OP_DROP, compiler.OP_DUP, compiler.OP_SWAP, compiler.OP_PRINT, compiler.OP_PRINTLN, compiler.OP_TRUE, compiler.OP_FALSE, compiler.OP_NIL:
 			if pc+1 < len(fn.Code) {
 				arg := int(fn.Code[pc+1])
 				fmt.Fprintf(os.Stderr, "%s%4d: %s %d (arg=%d)\n", marker, pc, op.String(), fn.Code[pc], arg)
@@ -1507,7 +1539,7 @@ func (vm *VM) dumpFunctionDebug(fn *compiler.FunctionObj, ip int) {
 				fmt.Fprintf(os.Stderr, "%s%4d: %s (no-arg)\n", marker, pc, op.String())
 			}
 			pc += 2
-		case compiler.OP_GET_GLOBAL, compiler.OP_SET_GLOBAL, compiler.OP_GET_FIELD, compiler.OP_SET_FIELD, compiler.OP_GET_FUNC, compiler.OP_JMP_IF_FALSE, compiler.OP_JMP_IF_TRUE:
+		case compiler.OP_GET_GLOBAL, compiler.OP_SET_GLOBAL, compiler.OP_TAKE_GLOBAL, compiler.OP_DROP_GLOBAL, compiler.OP_GET_FIELD, compiler.OP_SET_FIELD, compiler.OP_GET_FUNC, compiler.OP_JMP_IF_FALSE, compiler.OP_JMP_IF_TRUE:
 			if pc+2 < len(fn.Code) {
 				hi := int(fn.Code[pc+1])
 				lo := int(fn.Code[pc+2])
@@ -1754,6 +1786,7 @@ func (vm *VM) resumeReturn(frame *CallFrame, fnName string, ip int) (bool, compi
 		status = "panic"
 	}
 	vm.finishFrameTrace(frame, status, nil)
+	vm.clearFrameStorage(frame)
 	vm.fp--
 	if vm.fp == 0 {
 		if vm.panicking {
@@ -1762,7 +1795,6 @@ func (vm *VM) resumeReturn(frame *CallFrame, fnName string, ip int) (bool, compi
 		return true, result, nil
 	}
 
-	vm.sp = frame.base - 1
 	if !frame.discardReturn && !vm.panicking {
 		vm.push(result)
 	}

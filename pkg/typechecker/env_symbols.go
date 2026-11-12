@@ -21,6 +21,7 @@ func (e *TypeEnv) DefineSymbol(
 	// Clear any moved status when a variable is (re)defined
 	delete(e.moved, name)
 	delete(e.moveInfo, name)
+	delete(e.movedParts, name)
 	delete(e.poisoned, name)
 }
 

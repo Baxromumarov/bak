@@ -190,6 +190,53 @@ func main() -> (int) {
 	}
 }
 
+func TestBuildExecutableRejectsBorrowedReturnWithoutTypechecker(t *testing.T) {
+	source := `package main
+func leak() -> (&int) {
+    var x: int = 1
+    return &x
+}
+func main() -> (void) { return void }
+`
+	l := lexer.New(source)
+	p := parser.New(l)
+	program := p.ParseProgram()
+	if len(p.Errors()) > 0 {
+		t.Fatalf("parser errors: %v", p.Errors())
+	}
+	_, err := BuildExecutable(program, runtimecap.Permissions{})
+	if err == nil || !strings.Contains(err.Error(), "cannot return borrowed") {
+		t.Fatalf("expected borrowed-return rejection, got %v", err)
+	}
+}
+
+func TestMutableParametersAreInOutForPrimitiveStringStructAndVec(t *testing.T) {
+	source := `package main
+
+struct Box { value: int }
+func updateInt(mut x: int) -> (void) { x = 10; return void }
+func updateString(mut x: string) -> (void) { x = "done"; return void }
+func updateBox(mut x: Box) -> (void) { x.value = 20; return void }
+func updateVec(mut x: Vec<int, _>) -> (void) { x.push(3); return void }
+func main() -> (int) {
+    mut var number: int = 1
+    mut var text: string = "before"
+    mut var box: Box = Box{value: 2}
+    mut var values: Vec<int, _> = Vec.from([1, 2])
+    updateInt(mut number)
+    updateString(mut text)
+    updateBox(mut box)
+    updateVec(mut values)
+    if text != "done" { return 1 }
+    return number + box.value + values.len()
+}`
+	binary := buildNativeProgram(t, source, runtimecap.Permissions{})
+	exitCode, output := runNativeBinary(t, binary)
+	if exitCode != 33 {
+		t.Fatalf("mutable parameter result = %d, want 33\noutput:\n%s", exitCode, output)
+	}
+}
+
 func TestBuildExecutableRejectsExecWithoutPermission(t *testing.T) {
 	packages.GlobalRegistry.Reset()
 	t.Cleanup(packages.GlobalRegistry.Reset)

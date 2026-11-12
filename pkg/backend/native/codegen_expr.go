@@ -206,6 +206,9 @@ func (s *EmitState) emitIdentifier(e *ast.Identifier) error {
 	offset, found := s.resolveLocal(e.Value)
 	if found {
 		emitMovRegMemRbp(&s.Code, RAX, offset)
+		if s.InOutVariables[e.Value] {
+			emitMovRegMem(&s.Code, RAX, RAX)
+		}
 		return nil
 	}
 
@@ -258,6 +261,9 @@ func (s *EmitState) emitMutableIdentifier(e *ast.MutableIdentifier) error {
 	offset, found := s.resolveLocal(e.Value)
 	if found {
 		emitMovRegMemRbp(&s.Code, RAX, offset)
+		if s.InOutVariables[e.Value] {
+			emitMovRegMem(&s.Code, RAX, RAX)
+		}
 		return nil
 	}
 	return fmt.Errorf("native: undefined mutable identifier %s", e.Value)
@@ -714,6 +720,10 @@ func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 	case *ast.Identifier:
 		// Address of a variable: return pointer to the stack slot
 		if offset, ok := s.resolveLocal(e.Value); ok {
+			if s.InOutVariables[e.Value] {
+				emitMovRegMemRbp(&s.Code, RAX, offset)
+				return nil
+			}
 			// LEA rax, [rbp + offset]
 			emitLeaRegMemRbp(&s.Code, RAX, offset)
 			return nil
@@ -725,6 +735,10 @@ func (s *EmitState) emitAddressOf(expr ast.Expression) error {
 		// Without this, `&mut x` on mutable bindings incorrectly falls through to
 		// value evaluation and loses one level of indirection.
 		if offset, ok := s.resolveLocal(e.Value); ok {
+			if s.InOutVariables[e.Value] {
+				emitMovRegMemRbp(&s.Code, RAX, offset)
+				return nil
+			}
 			emitLeaRegMemRbp(&s.Code, RAX, offset)
 			return nil
 		}
@@ -870,6 +884,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	}
 
 	// Regular function call
+	params := s.FunctionParameters[funcName]
 
 	// Check return type size (ABI)
 	retType := s.FunctionReturnTypes[funcName]
@@ -892,7 +907,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	// 1. Push stack arguments (reverse order)
 	// These will remain on stack during the call
 	for i := argCount - 1; i >= regArgCount; i-- {
-		if err := s.emitExpression(e.Arguments[i]); err != nil {
+		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -901,7 +916,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	// 2. Evaluate and push register arguments (reverse order)
 	// Temporary push to preserve order
 	for i := regArgCount - 1; i >= 0; i-- {
-		if err := s.emitExpression(e.Arguments[i]); err != nil {
+		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -942,6 +957,31 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 		emitAddRspImm32(&s.Code, stackArgCount*8)
 	}
 
+	return nil
+}
+
+func parameterAt(params []*ast.Parameter, index int) *ast.Parameter {
+	if index < 0 || index >= len(params) {
+		return nil
+	}
+	return params[index]
+}
+
+// emitCallArgument gives a mutable parameter either caller storage (`mut x`)
+// or a private temporary (an ordinary moved/copied argument).
+func (s *EmitState) emitCallArgument(expr ast.Expression, param *ast.Parameter, funcName string, index int) error {
+	if param == nil || !param.Mutable {
+		return s.emitExpression(expr)
+	}
+	if mut, ok := expr.(*ast.MutableIdentifier); ok {
+		return s.emitAddressOf(mut)
+	}
+	if err := s.emitExpression(expr); err != nil {
+		return err
+	}
+	offset := s.declareLocal(fmt.Sprintf("__mut_arg_%s_%d", funcName, index), 8)
+	emitMovMemRbpReg(&s.Code, offset, RAX)
+	emitLeaRegMemRbp(&s.Code, RAX, offset)
 	return nil
 }
 

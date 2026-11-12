@@ -5,6 +5,7 @@ import "github.com/baxromumarov/bak/pkg/ast"
 type TypeInfo struct {
 	Type       ast.TypeExpression
 	Mutable    bool
+	Constant   bool
 	Visibility ast.Visibility
 	Line       int
 	Column     int

@@ -8,14 +8,20 @@ const (
 	// Stack + constants
 	OP_CONST Opcode = iota // Push constant from pool
 	OP_POP                 // Pop stack top
+	OP_DROP                // Destroy and pop stack top
 	OP_DUP                 // Duplicate top
 	OP_SWAP                // Swap top two
 
 	// Locals / globals
-	OP_GET_LOCAL  // Get local variable
-	OP_SET_LOCAL  // Set local variable
-	OP_GET_GLOBAL // Get global variable
-	OP_SET_GLOBAL // Set global variable
+	OP_GET_LOCAL     // Get local variable
+	OP_SET_LOCAL     // Set local variable
+	OP_SET_LOCAL_MUT // Set a `mut` parameter, writing through an in/out argument
+	OP_TAKE_LOCAL    // Move out of local storage and leave it empty
+	OP_DROP_LOCAL    // Destroy local storage
+	OP_GET_GLOBAL    // Get global variable
+	OP_SET_GLOBAL    // Set global variable
+	OP_TAKE_GLOBAL   // Move out of global storage
+	OP_DROP_GLOBAL   // Destroy global storage
 
 	// Arithmetic
 	OP_ADD // Addition
@@ -132,12 +138,18 @@ const (
 var OpcodeNames = map[Opcode]string{
 	OP_CONST:           "OP_CONST",
 	OP_POP:             "OP_POP",
+	OP_DROP:            "OP_DROP",
 	OP_DUP:             "OP_DUP",
 	OP_SWAP:            "OP_SWAP",
 	OP_GET_LOCAL:       "OP_GET_LOCAL",
 	OP_SET_LOCAL:       "OP_SET_LOCAL",
+	OP_SET_LOCAL_MUT:   "OP_SET_LOCAL_MUT",
+	OP_TAKE_LOCAL:      "OP_TAKE_LOCAL",
+	OP_DROP_LOCAL:      "OP_DROP_LOCAL",
 	OP_GET_GLOBAL:      "OP_GET_GLOBAL",
 	OP_SET_GLOBAL:      "OP_SET_GLOBAL",
+	OP_TAKE_GLOBAL:     "OP_TAKE_GLOBAL",
+	OP_DROP_GLOBAL:     "OP_DROP_GLOBAL",
 	OP_ADD:             "OP_ADD",
 	OP_SUB:             "OP_SUB",
 	OP_MUL:             "OP_MUL",

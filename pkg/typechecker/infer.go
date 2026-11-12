@@ -164,6 +164,20 @@ func (tc *TypeChecker) validateTryReturnCompatibility(e *ast.UnwrapExpression, e
 
 // inferIndexType extracts the element type from Vec or string indexing.
 func (tc *TypeChecker) inferIndexType(e *ast.IndexExpression) ast.TypeExpression {
+	if root, path, ok := ownershipPath(e); ok {
+		if info := tc.env.PartMoveInfo(root, path); info != nil && !tc.env.IsPoisoned(root) {
+			tc.errorUseAfterMoveAt(formatOwnershipPlace(root, path), e.Pos(), info)
+			tc.env.MarkPoisoned(root)
+		}
+	}
+	return tc.inferIndexTypeUnchecked(e)
+}
+
+// inferIndexTypeUnchecked resolves an indexed place without treating the
+// containing element as a value read. Field access uses this while projecting
+// through an element (items[i].field), after checking the complete projected
+// path itself.
+func (tc *TypeChecker) inferIndexTypeUnchecked(e *ast.IndexExpression) ast.TypeExpression {
 	leftType := tc.inferType(e.Left)
 	tc.inferType(e.Index)
 	if leftType == nil {
@@ -405,6 +419,9 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 	if !ok {
 		return nil
 	}
+	if tc.borrowExprSeen[be] {
+		return &ast.BorrowType{Mutable: be.Mutable, Inner: info.Type}
+	}
 
 	// Skip if already poisoned
 	if tc.env.IsPoisoned(varName) {
@@ -423,22 +440,14 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 		return nil
 	}
 
-	// Check for existing mutable borrow conflicts
-	// Skip if already borrowed by same expression (idempotent for double-inference)
+	// A repeated inference of the same AST node was handled by borrowExprSeen
+	// above. Reaching this point means this is a distinct borrow and therefore
+	// conflicts with an active mutable borrow.
 	if tc.env.IsBorrowedMut(varName) {
-		// Already borrowed - if it's a mutable borrow, this is likely double-inference
-		// Just return the type without re-marking or error
-		if be.Mutable {
-			return &ast.BorrowType{
-				Mutable: be.Mutable,
-				Inner:   info.Type,
-			}
-		}
-
 		tc.errorBorrowConflictAt(
 			varName,
 			borrowPos,
-			"borrow as immutable",
+			map[bool]string{true: "borrow as mutable", false: "borrow as immutable"}[be.Mutable],
 			"mutably borrowed",
 			tc.env.GetBorrowedMutInfo(varName),
 		)
@@ -471,10 +480,12 @@ func (tc *TypeChecker) inferBorrowExpression(be *ast.BorrowExpression) ast.TypeE
 		}
 
 		tc.env.MarkBorrowedMutAt(varName, borrowPos)
+		tc.borrowExprSeen[be] = true
 
 	} else {
 		// Immutable borrow: mark an immutable borrow (allows multiple immutable borrows)
 		tc.env.MarkBorrowedImAt(varName, borrowPos)
+		tc.borrowExprSeen[be] = true
 	}
 
 	return &ast.BorrowType{

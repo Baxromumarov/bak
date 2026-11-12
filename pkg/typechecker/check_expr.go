@@ -18,9 +18,14 @@ func (tc *TypeChecker) checkFieldAssignment(
 	} else if mutIdent, ok := fa.Object.(*ast.MutableIdentifier); ok {
 		objName = mutIdent.Value
 	} else {
-		// Nested field access or other expression - just type check
-		tc.inferType(fa)
+		// Type-check the right-hand side before reviving the destination so an
+		// assignment cannot read its own moved storage as the replacement.
 		tc.inferType(value)
+		if root, path, ok := ownershipPath(fa); ok {
+			tc.env.ClearMovedPart(root, path)
+		}
+		tc.inferType(fa)
+		tc.trackMoveFromExpression(value, pos, MovedByAssignment, fa.String())
 		return
 	}
 
@@ -55,6 +60,9 @@ func (tc *TypeChecker) checkFieldAssignment(
 
 	// Type check the value
 	valueType := tc.inferType(value)
+	if root, path, ok := ownershipPath(fa); ok {
+		tc.env.ClearMovedPart(root, path)
+	}
 	fieldType := tc.inferFieldAccess(fa)
 
 	if valueType != nil &&
@@ -72,6 +80,7 @@ func (tc *TypeChecker) checkFieldAssignment(
 			value,
 		)
 	}
+	tc.trackMoveFromExpression(value, pos, MovedByAssignment, objName+"."+fa.Field.Value)
 }
 
 func (tc *TypeChecker) checkExpression(expr ast.Expression) ast.TypeExpression {

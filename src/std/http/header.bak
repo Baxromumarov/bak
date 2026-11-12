@@ -38,7 +38,7 @@ func parseHeaders(raw: string) -> (Result<Vec<Header, _>, string>) {
             &current,
             &lf,
         )
-        mut var line: string = current
+		mut var line: string = strings.clone(&current)
 
         if lineEnd != -1 {
             mut var trimEnd: int = lineEnd
