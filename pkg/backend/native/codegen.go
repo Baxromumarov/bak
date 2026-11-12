@@ -102,6 +102,10 @@ type EmitState struct {
 	// InOutVariables are `mut` parameters whose slots hold caller addresses.
 	InOutVariables map[string]bool
 
+	// MemTrace records typed memory operations emitted for this module.
+	// Codegen consults this classification instead of pointer-shape heuristics.
+	MemTrace []IRMemOp
+
 	// Permissions controls which dangerous builtins native codegen may emit.
 	Permissions  runtimecap.Permissions
 	TraceEnabled bool
@@ -459,8 +463,7 @@ func (s *EmitState) isIntExpression(expr ast.Expression) bool {
 		if s.isStringExpression(e.Left) {
 			return true
 		}
-		// array/vec indexing - check the type context
-		// If indexing an int-typed Vec, return true
+		return s.getVecElementType(e.Left) == "int"
 	case *ast.FieldAccessExpression:
 
 		var nameMap = map[string]bool{
@@ -850,8 +853,9 @@ func collectProgramItems(program *ast.Program, pkgName string, s *EmitState) ([]
 				var params []*ast.Parameter
 				if stmt.Receiver != nil {
 					params = append(params, &ast.Parameter{
-						Name: &ast.Identifier{Value: receiverName},
-						Type: receiverType,
+						Name:    &ast.Identifier{Value: receiverName},
+						Type:    receiverType,
+						Mutable: method.Mutable,
 					})
 				} else {
 					// Static method
@@ -1779,7 +1783,7 @@ func (s *EmitState) emitForIterable(st *ast.ForStatement) error {
 
 	// If iterable is a reference (&Vec), dereference first
 	if s.isRefExpression(st.Iterable) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	// Store Vec pointer in temp
@@ -1793,7 +1797,7 @@ func (s *EmitState) emitForIterable(st *ast.ForStatement) error {
 
 	// Get length from vec (at offset 8)
 	emitMovRegMemRbp(&s.Code, RAX, vecOffset)
-	s.emitSafeLoadRaxFromRaxDisp(8) // len (0 on invalid pointer)
+	s.emitLoadValueAt(8) // len (0 on invalid pointer)
 	lenOffset := s.declareLocal("__for_len", 8)
 	emitMovMemRbpReg(&s.Code, lenOffset, RAX)
 
@@ -1830,7 +1834,7 @@ func (s *EmitState) emitForIterable(st *ast.ForStatement) error {
 	s.Code = append(s.Code, 0x49, 0x8d, 0x04, 0xcb) // lea rax, [r11 + rcx*8]
 
 	// Load value: rax = [rax]
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 
 	// Store in loop variable
 	emitMovMemRbpReg(&s.Code, loopVarOffset, RAX)
@@ -2050,7 +2054,7 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 	// If assigning through a reference parameter (e.g. `mut l: &mut Lexer`),
 	// dereference once to get the underlying struct pointer before storing.
 	if s.isRefExpression(lhs.Object) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	emitPopReg(&s.Code, RCX) // RCX = value to store
@@ -2084,11 +2088,11 @@ func (s *EmitState) emitIndexAssignment(lhs *ast.IndexExpression, value ast.Expr
 	// If lhs.Left is a reference (&Vec), dereference once to get the Vec pointer.
 	// Without this, we'd treat the address-of-the-pointer as the Vec header and corrupt memory.
 	if s.isRefExpression(lhs.Left) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	// Load data pointer
-	s.emitSafeLoadRaxFromRaxDisp(0) // RAX = vec->ptr (or 0 if invalid)
+	s.emitLoadValueAt(0) // RAX = vec->ptr (or 0 if invalid)
 
 	emitPopReg(&s.Code, RCX) // RCX = index
 	emitPopReg(&s.Code, RDX) // RDX = value
@@ -2119,8 +2123,8 @@ func (s *EmitState) emitDerefAssignment(lhs *ast.DerefExpression, value ast.Expr
 
 	emitPopReg(&s.Code, RCX) // RCX = value
 
-	// Store: mov [rax], rcx
-	s.Code = append(s.Code, 0x48, 0x89, 0x08) // mov [rax], rcx
+	// The LHS type is a borrow, so the store is unconditional.
+	s.emitStoreThroughBorrow()
 
 	return nil
 }
@@ -2152,7 +2156,7 @@ func (s *EmitState) emitPanic(st *ast.PanicStatement) error {
 	}
 	// If message is a reference (&string), dereference first
 	if s.isRefExpression(st.Message) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	s.emitTraceExit("panic")
 	// rax now holds pointer to string header

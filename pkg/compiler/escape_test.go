@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"bytes"
 	"slices"
 	"strings"
 	"testing"
@@ -123,10 +124,10 @@ func TestFormatEscapeReports_StableAndReadable(t *testing.T) {
 	expectedSnippets := []string{
 		"Escape analysis:",
 		"  a:",
-		"    x: heap [returned_value]",
-		"    z: stack",
+		"    x: caller_return because returned_value",
+		"    z: frame_slot",
 		"  b:",
-		"    y: heap [passed_to_call]",
+		"    y: frame_slot because passed_to_call",
 	}
 	for _, snippet := range expectedSnippets {
 		if !strings.Contains(out, snippet) {
@@ -137,7 +138,132 @@ func TestFormatEscapeReports_StableAndReadable(t *testing.T) {
 	if strings.Index(out, "  a:") > strings.Index(out, "  b:") {
 		t.Fatalf("expected functions to be sorted alphabetically, got:\n%s", out)
 	}
-	if strings.Index(out, "    x: heap [returned_value]") > strings.Index(out, "    z: stack") {
+	if strings.Index(out, "    x: caller_return because returned_value") > strings.Index(out, "    z: frame_slot") {
 		t.Fatalf("expected locals to be sorted alphabetically, got:\n%s", out)
+	}
+}
+
+func TestEscapeDecisionsMatchAllocation(t *testing.T) {
+	program := mustParseProgram(t, `package main
+
+struct Pair {
+    X: int
+}
+
+func observe(s: &string) -> (int) {
+    return s.len()
+}
+
+func make() -> (Pair) {
+    var built: Pair = Pair{X: 1}
+    return built
+}
+
+func leak() -> (&int) {
+    var leaked: int = 1
+    return &leaked
+}
+
+func demo() -> (void) {
+    var items: string = "bak"
+    observe(&items)
+    var n: int = 1
+    var f = func() -> (int) {
+        return n
+    }
+    println(f())
+    return void
+}
+`)
+
+	observe := AnalyzeFunctionDeclEscapes(findFunctionDecl(t, program, "observe"))
+	if observe.Escapes("s") {
+		t.Fatalf("read-only borrow parameter should not escape: %#v", observe.Locals["s"])
+	}
+	decision, because := observe.Decision("s")
+	if decision != AllocFrameBorrow || because != "readonly_borrow_param" {
+		t.Fatalf("s decision = %s because %s", decision, because)
+	}
+
+	makeFn := AnalyzeFunctionDeclEscapes(findFunctionDecl(t, program, "make"))
+	if makeFn.Escapes("built") {
+		t.Fatalf("owned return should use caller storage, not a heap cell")
+	}
+	decision, because = makeFn.Decision("built")
+	if decision != AllocCallerReturn || because != "returned_value" {
+		t.Fatalf("built decision = %s because %s", decision, because)
+	}
+	if len(makeFn.Temps) != 1 || makeFn.Temps[0].Kind != "struct" || makeFn.Temps[0].Region != string(AllocFrameSlot) {
+		t.Fatalf("struct temporary = %#v", makeFn.Temps)
+	}
+
+	leak := AnalyzeFunctionDeclEscapes(findFunctionDecl(t, program, "leak"))
+	if !leak.Escapes("leaked") {
+		t.Fatalf("returned reference must escape")
+	}
+	decision, because = leak.Decision("leaked")
+	if decision != AllocHeapCell || because != "returned_reference" {
+		t.Fatalf("leaked decision = %s because %s", decision, because)
+	}
+
+	demo := AnalyzeFunctionDeclEscapes(findFunctionDecl(t, program, "demo"))
+	if demo.Escapes("items") {
+		t.Fatalf("borrowed argument should stay in its frame slot")
+	}
+	decision, because = demo.Decision("items")
+	if decision != AllocFrameSlot || because != "borrow_of_frame" {
+		t.Fatalf("items decision = %s because %s", decision, because)
+	}
+	decision, because = demo.Decision("n")
+	if decision != AllocClosureStorage || because != "captured_by_closure" {
+		t.Fatalf("n decision = %s because %s", decision, because)
+	}
+
+	report := FormatEscapeReports(map[string]*FunctionEscapeSummary{
+		"observe": observe,
+		"make":    makeFn,
+		"leak":    leak,
+		"demo":    demo,
+	})
+	for _, snippet := range []string{
+		"s: frame_borrow because readonly_borrow_param",
+		"built: caller_return because returned_value",
+		"leaked: heap_cell because returned_reference",
+		"n: closure_storage because captured_by_closure",
+		"temporary struct: frame_slot",
+	} {
+		if !strings.Contains(report, snippet) {
+			t.Fatalf("report missing %q\n%s", snippet, report)
+		}
+	}
+}
+
+func TestCompileBorrowParamAndOwnedReturnStayUnboxed(t *testing.T) {
+	module := compileSourceToModule(t, `package main
+
+struct Pair {
+    X: int
+}
+
+func observe(s: &string) -> (int) {
+    return s.len()
+}
+
+func make() -> (Pair) {
+    var built: Pair = Pair{X: 1}
+    return built
+}
+
+func main() -> (int) {
+    var text: string = "bak"
+    return observe(&text) + make().X
+}
+`)
+
+	for _, name := range []string{"observe", "make"} {
+		fn := findFunctionObj(t, module, name)
+		if bytes.Contains(fn.Code, []byte{byte(OP_BORROW_STACK)}) {
+			t.Fatalf("%s should not heap-cell its values, code=%v", name, fn.Code)
+		}
 	}
 }

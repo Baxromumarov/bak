@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1286,6 +1287,49 @@ func main() -> (void) {
 	println(value)
 }
 `, "how to fix:")
+}
+
+func TestCheck_UseAfterMoveStructuredFix(t *testing.T) {
+	source := `
+package main
+func consume(v: string) -> (void) {
+	println(v)
+}
+func main() -> (void) {
+	var value: string = "hello"
+	consume(value)
+	println(value)
+}
+`
+	errs := checkSource(t, source)
+	joined := strings.Join(errs, "\n")
+	for _, snippet := range []string{
+		"error[E0100]",
+		"-->",
+		"clone 'value' before the call",
+		"pass `&value` if the callee only needs to read it",
+		"expected parameter type",
+		"declared here: `value`",
+		"by 'consume'",
+	} {
+		if !strings.Contains(joined, snippet) {
+			t.Fatalf("missing %q in\n%s", snippet, joined)
+		}
+	}
+
+	structured := checkSourceStructured(t, source)
+	var titles []string
+	for _, err := range structured {
+		if err.Code != diagnostics.ErrUseAfterMove {
+			continue
+		}
+		for _, fix := range err.Fixes {
+			titles = append(titles, fix.Title)
+		}
+	}
+	if !slices.Contains(titles, "pass `&value`") || !slices.Contains(titles, "pass `&mut value`") {
+		t.Fatalf("fixes = %v", titles)
+	}
 }
 
 // =============================================================================

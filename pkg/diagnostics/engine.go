@@ -144,6 +144,45 @@ func computeBreakWidth(d *Diagnostic, file string) int {
 	return width
 }
 
+func spanWidth(line string, column int) int {
+	if column <= 0 || line == "" {
+		return 1
+	}
+	idx := column - 1
+	if idx >= len(line) {
+		return 1
+	}
+	rest := line[idx:]
+	n := 0
+	for n < len(rest) {
+		ch := rest[n]
+		if ch == '_' || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') {
+			n++
+			continue
+		}
+		break
+	}
+	if n == 0 {
+		return 1
+	}
+	return n
+}
+
+func primarySpanLabel(code DiagnosticCode) string {
+	switch code {
+	case ErrUseAfterMove:
+		return "used here after move"
+	case ErrMoveWhileBorrowed:
+		return "moved while borrowed"
+	case ErrBorrowConflict, ErrDoubleMutableBorrow:
+		return "conflicting borrow"
+	case ErrMutabilityRequired, ErrAssignToImmutable:
+		return "cannot assign here"
+	default:
+		return ""
+	}
+}
+
 func severityMarker(level DiagnosticLevel) string {
 	switch level {
 	case LevelError:
@@ -176,28 +215,15 @@ func (d *Diagnostic) Format() string {
 
 	// Header: compact modern title + location
 	levelColor := d.Level.Color()
-	levelStr := severityLabel(d.Level)
-	marker := severityMarker(d.Level)
+	levelStr := strings.ToLower(severityLabel(d.Level))
 	sb.WriteString(strfmt.S(
-		"  ",
-		ColorBold,
-		levelColor,
-		marker,
-		" ",
-		ColorReset,
 		ColorBold,
 		levelColor,
 		levelStr,
-		ColorReset,
-		ColorGray,
 		"[",
-		ColorMagenta,
 		d.Code,
-		ColorGray,
-		"]",
+		"]: ",
 		ColorReset,
-		"  ",
-		ColorWhite,
 		d.Message,
 		ColorReset,
 		"\n",
@@ -210,15 +236,17 @@ func (d *Diagnostic) Format() string {
 	}
 	breakWidth := computeBreakWidth(d, file)
 
-	sb.WriteString(formatMetaBlock(
-		"    ",
+	sb.WriteString(strfmt.S(
 		ColorBlue,
-		"at",
-		ColorWhite,
-		strfmt.S(file, ":", d.Line, ":", d.Column),
-		breakWidth,
+		"  --> ",
+		ColorReset,
+		file,
+		":",
+		d.Line,
+		":",
+		d.Column,
+		"\n",
 	))
-	sb.WriteString(sectionBreak("    ", breakWidth))
 
 	// Code snippet
 	codeLine := readLine(file, d.Line)
@@ -284,9 +312,14 @@ func (d *Diagnostic) Format() string {
 			"\n",
 		))
 
-		// Underline
+		// Underline the token at the primary column.
 		column := max(d.Column, 1)
-		underline := strings.Repeat(" ", column-1) + "^"
+		label := primarySpanLabel(d.Code)
+		mark := strings.Repeat("^", spanWidth(codeLine, column))
+		if label != "" {
+			mark += " " + label
+		}
+		underline := strings.Repeat(" ", column-1) + mark
 
 		sb.WriteString(strfmt.S(
 			"  ",
@@ -400,7 +433,11 @@ func (d *Diagnostic) Format() string {
 				))
 				if note.Column > 0 {
 					noteCol := max(note.Column, 1)
-					noteUnderline := strings.Repeat(" ", noteCol-1) + "^"
+					dashes := strings.Repeat("-", spanWidth(noteCodeLine, noteCol))
+					noteUnderline := strings.Repeat(" ", noteCol-1) + dashes
+					if note.Message != "" {
+						noteUnderline += " " + note.Message
+					}
 					sb.WriteString(strfmt.S(
 						"  ",
 						notePad,

@@ -12,6 +12,9 @@ import (
 // ExplainCode writes an explanation for a diagnostic code and returns true when known.
 func ExplainCode(w io.Writer, code string) bool {
 	normalized := strings.ToUpper(strings.TrimSpace(code))
+	if resolved, ok := pkgdiag.ResolveCode(pkgdiag.DiagnosticCode(normalized)); ok {
+		normalized = string(resolved)
+	}
 	if entry, ok := lookupDiagnostic(normalized); ok {
 		_, _ = strfmt.Fprintln(w, string(entry.Code), ": ", entry.Title, "\n")
 		if entry.Description != "" {

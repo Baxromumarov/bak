@@ -866,7 +866,14 @@ func remapFunctionBytecode(fn *FunctionObj, globalMap map[int]int, funcMap map[i
 				}
 			}
 		default:
-			// no operands
+			width, ok := OperandWidth(op)
+			if !ok {
+				return fmt.Errorf("cannot remap unknown opcode %s in %s", op, fn.Name)
+			}
+			if ip+width > len(code) {
+				return fmt.Errorf("truncated opcode %s in %s", op, fn.Name)
+			}
+			ip += width
 		}
 	}
 	return nil
@@ -1618,7 +1625,10 @@ func (c *Compiler) irMoves(node ast.Node, name string) bool {
 		}
 		for _, block := range fn.Blocks {
 			for _, inst := range block.Instructions {
-				if inst.Op == sharedir.OpMove && inst.Place != nil && inst.Place.Name == name && inst.Type != "unknown" && inst.Location.Line == pos.Line && inst.Location.Column == pos.Column {
+				// The bytecode backend can take ownership of a complete local/global
+				// slot. Projected places (fields and indexes) are tracked by the
+				// typechecker, but must not clear the aggregate slot at runtime.
+				if inst.Op == sharedir.OpMove && inst.Place != nil && len(inst.Place.Projections) == 0 && inst.Place.Name == name && inst.Type != "unknown" && inst.Location.Line == pos.Line && inst.Location.Column == pos.Column {
 					return true
 				}
 			}
@@ -1760,8 +1770,8 @@ func (c *Compiler) compileIdentifier(id *ast.Identifier) error {
 				c.emit(OP_NEW_ENUM)
 				return nil
 			}
-			// Payloaded variant - emit marker for pattern matching in switch statements
-			// This will be used when the variant is called like Object(entries)
+			// A bare payloaded name is a marker. Calls such as Item(inner) are
+			// lowered in compileSpecialCallExpression, not by calling this string.
 			c.emitConstant(NewString("__variant__:" + enumName + "." + id.Value))
 			return nil
 		}
@@ -2201,7 +2211,7 @@ func (c *Compiler) addLocalWithBorrowLike(name string, borrowLike bool) {
 	escapes := false
 	if c.currentEscape != nil {
 		escapeReasons = c.currentEscape.ReasonsFor(name)
-		escapes = len(escapeReasons) > 0
+		escapes = c.currentEscape.Escapes(name)
 	}
 
 	c.locals = append(c.locals, Local{

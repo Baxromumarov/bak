@@ -12,7 +12,7 @@ func (s *EmitState) emitStringContains(obj, other ast.Expression) error {
 		return err
 	}
 	// RAX = Option ptr; load tag (0/1)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	return nil
 }
 
@@ -28,7 +28,7 @@ func (s *EmitState) emitStringStartsWith(obj, prefix ast.Expression) error {
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, RDI, RAX) // RDI = string
 
@@ -38,7 +38,7 @@ func (s *EmitState) emitStringStartsWith(obj, prefix ast.Expression) error {
 	}
 	// If prefix is a reference, dereference first
 	if s.isRefExpression(prefix) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, RSI, RAX) // RSI = prefix
 
@@ -76,7 +76,7 @@ func (s *EmitState) emitStringBytes(obj ast.Expression) error {
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R12, RAX) // R12 = string header
 
@@ -194,7 +194,7 @@ func (s *EmitState) emitStringSubstring(obj, startExpr, endExpr ast.Expression) 
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R12, RAX) // R12 = string header ptr
 
@@ -277,7 +277,7 @@ func (s *EmitState) emitStringEndsWith(obj, suffix ast.Expression) error {
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R12, RAX) // R12 = string header
 
@@ -287,7 +287,7 @@ func (s *EmitState) emitStringEndsWith(obj, suffix ast.Expression) error {
 	}
 	// If suffix is a reference, dereference first
 	if s.isRefExpression(suffix) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R13, RAX) // R13 = suffix header
 
@@ -376,7 +376,7 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R12, RAX) // R12 = haystack header
 
@@ -386,7 +386,7 @@ func (s *EmitState) emitStringIndexOf(obj, needle ast.Expression) error {
 	}
 	// If needle is a reference, dereference first
 	if s.isRefExpression(needle) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R13, RAX) // R13 = needle header
 
@@ -570,7 +570,7 @@ func (s *EmitState) emitStringHash(obj ast.Expression) error {
 	}
 	// If object is a reference (&string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// RAX = string header ptr
 

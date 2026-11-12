@@ -48,9 +48,9 @@ func (s *EmitState) emitBuiltinCall(funcName string, e *ast.CallExpression) (boo
 			return true, err
 		}
 		if s.isRefExpression(e.Arguments[0]) {
-			s.emitSafeRefDeref()
+			s.emitDerefBorrow()
 		}
-		s.emitSafeLoadRaxFromRaxDisp(0)
+		s.emitLoadValueAt(0)
 		return true, nil
 	}
 
@@ -218,7 +218,7 @@ func (s *EmitState) emitPrintValue(arg ast.Expression) error {
 		return err
 	}
 	if s.isRefExpression(arg) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, RDI, RAX)
 
@@ -326,11 +326,11 @@ func (s *EmitState) emitBuiltinLen(e *ast.CallExpression) error {
 	}
 	// If argument is a reference (&Vec, &string, etc.), dereference first
 	if s.isRefExpression(e.Arguments[0]) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// For strings: header is {ptr:8, len:8}, len is at offset 8
 	// For vecs: header is {ptr:8, len:8, cap:8}, len is at offset 8
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	return nil
 }
 
@@ -357,7 +357,7 @@ func (s *EmitState) emitBuiltinStringFromBytes(e *ast.CallExpression) error {
 	}
 	// If vec argument is a reference (&Vec), dereference first
 	if s.isRefExpression(e.Arguments[0]) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// RAX = vec ptr, pop start and end
 	emitMovRegReg(&s.Code, RDI, RAX) // RDI = vec ptr
@@ -648,6 +648,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 
 func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error {
 	argCount := len(args)
+	params := s.FunctionParameters[name]
+	if params == nil {
+		if _, shortName, ok := strings.Cut(name, "."); ok {
+			params = s.FunctionParameters[shortName]
+		}
+	}
 
 	// Check return type size (ABI)
 	retType, ok := s.FunctionReturnTypes[name]
@@ -675,7 +681,7 @@ func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error 
 
 	// 1. Push stack arguments (reverse order)
 	for i := argCount - 1; i >= regArgCount; i-- {
-		if err := s.emitExpression(args[i]); err != nil {
+		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -683,7 +689,7 @@ func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error 
 
 	// 2. Evaluate and push register arguments (reverse order)
 	for i := regArgCount - 1; i >= 0; i-- {
-		if err := s.emitExpression(args[i]); err != nil {
+		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -1164,7 +1170,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 	// RAX = struct pointer
 	// If object is a reference (&Struct), dereference once
 	if s.isRefExpression(e.Object) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	// Get struct type name using type tracking
@@ -1190,7 +1196,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 		if sd := s.findStructDecl(structName); sd != nil {
 			offset, _ := s.getFieldOffset(sd, fieldName)
 			if offset >= 0 {
-				s.emitSafeLoadRaxFromRaxDisp(offset)
+				s.emitLoadValueAt(offset)
 				return nil
 			}
 		}
@@ -1208,7 +1214,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 			}
 			offset, _ := s.getFieldOffset(sd, fieldName)
 			if offset >= 0 {
-				s.emitSafeLoadRaxFromRaxDisp(offset)
+				s.emitLoadValueAt(offset)
 				return nil
 			}
 		}
@@ -1226,7 +1232,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 				"' (offset=", offset, ") in module=", s.CurrentModule,
 				", wanted struct=", structName,
 			)
-			s.emitSafeLoadRaxFromRaxDisp(offset)
+			s.emitLoadValueAt(offset)
 			return nil
 		}
 	}
@@ -1248,7 +1254,7 @@ func (s *EmitState) emitIndex(e *ast.IndexExpression) error {
 	// rax = container ptr (Vec or string header)
 	// If left is a reference (&Vec or &string), dereference first
 	if s.isRefExpression(e.Left) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// Load data ptr from container[0]
 	emitMovRegMemBaseDisp(&s.Code, R11, RAX, 0) // r11 = data ptr
@@ -1354,11 +1360,11 @@ func (s *EmitState) emitUnwrapExpression(e *ast.UnwrapExpression) error {
 		}
 	}
 
-	// Save the struct pointer on the stack (emitSafeLoadRaxFromRaxDisp clobbers RCX)
+	// Save the struct pointer on the stack (field loads clobber RCX)
 	emitPushReg(&s.Code, RAX)
 
 	// Load tag from [RAX+0]
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 
 	if isOption {
 		// Option: tag 0 = None (propagate), tag 1 = Some (unwrap)
@@ -1400,7 +1406,7 @@ func (s *EmitState) emitUnwrapExpression(e *ast.UnwrapExpression) error {
 
 	// Unwrap: restore struct pointer from stack, load payload from [RAX+8]
 	emitPopReg(&s.Code, RAX)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 
 	return nil
 }
@@ -1769,7 +1775,7 @@ func (s *EmitState) emitOsArgs() error {
 
 	// Return cached: load header ptr from cache
 	s.emitDataAddr(s.ArgsCacheDataIndex)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 
 	// Patch jmp end
 	s.Code[jmpEnd+1] = byte(len(s.Code) - jmpEnd - 2)
@@ -1790,7 +1796,7 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 	}
 	// If obj is a reference (&mut Vec), dereference once to get the Vec header pointer.
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitPushReg(&s.Code, R12)        // save old R12
 	emitMovRegReg(&s.Code, R12, RAX) // R12 = vec ptr
@@ -1964,81 +1970,6 @@ func (s *EmitState) isRefExpression(expr ast.Expression) bool {
 	return false
 }
 
-// emitSafeRefDeref dereferences RAX only when it looks like a real pointer.
-// This avoids crashing on tagged immediates that may be misclassified as refs.
-func (s *EmitState) emitSafeRefDeref() {
-	emitTestRegReg(&s.Code, RAX, RAX)
-	jzSkip := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz skip
-
-	// Reject non-canonical low-user pointers (e.g. tagged immediates with high bits set).
-	emitMovRegReg(&s.Code, RCX, RAX)
-	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(RCX)), 0xC1, modRM(3, 5, RCX), 48) // shr rcx, 48
-	emitTestRegReg(&s.Code, RCX, RCX)
-	jnzSkipHigh := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz skip
-
-	// test rax, 7  (8-byte alignment check)
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xA9, 0x07, 0x00, 0x00, 0x00)
-	jnzSkip := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz skip
-
-	// Reject very low canonical values that are unlikely to be mapped pointers.
-	emitCmpRegImm32(&s.Code, RAX, 0x00400000)
-	jbSkipLow := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0) // jb skip
-
-	emitMovRegMem(&s.Code, RAX, RAX)
-	skipPos := len(s.Code)
-	patchRel32(&s.Code, jzSkip+2, skipPos)
-	patchRel32(&s.Code, jnzSkipHigh+2, skipPos)
-	patchRel32(&s.Code, jnzSkip+2, skipPos)
-	patchRel32(&s.Code, jbSkipLow+2, skipPos)
-}
-
-// emitSafeLoadRaxFromRaxDisp loads [RAX+disp] into RAX when base looks like a pointer.
-// On invalid/non-pointer bases, it yields 0 instead of crashing.
-func (s *EmitState) emitSafeLoadRaxFromRaxDisp(disp int) {
-	emitTestRegReg(&s.Code, RAX, RAX)
-	jzZero := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x84, 0, 0, 0, 0) // jz zero
-
-	// Reject non-canonical low-user pointers (e.g. tagged immediates with high bits set).
-	emitMovRegReg(&s.Code, RCX, RAX)
-	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(RCX)), 0xC1, modRM(3, 5, RCX), 48) // shr rcx, 48
-	emitTestRegReg(&s.Code, RCX, RCX)
-	jnzZeroHigh := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz zero
-
-	// test rax, 7  (8-byte alignment check)
-	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xA9, 0x07, 0x00, 0x00, 0x00)
-	jnzZero := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x85, 0, 0, 0, 0) // jnz zero
-
-	// Reject very low canonical values that are unlikely to be mapped pointers.
-	emitCmpRegImm32(&s.Code, RAX, 0x00400000)
-	jbZeroLow := len(s.Code)
-	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0) // jb zero
-
-	if disp == 0 {
-		emitMovRegMem(&s.Code, RAX, RAX)
-	} else {
-		emitMovRegMemBaseDisp(&s.Code, RAX, RAX, disp)
-	}
-	jmpDone := len(s.Code)
-	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0) // jmp done
-
-	zeroPos := len(s.Code)
-	emitMovRegImm32(&s.Code, RAX, 0)
-	donePos := len(s.Code)
-
-	patchRel32(&s.Code, jzZero+2, zeroPos)
-	patchRel32(&s.Code, jnzZeroHigh+2, zeroPos)
-	patchRel32(&s.Code, jnzZero+2, zeroPos)
-	patchRel32(&s.Code, jbZeroLow+2, zeroPos)
-	patchRel32(&s.Code, jmpDone+1, donePos)
-}
-
 // emitLen implements obj.len() for Vec or string
 func (s *EmitState) emitLen(obj ast.Expression) error {
 	if err := s.emitExpression(obj); err != nil {
@@ -2046,10 +1977,10 @@ func (s *EmitState) emitLen(obj ast.Expression) error {
 	}
 	// If obj is a reference (&Vec or &string), dereference first
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// For both Vec and string, len is at offset 8
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	return nil
 }
 
@@ -2060,14 +1991,14 @@ func (s *EmitState) emitVecPop(obj ast.Expression) error {
 	}
 	// If obj is a reference (&mut Vec), dereference once to get the Vec header pointer.
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	// Preserve vec header pointer.
 	emitMovRegReg(&s.Code, R11, RAX)
 	// len = vec.len (safe load: invalid pointers become 0)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	// If len == 0 => Err("vec is empty")
@@ -2088,7 +2019,7 @@ func (s *EmitState) emitVecPop(obj ast.Expression) error {
 
 	// data = vec.ptr (safe load)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	emitMovRegReg(&s.Code, R12, RAX)
 
 	// elem = data[new_len]
@@ -2111,12 +2042,12 @@ func (s *EmitState) emitVecFirst(obj ast.Expression) error {
 		return err
 	}
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	emitMovRegReg(&s.Code, R11, RAX)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	emitTestRegReg(&s.Code, R10, R10)
@@ -2130,7 +2061,7 @@ func (s *EmitState) emitVecFirst(obj ast.Expression) error {
 	patchRel32(&s.Code, jnzHasItems, hasItemsPos)
 
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	emitMovRegReg(&s.Code, R12, RAX)
 	emitMovRegMemBaseDisp(&s.Code, RAX, R12, 0)
 	if err := s.emitResultOkFromRax(); err != nil {
@@ -2148,12 +2079,12 @@ func (s *EmitState) emitVecLast(obj ast.Expression) error {
 		return err
 	}
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 
 	emitMovRegReg(&s.Code, R11, RAX)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	emitTestRegReg(&s.Code, R10, R10)
@@ -2167,7 +2098,7 @@ func (s *EmitState) emitVecLast(obj ast.Expression) error {
 	patchRel32(&s.Code, jnzHasItems, hasItemsPos)
 
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	emitMovRegReg(&s.Code, R12, RAX)
 	emitMovRegReg(&s.Code, R13, R10)
 	emitSubRegImm32(&s.Code, R13, 1)
@@ -2194,14 +2125,14 @@ func (s *EmitState) emitVecGet(obj ast.Expression, index ast.Expression) error {
 		return err
 	}
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R11, RAX)
 	emitPopReg(&s.Code, R13) // index
 
 	// len = vec.len (safe load: invalid pointers become 0)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	// if index < 0 => Err
@@ -2225,7 +2156,7 @@ func (s *EmitState) emitVecGet(obj ast.Expression, index ast.Expression) error {
 	patchRel32(&s.Code, jlInBounds+2, inBoundsPos)
 
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	emitMovRegReg(&s.Code, R12, RAX)
 	emitMovRegReg(&s.Code, R14, R13)
 	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R14)), 0xC1, modRM(3, 4, R14), 0x03) // shl r14, 3
@@ -2251,14 +2182,14 @@ func (s *EmitState) emitVecRemove(obj ast.Expression, index ast.Expression) erro
 		return err
 	}
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R11, RAX)
 	emitPopReg(&s.Code, R13) // index
 
 	// len = vec.len (safe load: invalid pointers become 0)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	// Bounds check: index >= 0 && index < len
@@ -2281,7 +2212,7 @@ func (s *EmitState) emitVecRemove(obj ast.Expression, index ast.Expression) erro
 
 	// data = vec.ptr (safe load)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0)
+	s.emitLoadValueAt(0)
 	emitMovRegReg(&s.Code, R12, RAX)
 
 	// removed = data[index]
@@ -2345,14 +2276,14 @@ func (s *EmitState) emitStringGet(obj ast.Expression, index ast.Expression) erro
 		return err
 	}
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	emitMovRegReg(&s.Code, R11, RAX) // string header
 	emitPopReg(&s.Code, R13)         // index
 
 	// len = string.len (safe load: invalid pointers become 0)
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	emitMovRegReg(&s.Code, R10, RAX)
 
 	emitCmpRegImm32(&s.Code, R13, 0)
@@ -2374,7 +2305,7 @@ func (s *EmitState) emitStringGet(obj ast.Expression, index ast.Expression) erro
 	patchRel32(&s.Code, jlInBounds+2, inBoundsPos)
 
 	emitMovRegReg(&s.Code, RAX, R11)
-	s.emitSafeLoadRaxFromRaxDisp(0) // string data ptr
+	s.emitLoadValueAt(0) // string data ptr
 	emitMovRegReg(&s.Code, R12, RAX)
 	emitMovzxRaxMem8BaseIdx(&s.Code, R12, R13)
 	if err := s.emitResultOkFromRax(); err != nil {
@@ -2393,10 +2324,10 @@ func (s *EmitState) emitIsEmpty(obj ast.Expression) error {
 	}
 	// If obj is a reference (&Vec or &string), dereference first.
 	if s.isRefExpression(obj) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// len is at offset 8
-	s.emitSafeLoadRaxFromRaxDisp(8)
+	s.emitLoadValueAt(8)
 	// test rax, rax
 	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0x85, modRM(3, RAX, RAX))
 	// sete al

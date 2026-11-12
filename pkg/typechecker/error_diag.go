@@ -120,7 +120,7 @@ func (tc *TypeChecker) addFatalError(err TypeError) {
 	}
 	diag := tc.baseDiagnostic(code, ast.Position{Line: err.Line, Column: err.Column}, err.Message)
 	diag.Help = err.Help
-	diag.Notes = tc.buildNotes(err.Note, err.NoteLoc)
+	diag.Notes = append(tc.buildNotes(err.Note, err.NoteLoc), err.Notes...)
 	diag.Fixes = err.Fixes
 	tc.emitError(diag)
 }

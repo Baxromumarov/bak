@@ -12,7 +12,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 	}
 	// If switch value is a reference (&string, &enum, etc.), dereference first
 	if s.isRefExpression(st.Value) {
-		s.emitSafeRefDeref()
+		s.emitDerefBorrow()
 	}
 	// Store switch value in a local slot to avoid stack misalignment
 	switchOffset := s.declareLocal("__switch_val", 8)
@@ -59,7 +59,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 					if isTagged {
 						// Tagged enums are pointers to heap structs: load tag from [ptr+0].
 						emitPushReg(&s.Code, RAX)
-						s.emitSafeLoadRaxFromRaxDisp(0)
+						s.emitLoadValueAt(0)
 						emitMovRegReg(&s.Code, RCX, RAX)
 						emitPopReg(&s.Code, RAX)
 						emitCmpRegImm32(&s.Code, RCX, expectedTag)
@@ -156,7 +156,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 						if isTagged {
 							emitMovRegMemRbp(&s.Code, RAX, switchOffset)
 							emitPushReg(&s.Code, RAX)
-							s.emitSafeLoadRaxFromRaxDisp(0)
+							s.emitLoadValueAt(0)
 							emitMovRegReg(&s.Code, RCX, RAX)
 							emitPopReg(&s.Code, RAX)
 							emitCmpRegImm32(&s.Code, RCX, expectedTag)
@@ -282,7 +282,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 				// Compare tag: load [rax+0] and compare to tag
 				emitMovRegMemRbp(&s.Code, RAX, switchOffset)
 				emitPushReg(&s.Code, RAX)
-				s.emitSafeLoadRaxFromRaxDisp(0)
+				s.emitLoadValueAt(0)
 				emitMovRegReg(&s.Code, RCX, RAX)
 				emitPopReg(&s.Code, RAX)
 				emitCmpRegImm32(&s.Code, RCX, int32(tag))
@@ -357,7 +357,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 						// For simple enums (no payload variants), the value IS the tag integer.
 						if s.isTaggedEnumVariant(variantName) {
 							emitPushReg(&s.Code, RAX)
-							s.emitSafeLoadRaxFromRaxDisp(0) // RAX = tag (or 0 on invalid pointer)
+							s.emitLoadValueAt(0) // RAX = tag (or 0 on invalid pointer)
 							emitMovRegReg(&s.Code, RCX, RAX)
 							emitPopReg(&s.Code, RAX)
 							emitCmpRegImm32(&s.Code, RCX, expectedTag)

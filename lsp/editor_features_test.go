@@ -2410,6 +2410,61 @@ func TestRenameKeepsPrivateSymbolsLocalButPublicSymbolsCrossPackage(t *testing.T
 	}
 }
 
+func TestCodeActionOffersBorrowFixes(t *testing.T) {
+	src := strings.Join([]string{
+		"package main",
+		"",
+		"func consume(v: string) -> (void) {",
+		"    println(v)",
+		"    return void",
+		"}",
+		"",
+		"func main() -> (void) {",
+		"    var value: string = \"hello\"",
+		"    consume(value)",
+		"    println(value)",
+		"}",
+		"",
+	}, "\n")
+	uri := writeTempBakFile(t, src)
+	s := NewServer()
+	s.Documents[uri] = src
+	output := analyzeAndCaptureOutput(t, s, uri, src)
+	payload, _, err := DecodeMessage(strings.NewReader(output))
+	if err != nil {
+		t.Fatalf("decode diagnostics message: %v", err)
+	}
+	var notification Notification
+	if err := json.Unmarshal(payload, &notification); err != nil {
+		t.Fatalf("unmarshal notification: %v", err)
+	}
+	var published PublishDiagnosticsParams
+	if err := json.Unmarshal(notification.Params, &published); err != nil {
+		t.Fatalf("unmarshal diagnostics params: %v", err)
+	}
+	actions := s.handleCodeAction(mustRequest(t, CodeActionParams{
+		TextDocument: TextDocumentIdentifier{URI: uri},
+		Range: Range{
+			Start: Position{Line: 9, Character: 12},
+			End:   Position{Line: 9, Character: 17},
+		},
+		Context: CodeActionContext{Diagnostics: published.Diagnostics},
+	}))
+	foundShared := false
+	foundMut := false
+	for _, action := range actions {
+		switch action.Title {
+		case "pass `&value`":
+			foundShared = action.Edit != nil && len(action.Edit.Changes[uri]) == 1 && action.Edit.Changes[uri][0].NewText == "&value"
+		case "pass `&mut value`":
+			foundMut = action.Edit != nil && len(action.Edit.Changes[uri]) == 1 && action.Edit.Changes[uri][0].NewText == "&mut value"
+		}
+	}
+	if !foundShared || !foundMut {
+		t.Fatalf("borrow fixes missing, actions=%#v diagnostics=%#v", actions, published.Diagnostics)
+	}
+}
+
 func TestCodeActionMakesVariableMutable(t *testing.T) {
 	src := strings.Join([]string{
 		"package main",

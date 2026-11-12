@@ -21,6 +21,9 @@ func (vm *VM) loadModule(resolvedPath, alias string) error {
 	if err != nil {
 		return fmt.Errorf("compile error in %s: %w", resolvedPath, err)
 	}
+	if err := verifyModule(module); err != nil {
+		return fmt.Errorf("bytecode verification failed in %s: %w", resolvedPath, err)
+	}
 
 	// Cache the module
 	vm.loadedModules[resolvedPath] = module

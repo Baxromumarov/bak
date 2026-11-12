@@ -42,32 +42,58 @@ pub func connectTls(host: string, port: int) -> (Result<TcpStream, string>) {
 }
 
 pub func setTimeout(s: &mut TcpStream, ms: int) -> (Result<void, string>) {
+    if s.fd < 0 {
+        return Err("resource closed")
+    }
+
     return __builtin_socket_set_timeout(
-        (*s).fd,
+        s.fd,
         ms,
     )
 }
 
 pub func read(s: &mut TcpStream, count: int) -> (Result<Vec<int, _>, string>) {
+    if s.fd < 0 {
+        return Err("resource closed")
+    }
+
     return __builtin_socket_read(
-        (*s).fd,
+        s.fd,
         count,
     )
 }
 
 pub func write(s: &mut TcpStream, data: Vec<int, _>) -> (Result<void, string>) {
+    if s.fd < 0 {
+        return Err("resource closed")
+    }
+
     return __builtin_socket_write(
-        (*s).fd,
+        s.fd,
         data,
     )
 }
 
 pub func close(s: &mut TcpStream) -> (Result<void, string>) {
-    return __builtin_socket_close((*s).fd)
+    if s.fd < 0 {
+        return Ok(void)
+    }
+
+    var fd: int = s.fd
+    s.fd = -1
+
+    return __builtin_socket_close(fd)
 }
 
 pub func closeListener(l: &mut TcpListener) -> (Result<void, string>) {
-    return __builtin_socket_close((*l).fd)
+    if l.fd < 0 {
+        return Ok(void)
+    }
+
+    var fd: int = l.fd
+    l.fd = -1
+
+    return __builtin_socket_close(fd)
 }
 
 pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
@@ -87,7 +113,11 @@ pub func bind(host: string, port: int) -> (Result<TcpListener, string>) {
 }
 
 pub func accept(l: &mut TcpListener) -> (Result<TcpStream, string>) {
-    var res = __builtin_socket_accept((*l).fd)
+    if l.fd < 0 {
+        return Err("resource closed")
+    }
+
+    var res = __builtin_socket_accept(l.fd)
 
     switch (res) {
         case Ok(fd) {

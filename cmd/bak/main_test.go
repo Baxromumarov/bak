@@ -109,6 +109,17 @@ func TestExplainDiagnosticCodeImportAndParserCodes(t *testing.T) {
 	}
 }
 
+func TestExplainDiagnosticAliasResolvesToNumericCode(t *testing.T) {
+	var out bytes.Buffer
+	if !explainDiagnosticCode(&out, "E_MOVE_USE") {
+		t.Fatalf("expected alias to resolve")
+	}
+	text := out.String()
+	if !strings.Contains(text, "E0100") || !strings.Contains(text, "use of moved value") {
+		t.Fatalf("alias output = %s", text)
+	}
+}
+
 func TestExplainDiagnosticCodeUnknown(t *testing.T) {
 	var out bytes.Buffer
 	if explainDiagnosticCode(&out, "E1234") {
@@ -414,7 +425,7 @@ func TestCLIRunWarningOnlyDoesNotFail(t *testing.T) {
 		t.Fatalf("expected warning-only run to succeed, got error %v and output:\n%s", err, string(out))
 	}
 	text := string(out)
-	if !strings.Contains(text, "WARNING") && !strings.Contains(text, "WARN") {
+	if !strings.Contains(strings.ToLower(text), "warn") {
 		t.Fatalf("expected warning in output, got: %s", text)
 	}
 	if !strings.Contains(text, "ok") {

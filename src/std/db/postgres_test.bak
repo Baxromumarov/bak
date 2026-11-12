@@ -16,34 +16,37 @@ pub func test_postgres_connect() -> (void) {
     if conn_result.isOk() {
         println("Connected successfully!")
 
-        var conn: db.Connection = conn_result.unwrap()
-        // Test a simple query
-        var queryResult = postgres.query(
-            &conn,
-            "SELECT 1 as test",
-        )
+        mut var conn: db.Connection = conn_result.unwrap()
+        // The shared borrow from query ends with this block, so close can
+        // take &mut conn afterwards.
+        {
+            var queryResult = postgres.query(
+                &conn,
+                "SELECT 1 as test",
+            )
 
-        if queryResult.isOk() {
-            var result: db.QueryResult = queryResult.unwrap()
+            if queryResult.isOk() {
+                var result: db.QueryResult = queryResult.unwrap()
 
-            println(
-                "Query returned ",
-                result.rows.len(),
-                " rows",
-            )
-            println(
-                "columns: ",
-                result.columns.len(),
-            )
-        } else {
-            println(
-                "Query failed: ",
-                queryResult.unwrapErr(),
-            )
+                println(
+                    "Query returned ",
+                    result.rows.len(),
+                    " rows",
+                )
+                println(
+                    "columns: ",
+                    result.columns.len(),
+                )
+            } else {
+                println(
+                    "Query failed: ",
+                    queryResult.unwrapErr(),
+                )
+            }
         }
 
         // Close connection
-        var _ = postgres.close(conn)
+        var _ = postgres.close(&mut conn)
 
         println("Connection closed")
     } else {
@@ -54,6 +57,36 @@ pub func test_postgres_connect() -> (void) {
         t.finish()
 
         return void
+    }
+
+    t.finish()
+}
+
+// A closed handle must not call the driver again, and later queries fail closed.
+pub func test_postgres_close_is_idempotent() -> (void) {
+    mut var t: test.T = test.new("test_postgres_close_is_idempotent")
+    mut var conn: db.Connection = postgres.connectionFromHandle(-1)
+    var first: Result<void, string> = postgres.close(&mut conn)
+
+    if first.isErr() {
+        t.fail("close of a closed handle: " + first.unwrapErr())
+    }
+
+    var again: Result<void, string> = postgres.close(&mut conn)
+
+    if again.isErr() {
+        t.fail("repeated close: " + again.unwrapErr())
+    }
+
+    var queryResult: Result<db.QueryResult, string> = postgres.query(
+        &conn,
+        "select 1",
+    )
+
+    if queryResult.isOk() {
+        t.fail("query after close should fail")
+    } else if !queryResult.unwrapErr().contains("resource closed") {
+        t.fail("query after close: " + queryResult.unwrapErr())
     }
 
     t.finish()

@@ -17,21 +17,21 @@ func main() -> (void) {
         return void
     }
 
-    var conn: db.Connection = connResult.unwrap()
-    var queryResult: Result<db.QueryResult, string> = mysql.query(&conn, "select 1 as value")
-    if queryResult.isErr() {
-        println("mysql env: query failed: " + queryResult.unwrapErr())
-        mysql.close(conn)
-        return void
+    mut var conn: db.Connection = connResult.unwrap()
+    {
+        var queryResult: Result<db.QueryResult, string> = mysql.query(&conn, "select 1 as value")
+        if queryResult.isErr() {
+            println("mysql env: query failed: " + queryResult.unwrapErr())
+        } else {
+            var rows = db.rows(&queryResult.unwrap())
+            if rows.len() == 1 {
+                println("mysql env: ok")
+            } else {
+                println("mysql env: bad row count")
+            }
+        }
     }
 
-    var rows = db.rows(&queryResult.unwrap())
-    if rows.len() == 1 {
-        println("mysql env: ok")
-    } else {
-        println("mysql env: bad row count")
-    }
-
-    mysql.close(conn)
+    mysql.close(&mut conn)
     return void
 }

@@ -436,6 +436,57 @@ func main() -> (void) {
 `)
 }
 
+func TestCompilePayloadedVariantCallEmitsNewEnum(t *testing.T) {
+	module := compileSourceToModule(t, `
+package main
+enum Inner {
+	Num(int)
+}
+enum Outer {
+	Item(Inner)
+}
+func main() -> (void) {
+	var inner: Inner = Num(4)
+	var outer: Outer = Item(inner)
+	switch outer {
+		case Item(v) {
+			switch v {
+				case Num(x) {
+					println(x)
+				}
+			}
+		}
+	}
+}
+`)
+	fn := module.Functions[module.FunctionIndices["main"]]
+	sawNewEnum := false
+	sawCall := false
+	ip := 0
+	for ip < len(fn.Code) {
+		op := Opcode(fn.Code[ip])
+		switch op {
+		case OP_NEW_ENUM:
+			sawNewEnum = true
+		case OP_CALL:
+			sawCall = true
+		}
+		width, ok := OperandWidth(op)
+		if !ok {
+			t.Fatalf("unknown opcode %d at %d", op, ip)
+		}
+		ip += 1 + width
+	}
+	if !sawNewEnum || sawCall {
+		t.Fatalf("payloaded constructor opcodes: newEnum=%v call=%v", sawNewEnum, sawCall)
+	}
+	for _, constant := range fn.Constants {
+		if constant.Type == VAL_STRING && strings.HasPrefix(constant.AsString, "__variant__:") {
+			t.Fatalf("constructor lowered to marker %s", constant.AsString)
+		}
+	}
+}
+
 func TestCompileEnumSwitchBindsAllPayloadFields(t *testing.T) {
 	compileSource(t, `
 package main

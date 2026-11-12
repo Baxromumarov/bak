@@ -23,7 +23,7 @@ pub func isAbs(p: string) -> (bool) {
 }
 
 pub func isRel(p: string) -> (bool) {
-    return !isAbs(p)
+    return !is_abs_ref(&p)
 }
 
 pub func clean(p: string) -> (string) {

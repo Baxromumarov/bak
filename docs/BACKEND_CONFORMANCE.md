@@ -44,6 +44,9 @@ Native may reject or return an explicit `Err(...)` for APIs that are not yet imp
 - socket/network builtins,
 - interactive input helpers,
 - threading or synchronization features not covered by parity tests,
+- closure captures. The shared typechecker rejects capturing anonymous
+  functions before either backend runs. `TestClosureCaptureRejectedBeforeBackends`
+  locks that rejection.
 - the convenience `string.parseInt()` and `string.parseFloat()` methods, plus
   `int(string)` and `float(string)` conversion shortcuts. Native builds reject
   these explicitly; import `std/strconv` and use `atoi` or `atof`.
