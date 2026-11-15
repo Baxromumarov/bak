@@ -16,10 +16,13 @@ import (
 type BuildOptions struct {
 	Permissions  runtimecap.Permissions
 	TraceEnabled bool
-	MainPath     string
-	OnIR         func(*IRProgramSet)
-	TypedIR      *sharedir.Program
-	Registry     *packages.Registry // optional; defaults to packages.GlobalRegistry
+	// AllocStats prints native allocator counters to stderr at process exit.
+	// It is a test hook. VM runs do not produce these counters.
+	AllocStats bool
+	MainPath   string
+	OnIR       func(*IRProgramSet)
+	TypedIR    *sharedir.Program
+	Registry   *packages.Registry // optional; defaults to packages.GlobalRegistry
 }
 
 // ProgramWithPath holds a program along with its path-derived name

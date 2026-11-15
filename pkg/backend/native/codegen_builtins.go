@@ -401,8 +401,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			}
 		}
 
-		// Handle fs.* functions
-		if id.Value == "fs" {
+		// Prefer a loaded std/fs function over the old direct lowering.  A
+		// normal call gives its by-value parameters their declared ownership
+		// lifetime, including the callee's scope-exit drop.  The direct path is
+		// retained only for raw/native-only calls where no fs module was loaded.
+		_, loadedFSFunction := s.findFunctionParamCount("fs." + e.Method.Value)
+		if id.Value == "fs" && !loadedFSFunction {
 			switch e.Method.Value {
 			case "exists":
 				return s.emitFsExists(e.Arguments[0])
@@ -434,12 +438,12 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 		qualName := alias + "." + e.Method.Value
 		// Check if it's a known function
 		if _, found := s.findFunctionParamCount(qualName); found {
-			return s.emitQualifiedCall(qualName, e.Arguments)
+			return s.emitQualifiedCall(qualName, e.Arguments, false)
 		}
 		// Also try with original alias name
 		qualName2 := id.Value + "." + e.Method.Value
 		if _, found := s.findFunctionParamCount(qualName2); found {
-			return s.emitQualifiedCall(qualName2, e.Arguments)
+			return s.emitQualifiedCall(qualName2, e.Arguments, false)
 		}
 		// NOTE: Do NOT check as unqualified here - that would incorrectly treat
 		// method calls like vec.len() as function calls to a global "len" function.
@@ -613,7 +617,7 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			allArgs := make([]ast.Expression, 0, len(e.Arguments)+1)
 			allArgs = append(allArgs, receiver)
 			allArgs = append(allArgs, e.Arguments...)
-			return s.emitQualifiedCall(fnName, allArgs)
+			return s.emitQualifiedCall(fnName, allArgs, true)
 		}
 	}
 
@@ -633,20 +637,20 @@ func (s *EmitState) emitMethodCall(e *ast.MethodCallExpression) error {
 			allArgs := make([]ast.Expression, 0, len(e.Arguments)+1)
 			allArgs = append(allArgs, receiver)
 			allArgs = append(allArgs, e.Arguments...)
-			return s.emitQualifiedCall(fn.Name, allArgs)
+			return s.emitQualifiedCall(fn.Name, allArgs, true)
 		}
 	}
 
 	// Fallback: try treating object.method as a qualified function call (e.g., native.ShouldSkipBootstrapFunction)
 	if ident, ok := e.Object.(*ast.Identifier); ok {
 		qualifiedName := ident.Value + "." + method
-		return s.emitQualifiedCall(qualifiedName, e.Arguments)
+		return s.emitQualifiedCall(qualifiedName, e.Arguments, false)
 	}
 
 	return fmt.Errorf("native: unsupported method call %s.%s", e.Object.String(), e.Method.Value)
 }
 
-func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error {
+func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression, aliasReceiver bool) error {
 	argCount := len(args)
 	params := s.FunctionParameters[name]
 	if params == nil {
@@ -679,19 +683,40 @@ func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error 
 	}
 	regArgCount := min(argCount, regArgLimit)
 
+	// Method arguments are aliases of the caller, including temporaries.
+	// The caller drops those temporaries after the call. Places stay owned
+	// by the caller. The receiver is not in this list: returning it would
+	// alias the value the caller still uses.
+	var methodTemps []int
+	var methodTempSpecs []DropSpec
+	saveMethodTemp := func(index int) {
+		if !aliasReceiver || index == 0 {
+			return
+		}
+		off, spec, ok := s.methodArgTemp(args[index], parameterAt(params, index))
+		if !ok {
+			return
+		}
+		emitMovMemRbpReg(&s.Code, off, RAX)
+		methodTemps = append(methodTemps, off)
+		methodTempSpecs = append(methodTempSpecs, spec)
+	}
+
 	// 1. Push stack arguments (reverse order)
 	for i := argCount - 1; i >= regArgCount; i-- {
-		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i); err != nil {
+		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i, aliasReceiver); err != nil {
 			return err
 		}
+		saveMethodTemp(i)
 		emitPushReg(&s.Code, RAX)
 	}
 
 	// 2. Evaluate and push register arguments (reverse order)
 	for i := regArgCount - 1; i >= 0; i-- {
-		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i); err != nil {
+		if err := s.emitCallArgument(args[i], parameterAt(params, i), name, i, aliasReceiver); err != nil {
 			return err
 		}
+		saveMethodTemp(i)
 		emitPushReg(&s.Code, RAX)
 	}
 
@@ -721,7 +746,32 @@ func (s *EmitState) emitQualifiedCall(name string, args []ast.Expression) error 
 		emitAddRspImm32(&s.Code, stackArgCount*8)
 	}
 
+	if len(methodTemps) > 0 {
+		emitPushReg(&s.Code, RAX)
+		for i, off := range methodTemps {
+			s.emitDropSlot(off, methodTempSpecs[i])
+		}
+		emitPopReg(&s.Code, RAX)
+	}
+
 	return nil
+}
+
+// methodArgTemp reserves a scratch slot for an owned method argument that is
+// not a storage place. The caller frees it after the call.
+func (s *EmitState) methodArgTemp(arg ast.Expression, param *ast.Parameter) (int, DropSpec, bool) {
+	if param == nil || param.Mutable || isStoragePlace(arg) {
+		return 0, DropSpec{}, false
+	}
+	if _, borrow := param.Type.(*ast.BorrowType); borrow {
+		return 0, DropSpec{}, false
+	}
+	spec := s.specFromType(param.Type, 0)
+	if spec.Kind == DropNone {
+		return 0, DropSpec{}, false
+	}
+	off := s.declareLocal(fmt.Sprintf("__mtmp_%d", s.LocalSlots), 8)
+	return off, spec, true
 }
 
 func (s *EmitState) emitTuple(e *ast.TupleExpression) error {
@@ -1078,6 +1128,10 @@ func (s *EmitState) emitStructLiteral(e *ast.StructLiteral) error {
 		// Preserve struct pointer across field evaluation
 		emitPushReg(&s.Code, RAX)
 
+		// The new struct owns this field.
+		if s.specFromType(field.Type, 0).Kind != DropNone {
+			s.consumeNext = true
+		}
 		// Evaluate field value
 		if err := s.emitExpression(value); err != nil {
 			return err
@@ -1163,8 +1217,15 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 		}
 	}
 
-	// Evaluate object to get struct pointer
-	if err := s.emitExpression(e.Object); err != nil {
+	// Evaluate the base as an addressable container. A consuming field load
+	// moves only the selected projection, never the containing struct. This is
+	// essential for both sibling fields and nested projections such as
+	// `outer.inner.name`.
+	consumePlace := s.placeConsume
+	s.placeConsume = false
+	err := s.emitExpression(e.Object)
+	s.placeConsume = consumePlace
+	if err != nil {
 		return err
 	}
 	// RAX = struct pointer
@@ -1196,7 +1257,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 		if sd := s.findStructDecl(structName); sd != nil {
 			offset, _ := s.getFieldOffset(sd, fieldName)
 			if offset >= 0 {
-				s.emitLoadValueAt(offset)
+				s.finishFieldLoad(e, offset)
 				return nil
 			}
 		}
@@ -1214,7 +1275,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 			}
 			offset, _ := s.getFieldOffset(sd, fieldName)
 			if offset >= 0 {
-				s.emitLoadValueAt(offset)
+				s.finishFieldLoad(e, offset)
 				return nil
 			}
 		}
@@ -1232,7 +1293,7 @@ func (s *EmitState) emitFieldAccess(e *ast.FieldAccessExpression) error {
 				"' (offset=", offset, ") in module=", s.CurrentModule,
 				", wanted struct=", structName,
 			)
-			s.emitLoadValueAt(offset)
+			s.finishFieldLoad(e, offset)
 			return nil
 		}
 	}
@@ -1271,6 +1332,14 @@ func (s *EmitState) emitIndex(e *ast.IndexExpression) error {
 	s.Code = append(s.Code, rexByte(1, 0, 0, 0), 0xC1, modRM(3, 4, RDX), 0x03) // shl rdx, 3
 	emitAddRegReg(&s.Code, RDX, R11)                                           // rdx = &data[index]
 	emitMovRegMemBaseDisp(&s.Code, RAX, RDX, 0)                                // rax = data[index]
+	if s.placeConsume && !s.isRefExpression(e.Left) {
+		elem := s.vecElemSpec(e.Left)
+		if elem.Kind != DropNone {
+			emitMovRegImm32(&s.Code, RCX, 0)
+			emitMovMemReg(&s.Code, RDX, RCX)
+			s.noteConsumedPlace()
+		}
+	}
 	return nil
 }
 
@@ -1289,6 +1358,9 @@ func (s *EmitState) emitEnumVariantExpression(e *ast.EnumVariantExpression) erro
 		return nil
 	}
 	if e.Variant.Value == "Some" && len(e.Values) == 1 {
+		if s.exprDropSpec(e.Values[0]).Kind != DropNone {
+			s.consumeNext = true
+		}
 		// Evaluate the inner value
 		if err := s.emitExpression(e.Values[0]); err != nil {
 			return err
@@ -1307,6 +1379,9 @@ func (s *EmitState) emitEnumVariantExpression(e *ast.EnumVariantExpression) erro
 		return nil
 	}
 	if e.Variant.Value == "Ok" && len(e.Values) == 1 {
+		if s.exprDropSpec(e.Values[0]).Kind != DropNone {
+			s.consumeNext = true
+		}
 		if err := s.emitExpression(e.Values[0]); err != nil {
 			return err
 		}
@@ -1321,6 +1396,9 @@ func (s *EmitState) emitEnumVariantExpression(e *ast.EnumVariantExpression) erro
 		return nil
 	}
 	if e.Variant.Value == "Err" && len(e.Values) == 1 {
+		if s.exprDropSpec(e.Values[0]).Kind != DropNone {
+			s.consumeNext = true
+		}
 		if err := s.emitExpression(e.Values[0]); err != nil {
 			return err
 		}
@@ -1404,9 +1482,13 @@ func (s *EmitState) emitUnwrapExpression(e *ast.UnwrapExpression) error {
 		patchU32(s.Code, jeOk+2, uint32(len(s.Code)-(jeOk+6)))
 	}
 
-	// Unwrap: restore struct pointer from stack, load payload from [RAX+8]
+	// Unwrap: restore struct pointer from stack, load payload from [RAX+8].
+	// Owned payloads are cleared so the Result drop frees only the header.
+	// Copy payloads stay in place: Result<int, _>.unwrap() may run again.
 	emitPopReg(&s.Code, RAX)
+	emitMovRegReg(&s.Code, RCX, RAX)
 	s.emitLoadValueAt(8)
+	s.clearOwnedPayload(e.Value, true)
 
 	return nil
 }
@@ -1430,7 +1512,11 @@ func (s *EmitState) emitEnumVariantConstruction(ed *ast.EnumDecl, variantIdx int
 	}
 
 	// Evaluate payload arguments and keep them on stack.
+	// The new variant owns each non-copy payload.
 	for i := range args {
+		if i < len(variant.Fields) && s.specFromType(variant.Fields[i], 0).Kind != DropNone {
+			s.consumeNext = true
+		}
 		if err := s.emitExpression(args[i]); err != nil {
 			return err
 		}
@@ -1544,6 +1630,9 @@ func (s *EmitState) emitVecFrom(elemExpr ast.Expression) error {
 
 		// Evaluate and store each element
 		for i, elem := range vecLit.Elements {
+			if s.exprDropSpec(elem).Kind != DropNone {
+				s.consumeNext = true
+			}
 			if err := s.emitExpression(elem); err != nil {
 				return err
 			}
@@ -1850,6 +1939,10 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 	vecReadyPos := len(s.Code)
 	patchRel32(&s.Code, jnzVecReady+2, vecReadyPos)
 
+	// The vector takes ownership of a non-copy element.
+	if s.exprDropSpec(value).Kind != DropNone {
+		s.consumeNext = true
+	}
 	// Evaluate value and save in R13
 	if err := s.emitExpression(value); err != nil {
 		return err
@@ -1895,6 +1988,9 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 	emitPopReg(&s.Code, R9)
 	emitPopReg(&s.Code, R8)
 	emitMovRegReg(&s.Code, R11, RAX) // r11 = new data ptr
+	// Old buffer is copied by pointer. Free that block, not the elements.
+	emitMovRegMemBaseDisp(&s.Code, RAX, R12, 0)
+	emitPushReg(&s.Code, RAX)
 
 	// Copy old data if old_cap > 0
 	// test r10, r10
@@ -1916,6 +2012,9 @@ func (s *EmitState) emitVecPush(obj ast.Expression, value ast.Expression) error 
 	// Update vec header with new ptr and cap
 	emitMovMemReg(&s.Code, R12, R11)            // vec.ptr = new data ptr
 	emitMovMemBaseDispReg(&s.Code, R12, 16, R9) // vec.cap = new cap
+	emitPopReg(&s.Code, RDI)
+	freeOld := emitCallRel32(&s.Code, 0)
+	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: freeOld, Target: "__rt_free"})
 
 	noGrowPos := len(s.Code)
 	patchRel32(&s.Code, jlNoGrow+2, noGrowPos)

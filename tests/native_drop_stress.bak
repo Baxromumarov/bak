@@ -1,0 +1,82 @@
+package main
+
+struct Box {
+    n: int
+}
+
+struct Packet {
+    label: string
+    values: Vec<string, _>
+}
+
+func heap(n: int) -> (string) {
+    return "v" + string(n)
+}
+
+func earlyDrop(n: int) -> (int) {
+    var label: string = heap(n)
+    mut var values: Vec<string, _> = Vec.new()
+    values.push(heap(n + 100))
+    if n >= 0 {
+        return label.len() + values[0].len()
+    }
+    return 0
+}
+
+func main() -> (int) {
+    mut var grow: Vec<int, _> = Vec.new()
+    mut var i: int = 0
+    while i < 40 {
+        var s: string = heap(1)
+        if s.len() != 2 {
+            return 1
+        }
+        var word: string = heap(1)
+        mut var words: Vec<string, _> = Vec.new()
+        words.push(word)
+        if words[0].len() != 2 {
+            return 2
+        }
+        mut var xs: Vec<int, _> = Vec.new()
+        xs.push(i)
+        if xs[0] != i {
+            return 3
+        }
+        var b: Box = Box{n: i}
+        if b.n != i {
+            return 4
+        }
+        var r: Result<int, string> = Ok(i)
+        if r.unwrap() != i {
+            return 5
+        }
+        var failed: Result<int, string> = Err(heap(i + 1000))
+        if !failed.isErr() {
+            return 6
+        }
+        var message: string = failed.unwrapErr()
+        if message.len() < 2 {
+            return 7
+        }
+        mut var packetValues: Vec<string, _> = Vec.new()
+        packetValues.push(heap(i + 2000))
+        var packet: Packet = Packet{
+            label: heap(i + 3000),
+            values: packetValues,
+        }
+        if packet.label.len() < 2 || packet.values[0].len() < 2 {
+            return 8
+        }
+        if earlyDrop(i) < 4 {
+            return 9
+        }
+        grow.push(i)
+        i = i + 1
+    }
+    var keep: string = heap(1)
+    if grow.len() == 40 && grow[39] == 39 && keep.len() == 2 {
+        println("reuse-ok")
+        return 0
+    }
+    return 10
+}

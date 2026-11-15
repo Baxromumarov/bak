@@ -2,34 +2,39 @@ package main
 
 import "std/fs"
 
+func copyPath(path: &string) -> (string) {
+    var bytes: Vec<int, _> = (*path).bytes()
+    return __builtin_string_from_bytes(bytes, 0, bytes.len())
+}
+
 func main() -> (int) {
     var dir: string = "tests/native_fs_mkdir_test_dir"
 
-    if fs.exists(dir) {
-        var existing: Result<void, string> = fs.remove(dir)
+    if fs.exists(copyPath(&dir)) {
+        var existing: Result<void, string> = fs.remove(copyPath(&dir))
 
         if existing.isErr() {
             return 1
         }
     }
 
-    var created: Result<void, string> = fs.mkdir(dir)
+    var created: Result<void, string> = fs.mkdir(copyPath(&dir))
 
     if created.isErr() {
         return 2
     }
 
-    if !fs.isDir(dir) {
+    if !fs.isDir(copyPath(&dir)) {
         return 3
     }
 
-    var removed: Result<void, string> = fs.remove(dir)
+    var removed: Result<void, string> = fs.remove(copyPath(&dir))
 
     if removed.isErr() {
         return 4
     }
 
-    if fs.exists(dir) {
+    if fs.exists(copyPath(&dir)) {
         return 5
     }
 

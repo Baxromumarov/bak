@@ -207,6 +207,18 @@ func main() -> (void) {
 `, "function 'fs.writeFile' expects 2 argument(s)")
 }
 
+func TestImportedCallsRespectOwnershipMoves(t *testing.T) {
+	expectError(t, `
+package main
+import fs "src/std/fs/fs.bak"
+func main() -> (void) {
+    var path: string = "notes.txt"
+    fs.exists(path)
+    fs.exists(path)
+}
+`, "use of moved value 'path'")
+}
+
 func TestBuiltinSignature_StdOsExecTypesAreChecked(t *testing.T) {
 	expectError(t, `
 package main

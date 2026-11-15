@@ -7,7 +7,25 @@ import (
 	"math"
 )
 
-func (s *EmitState) emitExpression(expr ast.Expression) error {
+func (s *EmitState) emitExpression(expr ast.Expression) (err error) {
+	consume := s.consumeNext
+	s.consumeNext = false
+	prevDepth := s.emitDepth
+	s.emitDepth++
+	parentMoved := s.rootMoved
+	if prevDepth == 0 {
+		s.rootMoved = false
+	}
+	prevPlace := s.placeConsume
+	s.placeConsume = consume
+	defer func() {
+		s.emitDepth--
+		s.placeConsume = prevPlace
+		if prevDepth > 0 {
+			s.rootMoved = parentMoved
+		}
+	}()
+
 	// Constant folding: evaluate compile-time constant expressions.
 	if val, ok := tryConstantFoldInt(expr); ok {
 		emitFoldedInt(&s.Code, val)
@@ -211,6 +229,9 @@ func (s *EmitState) emitIdentifier(e *ast.Identifier) error {
 		if s.InOutVariables[e.Value] {
 			emitMovRegMem(&s.Code, RAX, RAX)
 		}
+		if s.placeConsume {
+			s.consumeLoadedLocal(e.Value, offset)
+		}
 		return nil
 	}
 
@@ -265,6 +286,9 @@ func (s *EmitState) emitMutableIdentifier(e *ast.MutableIdentifier) error {
 		emitMovRegMemRbp(&s.Code, RAX, offset)
 		if s.InOutVariables[e.Value] {
 			emitMovRegMem(&s.Code, RAX, RAX)
+		}
+		if s.placeConsume {
+			s.consumeLoadedLocal(e.Value, offset)
 		}
 		return nil
 	}
@@ -911,7 +935,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	// 1. Push stack arguments (reverse order)
 	// These will remain on stack during the call
 	for i := argCount - 1; i >= regArgCount; i-- {
-		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i); err != nil {
+		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i, false); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -920,7 +944,7 @@ func (s *EmitState) emitCall(e *ast.CallExpression) error {
 	// 2. Evaluate and push register arguments (reverse order)
 	// Temporary push to preserve order
 	for i := regArgCount - 1; i >= 0; i-- {
-		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i); err != nil {
+		if err := s.emitCallArgument(e.Arguments[i], parameterAt(params, i), funcName, i, false); err != nil {
 			return err
 		}
 		emitPushReg(&s.Code, RAX)
@@ -973,8 +997,15 @@ func parameterAt(params []*ast.Parameter, index int) *ast.Parameter {
 
 // emitCallArgument gives a mutable parameter either caller storage (`mut x`)
 // or a private temporary (an ordinary moved/copied argument).
-func (s *EmitState) emitCallArgument(expr ast.Expression, param *ast.Parameter, funcName string, index int) error {
+func (s *EmitState) emitCallArgument(expr ast.Expression, param *ast.Parameter, funcName string, index int, alias bool) error {
 	if param == nil || !param.Mutable {
+		// Method arguments alias the caller. Ordinary calls move owned values
+		// and the callee frees them.
+		if !alias && param != nil {
+			if _, borrow := param.Type.(*ast.BorrowType); !borrow && s.specFromType(param.Type, 0).Kind != DropNone {
+				s.consumeNext = true
+			}
+		}
 		return s.emitExpression(expr)
 	}
 	if mut, ok := expr.(*ast.MutableIdentifier); ok {

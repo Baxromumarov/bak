@@ -10,6 +10,11 @@ import "github.com/baxromumarov/bak/pkg/ast"
 type Local struct {
 	Name   string
 	Offset int // negative offset from RBP, e.g. -8, -16, -24
+	// Owned is true when this slot is the unique owner of a heap value.
+	// Borrows, for-in bindings, and moved-from aliases stay false.
+	Owned bool
+	// Spec describes how to destroy the value stored in the slot.
+	Spec DropSpec
 }
 
 // Scope represents a lexical scope with local variables.
@@ -22,6 +27,9 @@ type LoopContext struct {
 	BreakSites     []int // offsets of jmp rel32 imm fields to patch to after-loop
 	ContinueSites  []int // offsets of jmp rel32 imm fields to patch to loop-start
 	ContinueTarget int   // code offset of the loop condition re-evaluation
+	// ScopeDepth is len(Scopes) when the loop was pushed, before the body scope.
+	// Break and continue drop scopes at this depth and deeper.
+	ScopeDepth int
 }
 
 // enterScope pushes a new empty scope.
@@ -29,8 +37,15 @@ func (s *EmitState) enterScope() {
 	s.Scopes = append(s.Scopes, Scope{})
 }
 
-// leaveScope pops the current scope.
+// leaveScope destroys owned locals in the current scope, then pops it.
 func (s *EmitState) leaveScope() {
+	s.emitDropScope(len(s.Scopes) - 1)
+	s.popScope()
+}
+
+// popScope pops the current scope without emitting drops.
+// Terminated paths already dropped, and code placed after ret would be dead.
+func (s *EmitState) popScope() {
 	if len(s.Scopes) > 0 {
 		s.Scopes = s.Scopes[:len(s.Scopes)-1]
 	}
@@ -88,6 +103,7 @@ func (s *EmitState) resolveConst(name string) (int, bool) {
 func (s *EmitState) pushLoop(continueTarget int) {
 	s.LoopStack = append(s.LoopStack, LoopContext{
 		ContinueTarget: continueTarget,
+		ScopeDepth:     len(s.Scopes),
 	})
 }
 
@@ -132,4 +148,30 @@ func (s *EmitState) resetFunctionState() {
 	s.ResultOkTypes = make(map[string]ast.TypeExpression)
 	s.ResultErrTypes = make(map[string]ast.TypeExpression)
 	s.DeferStack = s.DeferStack[:0]
+	s.terminated = false
+	s.consumeNext = false
+	s.placeConsume = false
+	s.emitDepth = 0
+	s.rootMoved = false
+}
+
+// closeEnteredScope finishes a scope opened with enterScope.
+// A terminated body already dropped that scope on the way out.
+func (s *EmitState) closeEnteredScope(terminated bool) {
+	if terminated {
+		s.popScope()
+		return
+	}
+	s.leaveScope()
+}
+
+// emitOpenBlock emits a block whose scope was already entered.
+// The caller's terminated flag is preserved.
+func (s *EmitState) emitOpenBlock(block *ast.BlockStatement) (bool, error) {
+	prev := s.terminated
+	s.terminated = false
+	err := s.emitBlock(block)
+	term := s.terminated
+	s.terminated = prev
+	return term, err
 }

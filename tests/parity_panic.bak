@@ -1,5 +1,8 @@
 package main
 
 func main() -> (void) {
+    defer {
+        println("panic-defer")
+    }
     panic "boom"
 }

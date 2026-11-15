@@ -1,0 +1,267 @@
+package main
+
+struct Pair {
+    name: string
+    count: int
+}
+
+struct Nest {
+    pair: Pair
+    tag: int
+}
+
+struct Bundle {
+    title: string
+    words: Vec<string, _>
+    outcome: Result<string, string>
+}
+
+struct Twin {
+    first: string
+    second: string
+}
+
+struct WrappedTwin {
+    twin: Twin
+}
+
+enum Item {
+    Text(string)
+    Num(int)
+}
+
+enum Envelope {
+    Words(Vec<string, _>)
+    Failure(Result<string, string>)
+}
+
+func heap(n: int) -> (string) {
+    return "v" + string(n)
+}
+
+func take(s: string) -> (int) {
+    return s.len()
+}
+
+func keep(s: &string) -> (int) {
+    return s.len()
+}
+
+func early(n: int) -> (int) {
+    var noise: string = heap(n)
+    mut var live: Vec<int, _> = Vec.new()
+    live.push(n)
+    if n > 0 {
+        return live[0]
+    }
+    return noise.len()
+}
+
+func nestedLoopExits() -> (int) {
+    mut var outer: int = 0
+    mut var count: int = 0
+    while outer < 2 {
+        mut var inner: int = 0
+        while inner < 3 {
+            var temp: string = heap(outer + inner)
+            inner = inner + 1
+            if inner == 1 {
+                continue
+            }
+            count = count + temp.len()
+            break
+        }
+        outer = outer + 1
+    }
+    return count
+}
+
+func main() -> (int) {
+    var literal: string = "hello"
+    var heapStr: string = heap(3)
+    mut var again: string = heap(4)
+    again = heap(5)
+
+    var pair: Pair = Pair{name: heap(6), count: 9}
+    var nameLen: int = take(pair.name)
+    var sibling: int = pair.count
+
+    mut var renamed: Pair = Pair{name: heap(8), count: 1}
+    renamed.name = heap(9)
+    var renamedLen: int = renamed.name.len()
+    var renamedCount: int = renamed.count
+
+    var text: Item = Text(heap(7))
+    mut var textLen: int = 0
+    switch (text) {
+        case Text(s) {
+            textLen = s.len()
+        }
+        case Num(n) {
+            textLen = n
+        }
+    }
+
+    var numItem: Item = Num(8)
+    mut var numVal: int = 0
+    switch (numItem) {
+        case Num(n) {
+            numVal = n
+        }
+        case Text(s) {
+            numVal = s.len()
+        }
+    }
+
+    var okStr: Result<string, int> = Ok(heap(2))
+    var unwrapped: string = okStr.unwrap()
+    var okInt: Result<int, string> = Ok(11)
+    var unwrappedInt: int = okInt.unwrap()
+    var errStr: Result<int, string> = Err(heap(3))
+    var unwrappedErr: string = errStr.unwrapErr()
+
+    mut var xs: Vec<int, _> = Vec.new()
+    xs.push(1)
+    xs.push(2)
+
+    var word: string = heap(2)
+    mut var words: Vec<string, _> = Vec.new()
+    words.push(word)
+    var wordLen: int = words[0].len()
+
+    mut var replaced: Vec<string, _> = Vec.new()
+    replaced.push(heap(3))
+    replaced[0] = heap(4)
+    var replacedLen: int = replaced[0].len()
+
+    mut var indexed: Vec<string, _> = Vec.new()
+    indexed.push(heap(5))
+    var movedIndex: string = indexed[0]
+
+    mut var loopValues: Vec<int, _> = Vec.new()
+    loopValues.push(1)
+    loopValues.push(2)
+    mut var forTotal: int = 0
+    for value in loopValues {
+        var forTemp: string = heap(value)
+        forTotal = forTotal + forTemp.len()
+    }
+    var loopValuesLen: int = loopValues.len()
+
+    var earlyVal: int = early(4)
+
+    mut var i: int = 0
+    mut var broke: int = 0
+    while i < 3 {
+        var inner: string = heap(i)
+        if i == 1 {
+            broke = inner.len()
+            break
+        }
+        i = i + 1
+    }
+
+    mut var j: int = 0
+    mut var continued: int = 0
+    while j < 2 {
+        var temp: string = heap(j)
+        j = j + 1
+        if j == 1 {
+            continued = temp.len()
+            continue
+        }
+    }
+
+    var nest: Nest = Nest{
+        pair: Pair{name: heap(1), count: 3},
+        tag: 4,
+    }
+    var nestCount: int = nest.pair.count
+    var nestTag: int = nest.tag
+    var borrowed: int = keep(&literal)
+
+    mut var bundleWords: Vec<string, _> = Vec.new()
+    bundleWords.push(heap(6))
+    var bundle: Bundle = Bundle{
+        title: heap(7),
+        words: bundleWords,
+        outcome: Ok(heap(8)),
+    }
+    var bundleWordLen: int = bundle.words[0].len()
+
+    mut var envelopeWords: Vec<string, _> = Vec.new()
+    envelopeWords.push(heap(9))
+    var envelope: Envelope = Words(envelopeWords)
+    var failedPayload: Result<string, string> = Err(heap(10))
+    var failedEnvelope: Envelope = Failure(failedPayload)
+    mut var envelopeTag: int = 0
+    switch envelope {
+        case Words(_) {
+            envelopeTag = 1
+        }
+        case Failure(_) {
+            envelopeTag = 2
+        }
+    }
+    mut var failedEnvelopeTag: int = 0
+    switch failedEnvelope {
+        case Words(_) {
+            failedEnvelopeTag = 1
+        }
+        case Failure(_) {
+            failedEnvelopeTag = 2
+        }
+    }
+
+    var wrapped: WrappedTwin = WrappedTwin{
+        twin: Twin{first: heap(11), second: heap(12)},
+    }
+    var movedNested: string = wrapped.twin.first
+    var siblingNestedLen: int = wrapped.twin.second.len()
+
+    Pair{name: heap(13), count: 0}
+    var nestedExitValue: int = nestedLoopExits()
+
+    if literal.len() != 5 {
+        return 1
+    }
+    if heapStr.len() != 2 {
+        return 2
+    }
+    if again.len() != 2 {
+        return 3
+    }
+    if nameLen != 2 || sibling != 9 {
+        return 4
+    }
+    if renamedLen != 2 || renamedCount != 1 {
+        return 5
+    }
+    if textLen != 2 || numVal != 8 {
+        return 6
+    }
+    if unwrapped.len() != 2 || unwrappedInt != 11 || unwrappedErr.len() != 2 {
+        return 7
+    }
+    if xs.len() != 2 || xs[1] != 2 {
+        return 8
+    }
+    if wordLen != 2 || replacedLen != 2 || movedIndex.len() != 2 || earlyVal != 4 {
+        return 9
+    }
+    if broke != 2 || continued != 2 {
+        return 10
+    }
+    if nestCount != 3 || nestTag != 4 || borrowed != 5 {
+        return 11
+    }
+    if forTotal != 4 || loopValuesLen != 2 || bundleWordLen != 2 || envelopeTag != 1 || failedEnvelopeTag != 2 {
+        return 12
+    }
+    if movedNested.len() != 3 || siblingNestedLen != 3 || nestedExitValue != 4 {
+        return 13
+    }
+
+    println("drop-ok")
+    return 0
+}

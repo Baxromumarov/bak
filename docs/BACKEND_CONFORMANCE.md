@@ -25,6 +25,12 @@ The following areas must behave the same across VM and native where native suppo
 
 Backend divergence on these areas is a bug.
 
+## Native ownership
+
+Native code frees owned strings, vectors, structs, enums, and results when that owner ends: scope exit, `return`, `break`, `continue`, `panic`, and assignment over a live target. A moved place is cleared, so the same value is freed once. Borrowed parameters, method receivers, method arguments, and `for` bindings stay with the value that already owns them. A vector still owns the elements a `for` binding reads. A panic runs defers registered in its own frame before native process exit, matching the current VM contract. Closure captures stay a frontend rejection.
+
+`TestVMNativeDropParity` runs those cases on the VM and on native and compares exit status and stdout. `TestVMNativeAllocatorReuseParity` repeats allocation and discard, including vector growth, and checks that released blocks are reused with no double-free. The allocator counters are a test-build report. They are separate from program stdout.
+
 ## Conformance Matrix
 
 | Surface | Typecheck | VM | Native |
@@ -33,7 +39,7 @@ Backend divergence on these areas is a bug.
 | structs/enums | `go test ./pkg/typechecker` | `go test ./pkg/vm` | `make test-parity` |
 | `Result<T, E>` | `tests/run_typechecker_tests.sh` | `go test ./pkg/vm` | `make test-parity` |
 | `Vec<T, _>` | `./bak test src/std` | `./bak test src/std` | `make test-parity` |
-| defer/panic | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` |
+| defer/panic | `tests/run_defer_panic_conformance.sh` | `tests/run_defer_panic_conformance.sh` | `make test-parity` |
 | stable examples | `make examples-check` | `make examples-check` | parity corpus only |
 
 ## Native-Limited Areas

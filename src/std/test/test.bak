@@ -596,7 +596,7 @@ func printFailureDetails(r: TestResult) -> (void) {
     println("  " + yellow() + "hint" + reset() + "     " + cyan() + failureHint() + reset())
 }
 
-func runQuiet(results: Vec<TestResult, _>) -> (bool) {
+func runQuiet(results: &Vec<TestResult, _>) -> (bool) {
     mut var failed_count: int = 0
     mut var failed_names: Vec<string, _> = Vec.new()
     mut var i: int = 0
@@ -641,7 +641,7 @@ func runQuiet(results: Vec<TestResult, _>) -> (bool) {
 }
 
 // runTests takes a list of results and prints the UI
-pub func runTests(results: Vec<TestResult, _>) -> (bool) {
+pub func runTests(results: &Vec<TestResult, _>) -> (bool) {
     if quiet_mode {
         return runQuiet(results)
     }

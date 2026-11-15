@@ -161,7 +161,10 @@ func buildTestRunner(
 		makeReturnStatement(methodCall(
 			identifier("test"),
 			"runTests",
-			identifier("results"),
+			// runTests only reports from the collection.  Passing the generated
+			// runner's accumulator by borrow keeps it available while the runner
+			// is being assembled and matches the standard-library API contract.
+			borrowExpression(false, identifier("results")),
 		)),
 	)
 

@@ -94,7 +94,7 @@ func test_path_enhancements() -> (void) {
     mut var t: test.T = test.new("test_path_enhancements")
     var p: string = "/tmp/archive.tar.gz"
 
-    t.isFalse(path.isRel(p))
+    t.isFalse(path.isRel(strings.clone(&p)))
     t.eqString(
         path.ext(&p),
         ".gz",
@@ -131,7 +131,7 @@ func test_path_enhancements() -> (void) {
 
     var no_ext: string = "notes"
 
-    t.isTrue(path.isRel(no_ext))
+    t.isTrue(path.isRel(strings.clone(&no_ext)))
     t.isFalse(path.hasExt(&no_ext))
     t.eqString(
         path.stem(&no_ext),

@@ -63,7 +63,13 @@ type EmitState struct {
 	// Data indices for bump allocator heap state
 	HeapPosDataIndex  int
 	HeapEndDataIndex  int
+	HeapBaseDataIndex int
 	FreeListDataIndex int
+	AllocCountIndex   int
+	FreeCountIndex    int
+	ReuseCountIndex   int
+	DoubleFreeIndex   int
+	AllocStats        bool
 	// Data index for a deterministic monotonic time counter
 	TimeCounterDataIndex int
 	// Data index for runtime permission flags (defense-in-depth beyond compile-time gating)
@@ -117,8 +123,11 @@ type EmitState struct {
 	StringFunctions map[string]bool
 
 	// Track function return types for ABI (large struct support)
-	FunctionReturnTypes      map[string]ast.TypeExpression
-	FunctionParameters       map[string][]*ast.Parameter
+	FunctionReturnTypes map[string]ast.TypeExpression
+	FunctionParameters  map[string][]*ast.Parameter
+	// AliasReceivers names methods whose first parameter is the caller's value.
+	// The call does not move it, so the callee must not free it.
+	AliasReceivers           map[string]bool
 	TypedIR                  *IRProgramSet
 	CurrentFunctionTraced    bool
 	CurrentFunctionTraceName string
@@ -132,6 +141,21 @@ type EmitState struct {
 
 	// DeferStack collects deferred block bodies per function (executed in LIFO order at return)
 	DeferStack []*ast.BlockStatement
+
+	// consumeNext asks the next emitExpression to move its result.
+	// placeConsume is that flag for the expression currently being emitted.
+	consumeNext  bool
+	placeConsume bool
+	emitDepth    int
+	// rootMoved is true when the outermost expression zeroed its source place.
+	rootMoved bool
+	// terminated is true after return, break, continue, or panic in the
+	// block currently being emitted.
+	terminated bool
+
+	dropQueue   map[string]DropSpec
+	dropOrder   []string
+	dropEmitted map[string]bool
 }
 
 // newEmitState creates a fresh EmitState.
@@ -145,7 +169,13 @@ func newEmitState(options BuildOptions) *EmitState {
 		InitRspDataIndex:     -1,
 		HeapPosDataIndex:     -1,
 		HeapEndDataIndex:     -1,
+		HeapBaseDataIndex:    -1,
 		FreeListDataIndex:    -1,
+		AllocCountIndex:      -1,
+		FreeCountIndex:       -1,
+		ReuseCountIndex:      -1,
+		DoubleFreeIndex:      -1,
+		AllocStats:           options.AllocStats,
 		TimeCounterDataIndex: -1,
 		PermissionsDataIndex: -1,
 		TraceDepthDataIndex:  -1,
@@ -169,6 +199,7 @@ func newEmitState(options BuildOptions) *EmitState {
 		TraceEnabled:         options.TraceEnabled,
 		FunctionReturnTypes:  make(map[string]ast.TypeExpression),
 		FunctionParameters:   make(map[string][]*ast.Parameter),
+		AliasReceivers:       make(map[string]bool),
 		TypedIR:              options.TypedIR,
 		ImportAliases:        make(map[string]string),
 	}
@@ -748,6 +779,10 @@ func CompilePrograms(programs []ProgramWithPath, mainProgram *ast.Program, optio
 		}
 	}
 
+	// Destructors are queued while user functions are emitted and appended
+	// here, before patches, so their calls resolve like other runtime stubs.
+	s.emitDropHelpers()
+
 	// Peephole optimizations BEFORE patching (NOP-based, no offset changes)
 	// Must run before patchCalls so that call/jmp immediates (all zeros) are
 	// not accidentally matched as push/pop pairs and corrupted.
@@ -870,6 +905,10 @@ func collectProgramItems(program *ast.Program, pkgName string, s *EmitState) ([]
 				}
 				funcs = append(funcs, fn)
 				s.FunctionReturnTypes[fn.Name.Value] = fn.ReturnType
+				if stmt.Receiver != nil {
+					// obj.method() passes the receiver by alias. The caller keeps it.
+					s.AliasReceivers[fn.Name.Value] = true
+				}
 			}
 		case *ast.ConstStatement:
 			consts = append(consts, stmt)
@@ -1114,6 +1153,14 @@ func (s *EmitState) emitEntryStub() {
 	callSite := emitCallRel32(&s.Code, 0)
 	s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: callSite, Target: "main"})
 
+	if s.AllocStats {
+		// Exit status stays in RAX. The report writes to stderr only.
+		emitPushReg(&s.Code, RAX)
+		statsCall := emitCallRel32(&s.Code, 0)
+		s.CallPatches = append(s.CallPatches, CallPatch{ImmOffset: statsCall, Target: "__rt_alloc_stats"})
+		emitPopReg(&s.Code, RAX)
+	}
+
 	// mov rdi, rax (exit code = return value of main)
 	emitMovRegReg(&s.Code, RDI, RAX)
 
@@ -1173,21 +1220,20 @@ func (s *EmitState) emitFunction(fd *ast.FunctionDecl) error {
 		}
 	}
 
-	// Execute deferred bodies before returning (LIFO order)
-	if err := s.emitDeferredBodies(); err != nil {
-		return err
+	// An explicit return already ran defers and drops. Fallthrough must
+	// drop owned locals before ret; code emitted after ret would be dead.
+	if !s.terminated {
+		if err := s.emitDeferredBodies(); err != nil {
+			return err
+		}
+		s.emitDropsFrom(0)
+		emitMovRegImm32(&s.Code, RAX, 0)
+		s.emitTraceExit("ok")
+		emitMovRegReg(&s.Code, RSP, RBP)
+		emitPopReg(&s.Code, RBP)
+		emitRet(&s.Code)
 	}
-
-	// Default return 0
-	emitMovRegImm32(&s.Code, RAX, 0)
-	s.emitTraceExit("ok")
-
-	// Epilogue
-	emitMovRegReg(&s.Code, RSP, RBP)
-	emitPopReg(&s.Code, RBP)
-	emitRet(&s.Code)
-
-	s.leaveScope()
+	s.popScope()
 
 	// Patch stack size using actual allocated locals.
 	// Add generous padding to prevent stack overflows in complex functions.
@@ -1230,6 +1276,12 @@ func (s *EmitState) bindParameters(params []*ast.Parameter, skipRegs int) {
 		if mutable {
 			s.InOutVariables[p.Name.Value] = true
 		}
+		s.noteOwnedLocal(p.Name.Value, p.Type)
+		// Method parameters alias the caller. The caller frees places at
+		// scope exit and frees temporaries after the call returns.
+		if s.AliasReceivers[s.CurrentFunc] {
+			s.disownLocal(p.Name.Value)
+		}
 	}
 }
 
@@ -1265,6 +1317,7 @@ func (s *EmitState) emitBlock(block *ast.BlockStatement) error {
 		switch stmt.(type) {
 		case *ast.ReturnStatement, *ast.BreakStatement, *ast.ContinueStatement, *ast.PanicStatement:
 			_ = i // DCE: remaining statements are unreachable
+			s.terminated = true
 			return nil
 		}
 	}
@@ -1272,11 +1325,17 @@ func (s *EmitState) emitBlock(block *ast.BlockStatement) error {
 }
 
 // emitBlockInScope emits a block wrapped in a new scope.
+// A nested return, break, continue, or panic does not stick to the caller:
+// that path already dropped, and the surrounding code is still compiled.
 func (s *EmitState) emitBlockInScope(block *ast.BlockStatement) error {
 	s.enterScope()
-	err := s.emitBlock(block)
-	s.leaveScope()
-	return err
+	term, err := s.emitOpenBlock(block)
+	if err != nil {
+		s.popScope()
+		return err
+	}
+	s.closeEnteredScope(term)
+	return nil
 }
 
 // emitDeferredBodies emits all deferred blocks in LIFO order.
@@ -1490,7 +1549,17 @@ func (s *EmitState) emitStatement(stmt ast.Statement) error {
 	case *ast.BlockStatement:
 		return s.emitBlockInScope(st)
 	case *ast.ExpressionStatement:
-		return s.emitExpression(st.Expression)
+		spec := s.discardedTemporarySpec(st.Expression)
+		if spec.Kind != DropNone {
+			s.consumeNext = true
+		}
+		if err := s.emitExpression(st.Expression); err != nil {
+			return err
+		}
+		if spec.Kind != DropNone {
+			s.emitDropReg(spec, RAX)
+		}
+		return nil
 	case *ast.AssignmentStatement:
 		return s.emitAssignment(st)
 	case *ast.BreakStatement:
@@ -1540,12 +1609,19 @@ func (s *EmitState) emitVarStatement(st *ast.VarStatement) error {
 			s.StructVariables[st.Name.Value] = sl.Name.Value
 		}
 	}
+	s.noteOwnedLocal(st.Name.Value, st.Type)
 
 	if st.Value != nil {
+		if loc := s.localByName(st.Name.Value); loc != nil && loc.Owned {
+			s.consumeNext = true
+		}
 		if err := s.emitExpression(st.Value); err != nil {
 			return err
 		}
 		emitMovMemRbpReg(&s.Code, offset, RAX)
+		if isStoragePlace(st.Value) && !s.rootMoved {
+			s.disownLocal(st.Name.Value)
+		}
 	} else {
 		// Initialize to 0
 		emitMovRegImm32(&s.Code, RAX, 0)
@@ -1567,11 +1643,18 @@ func (s *EmitState) emitConstStatement(st *ast.ConstStatement) error {
 			s.FloatVariables[st.Name.Value] = true
 		}
 	}
+	s.noteOwnedLocal(st.Name.Value, st.Type)
 	if st.Value != nil {
+		if loc := s.localByName(st.Name.Value); loc != nil && loc.Owned {
+			s.consumeNext = true
+		}
 		if err := s.emitExpression(st.Value); err != nil {
 			return err
 		}
 		emitMovMemRbpReg(&s.Code, offset, RAX)
+		if isStoragePlace(st.Value) && !s.rootMoved {
+			s.disownLocal(st.Name.Value)
+		}
 	}
 	return nil
 }
@@ -1608,6 +1691,8 @@ func (s *EmitState) emitReturnStatement(st *ast.ReturnStatement) error {
 	hasRetPtr := retSize > 8
 
 	if st.ReturnValue != nil {
+		s.disownBorrowedReturn(st.ReturnValue)
+		s.consumeNext = true
 		// Check for multi-return: return a, b (parsed as InfixExpression with ",")
 		if infix, ok := st.ReturnValue.(*ast.InfixExpression); ok && infix.Operator == "," {
 			// Multi-return: left -> RAX, right -> RDX
@@ -1615,6 +1700,7 @@ func (s *EmitState) emitReturnStatement(st *ast.ReturnStatement) error {
 				return err
 			}
 			emitPushReg(&s.Code, RAX)
+			s.consumeNext = true
 			if err := s.emitExpression(infix.Right); err != nil {
 				return err
 			}
@@ -1656,10 +1742,12 @@ func (s *EmitState) emitReturnStatement(st *ast.ReturnStatement) error {
 		emitMovRegImm32(&s.Code, RAX, 0)
 	}
 
-	// Execute deferred bodies before returning (LIFO order)
+	// Defers still see locals. Drops run after them, and the returned place
+	// was already cleared by the consuming evaluation above.
 	if err := s.emitDeferredBodies(); err != nil {
 		return err
 	}
+	s.emitDropsFrom(0)
 	s.emitTraceExit("ok")
 
 	// Epilogue
@@ -1667,6 +1755,21 @@ func (s *EmitState) emitReturnStatement(st *ast.ReturnStatement) error {
 	emitPopReg(&s.Code, RBP)
 	emitRet(&s.Code)
 	return nil
+}
+
+// disownBorrowedReturn keeps the referent of `return &local` alive.
+// The caller receives the address of the slot, so the slot must not be freed.
+func (s *EmitState) disownBorrowedReturn(expr ast.Expression) {
+	borrow, ok := expr.(*ast.BorrowExpression)
+	if !ok {
+		return
+	}
+	switch inner := borrow.Value.(type) {
+	case *ast.Identifier:
+		s.disownLocal(inner.Value)
+	case *ast.MutableIdentifier:
+		s.disownLocal(inner.Value)
+	}
 }
 
 func (s *EmitState) emitIfStatement(st *ast.IfStatement) error {
@@ -1839,9 +1942,10 @@ func (s *EmitState) emitForIterable(st *ast.ForStatement) error {
 	// Store in loop variable
 	emitMovMemRbpReg(&s.Code, loopVarOffset, RAX)
 
-	// Body
+	// Body locals live in their own scope. The loop variable itself is an
+	// alias of the element and is never owned.
 	if st.Body != nil {
-		if err := s.emitBlock(st.Body); err != nil {
+		if err := s.emitBlockInScope(st.Body); err != nil {
 			return err
 		}
 	}
@@ -1965,37 +2069,9 @@ func (s *EmitState) emitAssignment(st *ast.AssignmentStatement) error {
 	// Resolve LHS based on type
 	switch lhs := st.Left.(type) {
 	case *ast.Identifier:
-		// Evaluate RHS first
-		if err := s.emitExpression(st.Value); err != nil {
-			return err
-		}
-		offset, found := s.resolveLocal(lhs.Value)
-		if !found {
-			return fmt.Errorf("native: undefined variable %s", lhs.Value)
-		}
-		if s.InOutVariables[lhs.Value] {
-			emitMovRegMemRbp(&s.Code, R11, offset)
-			emitMovMemReg(&s.Code, R11, RAX)
-		} else {
-			emitMovMemRbpReg(&s.Code, offset, RAX)
-		}
-		return nil
+		return s.emitLocalAssignment(lhs.Value, st.Value)
 	case *ast.MutableIdentifier:
-		// Evaluate RHS first
-		if err := s.emitExpression(st.Value); err != nil {
-			return err
-		}
-		offset, found := s.resolveLocal(lhs.Value)
-		if !found {
-			return fmt.Errorf("native: undefined variable %s", lhs.Value)
-		}
-		if s.InOutVariables[lhs.Value] {
-			emitMovRegMemRbp(&s.Code, R11, offset)
-			emitMovMemReg(&s.Code, R11, RAX)
-		} else {
-			emitMovMemRbpReg(&s.Code, offset, RAX)
-		}
-		return nil
+		return s.emitLocalAssignment(lhs.Value, st.Value)
 	case *ast.FieldAccessExpression:
 		return s.emitFieldAssignment(lhs, st.Value)
 	case *ast.IndexExpression:
@@ -2040,6 +2116,10 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 		return fmt.Errorf("native: cannot resolve field '%s' for assignment", fieldName)
 	}
 
+	fieldSpec := s.fieldDropSpec(lhs.Object, fieldName)
+	if fieldSpec.Kind != DropNone {
+		s.consumeNext = true
+	}
 	// Evaluate the RHS value first
 	if err := s.emitExpression(value); err != nil {
 		return err
@@ -2057,6 +2137,16 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 		s.emitDerefBorrow()
 	}
 
+	if fieldSpec.Kind != DropNone {
+		emitMovRegReg(&s.Code, R11, RAX)
+		emitMovRegMemBaseDisp(&s.Code, RDI, R11, fieldOffset)
+		emitPushReg(&s.Code, R11)
+		s.emitDropReg(fieldSpec, RDI)
+		emitPopReg(&s.Code, RAX)
+		emitMovRegImm32(&s.Code, RCX, 0)
+		emitMovMemBaseDispReg(&s.Code, RAX, fieldOffset, RCX)
+	}
+
 	emitPopReg(&s.Code, RCX) // RCX = value to store
 
 	// Store value at struct + offset
@@ -2068,6 +2158,13 @@ func (s *EmitState) emitFieldAssignment(lhs *ast.FieldAccessExpression, value as
 
 // emitIndexAssignment handles: vec[idx] = value
 func (s *EmitState) emitIndexAssignment(lhs *ast.IndexExpression, value ast.Expression) error {
+	elemSpec := DropSpec{}
+	if !s.isStringExpression(lhs.Left) {
+		elemSpec = s.vecElemSpec(lhs.Left)
+	}
+	if elemSpec.Kind != DropNone {
+		s.consumeNext = true
+	}
 	// Evaluate value first
 	if err := s.emitExpression(value); err != nil {
 		return err
@@ -2100,6 +2197,18 @@ func (s *EmitState) emitIndexAssignment(lhs *ast.IndexExpression, value ast.Expr
 	// Calculate address: ptr + index * 8
 	// lea rax, [rax + rcx*8]
 	s.Code = append(s.Code, 0x48, 0x8d, 0x04, 0xc8) // lea rax, [rax + rcx*8]
+
+	if elemSpec.Kind != DropNone {
+		// rax = element address, rdx = new value. Drop the previous element.
+		emitMovRegMem(&s.Code, RDI, RAX)
+		emitPushReg(&s.Code, RAX)
+		emitPushReg(&s.Code, RDX)
+		s.emitDropReg(elemSpec, RDI)
+		emitPopReg(&s.Code, RDX)
+		emitPopReg(&s.Code, RAX)
+		emitMovRegImm32(&s.Code, RCX, 0)
+		emitMovMemReg(&s.Code, RAX, RCX)
+	}
 
 	// Store: mov [rax], rdx
 	s.Code = append(s.Code, 0x48, 0x89, 0x10) // mov [rax], rdx
@@ -2134,6 +2243,7 @@ func (s *EmitState) emitBreak() error {
 	if ctx == nil {
 		return fmt.Errorf("native: break outside loop")
 	}
+	s.emitDropsFrom(ctx.ScopeDepth)
 	jmpImm := emitJmpRel32(&s.Code, 0)
 	ctx.BreakSites = append(ctx.BreakSites, jmpImm)
 	return nil
@@ -2144,13 +2254,14 @@ func (s *EmitState) emitContinue() error {
 	if ctx == nil {
 		return fmt.Errorf("native: continue outside loop")
 	}
+	s.emitDropsFrom(ctx.ScopeDepth)
 	jmpImm := emitJmpRel32(&s.Code, 0)
 	ctx.ContinueSites = append(ctx.ContinueSites, jmpImm)
 	return nil
 }
 
 func (s *EmitState) emitPanic(st *ast.PanicStatement) error {
-	// Evaluate panic message
+	// Evaluate panic message. Do not consume it: __rt_panic prints the header.
 	if err := s.emitExpression(st.Message); err != nil {
 		return err
 	}
@@ -2158,7 +2269,20 @@ func (s *EmitState) emitPanic(st *ast.PanicStatement) error {
 	if s.isRefExpression(st.Message) {
 		s.emitDerefBorrow()
 	}
+	switch msg := st.Message.(type) {
+	case *ast.Identifier:
+		s.disownLocal(msg.Value)
+	case *ast.MutableIdentifier:
+		s.disownLocal(msg.Value)
+	}
+	// Match VM unwinding: deferred bodies run while locals are still live, in
+	// LIFO order. emitDeferredBodies preserves RAX, which holds the panic
+	// message used by __rt_panic below.
+	if err := s.emitDeferredBodies(); err != nil {
+		return err
+	}
 	s.emitTraceExit("panic")
+	s.emitDropsFrom(0)
 	// rax now holds pointer to string header
 	emitMovRegReg(&s.Code, RDI, RAX)
 	callSite := emitCallRel32(&s.Code, 0)

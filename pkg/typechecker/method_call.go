@@ -166,6 +166,17 @@ func (tc *TypeChecker) tryInferImportedModuleMethodCall(mc *ast.MethodCallExpres
 				),
 				arg)
 		}
+		// Imported functions obey the same ownership contract as local
+		// functions.  Skipping this check made a source program appear valid
+		// to the frontend while native lowering correctly moved its argument,
+		// which could leave a later use pointing at cleared storage.
+		tc.checkCallArgMove(
+			arg,
+			sig.Parameters[i],
+			funcDecl.Parameters[i].Mutable,
+			ident.Value+"."+methodName,
+			mc.Pos(),
+		)
 	}
 	tc.clearBorrows(mc.Arguments)
 	return sig.ReturnType, true

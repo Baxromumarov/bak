@@ -187,7 +187,7 @@ test-comprehensive: build-root-bak
 
 
 test-parity:
-	$(GO) test ./pkg/backend/native -run 'TestVMNative.*Parity|TestNativeSmoke'
+	$(GO) test ./pkg/backend/native -run 'TestVMNative.*|TestNative.*Smoke'
 
 test-lsp-verify: build-lsp
 	$(GO) run ./scripts/verify_lsp

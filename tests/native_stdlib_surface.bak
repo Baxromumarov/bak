@@ -4,6 +4,12 @@ import crypto "std/crypto"
 import fs "std/fs"
 import os "std/os"
 
+func clonePath(path: &string) -> (string) {
+    var bytes: Vec<int, _> = (*path).bytes()
+
+    return __builtin_string_from_bytes(bytes, 0, bytes.len())
+}
+
 func main() -> (int) {
     mut var score: int = 0
     mut var file_path: string = ""
@@ -25,7 +31,7 @@ func main() -> (int) {
 
     if file_path.len() > 0 {
         switch fs.writeFile(
-            file_path,
+            clonePath(&file_path),
             "phase3",
         ) {
             case Ok(_) {
@@ -36,12 +42,12 @@ func main() -> (int) {
         }
     }
 
-    if file_path.len() > 0 && fs.exists(file_path) {
+    if file_path.len() > 0 && fs.exists(clonePath(&file_path)) {
         score = score + 1
     }
 
     if file_path.len() > 0 {
-        switch fs.readFile(file_path) {
+        switch fs.readFile(clonePath(&file_path)) {
             case Ok(contents) {
                 if contents == "phase3" {
                     score = score + 1

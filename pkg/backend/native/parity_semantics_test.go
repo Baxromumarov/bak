@@ -50,13 +50,21 @@ func TestVMNativePanicParity(t *testing.T) {
 	program := loadProgramFromFile(t, sourcePath)
 	module := compileModuleForParity(t, program, sourcePath)
 
-	_, vmErr := vm.New(module).Run()
+	var vmErr error
+	vmOut := captureStdout(t, func() {
+		_, vmErr = vm.New(module).Run()
+	})
 	if vmErr == nil || !strings.Contains(vmErr.Error(), "panic: boom") {
 		t.Fatalf("VM panic = %v", vmErr)
 	}
+	if !strings.Contains(vmOut, "panic-defer") {
+		t.Fatalf("VM did not run deferred body before panic: %q", vmOut)
+	}
 
 	nativeExit, nativeOut := runNativeProgramFromFileWithOutput(t, sourcePath, runtimecap.Permissions{})
-	if nativeExit != 1 || !strings.Contains(nativeOut, "panic: boom") {
+	if nativeExit != 1 ||
+		!strings.Contains(nativeOut, "panic-defer") ||
+		!strings.Contains(nativeOut, "panic: boom") {
 		t.Fatalf("native panic exit %d output %q", nativeExit, nativeOut)
 	}
 }

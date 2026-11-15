@@ -356,5 +356,5 @@ func main() -> (void) {
         }
     }
 
-    test.runTests(results)
+    test.runTests(&results)
 }

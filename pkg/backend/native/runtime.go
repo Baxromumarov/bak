@@ -14,7 +14,11 @@ func (s *EmitState) emitRuntimeStubs() {
 	s.emitRuntimeBrk()
 	s.emitRuntimeAlloc()
 	s.emitRuntimeFree()
+	s.emitRuntimeIsHeap()
 	s.emitRuntimeRealloc()
+	if s.AllocStats {
+		s.emitAllocStatsReport()
+	}
 	s.emitRuntimeStrEq()
 	s.emitRuntimeStartsWith()
 	s.emitRuntimeEndsWith()
@@ -456,6 +460,11 @@ func (s *EmitState) emitRuntimeAlloc() {
 	if s.FreeListDataIndex < 0 {
 		s.FreeListDataIndex = s.addDataItem(make([]byte, 8), 8)
 	}
+	s.ensureDataQword(&s.HeapBaseDataIndex)
+	s.ensureDataQword(&s.AllocCountIndex)
+	s.ensureDataQword(&s.FreeCountIndex)
+	s.ensureDataQword(&s.ReuseCountIndex)
+	s.ensureDataQword(&s.DoubleFreeIndex)
 
 	emitPushReg(&s.Code, RBP)
 	emitMovRegReg(&s.Code, RBP, RSP)
@@ -486,6 +495,8 @@ func (s *EmitState) emitRuntimeAlloc() {
 	emitTestRegReg(&s.Code, RCX, RCX)
 	jzBump := emitJzRel32(&s.Code, 0)
 	emitMovRegMem(&s.Code, RDX, RCX)
+	// Size bit 63 is the freed mark. Compare the payload size only.
+	s.Code = append(s.Code, 0x48, 0x0F, 0xBA, 0xF2, 0x3F) // btr rdx, 63
 	emitCmpRegReg(&s.Code, RDX, RBX)
 	jbNext := len(s.Code)
 	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0)
@@ -499,10 +510,13 @@ func (s *EmitState) emitRuntimeAlloc() {
 	emitMovMemReg(&s.Code, R14, RDX)
 	found := len(s.Code)
 	patchU32(s.Code, jmpFound, uint32(found-(jmpFound+4)))
+	// The block is live again. Clear the freed mark before the caller sees it.
+	s.Code = append(s.Code, 0x48, 0x0F, 0xBA, 0x31, 0x3F) // btr qword [rcx], 63
 	emitMovRegReg(&s.Code, RAX, RCX)
 	emitXorRegReg(&s.Code, RDX, RDX)
 	emitMovMemBaseDispReg(&s.Code, RAX, 8, RDX)
 	emitAddRegImm32(&s.Code, RAX, 16)
+	s.emitIncDataQword(s.ReuseCountIndex)
 	jmpReturnReused := emitJmpRel32(&s.Code, 0)
 	next := len(s.Code)
 	patchRel32(&s.Code, jbNext+2, next)
@@ -548,6 +562,7 @@ func (s *EmitState) emitRuntimeAlloc() {
 	s.Code = append(s.Code, modRM(3, RCX, RAX))
 	emitMovRegReg(&s.Code, RCX, RAX) // rcx = aligned initial heap_pos
 	emitMovMemReg(&s.Code, R12, RCX) // store heap_pos
+	s.emitStoreDataQwordReg(s.HeapBaseDataIndex, RCX)
 
 	// Set heap_end = heap_pos + 4MB and call brk
 	emitMovRegReg(&s.Code, RDI, RCX)
@@ -630,6 +645,7 @@ func (s *EmitState) emitRuntimeAlloc() {
 
 	returnPos := len(s.Code)
 	patchU32(s.Code, jmpReturnReused, uint32(returnPos-(jmpReturnReused+4)))
+	s.emitIncDataQword(s.AllocCountIndex)
 
 	emitPopReg(&s.Code, R15)
 	emitPopReg(&s.Code, R14)
@@ -641,27 +657,61 @@ func (s *EmitState) emitRuntimeAlloc() {
 	emitRet(&s.Code)
 }
 
-// emitRuntimeFree links a block back into the allocator free list. Nil is a
-// no-op. Coalescing is intentionally deferred; first-fit reuse already removes
-// the previous permanent-allocation behavior.
+// emitRuntimeFree links a block back into the allocator free list.
+// Nil and pointers outside the brk heap are no-ops, so string literals and
+// other data-section headers stay immortal. Bit 63 of the header size marks
+// a block that is already free; a second free increments the double-free
+// counter and does not link the block again.
 func (s *EmitState) emitRuntimeFree() {
 	s.addRuntimeFunc("__rt_free", 1)
-	if s.FreeListDataIndex < 0 {
-		s.FreeListDataIndex = s.addDataItem(make([]byte, 8), 8)
-	}
+	s.ensureDataQword(&s.FreeListDataIndex)
+	s.ensureDataQword(&s.HeapBaseDataIndex)
+	s.ensureDataQword(&s.HeapEndDataIndex)
+	s.ensureDataQword(&s.FreeCountIndex)
+	s.ensureDataQword(&s.DoubleFreeIndex)
+
 	emitTestRegReg(&s.Code, RDI, RDI)
-	jzReturn := emitJzRel32(&s.Code, 0)
-	emitSubRegImm32(&s.Code, RDI, 16)
-	s.Code = append(s.Code, rexByte(1, 0, 0, regHi(R11)))
-	s.Code = append(s.Code, 0xB8+byte(R11&7))
-	freeListAddrOff := len(s.Code)
-	appendU64LE(&s.Code, 0)
-	s.addCodePatch(freeListAddrOff, s.FreeListDataIndex)
-	emitMovRegMem(&s.Code, RCX, R11)
-	emitMovMemBaseDispReg(&s.Code, RDI, 8, RCX)
-	emitMovMemReg(&s.Code, R11, RDI)
-	returnPos := len(s.Code)
-	patchU32(s.Code, jzReturn, uint32(returnPos-(jzReturn+4)))
+	jzDone := emitJzRel32(&s.Code, 0)
+	emitMovRegReg(&s.Code, RAX, RDI)
+	emitSubRegImm32(&s.Code, RAX, 16) // rax = header
+
+	s.emitMovAbsReg(R11, s.HeapBaseDataIndex)
+	emitMovRegMem(&s.Code, R10, R11)
+	emitTestRegReg(&s.Code, R10, R10)
+	jzNoHeap := emitJzRel32(&s.Code, 0)
+	emitCmpRegReg(&s.Code, RAX, R10)
+	jbBelow := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0) // jb done
+	s.emitMovAbsReg(R11, s.HeapEndDataIndex)
+	emitMovRegMem(&s.Code, R10, R11)
+	emitCmpRegReg(&s.Code, RAX, R10)
+	jaeAbove := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x83, 0, 0, 0, 0) // jae done
+
+	// bt qword [rax], 63
+	s.Code = append(s.Code, 0x48, 0x0F, 0xBA, 0x20, 0x3F)
+	jcDouble := len(s.Code)
+	s.Code = append(s.Code, 0x0F, 0x82, 0, 0, 0, 0) // jc double_free
+	// bts qword [rax], 63
+	s.Code = append(s.Code, 0x48, 0x0F, 0xBA, 0x28, 0x3F)
+
+	s.emitMovAbsReg(R11, s.FreeListDataIndex)
+	emitMovRegMem(&s.Code, R10, R11)
+	emitMovMemBaseDispReg(&s.Code, RAX, 8, R10) // header.next = head
+	emitMovMemReg(&s.Code, R11, RAX)            // head = header
+	s.emitIncDataQword(s.FreeCountIndex)
+	jmpDone := emitJmpRel32(&s.Code, 0)
+
+	doublePos := len(s.Code)
+	patchRel32(&s.Code, jcDouble+2, doublePos)
+	s.emitIncDataQword(s.DoubleFreeIndex)
+
+	donePos := len(s.Code)
+	patchU32(s.Code, jzDone, uint32(donePos-(jzDone+4)))
+	patchU32(s.Code, jzNoHeap, uint32(donePos-(jzNoHeap+4)))
+	patchRel32(&s.Code, jbBelow+2, donePos)
+	patchRel32(&s.Code, jaeAbove+2, donePos)
+	patchU32(s.Code, jmpDone, uint32(donePos-(jmpDone+4)))
 	emitRet(&s.Code)
 }
 

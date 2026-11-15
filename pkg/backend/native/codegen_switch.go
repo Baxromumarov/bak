@@ -119,7 +119,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 								}
 							}
 							if !isTagged {
-								s.leaveScope()
+								s.popScope()
 								return fmt.Errorf("native: switch payload binding on non-tagged variant %s", variantName)
 							}
 							// Load payload from switch value - always at offset 8
@@ -130,12 +130,12 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 						}
 					}
 
-					// Emit case body
-					if err := s.emitBlock(c.Body); err != nil {
-						s.leaveScope()
+					term, err := s.emitOpenBlock(c.Body)
+					if err != nil {
+						s.popScope()
 						return err
 					}
-					s.leaveScope()
+					s.closeEnteredScope(term)
 
 					jmpImm := emitJmpRel32(&s.Code, 0)
 					endJumps = append(endJumps, jmpImm)
@@ -192,7 +192,7 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 								}
 							}
 							if !isTagged {
-								s.leaveScope()
+								s.popScope()
 								return fmt.Errorf("native: switch payload binding on non-tagged variant %s", variantName)
 							}
 							payloadOffset := 8 + (8 * i)
@@ -201,11 +201,12 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 							emitMovMemRbpReg(&s.Code, offset, RDX)
 						}
 
-						if err := s.emitBlock(c.Body); err != nil {
-							s.leaveScope()
+						term, err := s.emitOpenBlock(c.Body)
+						if err != nil {
+							s.popScope()
 							return err
 						}
-						s.leaveScope()
+						s.closeEnteredScope(term)
 
 						jmpImm := emitJmpRel32(&s.Code, 0)
 						endJumps = append(endJumps, jmpImm)
@@ -298,12 +299,12 @@ func (s *EmitState) emitSwitch(st *ast.SwitchStatement) error {
 					}
 				}
 
-				// Emit case body
-				if err := s.emitBlock(c.Body); err != nil {
-					s.leaveScope()
+				term, err := s.emitOpenBlock(c.Body)
+				if err != nil {
+					s.popScope()
 					return err
 				}
-				s.leaveScope()
+				s.closeEnteredScope(term)
 
 				jmpImm := emitJmpRel32(&s.Code, 0)
 				endJumps = append(endJumps, jmpImm)

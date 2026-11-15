@@ -1080,8 +1080,11 @@ func (s *EmitState) emitResultUnwrap(obj ast.Expression) error {
 	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
 	loadPos := len(s.Code)
 	patchRel32(&s.Code, jnzLoad+2, loadPos)
-	// Load value from offset 8
+	// Load value from offset 8. Clear an owned payload so the Result drop
+	// frees only the header. An int payload stays so a later unwrap sees it.
+	emitMovRegReg(&s.Code, RCX, RAX)
 	s.emitLoadValueAt(8)
+	s.clearOwnedPayload(obj, true)
 	donePos := len(s.Code)
 	patchRel32(&s.Code, jmpDone+1, donePos)
 	return nil
@@ -1102,8 +1105,10 @@ func (s *EmitState) emitResultUnwrapErr(obj ast.Expression) error {
 	s.Code = append(s.Code, 0xE9, 0, 0, 0, 0)
 	loadPos := len(s.Code)
 	patchRel32(&s.Code, jnzLoad+2, loadPos)
-	// Load error from offset 8 (same as Ok value position)
+	// Load error from offset 8. Clear it only when the error is owned.
+	emitMovRegReg(&s.Code, RCX, RAX)
 	s.emitLoadValueAt(8)
+	s.clearOwnedPayload(obj, false)
 	donePos := len(s.Code)
 	patchRel32(&s.Code, jmpDone+1, donePos)
 	return nil

@@ -444,7 +444,7 @@ func testQuietModeRunTests() -> (void) {
             failing_result,
         ],
     )
-    var passed: bool = test.runTests(results)
+    var passed: bool = test.runTests(&results)
 
     if passed {
         t.fail("quiet runTests should report failure when any test fails")
